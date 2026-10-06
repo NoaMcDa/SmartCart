@@ -16,3 +16,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# uv
+.venv/
+uv.lock
