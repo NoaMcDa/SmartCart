@@ -1,0 +1,28 @@
+# Local Postgres for developers with Docker: the same image CI uses (Postgres + PostGIS +
+# pgvector + pg_trgm, as on Supabase), so the full test suite runs, extension tests included.
+#
+#   docker compose -f infra/docker-compose.yml up -d
+#   export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+#   uv run pytest
+#
+# Port 5432 taken by another Postgres? Set SMARTCART_DB_PORT=55432 and use that port in
+# DATABASE_URL. The password is a local development default, not a secret.
+name: smartcart
+
+services:
+  db:
+    image: supabase/postgres:17.11.0.004 # keep in sync with .github/workflows/ci.yml
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "${SMARTCART_DB_PORT:-5432}:5432"
+    volumes:
+      - smartcart-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  smartcart-db:

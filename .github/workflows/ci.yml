@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: ruff + pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    services:
+      # Same image Supabase runs (Postgres + PostGIS + pgvector + pg_trgm). Tag verified on Docker
+      # Hub on 2026-10-06; keep it in sync with infra/docker-compose.yml.
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      # Missing PostGIS or pgvector fails the run here instead of skipping those tests.
+      SMARTCART_REQUIRE_EXTENSIONS: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install
+        run: uv sync
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Show database extensions available
+        run: |
+          uv run python -c "
+          import psycopg, os
+          with psycopg.connect(os.environ['DATABASE_URL']) as c:
+              print(c.execute('select version()').fetchone()[0])
+              rows = c.execute(\"select name, default_version from pg_available_extensions where name in ('postgis','vector','pg_trgm') order by 1\").fetchall()
+              print(rows)
+          "
+
+      - name: Test
+        run: uv run pytest -q
