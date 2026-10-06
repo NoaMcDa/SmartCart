@@ -1,0 +1,35 @@
+[Unit]
+Description=SmartCart ingestion: daily full sync (Stores, PriceFull, PromoFull) for the phase 0 chains
+Documentation=https://github.com/NoaMcDa/SmartCart/blob/main/docs/infra-provisioning.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=smartcart
+Group=smartcart
+WorkingDirectory=/opt/smartcart
+
+# The subcommand and flags are a default. The ingest CLI (issues #32 and #37) owns the real names;
+# override without editing this file by setting SMARTCART_INGEST_FULL_ARGS in /etc/smartcart/ingest.env.
+Environment="SMARTCART_INGEST_FULL_ARGS=run --mode full"
+# DATABASE_URL and the S3_* variables come from here. Mode 0640, never committed.
+EnvironmentFile=/etc/smartcart/ingest.env
+
+# One ingest run at a time, shared with the delta unit through the same lock file. The full sync
+# waits up to two hours for a running job; the delta unit skips instead of waiting.
+RuntimeDirectory=smartcart
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/flock --timeout 7200 /run/smartcart/ingest.lock /opt/smartcart/.venv/bin/smartcart-ingest $SMARTCART_INGEST_FULL_ARGS
+TimeoutStartSec=3h
+
+StandardOutput=append:/var/log/smartcart/ingest-full.log
+StandardError=append:/var/log/smartcart/ingest-full.log
+SyslogIdentifier=smartcart-ingest-full
+
+# Sandboxing. The worker needs outbound network, its own state and log directories, nothing else.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/smartcart /var/log/smartcart

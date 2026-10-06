@@ -1,0 +1,33 @@
+[Unit]
+Description=SmartCart ingestion: hourly Price and Promo deltas for the main chains
+Documentation=https://github.com/NoaMcDa/SmartCart/blob/main/docs/infra-provisioning.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=smartcart
+Group=smartcart
+WorkingDirectory=/opt/smartcart
+
+# Default arguments; the ingest CLI (issue #49) owns the real names. Override with
+# SMARTCART_INGEST_DELTA_ARGS in /etc/smartcart/ingest.env.
+Environment="SMARTCART_INGEST_DELTA_ARGS=run --mode delta"
+EnvironmentFile=/etc/smartcart/ingest.env
+
+# Skip this tick (exit 0) when the full sync or the previous delta still holds the lock. The
+# application itself must still refuse a delta before that store's full file (issues #37 and #49).
+RuntimeDirectory=smartcart
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/flock --nonblock --conflict-exit-code 0 /run/smartcart/ingest.lock /opt/smartcart/.venv/bin/smartcart-ingest $SMARTCART_INGEST_DELTA_ARGS
+TimeoutStartSec=50min
+
+StandardOutput=append:/var/log/smartcart/ingest-delta.log
+StandardError=append:/var/log/smartcart/ingest-delta.log
+SyslogIdentifier=smartcart-ingest-delta
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/smartcart /var/log/smartcart
