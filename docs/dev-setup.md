@@ -22,7 +22,7 @@ From the repository root:
 ```bash
 uv sync                      # create .venv with every workspace member and the dev tools
 uv run ruff check .          # lint
-uv run ruff format .         # format (CI runs `ruff format --check .`)
+uv run ruff format .         # format (not enforced in CI yet)
 uv run pytest                # all tests
 uv run pytest -m "not db"    # only tests that need no database
 ```
@@ -88,7 +88,7 @@ To run everything locally, use one of:
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every pull request and push, on Python 3.12 and 3.13:
-`uv sync`, `ruff check .`, `ruff format --check .`, then `pytest` against a
+`uv sync`, `ruff check .`, then `pytest` against a
 `supabase/postgres:17.11.0.004` service container (PostGIS, pgvector and pg_trgm available). That
 tag was verified to exist on Docker Hub on 2026-10-06. Supabase publishes Postgres 15 and 17
 images, not 16; the schema uses nothing that differs between 16 and 17.
