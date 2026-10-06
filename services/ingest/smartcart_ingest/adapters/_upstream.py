@@ -33,6 +33,9 @@ def _list_keys(converter: Any) -> set[str]:
 
 def upstream_containers(parser_name: str) -> dict[str, set[str]]:
     """``{"price"|"promo"|"stores": {container element names}}`` for a ParserFactory name."""
+    from smartcart_ingest.download import quiet_upstream_loggers
+
+    quiet_upstream_loggers()
     from il_supermarket_parsers.parser_factory import ParserFactory
 
     converter = ParserFactory.get(parser_name)()

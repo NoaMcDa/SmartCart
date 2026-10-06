@@ -66,6 +66,9 @@ def plan(slugs: list[str] | None = None) -> list[tuple[str, str, str]]:
 
 
 async def _download(scraper_name: str, kind: str, workdir: Path) -> list[Path]:
+    from smartcart_ingest.download import quiet_upstream_loggers
+
+    quiet_upstream_loggers()
     from il_supermarket_scarper import FileTypesFilters, ScraperFactory
     from il_supermarket_scarper.utils import DiskFileOutput
 
