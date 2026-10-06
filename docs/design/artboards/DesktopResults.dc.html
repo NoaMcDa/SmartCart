@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>תוצאות השוואה · דסקטופ</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:{{c.accentFg}}}a:hover{color:#174868}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100vh; box-sizing: border-box; font-family: 'Heebo', sans-serif; color: {{c.text}}; background: {{c.bg}}; display: flex; flex-direction: column">
+
+  <header style="background: {{c.surface}}; border-bottom: 1px solid {{c.border}}">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; min-height: 64px">
+      <a href="DesktopList.dc.html" style="display: inline-flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; color: {{c.text}}; text-decoration: none">
+        <span style="width: 32px; height: 32px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.5 11h11L21 7H7"></path><circle cx="9" cy="20" r="1.5"></circle><circle cx="17" cy="20" r="1.5"></circle></svg>
+        </span>
+        SmartCart
+      </a>
+      <nav aria-label="ניווט ראשי" style="display: flex; gap: 4px; flex-wrap: wrap">
+        <a href="DesktopList.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; font-weight: 500; color: {{c.muted}}; text-decoration: none">רשימות</a>
+        <a href="DesktopResults.dc.html" aria-current="page" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; font-weight: 700; color: {{c.accentFg}}; background: {{c.accentSoft}}; text-decoration: none">השוואה</a>
+        <button type="button" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border: 0; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 500; color: {{c.muted}}; background: transparent; cursor: pointer">התראות</button>
+        <button type="button" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border: 0; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 500; color: {{c.muted}}; background: transparent; cursor: pointer">היסטוריה</button>
+      </nav>
+      <div style="display: flex; align-items: center; gap: 10px">
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: {{c.muted}}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+          מודיעין · 5 ק"מ
+        </span>
+        <button type="button" role="switch" aria-checked="{{darkStr}}" aria-label="מצב כהה" onClick="{{toggleTheme}}" style="width: 40px; height: 40px; flex-shrink: 0; border: 1.5px solid {{c.border}}; background: {{c.surface}}; color: {{c.muted}}; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 999px"><sc-if value="{{light}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg></sc-if><sc-if value="{{dark}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if></button>
+        <button type="button" aria-label="פרופיל" style="width: 40px; height: 40px; border: 1.5px solid {{c.border}}; border-radius: 999px; background: {{c.surface}}; color: {{c.muted}}; display: inline-flex; align-items: center; justify-content: center; cursor: pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main style="max-width: 1200px; width: 100%; margin: 0 auto; padding: 28px 24px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px">
+
+    <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 700">איפה הכי זול השבוע?</h1>
+        <div style="font-size: 13.5px; color: {{c.muted}}">הקנייה השבועית · 9 פריטים · 6 סניפים עד 5 ק"מ ממודיעין · מחירים עודכנו היום 06:40</div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap">
+        <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 13.5px; font-weight: 600; color: {{c.text}}; cursor: pointer">עד 2 סופרים</button>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 13.5px; font-weight: 600; color: {{c.text}}; cursor: pointer">ברכב · עצירה שווה <span dir="ltr">₪25</span></button>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 13.5px; font-weight: 600; color: {{c.text}}; cursor: pointer">מועדונים: שופרסל, רמי לוי</button>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+
+      <article style="background: {{c.surface}}; border: 2px solid {{c.accentFg}}; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; justify-content: space-between">
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #FFFFFF; background: {{accent}}; border-radius: 999px; padding: 4px 10px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+            מומלץ · סופר אחד
+          </span>
+          <span style="font-size: 13px; color: {{c.muted}}">4.2 ק"מ</span>
+        </div>
+        <div style="font-size: 20px; font-weight: 700">רמי לוי · מודיעין</div>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <div style="font-size: 13px; color: {{c.muted}}">סך הסל</div>
+          <div style="font-size: 36px; font-weight: 700; line-height: 1.05"><span dir="ltr">₪389</span></div>
+        </div>
+        <div style="background: {{c.goodBg}}; border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px">
+          <div style="font-size: 22px; font-weight: 700; color: {{c.goodFg}}; line-height: 1.1">חוסך <span dir="ltr">₪57</span></div>
+          <div style="font-size: 12px; color: {{c.goodFg}}">לעומת שופרסל דיל, הסופר שלך</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; border-top: 1px solid {{c.divider}}; padding-top: 10px">
+          <a href="#subs" style="font-weight: 600; color: {{c.accentFg}}">3 פריטים הוחלפו</a>
+          <span style="color: {{c.badFg}}; font-weight: 600">1 פריט חסר: קוטג' 5% 250 ג'</span>
+          <span style="color: {{c.muted}}">5 מבצעים כלולים, 2 מהם למועדון</span>
+        </div>
+        <a href="#top" style="display: inline-flex; align-items: center; justify-content: center; height: 44px; border-radius: 12px; background: {{accent}}; color: #FFFFFF; font-weight: 700; font-size: 15px; text-decoration: none">בחרי ופתחי מצב קנייה</a>
+      </article>
+
+      <article style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; justify-content: space-between">
+          <span style="font-size: 12px; font-weight: 700; color: {{c.exactFg}}; background: {{c.exactBg}}; border-radius: 999px; padding: 4px 10px">פיצול ל-2 סופרים</span>
+          <span style="font-size: 13px; color: {{c.muted}}">+12 דק'</span>
+        </div>
+        <div style="font-size: 20px; font-weight: 700">רמי לוי <span style="color: {{c.faint}}; font-weight: 500">+</span> אושר עד</div>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <div style="font-size: 13px; color: {{c.muted}}">סך הסל</div>
+          <div style="font-size: 36px; font-weight: 700; line-height: 1.05"><span dir="ltr">₪371</span></div>
+        </div>
+        <div style="background: {{c.goodBg}}; border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px">
+          <div style="font-size: 22px; font-weight: 700; color: {{c.goodFg}}; line-height: 1.1">חוסך <span dir="ltr">₪75</span> נטו</div>
+          <div style="font-size: 12px; color: {{c.muted}}">אחרי <span dir="ltr">₪9</span> דלק לעצירה הנוספת</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; border-top: 1px solid {{c.divider}}; padding-top: 10px">
+          <a href="#subs" style="font-weight: 600; color: {{c.accentFg}}">4 פריטים הוחלפו</a>
+          <span style="color: {{c.goodFg}}; font-weight: 600">0 פריטים חסרים</span>
+          <span style="color: {{c.muted}}">6 פריטים ברמי לוי · 3 באושר עד</span>
+        </div>
+        <a href="#top" style="display: inline-flex; align-items: center; justify-content: center; height: 44px; border-radius: 12px; border: 1.5px solid {{c.border}}; background: {{c.surface}}; color: {{c.text}}; font-weight: 700; font-size: 15px; text-decoration: none">הצגת הפיצול</a>
+      </article>
+
+      <article style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; justify-content: space-between">
+          <span style="font-size: 12px; font-weight: 700; color: {{c.muted}}; background: {{c.subtle}}; border-radius: 999px; padding: 4px 10px">מינימום מאמץ · הסופר שלך</span>
+          <span style="font-size: 13px; color: {{c.muted}}">1.1 ק"מ</span>
+        </div>
+        <div style="font-size: 20px; font-weight: 700">שופרסל דיל · מודיעין</div>
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <div style="font-size: 13px; color: {{c.muted}}">סך הסל</div>
+          <div style="font-size: 36px; font-weight: 700; line-height: 1.05"><span dir="ltr">₪446</span></div>
+        </div>
+        <div style="background: {{c.bg}}; border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px">
+          <div style="font-size: 16px; font-weight: 700; color: {{c.muted}}; line-height: 1.2">הבסיס להשוואה</div>
+          <div style="font-size: 12px; color: {{c.muted}}">0 פריטים הוחלפו</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; border-top: 1px solid {{c.divider}}; padding-top: 10px">
+          <span style="color: {{c.goodFg}}; font-weight: 600">0 פריטים חסרים</span>
+          <span style="color: {{c.muted}}">3 מבצעים כלולים</span>
+        </div>
+        <a href="#top" style="display: inline-flex; align-items: center; justify-content: center; height: 44px; border-radius: 12px; border: 1.5px solid {{c.border}}; background: {{c.surface}}; color: {{c.text}}; font-weight: 700; font-size: 15px; text-decoration: none">להישאר כאן</a>
+      </article>
+
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+
+      <section id="subs" style="flex: 999 1 560px; min-width: 0; background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 16px; overflow: hidden">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid {{c.divider}}">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700">החלפות ברמי לוי</h2>
+          <span style="font-size: 12.5px; color: {{c.muted}}">כל החלפה ניתנת לביטול</span>
+        </div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px 150px; gap: 12px; align-items: center; padding: 12px 20px; border-bottom: 1px solid {{c.divider}}">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="font-size: 11.5px; color: {{c.muted}}">ברשימה שלך</div>
+            <div style="font-size: 14px; font-weight: 600">רסק עגבניות אסם, 260 ג'</div>
+            <div style="font-size: 12px; color: {{c.muted}}"><span dir="ltr">₪2.65</span> ל-100 ג'</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="font-size: 11.5px; color: {{c.goodFg}}; font-weight: 600">התחליף</div>
+            <div style="font-size: 14px; font-weight: 600">רסק עגבניות שופרסל, 260 ג'</div>
+            <div style="font-size: 12px; color: {{c.muted}}"><span dir="ltr">₪1.73</span> ל-100 ג'</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="font-size: 16px; font-weight: 700; color: {{c.goodFg}}"><span dir="ltr">₪4.80</span></div>
+            <div style="font-size: 11.5px; color: {{c.muted}}">× 2 יחידות</div>
+          </div>
+          <div style="display: flex; gap: 6px; justify-content: flex-end">
+            <button type="button" style="height: 36px; padding: 0 12px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer">למה?</button>
+            <button type="button" style="height: 36px; padding: 0 12px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer">בטלי</button>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px 150px; gap: 12px; align-items: center; padding: 12px 20px; border-bottom: 1px solid {{c.divider}}">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="font-size: 11.5px; color: {{c.muted}}">ברשימה שלך</div>
+            <div style="font-size: 14px; font-weight: 600">חלב טרי 3% תנובה, 1 ליטר</div>
+            <div style="font-size: 12px; color: {{c.muted}}"><span dir="ltr">₪0.65</span> ל-100 מ"ל</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="font-size: 11.5px; color: {{c.goodFg}}; font-weight: 600">התחליף</div>
+            <div style="font-size: 14px; font-weight: 600">חלב טרי 3% יטבתה, 1 ליטר</div>
+            <div style="font-size: 12px; color: {{c.muted}}"><span dir="ltr">₪0.59</span> ל-100 מ"ל</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="font-size: 16px; font-weight: 700; color: {{c.goodFg}}"><span dir="ltr">₪1.20</span></div>
+            <div style="font-size: 11.5px; color: {{c.muted}}">× 2 יחידות</div>
+          </div>
+          <div style="display: flex; gap: 6px; justify-content: flex-end">
+            <button type="button" style="height: 36px; padding: 0 12px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer">למה?</button>
+            <button type="button" style="height: 36px; padding: 0 12px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer">בטלי</button>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px 150px; gap: 12px; align-items: center; padding: 12px 20px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="font-size: 11.5px; color: {{c.muted}}">ברשימה שלך</div>
+            <div style="font-size: 14px; font-weight: 600">משקה סויה ללא סוכר אלפרו, 1 ל'</div>
+            <div style="font-size: 12px; color: {{c.muted}}"><span dir="ltr">₪1.49</span> ל-100 מ"ל</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start">
+            <div style="font-size: 11.5px; color: {{c.warnFg}}; font-weight: 600">תחליף קרוב</div>
+            <div style="font-size: 14px; font-weight: 600">משקה סויה ללא סוכר, מותג פרטי, 1 ל'</div>
+            <div style="font-size: 12px; color: {{c.muted}}"><span dir="ltr">₪0.99</span> ל-100 מ"ל</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="font-size: 16px; font-weight: 700; color: {{c.goodFg}}"><span dir="ltr">₪5.00</span></div>
+            <div style="font-size: 11.5px; color: {{c.muted}}">× 1 יחידה</div>
+          </div>
+          <div style="display: flex; gap: 6px; justify-content: flex-end">
+            <button type="button" style="height: 36px; padding: 0 12px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer">למה?</button>
+            <button type="button" style="height: 36px; padding: 0 12px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer">בטלי</button>
+          </div>
+        </div>
+      </section>
+
+      <aside style="flex: 1 1 320px; max-width: 420px; display: flex; flex-direction: column; gap: 12px">
+        <div style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 16px; overflow: hidden">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid {{c.divider}}">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 700">סניפים ברדיוס</h2>
+            <span style="font-size: 12px; color: {{c.muted}}">מחיר הסל על כל סיכה</span>
+          </div>
+          <div aria-label="מפת סניפים עם מחיר סל" style="position: relative; height: 260px; background: {{c.mapBg}}; background-image: linear-gradient({{c.mapGrid}} 1px, transparent 1px), linear-gradient(90deg, {{c.mapGrid}} 1px, transparent 1px); background-size: 40px 40px; overflow: hidden">
+            <div style="position: absolute; top: 118px; left: 0; right: 0; height: 14px; background: {{c.mapRoad}}"></div>
+            <div style="position: absolute; top: 0; bottom: 0; left: 170px; width: 12px; background: {{c.mapRoad}}"></div>
+            <div style="position: absolute; top: 104px; left: 54px; display: flex; flex-direction: column; align-items: center; gap: 2px">
+              <span style="font-size: 13px; font-weight: 700; color: #FFFFFF; background: {{accent}}; border-radius: 999px; padding: 4px 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.2)"><span dir="ltr">₪389</span></span>
+              <span style="width: 10px; height: 10px; border-radius: 999px; background: {{accent}}; border: 2px solid {{c.surface}}"></span>
+            </div>
+            <div style="position: absolute; top: 40px; left: 230px; display: flex; flex-direction: column; align-items: center; gap: 2px">
+              <span style="font-size: 13px; font-weight: 700; color: {{c.text}}; background: {{c.surface}}; border-radius: 999px; padding: 4px 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.15)"><span dir="ltr">₪402</span></span>
+              <span style="width: 10px; height: 10px; border-radius: 999px; background: {{c.muted}}; border: 2px solid {{c.surface}}"></span>
+            </div>
+            <div style="position: absolute; top: 160px; left: 270px; display: flex; flex-direction: column; align-items: center; gap: 2px">
+              <span style="font-size: 13px; font-weight: 700; color: {{c.text}}; background: {{c.surface}}; border-radius: 999px; padding: 4px 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.15)"><span dir="ltr">₪446</span></span>
+              <span style="width: 10px; height: 10px; border-radius: 999px; background: {{c.muted}}; border: 2px solid {{c.surface}}"></span>
+            </div>
+            <div style="position: absolute; top: 190px; left: 110px; display: flex; flex-direction: column; align-items: center; gap: 2px">
+              <span style="font-size: 13px; font-weight: 700; color: {{c.text}}; background: {{c.surface}}; border-radius: 999px; padding: 4px 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.15)"><span dir="ltr">₪418</span></span>
+              <span style="width: 10px; height: 10px; border-radius: 999px; background: {{c.muted}}; border: 2px solid {{c.surface}}"></span>
+            </div>
+            <div style="position: absolute; top: 128px; left: 196px; width: 16px; height: 16px; border-radius: 999px; background: {{accent}}; border: 3px solid {{c.surface}}; box-shadow: 0 0 0 6px rgba(31,95,139,0.2)" aria-label="המיקום שלך"></div>
+          </div>
+        </div>
+        <p style="margin: 0 4px; font-size: 12px; color: {{c.muted}}; line-height: 1.5">המחיר הקובע הוא בקופה. המחירים לפי קבצי שקיפות המחירים של הרשתות. מבצעי מועדון נכללים רק לפי המועדונים שסימנת.</p>
+      </aside>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#1F5F8B","options":["#1F5F8B","#0E5842","#7A4E00","#263D5C"]},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const dark = st.dark == null ? !!(this.props.dark) : st.dark;
+    const accent = this.props.accent ?? '#1F5F8B';
+    const light = {
+      bg: '#F6F5F2', surface: '#FFFFFF', subtle: '#F1EFEA', border: '#E3E0DA', divider: '#EEECE7', handle: '#D5D2CB',
+      text: '#1A1A1A', muted: '#5C5952', faint: '#8A867E',
+      accentFg: accent, accentSoft: '#EEF4F9',
+      brandBg: '#D9F0EA', brandFg: '#0E5842', exactBg: '#E6EBF2', exactFg: '#263D5C',
+      warnBg: '#FBEFD6', warnFg: '#7A4E00', onWarn: '#FFFFFF',
+      goodBg: '#E3F3EA', goodFg: '#1B6B45', badFg: '#A32D2D',
+      mapBg: '#EEF2EC', mapGrid: '#E2E7E0', mapRoad: '#E6E3DC'
+    };
+    const darkC = {
+      bg: '#141413', surface: '#1F1F1D', subtle: '#2A2927', border: '#33322F', divider: '#2A2927', handle: '#4A4844',
+      text: '#F2F1EC', muted: '#A8A49B', faint: '#7D7971',
+      accentFg: '#7FB3E3', accentSoft: '#1C2F3D',
+      brandBg: '#143D30', brandFg: '#7FD4B4', exactBg: '#22314A', exactFg: '#A9C1E6',
+      warnBg: '#3E2E0E', warnFg: '#F0C068', onWarn: '#1A1A1A',
+      goodBg: '#16352A', goodFg: '#7FD4A6', badFg: '#F08C8C',
+      mapBg: '#1B211D', mapGrid: '#263029', mapRoad: '#2E2D2A'
+    };
+    return {
+      accent,
+      dark,
+      light: !dark,
+      darkStr: dark ? 'true' : 'false',
+      c: dark ? darkC : light,
+      toggleTheme: () => this.setState({ dark: !dark })
+    };
+  }
+}
+</script>
+</body>
+</html>

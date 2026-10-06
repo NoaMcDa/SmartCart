@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>בחירת גמישות</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:{{c.accentFg}}}a:hover{color:#174868}
+</style>
+</helmet>
+<div dir="rtl" style="width: 390px; height: 844px; box-sizing: border-box; font-family: 'Heebo', sans-serif; color: {{c.text}}; background: {{c.bg}}; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+  <div style="padding: 56px 20px 10px; display: flex; flex-direction: column; gap: 2px">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><h1 style="margin: 0; font-size: 24px; font-weight: 700">הקנייה השבועית</h1><button type="button" role="switch" aria-checked="{{darkStr}}" aria-label="מצב כהה" onClick="{{toggleTheme}}" style="width: 44px; height: 44px; flex-shrink: 0; border: 1.5px solid {{c.border}}; background: {{c.surface}}; color: {{c.muted}}; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 12px"><sc-if value="{{light}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg></sc-if><sc-if value="{{dark}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if></button></div>
+    <div style="font-size: 13px; color: {{c.muted}}">9 פריטים · מחירים עודכנו היום 06:40</div>
+  </div>
+  <div style="padding: 4px 20px 10px">
+    <div style="display: flex; align-items: center; background: {{c.surface}}; border: 1.5px solid {{c.border}}; border-radius: 14px; padding: 12px 14px; font-size: 16px; color: {{c.faint}}">חלב, 2 רסק עגבניות, סלמון…</div>
+  </div>
+  <div style="font-size: 12px; font-weight: 600; color: {{c.muted}}; padding: 6px 20px 6px">מוצרי חלב</div>
+  <div style="margin: 0 20px; background: {{c.surface}}; border-radius: 14px; overflow: hidden; border: 1px solid {{c.border}}">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid {{c.divider}}">
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: flex-start">
+        <div style="font-size: 15px; font-weight: 600">חלב טרי 3%, 1 ליטר</div>
+        <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; height: 30px; padding: 0 10px; border-radius: 999px; background: {{c.brandBg}}; color: {{c.brandFg}}">כל מותג</span>
+      </div>
+      <div style="display: flex; align-items: center; background: {{c.subtle}}; border-radius: 12px; height: 40px; padding: 0 14px; font-weight: 700"><span dir="ltr">2</span></div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px">
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: flex-start">
+        <div style="font-size: 15px; font-weight: 600">קוטג' 5%, 250 ג'</div>
+        <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; height: 30px; padding: 0 10px; border-radius: 999px; background: {{c.exactBg}}; color: {{c.exactFg}}">מוצר מדויק</span>
+      </div>
+      <div style="display: flex; align-items: center; background: {{c.subtle}}; border-radius: 12px; height: 40px; padding: 0 14px; font-weight: 700"><span dir="ltr">1</span></div>
+    </div>
+  </div>
+
+  <div style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(20, 20, 19, 0.5)"></div>
+
+  <div role="dialog" aria-labelledby="sheet-title" style="position: absolute; right: 0; left: 0; bottom: 0; background: {{c.surface}}; border-radius: 22px 22px 0 0; padding: 10px 20px 30px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 -8px 30px rgba(0,0,0,0.18)">
+    <div style="width: 40px; height: 4px; border-radius: 999px; background: {{c.handle}}; margin: 0 auto"></div>
+
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <div style="font-size: 12px; color: {{c.muted}}">רמת גמישות לפריט</div>
+      <h2 id="sheet-title" style="margin: 0; font-size: 20px; font-weight: 700">חלב טרי 3%, 1 ליטר</h2>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label style="display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1.5px solid {{c.border}}; border-radius: 14px; cursor: pointer; background: {{c.surface}}">
+        <input type="radio" name="flex" value="exact" style="margin: 3px 0 0; width: 18px; height: 18px; accent-color: {{accent}}; flex-shrink: 0">
+        <span style="display: flex; flex-direction: column; gap: 3px; flex: 1">
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: {{c.exactFg}}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+            מוצר מדויק
+          </span>
+          <span style="font-size: 13px; color: {{c.muted}}; line-height: 1.4">רק הברקוד שבחרת. תנובה, 3%, קרטון 1 ליטר.</span>
+        </span>
+      </label>
+
+      <label style="display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 2px solid {{c.accentFg}}; border-radius: 14px; cursor: pointer; background: {{c.accentSoft}}">
+        <input type="radio" name="flex" value="brand" checked style="margin: 3px 0 0; width: 18px; height: 18px; accent-color: {{accent}}; flex-shrink: 0">
+        <span style="display: flex; flex-direction: column; gap: 3px; flex: 1">
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: {{c.brandFg}}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-9-9V3h8z"></path><circle cx="7.5" cy="7.5" r="1.5"></circle></svg>
+            כל מותג
+          </span>
+          <span style="font-size: 13px; color: {{c.muted}}; line-height: 1.4">אותו מוצר מכל יצרן: תנובה, טרה, יטבתה, מותג פרטי. נשמר: 3% שומן, טרי, 1 ליטר.</span>
+          <span style="font-size: 12px; color: {{c.goodFg}}; font-weight: 600">בדרך כלל חוסך 8–15% על פריט זה</span>
+        </span>
+      </label>
+
+      <label style="display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1.5px solid {{c.border}}; border-radius: 14px; cursor: pointer; background: {{c.surface}}">
+        <input type="radio" name="flex" value="close" style="margin: 3px 0 0; width: 18px; height: 18px; accent-color: {{accent}}; flex-shrink: 0">
+        <span style="display: flex; flex-direction: column; gap: 3px; flex: 1">
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: {{c.warnFg}}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
+            תחליף קרוב
+          </span>
+          <span style="font-size: 13px; color: {{c.muted}}; line-height: 1.4">גם 1% או 2%, גם שקית, גם גודל אחר. תמיד מסומן כתחליף.</span>
+        </span>
+      </label>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="font-size: 13px; font-weight: 600; color: {{c.muted}}">אפשר לוותר על:</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; height: 36px; padding: 0 12px; border: 1.5px solid {{c.border}}; border-radius: 999px; cursor: pointer">
+          <input type="checkbox" style="width: 16px; height: 16px; margin: 0; accent-color: {{accent}}">גודל אריזה אחר
+        </label>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; height: 36px; padding: 0 12px; border: 1.5px solid {{c.accentFg}}; border-radius: 999px; cursor: pointer; background: {{c.accentSoft}}">
+          <input type="checkbox" checked style="width: 16px; height: 16px; margin: 0; accent-color: {{accent}}">קרטון או שקית
+        </label>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; height: 36px; padding: 0 12px; border: 1.5px solid {{c.border}}; border-radius: 999px; cursor: pointer">
+          <input type="checkbox" style="width: 16px; height: 16px; margin: 0; accent-color: {{accent}}">אחוז שומן אחר
+        </label>
+      </div>
+    </div>
+
+    <label style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 14px; cursor: pointer">
+      <span>זכרי בחירה זו לכל סוגי החלב</span>
+      <input type="checkbox" role="switch" checked style="width: 20px; height: 20px; margin: 0; accent-color: {{accent}}">
+    </label>
+
+    <div style="display: flex; gap: 10px; padding-top: 2px">
+      <a href="Main.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; height: 48px; border-radius: 14px; background: {{accent}}; color: #FFFFFF; font-weight: 700; font-size: 16px; text-decoration: none">שמרי</a>
+      <a href="Main.dc.html" style="display: inline-flex; align-items: center; justify-content: center; height: 48px; padding: 0 18px; border-radius: 14px; background: {{c.subtle}}; color: {{c.text}}; font-weight: 600; font-size: 15px; text-decoration: none">ביטול</a>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#1F5F8B","options":["#1F5F8B","#0E5842","#7A4E00","#263D5C"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const dark = st.dark == null ? !!(this.props.dark) : st.dark;
+    const accent = this.props.accent ?? '#1F5F8B';
+    const light = {
+      bg: '#F6F5F2', surface: '#FFFFFF', subtle: '#F1EFEA', border: '#E3E0DA', divider: '#EEECE7', handle: '#D5D2CB',
+      text: '#1A1A1A', muted: '#5C5952', faint: '#8A867E',
+      accentFg: accent, accentSoft: '#EEF4F9',
+      brandBg: '#D9F0EA', brandFg: '#0E5842', exactBg: '#E6EBF2', exactFg: '#263D5C',
+      warnBg: '#FBEFD6', warnFg: '#7A4E00', onWarn: '#FFFFFF',
+      goodBg: '#E3F3EA', goodFg: '#1B6B45', badFg: '#A32D2D',
+      mapBg: '#EEF2EC', mapGrid: '#E2E7E0', mapRoad: '#E6E3DC'
+    };
+    const darkC = {
+      bg: '#141413', surface: '#1F1F1D', subtle: '#2A2927', border: '#33322F', divider: '#2A2927', handle: '#4A4844',
+      text: '#F2F1EC', muted: '#A8A49B', faint: '#7D7971',
+      accentFg: '#7FB3E3', accentSoft: '#1C2F3D',
+      brandBg: '#143D30', brandFg: '#7FD4B4', exactBg: '#22314A', exactFg: '#A9C1E6',
+      warnBg: '#3E2E0E', warnFg: '#F0C068', onWarn: '#1A1A1A',
+      goodBg: '#16352A', goodFg: '#7FD4A6', badFg: '#F08C8C',
+      mapBg: '#1B211D', mapGrid: '#263029', mapRoad: '#2E2D2A'
+    };
+    return {
+      accent,
+      dark,
+      light: !dark,
+      darkStr: dark ? 'true' : 'false',
+      c: dark ? darkC : light,
+      toggleTheme: () => this.setState({ dark: !dark })
+    };
+  }
+}
+</script>
+</body>
+</html>

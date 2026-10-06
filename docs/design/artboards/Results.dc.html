@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>תוצאות השוואה</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:{{c.accentFg}}}a:hover{color:#174868}
+</style>
+</helmet>
+<div dir="rtl" style="width: 390px; height: 844px; box-sizing: border-box; font-family: 'Heebo', sans-serif; color: {{c.text}}; background: {{c.bg}}; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+  <div style="padding: 50px 12px 8px 20px; display: flex; align-items: center; gap: 4px">
+    <a href="Main.dc.html" aria-label="חזרה לרשימה" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: {{c.text}}; border-radius: 12px; text-decoration: none">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+    </a>
+    <div style="display: flex; flex-direction: column; gap: 1px; flex: 1">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700">איפה הכי זול השבוע?</h1>
+      <div style="font-size: 12.5px; color: {{c.muted}}">9 פריטים · עד 5 ק"מ ממודיעין · עודכן היום 06:40</div>
+    </div>
+    <button type="button" role="switch" aria-checked="{{darkStr}}" aria-label="מצב כהה" onClick="{{toggleTheme}}" style="width: 44px; height: 44px; flex-shrink: 0; border: 1.5px solid {{c.border}}; background: {{c.surface}}; color: {{c.muted}}; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 12px"><sc-if value="{{light}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg></sc-if><sc-if value="{{dark}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if></button>
+  </div>
+
+  <div style="padding: 4px 20px 12px">
+    <div role="group" aria-label="תצוגה" style="display: flex; background: {{c.subtle}}; border-radius: 12px; padding: 3px">
+      <button type="button" aria-pressed="true" style="flex: 1; height: 38px; border: 0; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 14px; font-weight: 700; color: {{c.text}}; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08)">רשימה</button>
+      <button type="button" aria-pressed="false" style="flex: 1; height: 38px; border: 0; border-radius: 10px; background: transparent; font: inherit; font-size: 14px; font-weight: 600; color: {{c.muted}}; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4l6 2 6-2v14l-6 2-6-2-6 2V6z"></path><path d="M9 4v14M15 6v14"></path></svg>
+        מפה
+      </button>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 0 20px">
+
+    <article style="background: {{c.surface}}; border: 2px solid {{c.accentFg}}; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; position: relative">
+      <div style="display: flex; align-items: center; justify-content: space-between">
+        <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #FFFFFF; background: {{accent}}; border-radius: 999px; padding: 4px 10px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+          מומלץ
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: {{c.muted}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+          4.2 ק"מ
+        </span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <div style="font-size: 18px; font-weight: 700">רמי לוי · מודיעין</div>
+        <div style="font-size: 13px; color: {{c.muted}}">סופר אחד, כל הרשימה</div>
+      </div>
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 0">
+          <div style="font-size: 12px; color: {{c.muted}}">סך הסל</div>
+          <div style="font-size: 30px; font-weight: 700; line-height: 1.1"><span dir="ltr">₪389</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; background: {{c.goodBg}}; border-radius: 12px; padding: 8px 12px">
+          <div style="font-size: 20px; font-weight: 700; color: {{c.goodFg}}; line-height: 1.1">חוסך <span dir="ltr">₪57</span></div>
+          <div style="font-size: 11.5px; color: {{c.goodFg}}">לעומת שופרסל דיל, הסופר שלך</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12.5px; padding-top: 4px; border-top: 1px solid {{c.divider}}">
+        <a href="Substitution.dc.html" style="display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: {{c.accentFg}}; text-decoration: underline; text-underline-offset: 2px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
+          3 פריטים הוחלפו
+        </a>
+        <span style="display: inline-flex; align-items: center; gap: 4px; color: {{c.badFg}}; font-weight: 600">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+          1 פריט חסר
+        </span>
+        <span style="color: {{c.muted}}">5 מבצעים כלולים</span>
+      </div>
+    </article>
+
+    <article style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; justify-content: space-between">
+        <span style="font-size: 11.5px; font-weight: 700; color: {{c.exactFg}}; background: {{c.exactBg}}; border-radius: 999px; padding: 4px 10px">פיצול ל-2 סופרים</span>
+        <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: {{c.muted}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+          +12 דק'
+        </span>
+      </div>
+      <div style="font-size: 17px; font-weight: 700">רמי לוי <span style="color: {{c.faint}}; font-weight: 500">+</span> אושר עד</div>
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px">
+        <div style="font-size: 26px; font-weight: 700; line-height: 1.1"><span dir="ltr">₪371</span></div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 1px">
+          <div style="font-size: 17px; font-weight: 700; color: {{c.goodFg}}">חוסך <span dir="ltr">₪75</span> נטו</div>
+          <div style="font-size: 11.5px; color: {{c.muted}}">אחרי <span dir="ltr">₪9</span> דלק לעצירה הנוספת</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12.5px; padding-top: 4px; border-top: 1px solid {{c.divider}}">
+        <a href="Substitution.dc.html" style="font-weight: 600; color: {{c.accentFg}}; text-decoration: underline; text-underline-offset: 2px">4 פריטים הוחלפו</a>
+        <span style="color: {{c.goodFg}}; font-weight: 600">0 חסרים</span>
+      </div>
+    </article>
+
+    <article style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; align-items: center; justify-content: space-between">
+        <span style="font-size: 11.5px; font-weight: 700; color: {{c.muted}}; background: {{c.subtle}}; border-radius: 999px; padding: 4px 10px">מינימום מאמץ · הסופר שלך</span>
+        <span style="font-size: 12.5px; color: {{c.muted}}">1.1 ק"מ</span>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+        <div style="font-size: 17px; font-weight: 700">שופרסל דיל · מודיעין</div>
+        <div style="font-size: 22px; font-weight: 700"><span dir="ltr">₪446</span></div>
+      </div>
+      <div style="font-size: 12.5px; color: {{c.muted}}">0 הוחלפו · הבסיס שאליו משווים</div>
+    </article>
+
+    <p style="margin: 2px 4px 0; font-size: 11.5px; color: {{c.muted}}; line-height: 1.45">המחיר הקובע הוא בקופה. המחירים לפי קבצי שקיפות המחירים של הרשתות, ומבצעי מועדון רק לפי המועדונים שסימנת.</p>
+
+  </div>
+
+  <nav aria-label="ניווט ראשי" style="display: flex; align-items: flex-end; background: {{c.surface}}; border-top: 1px solid {{c.border}}; padding: 6px 8px 22px">
+    <a href="Main.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: {{c.muted}}; text-decoration: none; padding: 8px 0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>
+      רשימות
+    </a>
+    <a href="Results.dc.html" aria-current="page" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: {{c.accentFg}}; text-decoration: none; padding: 8px 0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 7h18"></path><path d="M6 7l-3 7a3 3 0 0 0 6 0z"></path><path d="M18 7l-3 7a3 3 0 0 0 6 0z"></path></svg>
+      השוואה
+    </a>
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: {{c.muted}}; padding: 0 0 8px">
+      <button type="button" aria-label="סריקת ברקוד" style="width: 56px; height: 56px; margin-top: -26px; border: 0; border-radius: 999px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 16px rgba(31,95,139,0.35)">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6v12M8 6v12M11 6v12M14 6v12M17 6v12M20 6v12"></path></svg>
+      </button>
+      סריקה
+    </div>
+    <button type="button" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font: inherit; font-size: 11px; color: {{c.muted}}; border: 0; background: transparent; padding: 8px 0; cursor: pointer">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      התראות
+    </button>
+    <button type="button" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font: inherit; font-size: 11px; color: {{c.muted}}; border: 0; background: transparent; padding: 8px 0; cursor: pointer">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>
+      פרופיל
+    </button>
+  </nav>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#1F5F8B","options":["#1F5F8B","#0E5842","#7A4E00","#263D5C"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const dark = st.dark == null ? !!(this.props.dark) : st.dark;
+    const accent = this.props.accent ?? '#1F5F8B';
+    const light = {
+      bg: '#F6F5F2', surface: '#FFFFFF', subtle: '#F1EFEA', border: '#E3E0DA', divider: '#EEECE7', handle: '#D5D2CB',
+      text: '#1A1A1A', muted: '#5C5952', faint: '#8A867E',
+      accentFg: accent, accentSoft: '#EEF4F9',
+      brandBg: '#D9F0EA', brandFg: '#0E5842', exactBg: '#E6EBF2', exactFg: '#263D5C',
+      warnBg: '#FBEFD6', warnFg: '#7A4E00', onWarn: '#FFFFFF',
+      goodBg: '#E3F3EA', goodFg: '#1B6B45', badFg: '#A32D2D',
+      mapBg: '#EEF2EC', mapGrid: '#E2E7E0', mapRoad: '#E6E3DC'
+    };
+    const darkC = {
+      bg: '#141413', surface: '#1F1F1D', subtle: '#2A2927', border: '#33322F', divider: '#2A2927', handle: '#4A4844',
+      text: '#F2F1EC', muted: '#A8A49B', faint: '#7D7971',
+      accentFg: '#7FB3E3', accentSoft: '#1C2F3D',
+      brandBg: '#143D30', brandFg: '#7FD4B4', exactBg: '#22314A', exactFg: '#A9C1E6',
+      warnBg: '#3E2E0E', warnFg: '#F0C068', onWarn: '#1A1A1A',
+      goodBg: '#16352A', goodFg: '#7FD4A6', badFg: '#F08C8C',
+      mapBg: '#1B211D', mapGrid: '#263029', mapRoad: '#2E2D2A'
+    };
+    return {
+      accent,
+      dark,
+      light: !dark,
+      darkStr: dark ? 'true' : 'false',
+      c: dark ? darkC : light,
+      toggleTheme: () => this.setState({ dark: !dark })
+    };
+  }
+}
+</script>
+</body>
+</html>

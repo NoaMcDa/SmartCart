@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>בניית רשימה · דסקטופ</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:{{c.accentFg}}}a:hover{color:#174868}
+</style>
+</helmet>
+<div dir="rtl" style="min-height: 100vh; box-sizing: border-box; font-family: 'Heebo', sans-serif; color: {{c.text}}; background: {{c.bg}}; display: flex; flex-direction: column">
+
+  <header style="background: {{c.surface}}; border-bottom: 1px solid {{c.border}}">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; min-height: 64px">
+      <a href="DesktopList.dc.html" style="display: inline-flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; color: {{c.text}}; text-decoration: none">
+        <span style="width: 32px; height: 32px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.5 11h11L21 7H7"></path><circle cx="9" cy="20" r="1.5"></circle><circle cx="17" cy="20" r="1.5"></circle></svg>
+        </span>
+        SmartCart
+      </a>
+      <nav aria-label="ניווט ראשי" style="display: flex; gap: 4px; flex-wrap: wrap">
+        <a href="DesktopList.dc.html" aria-current="page" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; font-weight: 700; color: {{c.accentFg}}; background: {{c.accentSoft}}; text-decoration: none">רשימות</a>
+        <a href="DesktopResults.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; font-weight: 500; color: {{c.muted}}; text-decoration: none">השוואה</a>
+        <button type="button" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border: 0; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 500; color: {{c.muted}}; background: transparent; cursor: pointer">התראות</button>
+        <button type="button" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border: 0; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 500; color: {{c.muted}}; background: transparent; cursor: pointer">היסטוריה</button>
+      </nav>
+      <div style="display: flex; align-items: center; gap: 10px">
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: {{c.muted}}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+          מודיעין · 5 ק"מ
+        </span>
+        <button type="button" role="switch" aria-checked="{{darkStr}}" aria-label="מצב כהה" onClick="{{toggleTheme}}" style="width: 40px; height: 40px; flex-shrink: 0; border: 1.5px solid {{c.border}}; background: {{c.surface}}; color: {{c.muted}}; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 999px"><sc-if value="{{light}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg></sc-if><sc-if value="{{dark}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if></button>
+        <button type="button" aria-label="פרופיל" style="width: 40px; height: 40px; border: 1.5px solid {{c.border}}; border-radius: 999px; background: {{c.surface}}; color: {{c.muted}}; display: inline-flex; align-items: center; justify-content: center; cursor: pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main style="max-width: 1200px; width: 100%; margin: 0 auto; padding: 28px 24px 48px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+    <section style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <h1 style="margin: 0; font-size: 28px; font-weight: 700">הקנייה השבועית</h1>
+          <div style="font-size: 13.5px; color: {{c.muted}}">9 פריטים · מחירים עודכנו היום 06:40</div>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 13.5px; font-weight: 600; color: {{c.text}}; cursor: pointer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 4V2h6v2"></path><path d="M9 11h6M9 15h6"></path></svg>
+            הדבקת רשימה
+          </button>
+          <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border: 1.5px solid {{c.border}}; border-radius: 10px; background: {{c.surface}}; font: inherit; font-size: 13.5px; font-weight: 600; color: {{c.text}}; cursor: pointer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
+            מהשבוע שעבר
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 6px; background: {{c.surface}}; border: 1.5px solid {{c.border}}; border-radius: 14px; padding: 6px 8px 6px 16px">
+        <label for="add-items" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">הוסיפי פריטים לרשימה</label>
+        <input id="add-items" type="text" placeholder="חלב, 2 רסק עגבניות, סלמון… אפשר גם להדביק רשימה שלמה" style="flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 16px; background: transparent; color: {{c.text}}; padding: 10px 0">
+        <button type="button" aria-label="הכתבה קולית" style="width: 44px; height: 44px; border: 0; background: transparent; color: {{c.accentFg}}; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 10px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg>
+        </button>
+        <button type="button" style="height: 40px; padding: 0 18px; border: 0; border-radius: 10px; background: {{accent}}; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer">הוסיפי</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 16px">
+
+        <div style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 16px; overflow: hidden">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; background: {{c.subtle}}; border-bottom: 1px solid {{c.divider}}; font-size: 13px; font-weight: 700; color: {{c.muted}}">
+            <span>מוצרי חלב</span><span style="font-weight: 500">3 פריטים</span>
+          </div>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 140px 44px; gap: 12px; align-items: center; padding: 12px 18px; border-bottom: 1px solid {{c.divider}}">
+            <div style="font-size: 15px; font-weight: 600">חלב טרי 3%, 1 ליטר</div>
+            <button type="button" aria-label="רמת גמישות: כל מותג" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 600; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: {{c.brandBg}}; color: {{c.brandFg}}; cursor: pointer; justify-self: start">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-9-9V3h8z"></path><circle cx="7.5" cy="7.5" r="1.5"></circle></svg>
+              כל מותג
+            </button>
+            <div style="display: flex; align-items: center; background: {{c.subtle}}; border-radius: 10px; justify-self: start">
+              <button type="button" aria-label="הפחיתי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+              <span dir="ltr" style="min-width: 24px; text-align: center; font-weight: 700">2</span>
+              <button type="button" aria-label="הוסיפי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+            </div>
+            <button type="button" aria-label="הסרת פריט" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.faint}}; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+          </div>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 140px 44px; gap: 12px; align-items: center; padding: 12px 18px; border-bottom: 1px solid {{c.divider}}">
+            <div style="font-size: 15px; font-weight: 600">קוטג' 5%, 250 ג'</div>
+            <button type="button" aria-label="רמת גמישות: מוצר מדויק" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 600; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: {{c.exactBg}}; color: {{c.exactFg}}; cursor: pointer; justify-self: start">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+              מוצר מדויק
+            </button>
+            <div style="display: flex; align-items: center; background: {{c.subtle}}; border-radius: 10px; justify-self: start">
+              <button type="button" aria-label="הפחיתי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+              <span dir="ltr" style="min-width: 24px; text-align: center; font-weight: 700">1</span>
+              <button type="button" aria-label="הוסיפי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+            </div>
+            <button type="button" aria-label="הסרת פריט" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.faint}}; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+          </div>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 140px 44px; gap: 12px; align-items: center; padding: 12px 18px">
+            <div style="font-size: 15px; font-weight: 600">משקה סויה ללא סוכר, 1 ליטר</div>
+            <button type="button" aria-label="רמת גמישות: תחליף קרוב" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 600; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: {{c.warnBg}}; color: {{c.warnFg}}; cursor: pointer; justify-self: start">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
+              תחליף קרוב
+            </button>
+            <div style="display: flex; align-items: center; background: {{c.subtle}}; border-radius: 10px; justify-self: start">
+              <button type="button" aria-label="הפחיתי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+              <span dir="ltr" style="min-width: 24px; text-align: center; font-weight: 700">1</span>
+              <button type="button" aria-label="הוסיפי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+            </div>
+            <button type="button" aria-label="הסרת פריט" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.faint}}; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+          </div>
+        </div>
+
+        <div style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 16px; overflow: hidden">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; background: {{c.subtle}}; border-bottom: 1px solid {{c.divider}}; font-size: 13px; font-weight: 700; color: {{c.muted}}">
+            <span>מזווה</span><span style="font-weight: 500">3 פריטים</span>
+          </div>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 140px 44px; gap: 12px; align-items: center; padding: 12px 18px; border-bottom: 1px solid {{c.divider}}">
+            <div style="font-size: 15px; font-weight: 600">רסק עגבניות, 260 ג'</div>
+            <button type="button" aria-label="רמת גמישות: כל מותג" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 600; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: {{c.brandBg}}; color: {{c.brandFg}}; cursor: pointer; justify-self: start">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-9-9V3h8z"></path><circle cx="7.5" cy="7.5" r="1.5"></circle></svg>
+              כל מותג
+            </button>
+            <div style="display: flex; align-items: center; background: {{c.subtle}}; border-radius: 10px; justify-self: start">
+              <button type="button" aria-label="הפחיתי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+              <span dir="ltr" style="min-width: 24px; text-align: center; font-weight: 700">2</span>
+              <button type="button" aria-label="הוסיפי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+            </div>
+            <button type="button" aria-label="הסרת פריט" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.faint}}; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px 18px; border-bottom: 1px solid {{c.divider}}">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 140px 44px; gap: 12px; align-items: center">
+              <div style="font-size: 15px; font-weight: 600">שמן זית כתית מעולה, 750 מ"ל</div>
+              <button type="button" aria-label="רמת גמישות: מוצר מדויק" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 600; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: {{c.exactBg}}; color: {{c.exactFg}}; cursor: pointer; justify-self: start">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                מוצר מדויק
+              </button>
+              <div style="display: flex; align-items: center; background: {{c.subtle}}; border-radius: 10px; justify-self: start">
+                <button type="button" aria-label="הפחיתי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+                <span dir="ltr" style="min-width: 24px; text-align: center; font-weight: 700">1</span>
+                <button type="button" aria-label="הוסיפי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+              </div>
+              <button type="button" aria-label="הסרת פריט" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.faint}}; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; background: {{c.warnBg}}; color: {{c.warnFg}}; border-radius: 10px; padding: 8px 12px; font-size: 13px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M12 9v4M12 17h.01"></path><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+              <span style="flex: 1">כתבת "שמן זית". התכוונת לכתית מעולה 750 מ"ל?</span>
+              <button type="button" style="font: inherit; font-size: 12.5px; font-weight: 700; height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: {{c.warnFg}}; color: {{c.onWarn}}; cursor: pointer">כן</button>
+              <button type="button" style="font: inherit; font-size: 12.5px; font-weight: 600; height: 32px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: {{c.warnFg}}; cursor: pointer">בחרי אחר</button>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 140px 44px; gap: 12px; align-items: center; padding: 12px 18px">
+            <div style="font-size: 15px; font-weight: 600">פסטה פנה, 500 ג'</div>
+            <button type="button" aria-label="רמת גמישות: כל מותג" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 600; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: {{c.brandBg}}; color: {{c.brandFg}}; cursor: pointer; justify-self: start">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-9-9V3h8z"></path><circle cx="7.5" cy="7.5" r="1.5"></circle></svg>
+              כל מותג
+            </button>
+            <div style="display: flex; align-items: center; background: {{c.subtle}}; border-radius: 10px; justify-self: start">
+              <button type="button" aria-label="הפחיתי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+              <span dir="ltr" style="min-width: 24px; text-align: center; font-weight: 700">3</span>
+              <button type="button" aria-label="הוסיפי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+            </div>
+            <button type="button" aria-label="הסרת פריט" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.faint}}; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+          </div>
+        </div>
+
+        <div style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 16px; overflow: hidden">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; background: {{c.subtle}}; border-bottom: 1px solid {{c.divider}}; font-size: 13px; font-weight: 700; color: {{c.muted}}">
+            <span>ירקות ופירות</span><span style="font-weight: 500">1 פריט</span>
+          </div>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 140px 44px; gap: 12px; align-items: center; padding: 12px 18px">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+              <span style="font-size: 15px; font-weight: 600">עגבניות, 1 ק"ג</span>
+              <span style="font-size: 11.5px; color: {{c.warnFg}}; background: {{c.warnBg}}; border-radius: 999px; padding: 4px 8px">מחיר משוער · שקיל</span>
+            </div>
+            <button type="button" aria-label="רמת גמישות: כל מותג" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 600; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: {{c.brandBg}}; color: {{c.brandFg}}; cursor: pointer; justify-self: start">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12l-8 8-9-9V3h8z"></path><circle cx="7.5" cy="7.5" r="1.5"></circle></svg>
+              כל מותג
+            </button>
+            <div style="display: flex; align-items: center; background: {{c.subtle}}; border-radius: 10px; justify-self: start">
+              <button type="button" aria-label="הפחיתי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path></svg></button>
+              <span dir="ltr" style="min-width: 24px; text-align: center; font-weight: 700">1</span>
+              <button type="button" aria-label="הוסיפי כמות" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.text}}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+            </div>
+            <button type="button" aria-label="הסרת פריט" style="width: 40px; height: 40px; border: 0; background: transparent; color: {{c.faint}}; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <aside style="flex: 1 1 300px; max-width: 360px; display: flex; flex-direction: column; gap: 16px">
+      <div style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <div style="font-size: 13px; color: {{c.muted}}">הערכת סל ב-6 סניפים עד 5 ק"מ</div>
+          <div style="font-size: 30px; font-weight: 700; line-height: 1.1"><span dir="ltr">₪412–₪468</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; border-top: 1px solid {{c.divider}}; padding-top: 12px">
+          <div style="display: flex; justify-content: space-between"><span style="color: {{c.muted}}">בסופר שלך, שופרסל דיל</span><span dir="ltr" style="font-weight: 600">₪446</span></div>
+          <div style="display: flex; justify-content: space-between"><span style="color: {{c.muted}}">הזול ביותר כרגע</span><span style="font-weight: 600; color: {{c.goodFg}}">רמי לוי · <span dir="ltr">₪389</span></span></div>
+          <div style="display: flex; justify-content: space-between"><span style="color: {{c.muted}}">פריטים לבדיקה</span><span style="font-weight: 600; color: {{c.warnFg}}">1</span></div>
+        </div>
+        <a href="DesktopResults.dc.html" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 12px; background: {{accent}}; color: #FFFFFF; font-weight: 700; font-size: 16px; text-decoration: none">
+          השווי עכשיו
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+        </a>
+      </div>
+
+      <div style="background: {{c.surface}}; border: 1px solid {{c.border}}; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+        <div style="font-size: 13.5px; font-weight: 700">גמישות ברשימה</div>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+          <div style="display: flex; align-items: center; justify-content: space-between">
+            <span style="display: inline-flex; align-items: center; gap: 6px; color: {{c.exactFg}}; font-weight: 600"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{c.exactFg}}"></span>מוצר מדויק</span><span>2</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between">
+            <span style="display: inline-flex; align-items: center; gap: 6px; color: {{c.brandFg}}; font-weight: 600"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{c.brandFg}}"></span>כל מותג</span><span>5</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between">
+            <span style="display: inline-flex; align-items: center; gap: 6px; color: {{c.warnFg}}; font-weight: 600"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{c.warnFg}}"></span>תחליף קרוב</span><span>2</span>
+          </div>
+        </div>
+        <p style="margin: 4px 0 0; font-size: 12.5px; color: {{c.muted}}; line-height: 1.5">ככל שיותר פריטים ב"כל מותג", החיסכון גדל. אפשר לשנות לכל פריט בנפרד.</p>
+      </div>
+    </aside>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#1F5F8B","options":["#1F5F8B","#0E5842","#7A4E00","#263D5C"]},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const dark = st.dark == null ? !!(this.props.dark) : st.dark;
+    const accent = this.props.accent ?? '#1F5F8B';
+    const light = {
+      bg: '#F6F5F2', surface: '#FFFFFF', subtle: '#F1EFEA', border: '#E3E0DA', divider: '#EEECE7', handle: '#D5D2CB',
+      text: '#1A1A1A', muted: '#5C5952', faint: '#8A867E',
+      accentFg: accent, accentSoft: '#EEF4F9',
+      brandBg: '#D9F0EA', brandFg: '#0E5842', exactBg: '#E6EBF2', exactFg: '#263D5C',
+      warnBg: '#FBEFD6', warnFg: '#7A4E00', onWarn: '#FFFFFF',
+      goodBg: '#E3F3EA', goodFg: '#1B6B45', badFg: '#A32D2D',
+      mapBg: '#EEF2EC', mapGrid: '#E2E7E0', mapRoad: '#E6E3DC'
+    };
+    const darkC = {
+      bg: '#141413', surface: '#1F1F1D', subtle: '#2A2927', border: '#33322F', divider: '#2A2927', handle: '#4A4844',
+      text: '#F2F1EC', muted: '#A8A49B', faint: '#7D7971',
+      accentFg: '#7FB3E3', accentSoft: '#1C2F3D',
+      brandBg: '#143D30', brandFg: '#7FD4B4', exactBg: '#22314A', exactFg: '#A9C1E6',
+      warnBg: '#3E2E0E', warnFg: '#F0C068', onWarn: '#1A1A1A',
+      goodBg: '#16352A', goodFg: '#7FD4A6', badFg: '#F08C8C',
+      mapBg: '#1B211D', mapGrid: '#263029', mapRoad: '#2E2D2A'
+    };
+    return {
+      accent,
+      dark,
+      light: !dark,
+      darkStr: dark ? 'true' : 'false',
+      c: dark ? darkC : light,
+      toggleTheme: () => this.setState({ dark: !dark })
+    };
+  }
+}
+</script>
+</body>
+</html>

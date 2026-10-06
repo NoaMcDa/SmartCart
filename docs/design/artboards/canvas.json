@@ -1,0 +1,21 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-06T14:05:00Z"},
+  "title": "SmartCart MVP Core Flow",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "בניית רשימה", "is_interactive": true},
+    "Flexibility.dc.html": {"x": 470, "y": 0, "w": 390, "h": 844, "title": "בחירת גמישות", "is_interactive": true},
+    "Results.dc.html": {"x": 940, "y": 0, "w": 390, "h": 844, "title": "תוצאות השוואה", "is_interactive": true},
+    "Substitution.dc.html": {"x": 1410, "y": 0, "w": 390, "h": 844, "title": "כרטיס החלפה", "is_interactive": true},
+    "DesktopList.dc.html": {"x": 0, "y": 1204, "w": 1280, "h": 900, "title": "בניית רשימה · דסקטופ", "expand": "fill", "is_interactive": true},
+    "DesktopResults.dc.html": {"x": 1360, "y": 1204, "w": 1280, "h": 900, "title": "תוצאות השוואה · דסקטופ", "expand": "fill", "is_interactive": true}
+  },
+  "order": ["Main.dc.html", "Flexibility.dc.html", "Results.dc.html", "Substitution.dc.html", "DesktopList.dc.html", "DesktopResults.dc.html"],
+  "notes": {
+    "t1": {"x": 0, "y": -260, "text": "SmartCart · זרימת הליבה · מובייל 390", "kind": "title1", "maxW": 1800},
+    "t2": {"x": 0, "y": 944, "text": "אותה זרימה · דסקטופ 1280", "kind": "title1", "maxW": 2640}
+  },
+  "designSystems": []
+}
