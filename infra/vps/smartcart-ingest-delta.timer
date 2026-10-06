@@ -1,0 +1,14 @@
+[Unit]
+Description=SmartCart ingestion: hourly delta poll (Israel time)
+
+[Timer]
+# Minute 20 keeps clear of the 06:00 and 08:30 full syncs. Update intervals per chain are the
+# ingest CLI's concern (issue #49); this timer only wakes the worker once an hour.
+OnCalendar=*-*-* *:20:00 Asia/Jerusalem
+RandomizedDelaySec=120
+# A missed tick is not replayed: the next hourly tick fetches everything that is new.
+Persistent=false
+Unit=smartcart-ingest-delta.service
+
+[Install]
+WantedBy=timers.target
