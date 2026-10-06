@@ -66,6 +66,12 @@ Handwritten list photo. Promo cycle prediction ("coffee promo returns roughly ev
 Personalization. Monthly budget and spend tracking. Recipe to list. Cart transfer to chain online
 stores. Arabic UI. Adaptation to the authority's new reporting schema.
 
+## Regulatory watch
+
+A proposed bill would raise the turnover threshold for price transparency and exempt more
+retailers (see decisions.md D13, risk section). Check Knesset proceedings quarterly, first on
+2027-01-05, and record the outcome in D13. If the bill advances, re-evaluate the chain list.
+
 ## Growth plan
 
 Publish a monthly basket index the press will quote (what Pricez does today). The Ater and Rigbi study
