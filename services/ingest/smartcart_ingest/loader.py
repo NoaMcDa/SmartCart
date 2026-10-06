@@ -3,8 +3,9 @@
 ``load(conn, parsed, adapter)`` writes, in this order and inside one ``conn.transaction()``:
 
 1. ``chains``: the adapter's chain (name, portal).
-2. ``stores``: the file's store records, with ``channel = 'online'`` when the adapter's
-   ``online_store_rule`` says so; location goes to ``stores.geog`` when that column exists (it
+2. ``stores``: the file's store records, with ``channel`` from ``smartcart_ingest.channel``
+   (source declaration, the adapter's ``online_store_rule``, then the shared heuristic);
+   location goes to ``stores.geog`` when that column exists (it
    needs PostGIS) and the record has lat/lon. A price or promo file that names a store the
    Stores file has not delivered yet gets a placeholder row (name = store code) that the next
    Stores file fills in.
@@ -43,6 +44,7 @@ from psycopg.types.json import Jsonb
 
 from smartcart_ingest import tracking
 from smartcart_ingest.adapters.base import ChainAdapter
+from smartcart_ingest.channel import tag_channel
 from smartcart_ingest.models import ParsedFile, PriceRecord, PromoRecord, StoreRecord
 
 log = structlog.get_logger("smartcart_ingest.loader")
@@ -163,9 +165,9 @@ def _jsonb(value: dict[str, Any]) -> Jsonb:
 
 
 def _channel(adapter: ChainAdapter, store: StoreRecord) -> str:
-    # The online-store identification workstream (#53) adds smartcart_ingest.channel; until it
-    # is on this branch the adapter's rule is applied directly.
-    return "online" if adapter.online_store_rule(store) else store.channel
+    """Channel per ``smartcart_ingest.channel`` (#53): declared by the source, else the chain's
+    ``online_store_rule``, else the shared keyword heuristic."""
+    return tag_channel(adapter, store).channel
 
 
 # --- the steps ---------------------------------------------------------------------------------

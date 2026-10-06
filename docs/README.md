@@ -11,6 +11,7 @@ discussions. Nothing has been built yet. Read in this order if you are new:
 6. [ux-design.md](ux-design.md): UX principles, navigation, screen specs, design tokens, dark mode.
 7. [research/](research/): the two original Hebrew research documents, kept verbatim.
 8. [design/artboards/](design/artboards/): source of the UI design canvas.
+9. [adapters.md](adapters.md), [ingestion.md](ingestion.md), [dashboard.md](dashboard.md), [dev-setup.md](dev-setup.md), [infra-provisioning.md](infra-provisioning.md): phase 0 engineering docs.
 
 ## Facts versus estimates
 

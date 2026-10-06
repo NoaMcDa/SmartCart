@@ -1,0 +1,85 @@
+{
+  "chain_id": "7290027600007",
+  "files": {
+    "Stores7290027600007-000-202610060201.gz": {
+      "kind": "stores",
+      "schema": "v1",
+      "counts": {
+        "stores": 5
+      },
+      "online": [
+        "90"
+      ],
+      "checks": {
+        "stores[0].store_code": "1",
+        "stores[0].name": "שופרסל שלי תל אביב - אבן גבירול",
+        "stores[0].city": "תל אביב",
+        "stores[0].lat": "32.0853",
+        "stores[2].lat": "None",
+        "stores[2].channel": "online"
+      }
+    },
+    "PriceFull7290027600007-001-202610060300.gz": {
+      "kind": "price_full",
+      "schema": "v1",
+      "counts": {
+        "items": 8,
+        "prices": 8
+      },
+      "checks": {
+        "prices[0].store_code": "1",
+        "prices[0].price": "7.12",
+        "prices[0].observed_at": "2026-10-05 22:01:00+03:00",
+        "items[0].barcode": "7290004131074",
+        "items[0].raw_name": "חלב תנובה 3% בקרטון 1 ליטר",
+        "items[3].is_weighed": "True",
+        "items[3].barcode": "None",
+        "items[3].unit": "קילוגרמים",
+        "prices[3].unit_of_measure": "קילו"
+      }
+    },
+    "PromoFull7290027600007-001-202610060300.gz": {
+      "kind": "promo_full",
+      "schema": "v1",
+      "counts": {
+        "promos": 4
+      },
+      "checks": {
+        "promos[0].club_only": "True",
+        "promos[0].club_name": "מועדון לקוחות",
+        "promos[0].reward_type": "bundle",
+        "promos[0].reward_value": "8.00",
+        "promos[0].min_qty": "2",
+        "promos[0].max_qty": "6",
+        "promos[1].reward_type": "buy_x_get_y",
+        "promos[1].reward_value": "1",
+        "promos[1].club_only": "False",
+        "promos[2].reward_type": "percent",
+        "promos[2].item_codes": "['7290011194246', '7290107932158']",
+        "promos[3].reward_type": "price",
+        "promos[3].hours": "07:00-12:00",
+        "promos[3].starts_at": "2026-10-01 07:00:00+03:00"
+      }
+    },
+    "PriceFull7290027600007-001-202610070300.gz": {
+      "kind": "price_full",
+      "schema": "v2",
+      "counts": {
+        "items": 3,
+        "prices": 3
+      },
+      "checks": {
+        "prices[0].price": "7.12",
+        "items[0].raw_name": "חלב תנובה 3% בקרטון 1 ליטר"
+      }
+    },
+    "PriceFull7290027600007-001-202610080300.gz": {
+      "kind": "price_full",
+      "error": "UnknownSchemaError"
+    },
+    "PriceFull7290027600007-001-202610090300.gz": {
+      "kind": "price_full",
+      "error": "AdapterError"
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "chain_id": "7290873255550",
+  "files": {
+    "Stores7290873255550-000-202610060100.gz": {
+      "kind": "stores",
+      "schema": "v1",
+      "counts": {
+        "stores": 3
+      },
+      "online": [
+        "80"
+      ],
+      "checks": {
+        "stores[1].name": "טיב טעם חיפה",
+        "stores[1].lat": "32.8"
+      }
+    },
+    "PriceFull7290873255550-002-202610060300.gz": {
+      "kind": "price_full",
+      "schema": "v1",
+      "counts": {
+        "items": 8,
+        "prices": 8
+      },
+      "checks": {
+        "prices[0].store_code": "2",
+        "prices[0].price": "8.12",
+        "items[6].raw_name": "בננה במשקל"
+      }
+    },
+    "PromoFull7290873255550-002-202610060300.gz": {
+      "kind": "promo_full",
+      "schema": "v1",
+      "counts": {
+        "promos": 4
+      },
+      "checks": {
+        "promos[3].hours": "07:00-12:00"
+      }
+    }
+  }
+}

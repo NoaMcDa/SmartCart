@@ -149,11 +149,25 @@ def _archive(store: RawStore, key: str, data: bytes, sha: str) -> str:
     return key
 
 
+def _filename_info(name: str, adapter: ChainAdapter) -> tuple[str | None, datetime | None]:
+    """Store code and publication time from the adapter's own filename parser when it has one
+    (``RegulationAdapter.parse_filename``), else from the generic :func:`parse_filename`."""
+    hook = getattr(adapter, "parse_filename", None)
+    if callable(hook):
+        try:
+            info = hook(name)
+        except Exception:  # fall back to the generic parser for odd names
+            info = None
+        if info is not None and hasattr(info, "store_code"):
+            return info.store_code, getattr(info, "published_at", None)
+    return parse_filename(name)
+
+
 def describe(remote: RemoteFile, adapter: ChainAdapter, sha: str, now: datetime) -> RawFile:
     """Build the RawFile for a fetched file: kind from the adapter, store and time from the
     listing or the filename. The path is the raw store key."""
     kind = remote.kind or adapter.detect_kind(remote.name)
-    name_store, name_ts = parse_filename(remote.name)
+    name_store, name_ts = _filename_info(remote.name, adapter)
     published = remote.published_at or name_ts or now
     if published.tzinfo is None:
         published = published.replace(tzinfo=ISRAEL)
@@ -265,10 +279,9 @@ def quiet_upstream_loggers(level: int = logging.INFO) -> None:
 def load_upstream() -> tuple[Any, Any]:
     """``(ScraperFactory, DiskFileOutput)`` from il_supermarket_scarper, imported safely."""
     quiet_upstream_loggers()
-    from il_supermarket_scarper import ScraperFactory
-    from il_supermarket_scarper.utils.files.file_output import DiskFileOutput
+    from smartcart_ingest.adapters._scraper import scraper_api
 
-    return ScraperFactory, DiskFileOutput
+    return scraper_api()
 
 
 # D13 chain id -> ScraperFactory member name in il_supermarket_scarper 1.0.15.
@@ -295,7 +308,7 @@ _UPSTREAM_TYPES: dict[str, str] = {
 
 
 class ScraperFetcher:
-    """Lists and fetches files through ``il_supermarket_scarper``.
+    """Lists and fetches files through ``il_supermarket_scarper`` (via ``adapters._scraper``).
 
     Upstream couples listing and downloading (its ``scrape()`` downloads every listed file), so
     ``list_files`` runs a scrape into a fresh staging directory with gzip extraction off and
@@ -317,6 +330,12 @@ class ScraperFetcher:
         self._staging: list[Path] = []
 
     def _scraper_name(self, chain_id: str) -> str:
+        """The adapter's ``upstream_scraper`` when it declares one, else the D13 table."""
+        from smartcart_ingest.adapters.base import REGISTRY
+
+        declared = getattr(REGISTRY.get(chain_id), "upstream_scraper", None)
+        if isinstance(declared, str) and declared:
+            return declared
         try:
             return self.scrapers[chain_id]
         except KeyError as exc:

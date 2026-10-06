@@ -50,6 +50,10 @@ class StoreRecord(_Frozen):
     lat: float | None = None
     lon: float | None = None
     channel: Channel = "physical"
+    store_type: str | None = None
+    """Raw StoreType from the Stores file, when the chain publishes one."""
+    sub_chain_name: str | None = None
+    """Raw SubChainName from the Stores file, when the chain publishes one."""
 
 
 class ItemRecord(_Frozen):

@@ -3,16 +3,17 @@ name = "smartcart"
 version = "0.0.0"
 description = "SmartCart monorepo root (uv workspace)"
 requires-python = ">=3.12"
-dependencies = ["smartcart-ingest"]
+dependencies = ["smartcart-ingest", "smartcart-dashboard"]
 
 [tool.uv.workspace]
-members = ["services/ingest"]
+members = ["services/ingest", "services/dashboard"]
 
 [tool.uv]
 package = false
 
 [tool.uv.sources]
 smartcart-ingest = { workspace = true }
+smartcart-dashboard = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -31,7 +32,7 @@ select = ["E", "F", "I", "B", "UP", "W"]
 ignore = ["E501"]
 
 [tool.pytest.ini_options]
-testpaths = ["services/ingest/tests"]
+testpaths = ["services/ingest/tests", "services/dashboard/tests"]
 addopts = "-ra"
 markers = [
   "postgis: needs the postgis extension (run in CI against supabase/postgres)",

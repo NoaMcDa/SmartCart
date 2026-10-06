@@ -100,9 +100,10 @@ Main chains (D13 chains 1 to 6) and their default delta interval:
   published, its deltas stay held, visible in `status`.
 - **Order inside a run.** Listing order from a portal is arbitrary, so files are processed as
   Stores, PriceFull, PromoFull, Price, Promo, each group by publication time.
-- **Store codes in tracking** come from the filename (`PriceFull<chain>-<store>-<yyyymmddhhmm>`)
-  with leading zeros stripped, so a full and its deltas compare the same way. The fetcher may
-  supply the store code and publication time instead.
+- **Store codes in tracking** come from the adapter's `parse_filename` when it has one (the
+  regulation adapters do), else from a generic parser of `PriceFull<chain>-<store>-<yyyymmddhhmm>`,
+  with leading zeros stripped either way, so a full and its deltas compare the same way. The
+  fetcher may supply the store code and publication time instead.
 
 ## Raw archive
 
@@ -114,8 +115,9 @@ republishes different content under the same filename on the same day, it goes t
 
 ## Loader (one transaction per file)
 
-In order, inside one transaction: chains, stores (channel from the adapter's
-`online_store_rule`; `geog` from lat/lon when the column exists), items, `ensure_price_partition`
+In order, inside one transaction: chains, stores (channel from `smartcart_ingest.channel.tag_channel`:
+source declaration, the adapter's `online_store_rule`, then the shared heuristic; `geog` from
+lat/lon when the column exists), items, `ensure_price_partition`
 for every month of the price events, price events, promos and promo items, and the `loaded` status
 with the record count. Any error rolls all of it back and sets the file `failed` with the reason.
 
@@ -228,7 +230,11 @@ the next tick starts again.
 
 ## The upstream scraper
 
-`download.ScraperFetcher` is the only place that imports `il_supermarket_scarper` (1.0.15). Upstream
+`download.ScraperFetcher` lists and fetches through `il_supermarket_scarper` (1.0.15). Per the
+adapter contract the import itself lives in `adapters/_scraper.py`, and `download.load_upstream()`
+installs stderr handlers on the upstream loggers first (upstream otherwise opens `logging.log` in
+the working directory, which is read-only on the VPS). The scraper name comes from the adapter's
+`upstream_scraper` when it declares one, else from the D13 table in `download.py`. Upstream
 couples listing and downloading, so `list_files` runs a scrape for the requested file types and
 day into a fresh staging directory (gzip extraction off, so the archive holds the portal's bytes)
 and `fetch` reads and deletes the staged file. A scrape that saved nothing but reported download
@@ -243,5 +249,6 @@ down may look like an empty listing; the run logs `portal listed no files` in th
 - Chain base prices and per-store exceptions (needs a model change, see Loader).
 - Ending promos that disappear from the day's PromoFull (they keep their `ends_at`).
 - Held deltas never expire; a day whose full file never loads keeps its deltas held.
-- A quality-gate test per real chain adapter (#42 acceptance) lands with the adapters: run one real
-  fixture per chain through `quality.check`.
+- `tests/test_quality_adapters.py` runs every registered chain adapter's fixtures through the
+  whole pipeline (gates included) and checks the gates catch a zero price, a price jump and a stale
+  date on that chain's PriceFull. The fixtures are synthetic until the VPS fetches real ones.
