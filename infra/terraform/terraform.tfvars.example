@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars (keep it out of git) and fill in non-secret choices only.
+# Secrets go in TF_VAR_* environment variables, see .env.example.
+
+supabase_organization_id = ""
+supabase_project_name    = "smartcart"
+supabase_region          = "eu-central-1"
+
+cloudflare_account_id = ""
+r2_bucket_name        = "smartcart-raw-archive"
+r2_location           = "eeur"
+
+vps_name               = "smartcart-ingest"
+vps_datacenter_country = "Israel"
+vps_cpu_cores          = 2
+vps_ram_mb             = 4096
+vps_disk_gb            = 40

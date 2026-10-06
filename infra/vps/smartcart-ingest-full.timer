@@ -1,0 +1,16 @@
+[Unit]
+Description=SmartCart ingestion: daily full sync, twice a morning (Israel time)
+
+[Timer]
+# 06:00 for the chains that publish early. 08:30 is a second pass because the laibcatalog listing
+# (Victory, Machsanei Hashuk) is empty between midnight and about 08:00 Israel time (D13). The
+# second pass is cheap: downloads are idempotent by file hash, so unchanged files are skipped.
+OnCalendar=*-*-* 06:00:00 Asia/Jerusalem
+OnCalendar=*-*-* 08:30:00 Asia/Jerusalem
+RandomizedDelaySec=300
+# Run a missed full sync after a reboot or an outage.
+Persistent=true
+Unit=smartcart-ingest-full.service
+
+[Install]
+WantedBy=timers.target
