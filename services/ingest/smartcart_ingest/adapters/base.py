@@ -36,6 +36,8 @@ class ChainAdapter(ABC):
     chain_id: ClassVar[str]
     display_name: ClassVar[str]
     portal: ClassVar[Portal]
+    aliases: ClassVar[tuple[str, ...]] = ()
+    """Other chain ids this adapter serves (a chain that publishes under two ids)."""
 
     @abstractmethod
     def detect_kind(self, filename: str) -> FileKind:
@@ -43,7 +45,12 @@ class ChainAdapter(ABC):
 
     @abstractmethod
     def detect_schema(self, xml_root: Any) -> SchemaVersion:
-        """Inspect the parsed XML root and return v1, v2 or unknown."""
+        """Return v1, v2 or unknown for this file.
+
+        The caller may pass a partially built root (the header plus the first row) when it
+        streams large files, so only inspect the root element, its attributes and header
+        children; never rely on the full row set being present.
+        """
 
     @abstractmethod
     def parse(self, raw: RawFile, data: bytes) -> ParsedFile:
@@ -63,9 +70,11 @@ REGISTRY: dict[str, type[ChainAdapter]] = {}
 
 def register(cls: type[ChainAdapter]) -> type[ChainAdapter]:
     """Class decorator: registers an adapter under its chain_id."""
-    if cls.chain_id in REGISTRY:
-        raise ValueError(f"adapter already registered for {cls.chain_id}")
-    REGISTRY[cls.chain_id] = cls
+    for cid in (cls.chain_id, *cls.aliases):
+        if cid in REGISTRY:
+            raise ValueError(f"adapter already registered for {cid}")
+    for cid in (cls.chain_id, *cls.aliases):
+        REGISTRY[cid] = cls
     return cls
 
 

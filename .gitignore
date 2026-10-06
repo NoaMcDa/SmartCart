@@ -23,3 +23,6 @@ uv.lock
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# upstream il_supermarket_* writes a log file on import
+logging.log

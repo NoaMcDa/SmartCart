@@ -66,3 +66,27 @@ def test_registry_round_trip() -> None:
             get_adapter("nope")
     finally:
         REGISTRY.pop("fake-test", None)
+
+
+def test_registry_aliases() -> None:
+    @register
+    class _Twin(ChainAdapter):
+        chain_id = "twin-main"
+        display_name = "Twin"
+        portal = "other"
+        aliases = ("twin-alt",)
+
+        def detect_kind(self, filename: str):
+            return "price_full"
+
+        def detect_schema(self, xml_root):
+            return "v1"
+
+        def parse(self, raw, data):
+            return ParsedFile(raw=raw)
+
+    try:
+        assert type(get_adapter("twin-alt")) is type(get_adapter("twin-main"))
+    finally:
+        REGISTRY.pop("twin-main", None)
+        REGISTRY.pop("twin-alt", None)
