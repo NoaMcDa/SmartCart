@@ -1,0 +1,43 @@
+{
+  "chain_id": "7290803800003",
+  "files": {
+    "Stores7290803800003-202610060100.xml": {
+      "kind": "stores",
+      "schema": "v1",
+      "counts": {
+        "stores": 3
+      },
+      "online": [
+        "100"
+      ],
+      "checks": {
+        "stores[0].name": "יוחננוף רחובות",
+        "stores[2].channel": "online"
+      }
+    },
+    "PriceFull7290803800003-005-202610060300.gz": {
+      "kind": "price_full",
+      "schema": "v1",
+      "counts": {
+        "items": 8,
+        "prices": 8
+      },
+      "checks": {
+        "prices[0].store_code": "5",
+        "prices[0].price": "7.22",
+        "items[7].manufacturer": "עלית"
+      }
+    },
+    "PromoFull7290803800003-005-202610060300.gz": {
+      "kind": "promo_full",
+      "schema": "v1",
+      "counts": {
+        "promos": 4
+      },
+      "checks": {
+        "promos[2].reward_value": "20",
+        "promos[2].reward_type": "percent"
+      }
+    }
+  }
+}
