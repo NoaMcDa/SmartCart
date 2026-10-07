@@ -1,17 +1,16 @@
 """Shared pieces of the extractors (issue #25).
 
 An extractor turns ``NormalizedItem`` rows into ``Attributes`` (or ``ExtractionError``), one
-output per input, in input order (the ``Extractor`` protocol in models.py). ``NormalizedItem``
-carries no chain or manufacturer, which the private-label check and the model prompt need, so
-extractors here also accept ``context``: a mapping from item id to ``ItemContext``. The queue
-passes it; callers without it still get a result.
+output per input, in input order (the ``Extractor`` protocol in models.py). The chain, the
+manufacturer, the barcode and the raw name, which the private-label check and the model prompt
+need, travel on the ``NormalizedItem`` itself (issue #92): ``normalize`` copies them from the
+``items`` row.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Iterable
 from decimal import Decimal
 from typing import Any
 
@@ -19,19 +18,6 @@ from smartcart_catalog.models import Attributes, ExtractionError
 
 HUMAN = "human"
 
-
-@dataclass(frozen=True)
-class ItemContext:
-    """What the queue knows about an item beyond its normalized form."""
-
-    chain_id: str | None = None
-    chain_name: str | None = None
-    manufacturer: str | None = None
-    raw_name: str | None = None
-    barcode: str | None = None
-
-
-ContextMap = Mapping[int, ItemContext]
 Result = Attributes | ExtractionError
 
 

@@ -240,25 +240,29 @@ product_type_rules:
   - pack_size
   - brand
 - product_type: soy_drink
-  critical_keys: []
+  critical_keys:
+  - base
   soft_keys:
   - pack_size
   - flavor
   - brand
 - product_type: almond_drink
-  critical_keys: []
+  critical_keys:
+  - base
   soft_keys:
   - pack_size
   - flavor
   - brand
 - product_type: oat_drink
-  critical_keys: []
+  critical_keys:
+  - base
   soft_keys:
   - pack_size
   - flavor
   - brand
 - product_type: rice_drink
-  critical_keys: []
+  critical_keys:
+  - base
   soft_keys:
   - pack_size
   - flavor
@@ -430,8 +434,8 @@ canonicals:
   soft_attrs:
     pack_size: 1
     unit: l
-    barcodes:
-    - '7290000000000'
+  reference_barcodes:
+  - '7290000000000'
 - slug: milk-1pct-1l
   taxonomy_id: dairy.milk
   display_name_he: חלב טרי 1% שומן, 1 ליטר
@@ -443,8 +447,8 @@ canonicals:
   soft_attrs:
     pack_size: 1
     unit: l
-    barcodes:
-    - '7290000000010'
+  reference_barcodes:
+  - '7290000000010'
 - slug: cottage-5pct-250g
   taxonomy_id: dairy.cottage
   display_name_he: קוטג' 5%, 250 גרם
@@ -455,8 +459,8 @@ canonicals:
   soft_attrs:
     pack_size: 250
     unit: g
-    barcodes:
-    - '7290000000020'
+  reference_barcodes:
+  - '7290000000020'
 - slug: cottage-5pct-500g
   taxonomy_id: dairy.cottage
   display_name_he: קוטג' 5%, 500 גרם
@@ -467,8 +471,8 @@ canonicals:
   soft_attrs:
     pack_size: 500
     unit: g
-    barcodes:
-    - '7290000000030'
+  reference_barcodes:
+  - '7290000000030'
 - slug: cottage-3pct-250g
   taxonomy_id: dairy.cottage
   display_name_he: קוטג' 3%, 250 גרם
@@ -479,8 +483,8 @@ canonicals:
   soft_attrs:
     pack_size: 250
     unit: g
-    barcodes:
-    - '7290000000040'
+  reference_barcodes:
+  - '7290000000040'
 - slug: white-cheese-5pct-250g
   taxonomy_id: dairy.white_cheese
   display_name_he: גבינה לבנה 5%, 250 גרם
@@ -491,8 +495,8 @@ canonicals:
   soft_attrs:
     pack_size: 250
     unit: g
-    barcodes:
-    - '7290000000050'
+  reference_barcodes:
+  - '7290000000050'
 - slug: white-cheese-9pct-250g
   taxonomy_id: dairy.white_cheese
   display_name_he: גבינה לבנה 9%, 250 גרם
@@ -503,8 +507,8 @@ canonicals:
   soft_attrs:
     pack_size: 250
     unit: g
-    barcodes:
-    - '7290000000060'
+  reference_barcodes:
+  - '7290000000060'
 - slug: yellow-cheese-28pct-200g
   taxonomy_id: dairy.yellow_cheese
   display_name_he: גבינה צהובה פרוסה 28%, 200 גרם
@@ -515,8 +519,8 @@ canonicals:
   soft_attrs:
     pack_size: 200
     unit: g
-    barcodes:
-    - '7290000000070'
+  reference_barcodes:
+  - '7290000000070'
 - slug: yellow-cheese-9pct-200g
   taxonomy_id: dairy.yellow_cheese
   display_name_he: גבינה צהובה פרוסה 9%, 200 גרם
@@ -527,8 +531,8 @@ canonicals:
   soft_attrs:
     pack_size: 200
     unit: g
-    barcodes:
-    - '7290000000080'
+  reference_barcodes:
+  - '7290000000080'
 - slug: yogurt-3pct-200g
   taxonomy_id: dairy.yogurt
   display_name_he: יוגורט טבעי 3%, 200 גרם
@@ -540,8 +544,8 @@ canonicals:
     pack_size: 200
     unit: g
     flavor: natural
-    barcodes:
-    - '7290000000090'
+  reference_barcodes:
+  - '7290000000090'
 - slug: yogurt-1.5pct-200g
   taxonomy_id: dairy.yogurt
   display_name_he: יוגורט טבעי 1.5%, 200 גרם
@@ -553,8 +557,8 @@ canonicals:
     pack_size: 200
     unit: g
     flavor: natural
-    barcodes:
-    - '7290000000100'
+  reference_barcodes:
+  - '7290000000100'
 - slug: butter-200g
   taxonomy_id: dairy.butter_cream
   display_name_he: חמאה, 200 גרם
@@ -564,8 +568,8 @@ canonicals:
   soft_attrs:
     pack_size: 200
     unit: g
-    barcodes:
-    - '7290000000110'
+  reference_barcodes:
+  - '7290000000110'
 - slug: sweet-cream-38pct-250ml
   taxonomy_id: dairy.butter_cream
   display_name_he: שמנת מתוקה 38%, 250 מ"ל
@@ -576,8 +580,8 @@ canonicals:
   soft_attrs:
     pack_size: 250
     unit: ml
-    barcodes:
-    - '7290000000120'
+  reference_barcodes:
+  - '7290000000120'
 - slug: sour-cream-15pct-200g
   taxonomy_id: dairy.butter_cream
   display_name_he: שמנת חמוצה 15%, 200 גרם
@@ -588,8 +592,8 @@ canonicals:
   soft_attrs:
     pack_size: 200
     unit: g
-    barcodes:
-    - '7290000000130'
+  reference_barcodes:
+  - '7290000000130'
 - slug: eggs-l-12
   taxonomy_id: dairy.eggs
   display_name_he: ביצים L, 12 יחידות
@@ -599,44 +603,47 @@ canonicals:
   soft_attrs:
     pack_size: 12
     unit: unit
-    barcodes:
-    - '7290000000140'
+  reference_barcodes:
+  - '7290000000140'
 - slug: soy-drink-1l
   taxonomy_id: dairy.plant_drinks
   display_name_he: משקה סויה, 1 ליטר
   product_type: soy_drink
   base_unit: 100ml
-  critical_attrs: {}
+  critical_attrs:
+    base: soy
   soft_attrs:
     pack_size: 1
     unit: l
     flavor: natural
-    barcodes:
-    - '7290000000150'
+  reference_barcodes:
+  - '7290000000150'
 - slug: almond-drink-1l
   taxonomy_id: dairy.plant_drinks
   display_name_he: משקה שקדים, 1 ליטר
   product_type: almond_drink
   base_unit: 100ml
-  critical_attrs: {}
+  critical_attrs:
+    base: almond
   soft_attrs:
     pack_size: 1
     unit: l
     flavor: natural
-    barcodes:
-    - '7290000000160'
+  reference_barcodes:
+  - '7290000000160'
 - slug: oat-drink-1l
   taxonomy_id: dairy.plant_drinks
   display_name_he: משקה שיבולת שועל, 1 ליטר
   product_type: oat_drink
   base_unit: 100ml
-  critical_attrs: {}
+  critical_attrs:
+    base: oat
   soft_attrs:
     pack_size: 1
     unit: l
     flavor: natural
-    barcodes:
-    - '7290000000170'
+  reference_barcodes:
+  - '7290000000170'
 - slug: salmon-fillet-fresh
   taxonomy_id: meat_fish.fish
   display_name_he: פילה סלמון טרי
@@ -644,9 +651,9 @@ canonicals:
   base_unit: 100g
   critical_attrs:
     state: fresh
-  soft_attrs:
-    barcodes:
-    - '7290000000180'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000180'
 - slug: salmon-fillet-frozen
   taxonomy_id: meat_fish.fish
   display_name_he: פילה סלמון קפוא
@@ -654,9 +661,9 @@ canonicals:
   base_unit: 100g
   critical_attrs:
     state: frozen
-  soft_attrs:
-    barcodes:
-    - '7290000000190'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000190'
 - slug: tilapia-fillet-frozen
   taxonomy_id: meat_fish.fish
   display_name_he: פילה אמנון קפוא
@@ -664,9 +671,9 @@ canonicals:
   base_unit: 100g
   critical_attrs:
     state: frozen
-  soft_attrs:
-    barcodes:
-    - '7290000000200'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000200'
 - slug: chicken-breast-fresh
   taxonomy_id: meat_fish.poultry
   display_name_he: חזה עוף טרי
@@ -674,9 +681,9 @@ canonicals:
   base_unit: 100g
   critical_attrs:
     state: fresh
-  soft_attrs:
-    barcodes:
-    - '7290000000210'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000210'
 - slug: chicken-breast-frozen
   taxonomy_id: meat_fish.poultry
   display_name_he: חזה עוף קפוא
@@ -684,9 +691,9 @@ canonicals:
   base_unit: 100g
   critical_attrs:
     state: frozen
-  soft_attrs:
-    barcodes:
-    - '7290000000220'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000220'
 - slug: ground-beef-fresh-15pct
   taxonomy_id: meat_fish.beef
   display_name_he: בשר בקר טחון טרי 15%
@@ -695,9 +702,9 @@ canonicals:
   critical_attrs:
     state: fresh
     fat_pct: 15
-  soft_attrs:
-    barcodes:
-    - '7290000000230'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000230'
 - slug: ground-beef-frozen-15pct
   taxonomy_id: meat_fish.beef
   display_name_he: בשר בקר טחון קפוא 15%
@@ -706,63 +713,63 @@ canonicals:
   critical_attrs:
     state: frozen
     fat_pct: 15
-  soft_attrs:
-    barcodes:
-    - '7290000000240'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000240'
 - slug: tomato
   taxonomy_id: produce.vegetables
   display_name_he: עגבניה
   product_type: tomato
   base_unit: kg
   critical_attrs: {}
-  soft_attrs:
-    barcodes:
-    - '7290000000250'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000250'
 - slug: cherry-tomato
   taxonomy_id: produce.vegetables
   display_name_he: עגבניות שרי
   product_type: cherry_tomato
   base_unit: kg
   critical_attrs: {}
-  soft_attrs:
-    barcodes:
-    - '7290000000260'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000260'
 - slug: cucumber
   taxonomy_id: produce.vegetables
   display_name_he: מלפפון
   product_type: cucumber
   base_unit: kg
   critical_attrs: {}
-  soft_attrs:
-    barcodes:
-    - '7290000000270'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000270'
 - slug: potato
   taxonomy_id: produce.vegetables
   display_name_he: תפוח אדמה
   product_type: potato
   base_unit: kg
   critical_attrs: {}
-  soft_attrs:
-    barcodes:
-    - '7290000000280'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000280'
 - slug: onion
   taxonomy_id: produce.vegetables
   display_name_he: בצל יבש
   product_type: onion
   base_unit: kg
   critical_attrs: {}
-  soft_attrs:
-    barcodes:
-    - '7290000000290'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000290'
 - slug: banana
   taxonomy_id: produce.fruit
   display_name_he: בננה
   product_type: banana
   base_unit: kg
   critical_attrs: {}
-  soft_attrs:
-    barcodes:
-    - '7290000000300'
+  soft_attrs: {}
+  reference_barcodes:
+  - '7290000000300'
 - slug: bread-white-sliced-750g
   taxonomy_id: bakery.bread
   display_name_he: לחם לבן פרוס, 750 גרם
@@ -773,8 +780,8 @@ canonicals:
   soft_attrs:
     pack_size: 750
     unit: g
-    barcodes:
-    - '7290000000310'
+  reference_barcodes:
+  - '7290000000310'
 - slug: bread-whole-wheat-750g
   taxonomy_id: bakery.bread
   display_name_he: לחם מחיטה מלאה, 750 גרם
@@ -785,8 +792,8 @@ canonicals:
   soft_attrs:
     pack_size: 750
     unit: g
-    barcodes:
-    - '7290000000320'
+  reference_barcodes:
+  - '7290000000320'
 - slug: rice-basmati-1kg
   taxonomy_id: pantry.grains
   display_name_he: אורז בסמטי, 1 ק"ג
@@ -797,8 +804,8 @@ canonicals:
   soft_attrs:
     pack_size: 1
     unit: kg
-    barcodes:
-    - '7290000000330'
+  reference_barcodes:
+  - '7290000000330'
 - slug: rice-persian-1kg
   taxonomy_id: pantry.grains
   display_name_he: אורז פרסי, 1 ק"ג
@@ -809,8 +816,8 @@ canonicals:
   soft_attrs:
     pack_size: 1
     unit: kg
-    barcodes:
-    - '7290000000340'
+  reference_barcodes:
+  - '7290000000340'
 - slug: pasta-spaghetti-500g
   taxonomy_id: pantry.pasta
   display_name_he: ספגטי, 500 גרם
@@ -821,8 +828,8 @@ canonicals:
     pack_size: 500
     unit: g
     flavor: spaghetti
-    barcodes:
-    - '7290000000350'
+  reference_barcodes:
+  - '7290000000350'
 - slug: sugar-white-1kg
   taxonomy_id: pantry.baking
   display_name_he: סוכר לבן, 1 ק"ג
@@ -833,8 +840,8 @@ canonicals:
   soft_attrs:
     pack_size: 1
     unit: kg
-    barcodes:
-    - '7290000000360'
+  reference_barcodes:
+  - '7290000000360'
 - slug: sugar-brown-1kg
   taxonomy_id: pantry.baking
   display_name_he: סוכר חום, 1 ק"ג
@@ -845,8 +852,8 @@ canonicals:
   soft_attrs:
     pack_size: 1
     unit: kg
-    barcodes:
-    - '7290000000370'
+  reference_barcodes:
+  - '7290000000370'
 - slug: flour-white-1kg
   taxonomy_id: pantry.baking
   display_name_he: קמח לבן, 1 ק"ג
@@ -857,8 +864,8 @@ canonicals:
   soft_attrs:
     pack_size: 1
     unit: kg
-    barcodes:
-    - '7290000000380'
+  reference_barcodes:
+  - '7290000000380'
 - slug: flour-whole-1kg
   taxonomy_id: pantry.baking
   display_name_he: קמח מלא, 1 ק"ג
@@ -869,8 +876,8 @@ canonicals:
   soft_attrs:
     pack_size: 1
     unit: kg
-    barcodes:
-    - '7290000000390'
+  reference_barcodes:
+  - '7290000000390'
 - slug: olive-oil-750ml
   taxonomy_id: pantry.oil
   display_name_he: שמן זית כתית מעולה, 750 מ"ל
@@ -880,8 +887,8 @@ canonicals:
   soft_attrs:
     pack_size: 750
     unit: ml
-    barcodes:
-    - '7290000000400'
+  reference_barcodes:
+  - '7290000000400'
 - slug: canola-oil-1l
   taxonomy_id: pantry.oil
   display_name_he: שמן קנולה, 1 ליטר
@@ -891,8 +898,8 @@ canonicals:
   soft_attrs:
     pack_size: 1
     unit: l
-    barcodes:
-    - '7290000000410'
+  reference_barcodes:
+  - '7290000000410'
 - slug: tuna-in-oil-160g
   taxonomy_id: pantry.canned
   display_name_he: טונה בשמן, 160 גרם
@@ -903,8 +910,8 @@ canonicals:
   soft_attrs:
     pack_size: 160
     unit: g
-    barcodes:
-    - '7290000000420'
+  reference_barcodes:
+  - '7290000000420'
 - slug: tuna-in-water-160g
   taxonomy_id: pantry.canned
   display_name_he: טונה במים, 160 גרם
@@ -915,8 +922,8 @@ canonicals:
   soft_attrs:
     pack_size: 160
     unit: g
-    barcodes:
-    - '7290000000430'
+  reference_barcodes:
+  - '7290000000430'
 - slug: canned-corn-340g
   taxonomy_id: pantry.canned
   display_name_he: תירס מתוק בשימורים, 340 גרם
@@ -926,8 +933,8 @@ canonicals:
   soft_attrs:
     pack_size: 340
     unit: g
-    barcodes:
-    - '7290000000440'
+  reference_barcodes:
+  - '7290000000440'
 - slug: hummus-spread-400g
   taxonomy_id: pantry.spreads
   display_name_he: ממרח חומוס, 400 גרם
@@ -937,8 +944,8 @@ canonicals:
   soft_attrs:
     pack_size: 400
     unit: g
-    barcodes:
-    - '7290000000450'
+  reference_barcodes:
+  - '7290000000450'
 - slug: tahini-500g
   taxonomy_id: pantry.spreads
   display_name_he: טחינה גולמית, 500 גרם
@@ -948,8 +955,8 @@ canonicals:
   soft_attrs:
     pack_size: 500
     unit: g
-    barcodes:
-    - '7290000000460'
+  reference_barcodes:
+  - '7290000000460'
 - slug: instant-coffee-200g
   taxonomy_id: pantry.coffee
   display_name_he: קפה נמס, 200 גרם
@@ -959,8 +966,8 @@ canonicals:
   soft_attrs:
     pack_size: 200
     unit: g
-    barcodes:
-    - '7290000000470'
+  reference_barcodes:
+  - '7290000000470'
 - slug: turkish-coffee-200g
   taxonomy_id: pantry.coffee
   display_name_he: קפה טורקי, 200 גרם
@@ -970,8 +977,8 @@ canonicals:
   soft_attrs:
     pack_size: 200
     unit: g
-    barcodes:
-    - '7290000000480'
+  reference_barcodes:
+  - '7290000000480'
 - slug: peanut-snack-80g
   taxonomy_id: pantry.snacks
   display_name_he: חטיף בוטנים (במבה), 80 גרם
@@ -981,8 +988,8 @@ canonicals:
   soft_attrs:
     pack_size: 80
     unit: g
-    barcodes:
-    - '7290000000490'
+  reference_barcodes:
+  - '7290000000490'
 - slug: cola-1.5l
   taxonomy_id: beverages.soft
   display_name_he: משקה קולה, 1.5 ליטר
@@ -992,8 +999,8 @@ canonicals:
   soft_attrs:
     pack_size: 1.5
     unit: l
-    barcodes:
-    - '7290000000500'
+  reference_barcodes:
+  - '7290000000500'
 - slug: cola-zero-1.5l
   taxonomy_id: beverages.soft
   display_name_he: משקה קולה זירו, 1.5 ליטר
@@ -1003,8 +1010,8 @@ canonicals:
   soft_attrs:
     pack_size: 1.5
     unit: l
-    barcodes:
-    - '7290000000510'
+  reference_barcodes:
+  - '7290000000510'
 - slug: mineral-water-1.5l
   taxonomy_id: beverages.water
   display_name_he: מים מינרליים, 1.5 ליטר
@@ -1014,8 +1021,8 @@ canonicals:
   soft_attrs:
     pack_size: 1.5
     unit: l
-    barcodes:
-    - '7290000000520'
+  reference_barcodes:
+  - '7290000000520'
 - slug: orange-juice-1l
   taxonomy_id: beverages.juice
   display_name_he: מיץ תפוזים, 1 ליטר
@@ -1025,8 +1032,8 @@ canonicals:
   soft_attrs:
     pack_size: 1
     unit: l
-    barcodes:
-    - '7290000000530'
+  reference_barcodes:
+  - '7290000000530'
 - slug: toilet-paper-32
   taxonomy_id: household.paper
   display_name_he: נייר טואלט, 32 גלילים
@@ -1036,8 +1043,8 @@ canonicals:
   soft_attrs:
     pack_size: 32
     unit: unit
-    barcodes:
-    - '7290000000540'
+  reference_barcodes:
+  - '7290000000540'
 - slug: dish-soap-750ml
   taxonomy_id: household.cleaning
   display_name_he: סבון כלים, 750 מ"ל
@@ -1047,8 +1054,8 @@ canonicals:
   soft_attrs:
     pack_size: 750
     unit: ml
-    barcodes:
-    - '7290000000550'
+  reference_barcodes:
+  - '7290000000550'
 lexicon:
   product_types:
     milk:
@@ -1112,21 +1119,29 @@ lexicon:
       - משקה סויה
       - סויה
       taxonomy_id: dairy.plant_drinks
+      implied:
+        base: soy
     almond_drink:
       keywords:
       - משקה שקדים
       - שקדים
       taxonomy_id: dairy.plant_drinks
+      implied:
+        base: almond
     oat_drink:
       keywords:
       - משקה שיבולת שועל
       - שיבולת שועל
       - משקה שיבולת
       taxonomy_id: dairy.plant_drinks
+      implied:
+        base: oat
     rice_drink:
       keywords:
       - משקה אורז
       taxonomy_id: dairy.plant_drinks
+      implied:
+        base: rice
     salmon:
       keywords:
       - סלמון

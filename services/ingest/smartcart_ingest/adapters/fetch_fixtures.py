@@ -7,6 +7,11 @@ normally the Israeli-IP ingestion VPS:
     uv run python -m smartcart_ingest.adapters.fetch_fixtures            # every chain
     uv run python -m smartcart_ingest.adapters.fetch_fixtures shufersal ramilevy
     uv run python -m smartcart_ingest.adapters.fetch_fixtures --list     # plan only, no network
+    uv run python -m smartcart_ingest.adapters.fetch_fixtures machsanei_hashuk king_store
+
+Every registered chain is fetched through its adapter's ``upstream_scraper``. The laibcatalog
+chains (victory, machsanei_hashuk) list no files overnight until about 08:00 Israel time, and
+machsanei_hashuk none on Saturdays either, so run it later in the day.
 
 Files land in ``services/ingest/tests/fixtures/real/<slug>/`` under their portal filename, raw
 (still gzip/zip, never re-encoded), next to a ``manifest.json`` with sha256, size and the parse
@@ -130,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     steps = plan(args.chains or None)
     if args.list:
         for slug, scraper, kind in steps:
-            print(f"{slug:10} {scraper:28} {kind}")
+            print(f"{slug:16} {scraper:28} {kind}")
         return 0
 
     manifest: dict[str, list[dict]] = {}

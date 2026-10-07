@@ -296,8 +296,31 @@ def _field_is_kg(unit: Any) -> bool:
     return _unit_word(text) == ("g", Decimal(1000))
 
 
+def _text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def normalize_with_issues(item: Any, *, item_id: int | None = None) -> NormalizationResult:
-    """Normalize one item and say what was ambiguous. See the module docstring."""
+    """Normalize one item and say what was ambiguous. See the module docstring.
+
+    The returned item also carries the row's ``chain_id``, ``chain_name``, ``manufacturer``,
+    ``barcode`` and ``raw_name`` when the row has them, and ``issues`` (issue #92)."""
+    result = _normalize(item, item_id=item_id)
+    source = {
+        "chain_id": _text(_get(item, "chain_id")),
+        "chain_name": _text(_get(item, "chain_name")),
+        "manufacturer": _text(_get(item, "manufacturer")),
+        "barcode": _text(_get(item, "barcode")),
+        "raw_name": _text(_get(item, "raw_name")),
+        "issues": result.issues,
+    }
+    return NormalizationResult(result.item.model_copy(update=source), result.issues, result.source)
+
+
+def _normalize(item: Any, *, item_id: int | None = None) -> NormalizationResult:
     if item_id is None:
         item_id = _get(item, "id") or _get(item, "item_id") or 0
     name = clean_name(str(_get(item, "raw_name") or ""))
