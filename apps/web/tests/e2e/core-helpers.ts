@@ -17,7 +17,7 @@ const CORS = {
   "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
 };
 
-export type ApiCall = { method: string; path: string; body: unknown };
+export type ApiCall = { method: string; path: string; search: string; body: unknown };
 
 export async function mockApi(page: Page): Promise<ApiCall[]> {
   const calls: ApiCall[] = [];
@@ -34,6 +34,7 @@ export async function mockApi(page: Page): Promise<ApiCall[]> {
       calls.push({
         method: req.method(),
         path: new URL(req.url()).pathname,
+        search: new URL(req.url()).search,
         body: body ? JSON.parse(body) : undefined,
       });
       const res = await getResponse(

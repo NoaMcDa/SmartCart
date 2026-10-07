@@ -7,6 +7,7 @@ import { findOriginal, planSubstitutions, substitutionSaving } from "@/state/com
 import { keepOriginal } from "@/features/substitution/actions";
 import { Count } from "./PlanCard";
 import styles from "./Results.module.css";
+import { perUnitLabel } from "@/lib/attributes";
 
 /**
  * Every substitute in the recommended plan, original next to substitute, with "why?" (the
@@ -37,8 +38,8 @@ export function SubstitutionsSection({ res, plan }: { res: OptimizeResponse; pla
                 </span>
                 {original ? (
                   <span className={styles.unitPrice}>
-                    <Price amount={original.item.effective_unit_price} /> ל-
-                    {original.item.uom}
+                    <Price amount={original.item.effective_unit_price} />{" "}
+                    {perUnitLabel(original.item.uom)}
                   </span>
                 ) : null}
               </div>
@@ -46,7 +47,7 @@ export function SubstitutionsSection({ res, plan }: { res: OptimizeResponse; pla
                 <Tag variant="substitute">תחליף</Tag>
                 <span className={styles.subName}>{item.display_name_he}</span>
                 <span className={styles.unitPrice}>
-                  <Price amount={item.effective_unit_price} /> ל-{item.uom}
+                  <Price amount={item.effective_unit_price} /> {perUnitLabel(item.uom)}
                 </span>
               </div>
               <div className={styles.subSaving}>

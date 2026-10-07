@@ -40,8 +40,20 @@ export function BottomSheet({
 }: BottomSheetProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
   useEffect(() => {
     if (!open) return;
+    // Escape closes from anywhere while the sheet is open. Focus only moves into the dialog on the
+    // next animation frame, and a key pressed before that goes to the opener, not to the dialog.
+    const onEscape = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onCloseRef.current();
+    };
+    document.addEventListener("keydown", onEscape);
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -52,6 +64,7 @@ export function BottomSheet({
       (first ?? dialog).focus();
     });
     return () => {
+      document.removeEventListener("keydown", onEscape);
       cancelAnimationFrame(raf);
       document.body.style.overflow = prevOverflow;
       opener?.focus();
@@ -59,11 +72,6 @@ export function BottomSheet({
   }, [open]);
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      onClose();
-      return;
-    }
     if (e.key !== "Tab") return;
     const dialog = dialogRef.current;
     if (!dialog) return;

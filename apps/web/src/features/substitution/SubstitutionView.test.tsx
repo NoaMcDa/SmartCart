@@ -82,6 +82,49 @@ describe("substitution card", () => {
     expect([onContinue, onKeep, onReject].map((f) => f.mock.calls.length)).toEqual([1, 1, 1]);
   });
 
+  it("carries the checkout disclaimer, as every substitute must", () => {
+    renderCard();
+    expect(screen.getByTestId("sub-disclaimer")).toHaveTextContent("המחיר הקובע הוא בקופה.");
+  });
+
+  it("shows what the real API sends in Hebrew: code keys, unit codes, folded pack size", () => {
+    const real = {
+      ...ctx,
+      item: {
+        ...ctx.item,
+        uom: "100g",
+        tags: [
+          { key: "product_type", status: "matched" as const, value: "קמח" },
+          { key: "pack_size", status: "matched" as const, value: "1000" },
+          { key: "unit", status: "matched" as const, value: "g" },
+          { key: "base", status: "differs" as const, value: "oat" },
+          { key: "state", status: "unverified" as const, value: null },
+        ],
+      },
+    };
+    render(
+      <SubstitutionCard
+        ctx={real}
+        fallbackOriginalName={null}
+        busy={false}
+        onContinue={() => {}}
+        onKeep={() => {}}
+        onReject={() => {}}
+      />,
+    );
+    const tags = within(screen.getByRole("list", { name: "השוואת תכונות" }))
+      .getAllByRole("listitem")
+      .map((t) => t.textContent);
+    expect(tags).toEqual([
+      "סוג מוצר, קמח",
+      "גודל אריזה, 1000 ג׳",
+      "מצב · לא מאומת",
+      "בסיס: שיבולת שועל",
+    ]);
+    expect(screen.getByTestId("sub-substitute")).toHaveTextContent("ל-100 ג׳");
+    expect(screen.queryByText(/unit|, g|100g/)).toBeNull();
+  });
+
   it("formats tags", () => {
     expect(tagText({ key: "אותו גודל", status: "matched", value: "1 ליטר" })).toBe(
       "אותו גודל, 1 ליטר",

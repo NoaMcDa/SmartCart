@@ -1,31 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { AttributeTag, Plan, SwapSuggestion } from "@/api/client";
 import { Button, Card, Price, Tag, UpdatedAt } from "@/components/ui";
 import { IconCheck, IconRefresh } from "@/components/ui/icons";
 import { applySwap, dismissSwap, undoSwap } from "@/features/swaps/actions";
-import { aggregate, savingOf, useSwapsState, visibleSwaps } from "@/features/swaps/swapState";
+import {
+  aggregate,
+  savingOf,
+  setUndoneName,
+  undoableSwaps,
+  useSwapsState,
+  useUndoneName,
+  visibleSwaps,
+} from "@/features/swaps/swapState";
 import { useSwaps } from "@/features/swaps/useSwaps";
+import { attributeTagText, foldTags } from "@/lib/attributes";
 import { buildCompareInput, planUpdatedAt } from "@/state/comparison";
 import { basketItems, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
 import styles from "./SmartCartCard.module.css";
 
-const TAG_KEYS: Record<string, string> = {
-  product_type: "סוג מוצר",
-  pack_size: "גודל אריזה",
-  brand: "מותג",
-  fat_pct: "אחוז שומן",
-  base: "בסיס",
-  kosher: "כשרות",
-};
-
 export function swapTagText(tag: AttributeTag): string {
-  const key = TAG_KEYS[tag.key] ?? tag.key;
-  if (tag.status === "unverified") return `${key}${tag.value ? ` ${tag.value}` : ""} · לא מאומת`;
-  if (tag.status === "differs") return tag.value ? `${key}: ${tag.value}` : key;
-  return tag.value ? `${key}, ${tag.value}` : key;
+  return attributeTagText(tag);
 }
 
 const REASONS: Record<SwapSuggestion["flex_level"], string> = {
@@ -52,7 +49,7 @@ export function SmartCartCard({ plan }: { plan: Plan }) {
   const { state } = useList();
   const shopper = useShopper();
   const swapsState = useSwapsState();
-  const [undone, setUndone] = useState<string | null>(null);
+  const undone = useUndoneName();
 
   const store = plan.stores[0]?.store ?? null;
   const request = useMemo(() => {
@@ -69,7 +66,11 @@ export function SmartCartCard({ plan }: { plan: Plan }) {
   );
   const { count, total } = aggregate(visible);
   const top = visible[0] ?? null;
-  const lastApplied = swapsState.applied[swapsState.applied.length - 1] ?? null;
+  const undoable = useMemo(
+    () => undoableSwaps(swapsState, new Set(state.items.map((i) => i.id))),
+    [swapsState, state.items],
+  );
+  const lastApplied = undoable[undoable.length - 1] ?? null;
 
   if (!store || (!top && !lastApplied && !undone)) return null;
 
@@ -111,7 +112,7 @@ export function SmartCartCard({ plan }: { plan: Plan }) {
             </p>
             {top.tags && top.tags.length > 0 ? (
               <ul className={styles.smartTags} aria-label="השוואת תכונות">
-                {top.tags.map((t) => (
+                {foldTags(top.tags).map((t) => (
                   <li key={`${t.key}-${t.value ?? ""}`}>
                     <Tag variant={t.status}>{swapTagText(t)}</Tag>
                   </li>
@@ -121,7 +122,7 @@ export function SmartCartCard({ plan }: { plan: Plan }) {
             <div className={styles.smartActions}>
               <Button
                 onClick={() => {
-                  setUndone(null);
+                  setUndoneName(null);
                   applySwap(top);
                 }}
                 aria-label={`החליפי ל${top.to_display_name_he}`}
@@ -150,7 +151,7 @@ export function SmartCartCard({ plan }: { plan: Plan }) {
               variant="ghost"
               size="sm"
               onClick={() => {
-                if (undoSwap(lastApplied.key)) setUndone(lastApplied.name);
+                if (undoSwap(lastApplied.key)) setUndoneName(lastApplied.name);
               }}
             >
               ביטול ההחלפה

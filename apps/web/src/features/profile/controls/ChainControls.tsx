@@ -2,8 +2,8 @@
 
 import { Button } from "@/components/ui/Button";
 import { IconCheck } from "@/components/ui/icons";
-import { CHAINS, clubLabel, mockStoreIdFor } from "../chains";
-import { toggleClub, updateProfile, useProfile } from "../profileState";
+import { CHAINS, clubLabel } from "../chains";
+import { adoptNearestHomeStore, toggleClub, updateProfile, useProfile } from "../profileState";
 import styles from "./controls.module.css";
 
 /**
@@ -32,12 +32,11 @@ export function ChainControls() {
                 className={styles.card}
                 aria-pressed={selected}
                 aria-label={`הסופר שלי: ${chain.name}`}
-                onClick={() =>
-                  updateProfile({
-                    homeChainId: selected ? null : chain.id,
-                    homeStoreId: selected ? null : mockStoreIdFor(chain.id),
-                  })
-                }
+                onClick={() => {
+                  updateProfile({ homeChainId: selected ? null : chain.id, homeStoreId: null });
+                  // The chain becomes a concrete store: the nearest one to the profile's location.
+                  if (!selected) void adoptNearestHomeStore(chain.id);
+                }}
               >
                 <span className={styles.badge} aria-hidden="true">
                   {chain.letter}

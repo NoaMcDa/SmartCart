@@ -57,6 +57,7 @@
 
 .planTop {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -389,8 +390,16 @@
 }
 
 .lineName {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--sc-touch);
   font-size: 14px;
   font-weight: 600;
+  color: var(--sc-text);
+  text-decoration: underline;
+  text-decoration-color: var(--sc-border);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
 }
 
 .lineTags {

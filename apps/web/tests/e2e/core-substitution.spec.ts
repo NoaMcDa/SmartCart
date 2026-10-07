@@ -30,6 +30,7 @@ for (const viewport of [
       await expect(page.getByTestId("sub-saving")).toContainText(/₪\s2.00/);
       await expect(page.getByTestId("sub-source")).toContainText("ביטחון 98%");
       await expect(page.getByTestId("sub-source").locator("time[datetime]")).toHaveCount(1);
+      await expect(page.getByTestId("sub-disclaimer")).toHaveText("המחיר הקובע הוא בקופה.");
       const tags = card.getByRole("list", { name: "השוואת תכונות" }).locator("[data-variant]");
       await expect(tags).toHaveCount(4);
       for (const tag of await tags.all()) await expect(tag.locator("svg")).toHaveCount(1);
@@ -93,6 +94,7 @@ for (const viewport of [
           original_item_id: 901004,
           substitute_item_id: 10104,
           verdict: "not_good",
+          source: "substitution_card",
         });
       }
       const stored = await page.evaluate(() =>

@@ -1,9 +1,9 @@
-import { API_MOCK } from "@/api/config";
-
 /**
- * Chains the app knows by name (docs/decisions.md D13: the ten phase 0 chains). The ids for the
- * first five match the chain_id values of the mock API fixtures; the API's real chain ids are
- * whatever `StoreResult.chain_id` carries, so matching also falls back to the Hebrew chain name.
+ * Chains the app knows by name (docs/decisions.md D13: the ten phase 0 chains). `id` is a slug, and
+ * `apiId` is the chain id the API stores (the GS1 company prefix the transparency files carry), which
+ * `GET /stores/nearest` takes. The slugs also match the chain_id values of the mock compare
+ * fixtures; the API's `StoreResult.chain_id` is whatever it stores, so matching a compare result
+ * also falls back to the Hebrew chain name.
  * Logos are deliberately text badges (a letter and the name): no real logos or trademarks.
  */
 export type Chain = {
@@ -12,19 +12,21 @@ export type Chain = {
   name: string;
   /** Single letter for the badge. */
   letter: string;
+  /** The API's chain id, for `GET /stores/nearest?chain_id=`. */
+  apiId: string;
 };
 
 export const CHAINS: ReadonlyArray<Chain> = [
-  { id: "shufersal", name: "שופרסל", letter: "ש" },
-  { id: "rami_levy", name: "רמי לוי", letter: "ר" },
-  { id: "victory", name: "ויקטורי", letter: "ו" },
-  { id: "yeinot_bitan", name: "יינות ביתן", letter: "י" },
-  { id: "hazi_hinam", name: "חצי חינם", letter: "ח" },
-  { id: "tiv_taam", name: "טיב טעם", letter: "ט" },
-  { id: "osher_ad", name: "אושר עד", letter: "א" },
-  { id: "yochananof", name: "יוחננוף", letter: "י" },
-  { id: "machsanei_hashuk", name: "מחסני השוק", letter: "מ" },
-  { id: "king_store", name: "קינג סטור", letter: "ק" },
+  { id: "shufersal", name: "שופרסל", letter: "ש", apiId: "7290027600007" },
+  { id: "rami_levy", name: "רמי לוי", letter: "ר", apiId: "7290058140886" },
+  { id: "victory", name: "ויקטורי", letter: "ו", apiId: "7290696200003" },
+  { id: "yeinot_bitan", name: "יינות ביתן", letter: "י", apiId: "7290055700007" },
+  { id: "hazi_hinam", name: "חצי חינם", letter: "ח", apiId: "7290700100008" },
+  { id: "tiv_taam", name: "טיב טעם", letter: "ט", apiId: "7290873255550" },
+  { id: "osher_ad", name: "אושר עד", letter: "א", apiId: "7290103152017" },
+  { id: "yochananof", name: "יוחננוף", letter: "י", apiId: "7290803800003" },
+  { id: "machsanei_hashuk", name: "מחסני השוק", letter: "מ", apiId: "7290661400001" },
+  { id: "king_store", name: "קינג סטור", letter: "ק", apiId: "7290058108879" },
 ];
 
 export function chainById(id: string | null | undefined): Chain | undefined {
@@ -39,9 +41,10 @@ export function clubLabel(name: string): string {
 type StoreLike = { store_id: number; chain_id: string; chain_name: string; distance_m: number };
 
 /**
- * The API takes `home_store_id` (a store), onboarding asks for a chain. Until the API offers a
- * "nearest store of chain X" lookup, the home store is the nearest store of the chosen chain in a
- * compare result. Returns null when the chain has no store in the result.
+ * The API takes `home_store_id` (a store), onboarding asks for a chain. Picking a chain resolves
+ * the store with `GET /stores/nearest` (`adoptNearestHomeStore` in profileState.ts). This is the
+ * fallback for when that lookup fails: the nearest store of the chosen chain in a compare result.
+ * Returns null when the chain has no store in the result.
  */
 export function resolveHomeStoreId(
   homeChainId: string | null,
@@ -55,22 +58,4 @@ export function resolveHomeStoreId(
   );
   const nearest = [...matches].sort((a, b) => a.distance_m - b.distance_m)[0];
   return nearest ? nearest.store_id : null;
-}
-
-/** Store ids of the mock API fixtures, one per chain (src/mocks/fixtures.ts). */
-const MOCK_STORE_IDS: Record<string, number> = {
-  rami_levy: 101,
-  osher_ad: 102,
-  shufersal: 103,
-  yochananof: 104,
-  victory: 105,
-};
-
-/**
- * With the API mock on, a chain resolves to its fixture store right away. Against the real API
- * there is no "nearest store of chain X" lookup yet (request to services/api), so this is null
- * and the id is adopted from a compare result later (`adoptHomeStore`).
- */
-export function mockStoreIdFor(chainId: string | null): number | null {
-  return API_MOCK && chainId ? (MOCK_STORE_IDS[chainId] ?? null) : null;
 }

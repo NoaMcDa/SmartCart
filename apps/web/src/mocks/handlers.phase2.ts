@@ -55,11 +55,39 @@ const STORE_REFS: Record<number, StoreRef> = {
     lon: 35.008,
     channel: "physical",
   },
+  104: {
+    store_id: 104,
+    chain_id: "7290803800003",
+    chain_name: "יוחננוף",
+    store_name: "מודיעין",
+    city: "מודיעין",
+    distance_m: 3600,
+    lat: 31.9,
+    lon: 35.02,
+    channel: "physical",
+  },
+  105: {
+    store_id: 105,
+    chain_id: "7290696200003",
+    chain_name: "ויקטורי",
+    store_name: "מודיעין",
+    city: "מודיעין",
+    distance_m: 2400,
+    lat: 31.896,
+    lon: 35.015,
+    channel: "physical",
+  },
 };
 
 let alerts: PriceAlert[] = [];
 let nextAlertId = 1;
-let shares: Record<number, ListMember[]> = {};
+/** Pending and accepted shares per list; `token` is the invite token, kept out of `ListMember`. */
+let shares: Record<number, Array<ListMember & { token: string }>> = {};
+let nextShareId = 1;
+let nextMemberId = 1;
+
+const publicMember = ({ token: _token, ...member }: ListMember & { token: string }): ListMember =>
+  member;
 
 /** Deterministic 90-day history: a slow drift plus two promo dips. */
 function historyFixture(
@@ -107,9 +135,13 @@ export const phase2Handlers = [
   http.delete(url("/me"), () => HttpResponse.json({ ok: true, id: null } satisfies Ack)),
 
   http.get(url("/stores/nearest"), ({ request }) => {
+    // One fixture store per chain, as the compare fixtures have; any other chain has none (404,
+    // like the API for a chain without a physical store).
     const chainId = new URL(request.url).searchParams.get("chain_id");
-    const hit = (Object.values(STORE_REFS).find((s) => s.chain_id === chainId) ??
-      STORE_REFS[HOME_STORE_ID]) as StoreRef;
+    const hit = Object.values(STORE_REFS).find((s) => s.chain_id === chainId);
+    if (!hit) {
+      return HttpResponse.json({ detail: "no physical store of this chain" }, { status: 404 });
+    }
     return HttpResponse.json(hit);
   }),
 
@@ -150,7 +182,14 @@ export const phase2Handlers = [
     const token = `inv-${listId}-${Math.random().toString(36).slice(2, 10)}`;
     shares[listId] = [
       ...(shares[listId] ?? []),
-      { user_id: null, role: body.role ?? "editor", accepted_at: null, is_owner: false },
+      {
+        user_id: null,
+        role: body.role ?? "editor",
+        accepted_at: null,
+        is_owner: false,
+        share_id: nextShareId++,
+        token,
+      },
     ];
     const invite: ShareInvite = {
       list_id: listId,
@@ -163,13 +202,47 @@ export const phase2Handlers = [
   http.get(url("/me/lists/:listId/members"), ({ params }) => {
     const listId = Number(params.listId);
     const members: ListMember[] = [
-      { user_id: "me", role: "editor", accepted_at: PRICES_UPDATED_AT, is_owner: true },
-      ...(shares[listId] ?? []),
+      {
+        user_id: "me",
+        role: "editor",
+        accepted_at: PRICES_UPDATED_AT,
+        is_owner: true,
+        share_id: null,
+      },
+      ...(shares[listId] ?? []).map(publicMember),
     ];
     return HttpResponse.json(members);
   }),
+  // Revoke a pending invite or remove a member by the list_shares id (`ListMember.share_id`).
+  http.delete(url("/me/lists/:listId/shares/:shareId"), ({ params }) => {
+    const listId = Number(params.listId);
+    const shareId = Number(params.shareId);
+    const before = shares[listId] ?? [];
+    if (!before.some((m) => m.share_id === shareId)) {
+      return HttpResponse.json({ detail: "share not found" }, { status: 404 });
+    }
+    shares[listId] = before.filter((m) => m.share_id !== shareId);
+    return new HttpResponse(null, { status: 204 });
+  }),
+  // The older owner routes: cancel by token, remove a member by user id.
+  http.delete(url("/me/lists/:listId/share/:token"), ({ params }) => {
+    const listId = Number(params.listId);
+    shares[listId] = (shares[listId] ?? []).filter((m) => m.token !== params.token);
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.delete(url("/me/lists/:listId/members/:memberId"), ({ params }) => {
+    const listId = Number(params.listId);
+    shares[listId] = (shares[listId] ?? []).filter((m) => m.user_id !== params.memberId);
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.post(url("/lists/accept/:token"), ({ params }) => {
     const listId = Number(String(params.token).split("-")[1] ?? 1);
+    // The invite becomes a member (the owner then sees "remove" instead of "revoke").
+    shares[listId] = (shares[listId] ?? []).map((m) =>
+      m.token === params.token && m.user_id === null
+        ? { ...m, user_id: `member-${nextMemberId++}`, accepted_at: new Date().toISOString() }
+        : m,
+    );
     const now = new Date().toISOString();
     const list: ShoppingList = {
       id: listId,
@@ -296,4 +369,6 @@ export function resetPhase2Mock(): void {
   alerts = [];
   nextAlertId = 1;
   shares = {};
+  nextShareId = 1;
+  nextMemberId = 1;
 }

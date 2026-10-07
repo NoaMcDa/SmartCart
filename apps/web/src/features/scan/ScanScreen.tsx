@@ -4,6 +4,8 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { lookupBarcode, type BarcodeLookupResponse } from "@/api/client";
 import { Button, Card, Skeleton } from "@/components/ui";
 import { IconBarcode, IconClose, IconInfo } from "@/components/ui/icons";
+import { reportScanCompleted, reportScanStarted } from "@/features/consent/betaEvents";
+import type { ScanEngine, ScanOutcome } from "@/features/consent/betaEvents";
 import { ReportGapButton } from "@/features/feedback";
 import controls from "@/features/profile/controls/controls.module.css";
 import { useShopper } from "@/state/shopper";
@@ -24,6 +26,13 @@ type Phase =
   | { kind: "result"; result: BarcodeLookupResponse }
   | { kind: "lookup-error"; code: string };
 
+/** What the shopper saw: a product with no price anywhere is "no_price", never "found". */
+export function outcomeOf(result: BarcodeLookupResponse): ScanOutcome {
+  if (!result.found) return "not_found";
+  const priced = result.here || result.cheapest_nearby || result.cheaper_substitute;
+  return priced ? "found" : "no_price";
+}
+
 /**
  * Barcode scanning (issue #39). Camera behind an explicit "turn on" (the permission is asked only
  * after the explanation), native BarcodeDetector or the zxing fallback, manual entry always on
@@ -42,6 +51,15 @@ export function ScanScreen() {
   const streamRef = useRef<MediaStream | null>(null);
   const startedAt = useRef(0);
   const input = useRef<"camera" | "manual">("camera");
+  // One scan attempt is "open" from the camera tap (or the manual search) until it ends. Every
+  // ended attempt reports `scan_completed`, and `scan_started` is sent first if it was not yet
+  // (the camera engine is only known once the decoder is up). Nothing about the code is kept.
+  const attempt = useRef({
+    open: false,
+    startedSent: false,
+    engine: undefined as ScanEngine | undefined,
+  });
+  const cameraEngine = useRef<ScanEngine | undefined>(undefined);
   // The detector callback outlives renders; it reads the freshest shopper and store from here.
   const latest = useRef({ lat: 0, lon: 0, radiusM: 5000, storeId: null as number | null });
   useEffect(() => {
@@ -58,27 +76,62 @@ export function ScanScreen() {
     streamRef.current = null;
   }, []);
 
-  const lookup = useCallback(async (code: string, via: "camera" | "manual") => {
-    input.current = via;
-    if (startedAt.current === 0) startedAt.current = performance.now();
-    setPhase({ kind: "loading", code });
-    const { lat, lon, radiusM, storeId } = latest.current;
-    try {
-      const result = await lookupBarcode(code, { lat, lon, radiusM, storeId });
-      recordScan(result.found ? "found" : "not_found", via, performance.now() - startedAt.current);
-      setPhase({ kind: "result", result });
-    } catch {
-      recordScan("failed", via, 0);
-      setPhase({ kind: "lookup-error", code });
+  const openAttempt = useCallback((engine?: ScanEngine) => {
+    const a = attempt.current;
+    a.open = true;
+    if (engine) a.engine = engine;
+    if (!a.startedSent && engine) {
+      a.startedSent = true;
+      reportScanStarted(engine);
     }
   }, []);
+
+  const endAttempt = useCallback((outcome: ScanOutcome) => {
+    const a = attempt.current;
+    if (!a.open) return;
+    if (!a.startedSent) reportScanStarted(a.engine);
+    reportScanCompleted({
+      outcome,
+      durationMs: performance.now() - startedAt.current,
+      engine: a.engine,
+    });
+    attempt.current = { open: false, startedSent: false, engine: undefined };
+  }, []);
+
+  const lookup = useCallback(
+    async (code: string, via: "camera" | "manual") => {
+      input.current = via;
+      if (startedAt.current === 0) startedAt.current = performance.now();
+      // A retry after an error starts a new attempt; a camera read continues the open one.
+      if (!attempt.current.open) openAttempt(via === "manual" ? "manual" : cameraEngine.current);
+      setPhase({ kind: "loading", code });
+      const { lat, lon, radiusM, storeId } = latest.current;
+      try {
+        const result = await lookupBarcode(code, { lat, lon, radiusM, storeId });
+        recordScan(
+          result.found ? "found" : "not_found",
+          via,
+          performance.now() - startedAt.current,
+        );
+        endAttempt(outcomeOf(result));
+        setPhase({ kind: "result", result });
+      } catch {
+        recordScan("failed", via, 0);
+        endAttempt("error");
+        setPhase({ kind: "lookup-error", code });
+      }
+    },
+    [openAttempt, endAttempt],
+  );
 
   async function startCamera() {
     setPhase({ kind: "starting" });
     startedAt.current = performance.now();
+    attempt.current = { open: true, startedSent: false, engine: undefined };
     const cam = await requestCamera();
     if (!cam.ok) {
       recordScan("failed", "camera", 0);
+      endAttempt("error");
       setPhase({ kind: "camera-error", reason: cam.reason });
       return;
     }
@@ -101,26 +154,39 @@ export function ScanScreen() {
       void lookup(code, "camera");
     })
       .then((s) => {
-        if (cancelled) s.stop();
-        else session = s;
+        if (cancelled) {
+          s.stop();
+          return;
+        }
+        session = s;
+        cameraEngine.current = s.engine;
+        openAttempt(s.engine);
       })
       .catch(() => {
         if (cancelled) return;
         release();
         recordScan("failed", "camera", 0);
+        endAttempt("error");
         setPhase({ kind: "camera-error", reason: "unsupported" });
       });
     return () => {
       cancelled = true;
       session?.stop();
     };
-  }, [scanning, lookup, release]);
+  }, [scanning, lookup, release, openAttempt, endAttempt]);
 
-  // Leaving the screen always turns the camera off.
-  useEffect(() => release, [release]);
+  // Leaving the screen always turns the camera off, and ends an attempt still open.
+  useEffect(
+    () => () => {
+      release();
+      endAttempt("cancelled");
+    },
+    [release, endAttempt],
+  );
 
   function stopCamera() {
     release();
+    endAttempt("cancelled");
     setPhase({ kind: "idle" });
   }
 
@@ -133,12 +199,15 @@ export function ScanScreen() {
     }
     setManualError(null);
     release();
+    endAttempt("cancelled"); // typing a code abandons a camera attempt that was still open
     startedAt.current = performance.now();
+    openAttempt("manual");
     void lookup(check.code, "manual");
   }
 
   function again() {
     release();
+    endAttempt("cancelled");
     startedAt.current = 0;
     setManual("");
     setPhase({ kind: "idle" });

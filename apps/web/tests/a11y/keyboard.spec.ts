@@ -114,9 +114,9 @@ test.describe("reflow", () => {
     }
   });
 
-  // 200% zoom on a 390 px phone leaves 195 CSS px (issue #26: usable at 200% text size). The
-  // shell's top bar still overflows by 7 px there (docs/a11y-report.md, open finding, not ours
-  // to fix), so this checks the page content and the footer, which are ours.
+  // 200% zoom on a 390 px phone leaves 195 CSS px (issue #26: usable at 200% text size). This
+  // checks the SEO pages' content and footer; zoom-195.spec.ts asserts every route, the top bar
+  // and the states behind a tap.
   test.describe("195 px wide (200% zoom on a phone), SEO pages", () => {
     test.use({ viewport: { width: 195, height: 844 } });
 

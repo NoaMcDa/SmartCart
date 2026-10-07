@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useState, type FormEvent } from "react";
 import {
   createList,
-  removeMember,
   search,
   sharedWithMe,
   type CanonicalRef,
@@ -13,7 +12,7 @@ import {
   type ShoppingList,
 } from "@/api/client";
 import { Button, Card, FlexChip, Skeleton, Stepper } from "@/components/ui";
-import { IconClose, IconInfo } from "@/components/ui/icons";
+import { IconClock, IconClose, IconInfo } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
 import controls from "@/features/profile/controls/controls.module.css";
@@ -34,11 +33,13 @@ function Members({
   members,
   canManage,
   onRemove,
+  onRevoke,
 }: {
   members: ListMember[];
-  /** Only the owner can remove members. */
+  /** Only the owner can remove members and cancel invites. */
   canManage: boolean;
-  onRemove: (userId: string) => void;
+  onRemove: (member: ListMember) => void;
+  onRevoke: (invite: ListMember) => void;
 }) {
   if (members.length === 0) return null;
   return (
@@ -47,25 +48,41 @@ function Members({
         מי ברשימה
       </h2>
       <ul className={styles.members} data-testid="members">
-        {members.map((m, i) => (
-          <li key={`${m.user_id ?? "invite"}-${i}`} data-testid="member">
-            <span className={styles.memberName}>{memberLabel(m)}</span>
-            <span className={styles.memberRole}>
-              {m.is_owner ? "בעלים" : ROLE_LABEL[m.role]}
-              {m.user_id || m.is_owner ? null : " · עדיין לא הצטרפה"}
-            </span>
-            {canManage && m.user_id && !m.is_owner ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onRemove(m.user_id as string)}
-                aria-label={`הסרת חברה מהרשימה (${ROLE_LABEL[m.role]})`}
-              >
-                הסרה מהרשימה
-              </Button>
-            ) : null}
-          </li>
-        ))}
+        {members.map((m, i) => {
+          const pending = !m.user_id && !m.is_owner;
+          return (
+            <li
+              key={m.share_id != null ? `share-${m.share_id}` : `${m.user_id ?? "invite"}-${i}`}
+              data-testid="member"
+            >
+              <span className={styles.memberName}>{memberLabel(m)}</span>
+              <span className={styles.memberRole}>
+                {m.is_owner ? "בעלים" : ROLE_LABEL[m.role]}
+                {pending ? " · עדיין לא הצטרפה" : null}
+              </span>
+              {canManage && m.user_id && !m.is_owner ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onRemove(m)}
+                  aria-label={`הסרת חברה מהרשימה (${ROLE_LABEL[m.role]})`}
+                >
+                  הסרה מהרשימה
+                </Button>
+              ) : null}
+              {canManage && pending && m.share_id != null ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onRevoke(m)}
+                  aria-label={`ביטול הזמנה ממתינה (${ROLE_LABEL[m.role]})`}
+                >
+                  ביטול ההזמנה
+                </Button>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
       <p className={controls.hint}>
         חברים רואים רק את הרשימה. המיקום וההעדפות של כל אחת נשארים אצלה.
@@ -144,14 +161,24 @@ function AddItem({ onAdd }: { onAdd: (c: CanonicalRef) => void }) {
 function ItemRow({
   item,
   onQuantity,
+  onChecked,
   onRemove,
 }: {
   item: SharedItem;
   onQuantity: (q: number) => void;
+  onChecked: (checked: boolean) => void;
   onRemove: () => void;
 }) {
   return (
-    <li className={styles.item} data-testid="shared-item">
+    <li className={styles.item} data-testid="shared-item" data-checked={item.checked}>
+      <label className={styles.check}>
+        <input
+          type="checkbox"
+          checked={item.checked}
+          onChange={(e) => onChecked(e.target.checked)}
+          aria-label={`סימון ${item.name} כנאסף`}
+        />
+      </label>
       <div className={styles.itemMain}>
         <span className={styles.itemName}>{item.name}</span>
         <FlexChip level={item.flexLevel} size="sm" />
@@ -214,6 +241,13 @@ function SharedListView({ listId }: { listId: number }) {
               : "מתחברת לעדכונים בזמן אמת…"
             : "מתעדכן כל כמה שניות"}
         </p>
+        <div role="status" aria-live="polite">
+          {list.pending > 0 ? (
+            <p className={styles.pending} data-testid="pending-sync">
+              <IconClock size={14} /> ממתין לסנכרון (<span dir="ltr">{list.pending}</span>)
+            </p>
+          ) : null}
+        </div>
         <Button onClick={() => setSheet(true)}>הזמנת בני משפחה</Button>
       </div>
 
@@ -238,6 +272,7 @@ function SharedListView({ listId }: { listId: number }) {
                 key={it.id}
                 item={it}
                 onQuantity={(q) => void list.setQuantity(it.id, q)}
+                onChecked={(checked) => void list.setChecked(it.id, checked)}
                 onRemove={() => void list.remove(it.id)}
               />
             ))}
@@ -252,12 +287,8 @@ function SharedListView({ listId }: { listId: number }) {
       <Members
         members={list.members}
         canManage={canManage}
-        onRemove={(userId) => {
-          void removeMember(listId, userId).then(
-            () => void list.refreshMembers(),
-            () => void list.refreshMembers(),
-          );
-        }}
+        onRemove={(member) => void list.removeListMember(member)}
+        onRevoke={(invite) => void list.revokeInvite(invite)}
       />
 
       <ShareSheet

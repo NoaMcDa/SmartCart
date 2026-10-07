@@ -25,6 +25,13 @@
   gap: 10px;
 }
 
+/* 195 px (200% zoom): original and substitute stack instead of sharing a row. */
+@media (max-width: 260px) {
+  .compare {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .side {
   display: flex;
   flex-direction: column;
@@ -137,9 +144,10 @@
 
 .secondary {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .secondary > * {
-  flex: 1;
+  flex: 1 1 auto;
 }

@@ -206,7 +206,8 @@ test.describe("profile", () => {
       radius_m: 12000,
       extra_stop_value: "40",
       clubs: ["ויקטורי"],
-      home_store_id: null,
+      // Picking the chain resolved its nearest store through GET /stores/nearest (ויקטורי, 105).
+      home_store_id: 105,
     });
     expect(core.list.flexDefaults).toEqual({ dairy: "close" });
 
@@ -264,5 +265,54 @@ test.describe("dark theme and 1280 px", () => {
       );
       expect(width).toBeLessThanOrEqual(1200);
     }
+  });
+});
+
+test.describe("home store from the chain", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("picking a chain in onboarding resolves its nearest store, and the results compare against it", async ({
+    page,
+  }) => {
+    const calls = await mockApi(page);
+    await page.goto("/onboarding");
+    await page.getByTestId("onboarding-next").click(); // step 1 is skippable
+    await expect(page.getByTestId("step-count")).toContainText("שלב 2 מתוך 3");
+    await page.getByRole("button", { name: "הסופר שלי: יוחננוף" }).click();
+
+    // The chain became a store through GET /stores/nearest, with the chain's API id.
+    await expect
+      .poll(() => calls.find((c) => c.path === "/stores/nearest")?.search ?? "")
+      .toContain("chain_id=7290803800003");
+    await expect.poll(async () => (await readProfile(page)).homeStoreId).toBe(104);
+    const shopper = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)!), KEYS.shopper);
+    expect(shopper.home_store_id).toBe(104);
+    await page.getByTestId("onboarding-next").click();
+    await page.getByTestId("onboarding-next").click();
+
+    // The list builder and the results use it: "versus <the home store>, your store".
+    await page.goto("/");
+    await page.getByLabel("הוסיפי פריטים לרשימה").fill("חלב, קוטג'");
+    await page.getByLabel("הוסיפי פריטים לרשימה").press("Enter");
+    await page.getByTestId("list-row").first().waitFor();
+    await page.getByRole("link", { name: "השווי" }).click();
+    await page.getByTestId("plan-single").waitFor();
+    await expect(page.getByTestId("plan-single")).toContainText("לעומת יוחננוף");
+    const optimize = calls.filter((c) => c.path === "/optimize").at(-1);
+    expect(optimize?.body).toMatchObject({ home_store_id: 104 });
+  });
+
+  test("a chain without a store in the API stays selected, with no saving shown", async ({
+    page,
+  }) => {
+    const calls = await mockApi(page);
+    await page.goto("/profile");
+    await page.getByRole("button", { name: "הסופר שלי: קינג סטור" }).click();
+    await expect(page.getByRole("button", { name: "הסופר שלי: קינג סטור" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect.poll(() => calls.some((c) => c.path === "/stores/nearest")).toBe(true);
+    expect(await readProfile(page)).toMatchObject({ homeChainId: "king_store", homeStoreId: null });
   });
 });

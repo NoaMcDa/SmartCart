@@ -6,7 +6,7 @@
  * components. They throw ApiError on non-2xx. `api` is the raw openapi-fetch client for anything
  * the helpers do not cover.
  */
-import createClient from "openapi-fetch";
+import createClient, { type Client } from "openapi-fetch";
 import { API_BASE_URL, API_MOCK } from "./config";
 import type { components, paths } from "./types";
 
@@ -284,6 +284,44 @@ export async function revokeShare(listId: number, token: string): Promise<void> 
   expectOk(
     await api.DELETE("/me/lists/{list_id}/share/{token}", {
       params: { path: { list_id: listId, token } },
+    }),
+  );
+}
+
+/**
+ * `DELETE /me/lists/{list_id}/shares/{share_id}`: owner only. Revokes a pending invite, or removes
+ * a member, by the `list_shares` row id that `ListMember.share_id` carries. The route is added by
+ * services/api in the same round as `share_id`; until `src/api/types.ts` is regenerated with it,
+ * the path is typed here. It goes through the same `api` instance, so auth and the mock apply.
+ */
+type RevokeSharePaths = {
+  "/me/lists/{list_id}/shares/{share_id}": {
+    parameters: { query?: never; header?: never; path?: never; cookie?: never };
+    get?: never;
+    put?: never;
+    post?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+    delete: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: { list_id: number; share_id: number };
+        cookie?: never;
+      };
+      requestBody?: never;
+      responses: { 204: { headers: { [name: string]: unknown }; content?: never } };
+    };
+  };
+};
+
+export async function revokeShareById(listId: number, shareId: number): Promise<void> {
+  const client = api as unknown as Client<RevokeSharePaths>;
+  expectOk(
+    await client.DELETE("/me/lists/{list_id}/shares/{share_id}", {
+      params: { path: { list_id: listId, share_id: shareId } },
     }),
   );
 }
