@@ -4,809 +4,1365 @@
  */
 
 export interface paths {
-  "/compare": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Compare */
+        post: operations["compare_compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Compare */
-    post: operations["compare_compare_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/feedback/gap": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/feedback/gap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Gap */
+        post: operations["gap_feedback_gap_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Feedback Gap */
-    post: operations["feedback_gap_feedback_gap_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/feedback/substitution": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/feedback/substitution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Substitution */
+        post: operations["substitution_feedback_substitution_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Feedback Substitution */
-    post: operations["feedback_substitution_feedback_substitution_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/health": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["health_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Health */
-    get: operations["health_health_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/optimize": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/me/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Lists */
+        get: operations["list_lists_me_lists_get"];
+        put?: never;
+        /** Create List */
+        post: operations["create_list_me_lists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Optimize */
-    post: operations["optimize_optimize_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/parse-list": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/me/lists/{list_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get List */
+        get: operations["get_list_me_lists__list_id__get"];
+        /**
+         * Update List
+         * @description Replace the list's name, recurrence and items.
+         */
+        put: operations["update_list_me_lists__list_id__put"];
+        post?: never;
+        /** Delete List */
+        delete: operations["delete_list_me_lists__list_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Parse List */
-    post: operations["parse_list_parse_list_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/search": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Profile */
+        get: operations["get_profile_me_profile_get"];
+        /** Put Profile */
+        put: operations["put_profile_me_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Search */
-    get: operations["search_search_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/optimize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Optimize */
+        post: operations["optimize_optimize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parse-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Parse List */
+        post: operations["parse_list_parse_list_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search */
+        get: operations["search_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /** Ack */
-    Ack: {
-      /** Id */
-      id?: number | null;
-      /**
-       * Ok
-       * @default true
-       */
-      ok: boolean;
+    schemas: {
+        /** Ack */
+        Ack: {
+            /** Id */
+            id?: number | null;
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /** AttributeTag */
+        AttributeTag: {
+            /** Key */
+            key: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "matched" | "differs" | "unverified";
+            /** Value */
+            value?: string | null;
+        };
+        /** BasketItem */
+        BasketItem: {
+            /** Canonical Id */
+            canonical_id: number;
+            /**
+             * Exact Item Id
+             * @description Required when flex_level is exact
+             */
+            exact_item_id?: number | null;
+            /**
+             * Flex Level
+             * @default any_brand
+             * @enum {string}
+             */
+            flex_level: "exact" | "any_brand" | "close";
+            /** Quantity */
+            quantity: number | string;
+        };
+        /** CanonicalRef */
+        CanonicalRef: {
+            /**
+             * Base Unit
+             * @enum {string}
+             */
+            base_unit: "100g" | "100ml" | "unit" | "kg";
+            /** Canonical Id */
+            canonical_id: number;
+            /**
+             * Category Path He
+             * @description Taxonomy names, root first
+             */
+            category_path_he?: string[];
+            /** Display Name He */
+            display_name_he: string;
+            /** Taxonomy Id */
+            taxonomy_id: string;
+        };
+        /** CompareRequest */
+        CompareRequest: {
+            /** Clubs */
+            clubs?: string[];
+            /**
+             * Home Store Id
+             * @description The user's usual store; savings are measured against it only
+             */
+            home_store_id?: number | null;
+            /**
+             * Include Online
+             * @default false
+             */
+            include_online: boolean;
+            /** Items */
+            items: components["schemas"]["BasketItem"][];
+            location: components["schemas"]["Location"];
+        };
+        /** CompareResponse */
+        CompareResponse: {
+            /**
+             * Disclaimer He
+             * @default המחיר הקובע הוא בקופה.
+             */
+            disclaimer_he: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Home Store Id */
+            home_store_id: number | null;
+            /** Home Store Total */
+            home_store_total: string | null;
+            /**
+             * Stores
+             * @description Sorted: complete baskets first, then by total
+             */
+            stores: components["schemas"]["StoreResult"][];
+        };
+        /** GapReportRequest */
+        GapReportRequest: {
+            /** Actual Price */
+            actual_price?: number | string | null;
+            /** Canonical Id */
+            canonical_id?: number | null;
+            /** Item Id */
+            item_id?: number | null;
+            /** Note */
+            note?: string | null;
+            /** Shown Price */
+            shown_price?: number | string | null;
+            /** Store Id */
+            store_id: number;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Health */
+        Health: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Version */
+            version: string;
+        };
+        /** ListItem */
+        ListItem: {
+            /** Canonical Id */
+            canonical_id?: number | null;
+            /**
+             * Confirmed
+             * @default true
+             */
+            confirmed: boolean;
+            /**
+             * Flex Level
+             * @default any_brand
+             * @enum {string}
+             */
+            flex_level: "exact" | "any_brand" | "close";
+            /** Id */
+            id: number;
+            /** Input Text */
+            input_text?: string | null;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: string;
+            /** Sort */
+            sort: number;
+        };
+        /** ListItemIn */
+        ListItemIn: {
+            /** Canonical Id */
+            canonical_id?: number | null;
+            /**
+             * Confirmed
+             * @default true
+             */
+            confirmed: boolean;
+            /**
+             * Flex Level
+             * @default any_brand
+             * @enum {string}
+             */
+            flex_level: "exact" | "any_brand" | "close";
+            /** Input Text */
+            input_text?: string | null;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: number | string;
+        };
+        /** Location */
+        Location: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /**
+             * Radius M
+             * @default 5000
+             */
+            radius_m: number;
+        };
+        /** OptimizeRequest */
+        OptimizeRequest: {
+            /**
+             * Candidate Stores
+             * @description N nearest stores the subsets are drawn from
+             * @default 10
+             */
+            candidate_stores: number;
+            /** Clubs */
+            clubs?: string[];
+            /**
+             * Home Store Id
+             * @description The user's usual store; savings are measured against it only
+             */
+            home_store_id?: number | null;
+            /**
+             * Include Online
+             * @default false
+             */
+            include_online: boolean;
+            /** Items */
+            items: components["schemas"]["BasketItem"][];
+            location: components["schemas"]["Location"];
+            /**
+             * Max Stores
+             * @default 2
+             */
+            max_stores: number;
+            /**
+             * Min Split Saving
+             * @description A split is recommended only above this net saving
+             * @default 25
+             */
+            min_split_saving: number | string;
+            travel?: components["schemas"]["TravelSettings"];
+        };
+        /** OptimizeResponse */
+        OptimizeResponse: {
+            /**
+             * Disclaimer He
+             * @default המחיר הקובע הוא בקופה.
+             */
+            disclaimer_he: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** @description The home store itself; null without a home store */
+            minimum_effort?: components["schemas"]["Plan"] | null;
+            single: components["schemas"]["Plan"];
+            /** @description null when no split beats min_split_saving */
+            split?: components["schemas"]["Plan"] | null;
+            /** Subsets Evaluated */
+            subsets_evaluated: number;
+        };
+        /** ParseListRequest */
+        ParseListRequest: {
+            /**
+             * Flex Defaults
+             * @description taxonomy_id -> flex level
+             */
+            flex_defaults?: {
+                [key: string]: "exact" | "any_brand" | "close";
+            };
+            /**
+             * Text
+             * @description Free text, Hebrew, comma or newline separated
+             */
+            text: string;
+        };
+        /** ParseListResponse */
+        ParseListResponse: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Rows */
+            rows: components["schemas"]["ParsedRow"][];
+        };
+        /** ParsedRow */
+        ParsedRow: {
+            /**
+             * Candidates
+             * @description Alternatives when confidence is low
+             */
+            candidates?: components["schemas"]["CanonicalRef"][];
+            canonical?: components["schemas"]["CanonicalRef"] | null;
+            /** Confidence */
+            confidence: number;
+            /**
+             * Flex Level
+             * @default any_brand
+             * @enum {string}
+             */
+            flex_level: "exact" | "any_brand" | "close";
+            /** Input Text */
+            input_text: string;
+            /**
+             * Is Weighed
+             * @default false
+             */
+            is_weighed: boolean;
+            /** Needs Confirmation */
+            needs_confirmation: boolean;
+            /**
+             * Not Found
+             * @default false
+             */
+            not_found: boolean;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: string;
+            /**
+             * Unit
+             * @description "kg" when the user gave a weight; quantity is then in kg
+             */
+            unit?: "kg" | null;
+        };
+        /** Plan */
+        Plan: {
+            /** @description null when there is no home store to compare with */
+            breakdown?: components["schemas"]["SavingBreakdown"] | null;
+            /**
+             * Extra Minutes
+             * @default 0
+             */
+            extra_minutes: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "single" | "split" | "minimum_effort";
+            /** Missing */
+            missing?: number[];
+            /** Recommended */
+            recommended: boolean;
+            /** Stores */
+            stores: components["schemas"]["StoreAssignment"][];
+            /**
+             * Substituted Count
+             * @default 0
+             */
+            substituted_count: number;
+            /** Total */
+            total: string;
+            /**
+             * Travel Cost
+             * @description Round-trip travel to this plan's stores, ILS
+             * @default 0
+             */
+            travel_cost: string;
+        };
+        /** PricedItem */
+        PricedItem: {
+            /** Canonical Id */
+            canonical_id: number;
+            /** Club Name */
+            club_name?: string | null;
+            /**
+             * Club Required
+             * @default false
+             */
+            club_required: boolean;
+            /**
+             * Confidence
+             * @description Match confidence when is_substitute
+             */
+            confidence?: number | null;
+            /** Display Name He */
+            display_name_he: string;
+            /** Effective Unit Price */
+            effective_unit_price: string;
+            /**
+             * Is Estimated
+             * @description Weighed goods
+             * @default false
+             */
+            is_estimated: boolean;
+            /** Is Substitute */
+            is_substitute: boolean;
+            /** Item Id */
+            item_id: number;
+            /** Line Total */
+            line_total: string;
+            /** Original Item Id */
+            original_item_id?: number | null;
+            /**
+             * Price Valid From
+             * Format: date-time
+             */
+            price_valid_from: string;
+            /**
+             * Promo Add Qty
+             * @description Add this many to complete the promo
+             */
+            promo_add_qty?: string | null;
+            /**
+             * Promo Add Saving
+             * @description What completing the promo saves versus the shelf price
+             */
+            promo_add_saving?: string | null;
+            /**
+             * Promo Applied
+             * @description The requested quantity reaches the promo
+             * @default false
+             */
+            promo_applied: boolean;
+            /** Promo Description */
+            promo_description?: string | null;
+            /**
+             * Promo Min Qty
+             * @description Quantity the promo needs (2 for 1+1)
+             */
+            promo_min_qty?: string | null;
+            /** Quantity */
+            quantity: string;
+            /** Shelf Price */
+            shelf_price: string;
+            /** Tags */
+            tags?: components["schemas"]["AttributeTag"][];
+            /** Uom */
+            uom: string;
+        };
+        /** Profile */
+        Profile: {
+            /** Clubs */
+            clubs?: string[];
+            /**
+             * Consent Location
+             * @description Required to store a neighborhood location
+             * @default false
+             */
+            consent_location: boolean;
+            /**
+             * Cost Per Km
+             * @default 1.2
+             */
+            cost_per_km: string;
+            /** Diet Flags */
+            diet_flags?: string[];
+            /**
+             * Exists
+             * @description false when nothing is stored yet and these are the defaults
+             */
+            exists: boolean;
+            /**
+             * Extra Stop Value
+             * @default 25
+             */
+            extra_stop_value: string;
+            /** Flex Defaults */
+            flex_defaults?: {
+                [key: string]: "exact" | "any_brand" | "close";
+            };
+            /** Home Store Id */
+            home_store_id?: number | null;
+            /** Kosher Level */
+            kosher_level?: string | null;
+            /**
+             * Max Stores
+             * @default 2
+             */
+            max_stores: number;
+            /**
+             * Neighborhood Lat
+             * @description Stored rounded to 3 decimals (about 100 m)
+             */
+            neighborhood_lat?: number | null;
+            /** Neighborhood Lon */
+            neighborhood_lon?: number | null;
+            /**
+             * Radius M
+             * @default 5000
+             */
+            radius_m: number;
+            /**
+             * Theme
+             * @default system
+             * @enum {string}
+             */
+            theme: "system" | "light" | "dark";
+            /**
+             * Travel Mode
+             * @default car
+             * @enum {string}
+             */
+            travel_mode: "car" | "walk_transit" | "delivery";
+            /** User Id */
+            user_id: string;
+        };
+        /** ProfileUpdate */
+        ProfileUpdate: {
+            /** Clubs */
+            clubs?: string[];
+            /**
+             * Consent Location
+             * @description Required to store a neighborhood location
+             * @default false
+             */
+            consent_location: boolean;
+            /**
+             * Cost Per Km
+             * @default 1.2
+             */
+            cost_per_km: number | string;
+            /** Diet Flags */
+            diet_flags?: string[];
+            /**
+             * Extra Stop Value
+             * @default 25
+             */
+            extra_stop_value: number | string;
+            /** Flex Defaults */
+            flex_defaults?: {
+                [key: string]: "exact" | "any_brand" | "close";
+            };
+            /** Home Store Id */
+            home_store_id?: number | null;
+            /** Kosher Level */
+            kosher_level?: string | null;
+            /**
+             * Max Stores
+             * @default 2
+             */
+            max_stores: number;
+            /**
+             * Neighborhood Lat
+             * @description Stored rounded to 3 decimals (about 100 m)
+             */
+            neighborhood_lat?: number | null;
+            /** Neighborhood Lon */
+            neighborhood_lon?: number | null;
+            /**
+             * Radius M
+             * @default 5000
+             */
+            radius_m: number;
+            /**
+             * Theme
+             * @default system
+             * @enum {string}
+             */
+            theme: "system" | "light" | "dark";
+            /**
+             * Travel Mode
+             * @default car
+             * @enum {string}
+             */
+            travel_mode: "car" | "walk_transit" | "delivery";
+        };
+        /** SavingBreakdown */
+        SavingBreakdown: {
+            /**
+             * Basket Saving
+             * @description Home store total minus this plan's basket total
+             */
+            basket_saving: string;
+            /** Extra Stop Cost */
+            extra_stop_cost: string;
+            /**
+             * Net Saving
+             * @description basket_saving - travel_cost - extra_stop_cost; the hero number
+             */
+            net_saving: string;
+            /** Travel Cost */
+            travel_cost: string;
+        };
+        /** SearchHit */
+        SearchHit: {
+            canonical: components["schemas"]["CanonicalRef"];
+            /**
+             * Confidence
+             * @description Evidence for this hit; the parser's thresholds use it
+             */
+            confidence?: number | null;
+            /** Matched By */
+            matched_by: ("trigram" | "fts" | "vector")[];
+            /**
+             * Score
+             * @description Reciprocal rank fusion score, normalized to [0, 1]
+             */
+            score: number;
+        };
+        /** SearchResponse */
+        SearchResponse: {
+            /** Hits */
+            hits: components["schemas"]["SearchHit"][];
+            /** Query */
+            query: string;
+        };
+        /** ShoppingList */
+        ShoppingList: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+            /** Is Recurring */
+            is_recurring: boolean;
+            /** Items */
+            items: components["schemas"]["ListItem"][];
+            /** Name */
+            name: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ShoppingListIn */
+        ShoppingListIn: {
+            /**
+             * Is Recurring
+             * @default false
+             */
+            is_recurring: boolean;
+            /** Items */
+            items?: components["schemas"]["ListItemIn"][];
+            /** Name */
+            name: string;
+        };
+        /** StoreAssignment */
+        StoreAssignment: {
+            /**
+             * Item Ids
+             * @description item ids bought at this store
+             */
+            item_ids: number[];
+            store: components["schemas"]["StoreResult"];
+        };
+        /** StoreResult */
+        StoreResult: {
+            /** Chain Id */
+            chain_id: string;
+            /** Chain Name */
+            chain_name: string;
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "physical" | "online";
+            /** City */
+            city?: string | null;
+            /** Distance M */
+            distance_m: number;
+            /** Found Count */
+            found_count: number;
+            /** Items */
+            items: components["schemas"]["PricedItem"][];
+            /**
+             * Missing
+             * @description canonical_ids not available at this store; never ignored
+             */
+            missing: number[];
+            /**
+             * Prices Updated At
+             * Format: date-time
+             */
+            prices_updated_at: string;
+            /**
+             * Saving Vs Home
+             * @description Positive means cheaper than the home store; null when no home store
+             */
+            saving_vs_home?: string | null;
+            /** Store Id */
+            store_id: number;
+            /** Store Name */
+            store_name: string;
+            /** Substituted Count */
+            substituted_count: number;
+            /** Total */
+            total: string;
+        };
+        /** SubstitutionFeedbackRequest */
+        SubstitutionFeedbackRequest: {
+            /** Canonical Id */
+            canonical_id: number;
+            /** Original Item Id */
+            original_item_id?: number | null;
+            /** Substitute Item Id */
+            substitute_item_id: number;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "not_good" | "kept_original" | "accepted";
+        };
+        /** TravelSettings */
+        TravelSettings: {
+            /**
+             * Cost Per Km
+             * @default 1.2
+             */
+            cost_per_km: number | string;
+            /**
+             * Extra Stop Value
+             * @description What one more stop is worth to the user, ILS
+             * @default 25
+             */
+            extra_stop_value: number | string;
+            /**
+             * Mode
+             * @default car
+             * @enum {string}
+             */
+            mode: "car" | "walk_transit" | "delivery";
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
     };
-    /** AttributeTag */
-    AttributeTag: {
-      /** Key */
-      key: string;
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: "matched" | "differs" | "unverified";
-      /** Value */
-      value?: string | null;
-    };
-    /** BasketItem */
-    BasketItem: {
-      /** Canonical Id */
-      canonical_id: number;
-      /**
-       * Exact Item Id
-       * @description Required when flex_level is exact
-       */
-      exact_item_id?: number | null;
-      /**
-       * Flex Level
-       * @default any_brand
-       * @enum {string}
-       */
-      flex_level: "exact" | "any_brand" | "close";
-      /** Quantity */
-      quantity: number | string;
-    };
-    /** CanonicalRef */
-    CanonicalRef: {
-      /**
-       * Base Unit
-       * @enum {string}
-       */
-      base_unit: "100g" | "100ml" | "unit" | "kg";
-      /** Canonical Id */
-      canonical_id: number;
-      /** Display Name He */
-      display_name_he: string;
-      /** Taxonomy Id */
-      taxonomy_id: string;
-    };
-    /** CompareRequest */
-    CompareRequest: {
-      /** Clubs */
-      clubs?: string[];
-      /**
-       * Home Store Id
-       * @description The user's usual store; savings are measured against it only
-       */
-      home_store_id?: number | null;
-      /**
-       * Include Online
-       * @default false
-       */
-      include_online: boolean;
-      /** Items */
-      items: components["schemas"]["BasketItem"][];
-      location: components["schemas"]["Location"];
-    };
-    /** CompareResponse */
-    CompareResponse: {
-      /**
-       * Disclaimer He
-       * @default המחיר הקובע הוא בקופה.
-       */
-      disclaimer_he: string;
-      /**
-       * Generated At
-       * Format: date-time
-       */
-      generated_at: string;
-      /** Home Store Id */
-      home_store_id: number | null;
-      /** Home Store Total */
-      home_store_total: string | null;
-      /**
-       * Stores
-       * @description Sorted: complete baskets first, then by total
-       */
-      stores: components["schemas"]["StoreResult"][];
-    };
-    /** GapReportRequest */
-    GapReportRequest: {
-      /** Actual Price */
-      actual_price?: number | string | null;
-      /** Canonical Id */
-      canonical_id?: number | null;
-      /** Item Id */
-      item_id?: number | null;
-      /** Note */
-      note?: string | null;
-      /** Shown Price */
-      shown_price?: number | string | null;
-      /** Store Id */
-      store_id: number;
-    };
-    /** HTTPValidationError */
-    HTTPValidationError: {
-      /** Detail */
-      detail?: components["schemas"]["ValidationError"][];
-    };
-    /** Health */
-    Health: {
-      /**
-       * Status
-       * @constant
-       */
-      status: "ok";
-      /** Version */
-      version: string;
-    };
-    /** Location */
-    Location: {
-      /** Lat */
-      lat: number;
-      /** Lon */
-      lon: number;
-      /**
-       * Radius M
-       * @default 5000
-       */
-      radius_m: number;
-    };
-    /** OptimizeRequest */
-    OptimizeRequest: {
-      /** Clubs */
-      clubs?: string[];
-      /**
-       * Home Store Id
-       * @description The user's usual store; savings are measured against it only
-       */
-      home_store_id?: number | null;
-      /**
-       * Include Online
-       * @default false
-       */
-      include_online: boolean;
-      /** Items */
-      items: components["schemas"]["BasketItem"][];
-      location: components["schemas"]["Location"];
-      /**
-       * Max Stores
-       * @default 2
-       */
-      max_stores: number;
-      /**
-       * Min Split Saving
-       * @description A split is recommended only above this net saving
-       * @default 25
-       */
-      min_split_saving: number | string;
-      travel?: components["schemas"]["TravelSettings"];
-    };
-    /** OptimizeResponse */
-    OptimizeResponse: {
-      /**
-       * Disclaimer He
-       * @default המחיר הקובע הוא בקופה.
-       */
-      disclaimer_he: string;
-      /**
-       * Generated At
-       * Format: date-time
-       */
-      generated_at: string;
-      /** @description The home store itself; null without a home store */
-      minimum_effort?: components["schemas"]["Plan"] | null;
-      single: components["schemas"]["Plan"];
-      /** @description null when no split beats min_split_saving */
-      split?: components["schemas"]["Plan"] | null;
-      /** Subsets Evaluated */
-      subsets_evaluated: number;
-    };
-    /** ParseListRequest */
-    ParseListRequest: {
-      /**
-       * Flex Defaults
-       * @description taxonomy_id -> flex level
-       */
-      flex_defaults?: {
-        [key: string]: "exact" | "any_brand" | "close";
-      };
-      /**
-       * Text
-       * @description Free text, Hebrew, comma or newline separated
-       */
-      text: string;
-    };
-    /** ParseListResponse */
-    ParseListResponse: {
-      /**
-       * Generated At
-       * Format: date-time
-       */
-      generated_at: string;
-      /** Rows */
-      rows: components["schemas"]["ParsedRow"][];
-    };
-    /** ParsedRow */
-    ParsedRow: {
-      /**
-       * Candidates
-       * @description Alternatives when confidence is low
-       */
-      candidates?: components["schemas"]["CanonicalRef"][];
-      canonical?: components["schemas"]["CanonicalRef"] | null;
-      /** Confidence */
-      confidence: number;
-      /**
-       * Flex Level
-       * @default any_brand
-       * @enum {string}
-       */
-      flex_level: "exact" | "any_brand" | "close";
-      /** Input Text */
-      input_text: string;
-      /**
-       * Is Weighed
-       * @default false
-       */
-      is_weighed: boolean;
-      /** Needs Confirmation */
-      needs_confirmation: boolean;
-      /**
-       * Not Found
-       * @default false
-       */
-      not_found: boolean;
-      /**
-       * Quantity
-       * @default 1
-       */
-      quantity: string;
-    };
-    /** Plan */
-    Plan: {
-      /** @description null when there is no home store to compare with */
-      breakdown?: components["schemas"]["SavingBreakdown"] | null;
-      /**
-       * Extra Minutes
-       * @default 0
-       */
-      extra_minutes: number;
-      /**
-       * Kind
-       * @enum {string}
-       */
-      kind: "single" | "split" | "minimum_effort";
-      /** Missing */
-      missing?: number[];
-      /** Recommended */
-      recommended: boolean;
-      /** Stores */
-      stores: components["schemas"]["StoreAssignment"][];
-      /**
-       * Substituted Count
-       * @default 0
-       */
-      substituted_count: number;
-      /** Total */
-      total: string;
-    };
-    /** PricedItem */
-    PricedItem: {
-      /** Canonical Id */
-      canonical_id: number;
-      /** Club Name */
-      club_name?: string | null;
-      /**
-       * Club Required
-       * @default false
-       */
-      club_required: boolean;
-      /**
-       * Confidence
-       * @description Match confidence when is_substitute
-       */
-      confidence?: number | null;
-      /** Display Name He */
-      display_name_he: string;
-      /** Effective Unit Price */
-      effective_unit_price: string;
-      /**
-       * Is Estimated
-       * @description Weighed goods
-       * @default false
-       */
-      is_estimated: boolean;
-      /** Is Substitute */
-      is_substitute: boolean;
-      /** Item Id */
-      item_id: number;
-      /** Line Total */
-      line_total: string;
-      /** Original Item Id */
-      original_item_id?: number | null;
-      /**
-       * Price Valid From
-       * Format: date-time
-       */
-      price_valid_from: string;
-      /** Promo Description */
-      promo_description?: string | null;
-      /** Quantity */
-      quantity: string;
-      /** Shelf Price */
-      shelf_price: string;
-      /** Tags */
-      tags?: components["schemas"]["AttributeTag"][];
-      /** Uom */
-      uom: string;
-    };
-    /** SavingBreakdown */
-    SavingBreakdown: {
-      /**
-       * Basket Saving
-       * @description Home store total minus this plan's basket total
-       */
-      basket_saving: string;
-      /** Extra Stop Cost */
-      extra_stop_cost: string;
-      /**
-       * Net Saving
-       * @description basket_saving - travel_cost - extra_stop_cost; the hero number
-       */
-      net_saving: string;
-      /** Travel Cost */
-      travel_cost: string;
-    };
-    /** SearchHit */
-    SearchHit: {
-      canonical: components["schemas"]["CanonicalRef"];
-      /** Matched By */
-      matched_by: ("trigram" | "fts" | "vector")[];
-      /** Score */
-      score: number;
-    };
-    /** SearchResponse */
-    SearchResponse: {
-      /** Hits */
-      hits: components["schemas"]["SearchHit"][];
-      /** Query */
-      query: string;
-    };
-    /** StoreAssignment */
-    StoreAssignment: {
-      /**
-       * Item Ids
-       * @description item ids bought at this store
-       */
-      item_ids: number[];
-      store: components["schemas"]["StoreResult"];
-    };
-    /** StoreResult */
-    StoreResult: {
-      /** Chain Id */
-      chain_id: string;
-      /** Chain Name */
-      chain_name: string;
-      /**
-       * Channel
-       * @enum {string}
-       */
-      channel: "physical" | "online";
-      /** City */
-      city?: string | null;
-      /** Distance M */
-      distance_m: number;
-      /** Found Count */
-      found_count: number;
-      /** Items */
-      items: components["schemas"]["PricedItem"][];
-      /**
-       * Missing
-       * @description canonical_ids not available at this store; never ignored
-       */
-      missing: number[];
-      /**
-       * Prices Updated At
-       * Format: date-time
-       */
-      prices_updated_at: string;
-      /**
-       * Saving Vs Home
-       * @description Positive means cheaper than the home store; null when no home store
-       */
-      saving_vs_home?: string | null;
-      /** Store Id */
-      store_id: number;
-      /** Store Name */
-      store_name: string;
-      /** Substituted Count */
-      substituted_count: number;
-      /** Total */
-      total: string;
-    };
-    /** SubstitutionFeedbackRequest */
-    SubstitutionFeedbackRequest: {
-      /** Canonical Id */
-      canonical_id: number;
-      /** Original Item Id */
-      original_item_id?: number | null;
-      /** Substitute Item Id */
-      substitute_item_id: number;
-      /**
-       * Verdict
-       * @enum {string}
-       */
-      verdict: "not_good" | "kept_original" | "accepted";
-    };
-    /** TravelSettings */
-    TravelSettings: {
-      /**
-       * Cost Per Km
-       * @default 1.2
-       */
-      cost_per_km: number | string;
-      /**
-       * Extra Stop Value
-       * @description What one more stop is worth to the user, ILS
-       * @default 25
-       */
-      extra_stop_value: number | string;
-      /**
-       * Mode
-       * @default car
-       * @enum {string}
-       */
-      mode: "car" | "walk_transit" | "delivery";
-    };
-    /** ValidationError */
-    ValidationError: {
-      /** Context */
-      ctx?: Record<string, never>;
-      /** Input */
-      input?: unknown;
-      /** Location */
-      loc: (string | number)[];
-      /** Message */
-      msg: string;
-      /** Error Type */
-      type: string;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  compare_compare_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    compare_compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CompareRequest"];
-      };
+    gap_feedback_gap_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GapReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ack"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    substitution_feedback_substitution_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["CompareResponse"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubstitutionFeedbackRequest"];
+            };
         };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ack"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
     };
-  };
-  feedback_gap_feedback_gap_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    health_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["GapReportRequest"];
-      };
+    list_lists_me_lists_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingList"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    create_list_me_lists_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["Ack"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShoppingListIn"];
+            };
         };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
     };
-  };
-  feedback_substitution_feedback_substitution_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    get_list_me_lists__list_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SubstitutionFeedbackRequest"];
-      };
+    update_list_me_lists__list_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShoppingListIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    delete_list_me_lists__list_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: number;
+            };
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["Ack"];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
     };
-  };
-  health_health_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    get_profile_me_profile_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    put_profile_me_profile_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["Health"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileUpdate"];
+            };
         };
-      };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-  };
-  optimize_optimize_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    optimize_optimize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OptimizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptimizeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["OptimizeRequest"];
-      };
+    parse_list_parse_list_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParseListRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParseListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    search_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["OptimizeResponse"];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
     };
-  };
-  parse_list_parse_list_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ParseListRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ParseListResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  search_search_get: {
-    parameters: {
-      query: {
-        q: string;
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["SearchResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
 }

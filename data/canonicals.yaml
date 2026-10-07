@@ -1,0 +1,2219 @@
+# MVP canonical products (issue #15). Seeded by `smartcart-catalog seed`; upserted by slug.
+#
+# rank: basket-frequency rank, 1 = most common. It is an ESTIMATE: a judgement from the research
+# (staples, the 67-item press basket) and general knowledge of Israeli shopping, grouped into
+# five tiers and ordered within a tier by hand. It is not measured. Replace it with a ranking from
+# loaded data (item frequency across chains and promos) once the catalog is mapped. See
+# docs/catalog.md, "Choosing the canonicals".
+#
+# critical_attrs must name exactly the critical_keys of the product type; two canonicals may not
+# share (product_type, critical_attrs). soft_attrs are typical values (pack_size in g, ml or
+# units). Values such as fat percentages describe the common Israeli SKU and still need the
+# domain-aware reviewer's sign-off.
+version: 1
+canonicals:
+- slug: milk-fresh-3
+  display_name_he: חלב טרי 3%
+  taxonomy_id: dairy.milk.fresh
+  product_type: milk
+  base_unit: 100ml
+  critical_attrs: {fat_pct: 3, state: fresh}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 1
+  is_mvp: true
+- slug: milk-fresh-1
+  display_name_he: חלב טרי 1%
+  taxonomy_id: dairy.milk.fresh
+  product_type: milk
+  base_unit: 100ml
+  critical_attrs: {fat_pct: 1, state: fresh}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 2
+  is_mvp: true
+- slug: cottage-5
+  display_name_he: קוטג' 5%
+  taxonomy_id: dairy.cheese.cottage
+  product_type: cottage_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 5}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 3
+  is_mvp: true
+- slug: white-cheese-5
+  display_name_he: גבינה לבנה 5%
+  taxonomy_id: dairy.cheese.white
+  product_type: white_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 5}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 4
+  is_mvp: true
+- slug: yellow-cheese-sliced-28
+  display_name_he: גבינה צהובה פרוסה 28%
+  taxonomy_id: dairy.cheese.yellow.sliced
+  product_type: yellow_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 28}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 5
+  is_mvp: true
+- slug: eggs-l
+  display_name_he: ביצים L
+  taxonomy_id: dairy.eggs.chicken
+  product_type: eggs_l
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 12, unit: unit}
+  rank: 6
+  is_mvp: true
+- slug: chicken-breast-fresh
+  display_name_he: חזה עוף טרי
+  taxonomy_id: meat.chicken.breast
+  product_type: chicken_breast
+  base_unit: kg
+  critical_attrs: &id001 {state: fresh}
+  soft_attrs: {}
+  rank: 7
+  is_mvp: true
+- slug: chicken-thigh-boneless-fresh
+  display_name_he: פרגיות טריות
+  taxonomy_id: meat.chicken.thigh
+  product_type: chicken_thigh_boneless
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 8
+  is_mvp: true
+- slug: hummus-plain
+  display_name_he: חומוס (סלט)
+  taxonomy_id: deli.salads.hummus
+  product_type: hummus_salad
+  base_unit: 100g
+  critical_attrs: {flavor: plain}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 9
+  is_mvp: true
+- slug: tomato
+  display_name_he: עגבניות
+  taxonomy_id: produce.vegetables.fruiting
+  product_type: tomato
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 10
+  is_mvp: true
+- slug: cucumber
+  display_name_he: מלפפונים
+  taxonomy_id: produce.vegetables.fruiting
+  product_type: cucumber
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 11
+  is_mvp: true
+- slug: onion
+  display_name_he: בצל יבש
+  taxonomy_id: produce.vegetables.root
+  product_type: onion
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 12
+  is_mvp: true
+- slug: potato
+  display_name_he: תפוחי אדמה
+  taxonomy_id: produce.vegetables.root
+  product_type: potato
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 13
+  is_mvp: true
+- slug: banana
+  display_name_he: בננות
+  taxonomy_id: produce.fruit.tropical
+  product_type: banana
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 14
+  is_mvp: true
+- slug: bread-standard
+  display_name_he: לחם אחיד
+  taxonomy_id: bakery.bread.loaves
+  product_type: bread_standard
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: g}
+  rank: 15
+  is_mvp: true
+- slug: pita
+  display_name_he: פיתות
+  taxonomy_id: bakery.bread.flat
+  product_type: pita
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 10, unit: unit}
+  rank: 16
+  is_mvp: true
+- slug: rice-persian
+  display_name_he: אורז פרסי
+  taxonomy_id: pantry.rice.white
+  product_type: rice_persian
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 17
+  is_mvp: true
+- slug: pasta-spaghetti
+  display_name_he: ספגטי
+  taxonomy_id: pantry.pasta.long
+  product_type: pasta_spaghetti
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 18
+  is_mvp: true
+- slug: sugar-white
+  display_name_he: סוכר לבן
+  taxonomy_id: pantry.baking.sugar
+  product_type: sugar_white
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 19
+  is_mvp: true
+- slug: canola-oil
+  display_name_he: שמן קנולה
+  taxonomy_id: pantry.oils.vegetable
+  product_type: canola_oil
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 20
+  is_mvp: true
+- slug: tuna-in-oil
+  display_name_he: טונה בשמן
+  taxonomy_id: canned.fish.tuna
+  product_type: tuna_in_oil
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 640, unit: g}
+  rank: 21
+  is_mvp: true
+- slug: mineral-water
+  display_name_he: מים מינרליים
+  taxonomy_id: beverages.water.still
+  product_type: mineral_water
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 9000, unit: ml}
+  rank: 22
+  is_mvp: true
+- slug: bamba
+  display_name_he: חטיף בוטנים (במבה)
+  taxonomy_id: snacks.salty.puffs
+  product_type: peanut_puffs
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 80, unit: g}
+  rank: 23
+  is_mvp: true
+- slug: toilet-paper
+  display_name_he: נייר טואלט
+  taxonomy_id: paper.tissue.toilet
+  product_type: toilet_paper
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 32, unit: unit}
+  rank: 24
+  is_mvp: true
+- slug: chocolate-milk
+  display_name_he: שוקו
+  taxonomy_id: dairy.milk.flavored
+  product_type: chocolate_milk
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 25
+  is_mvp: true
+- slug: cottage-3
+  display_name_he: קוטג' 3%
+  taxonomy_id: dairy.cheese.cottage
+  product_type: cottage_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 3}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 26
+  is_mvp: true
+- slug: yogurt-plain-3
+  display_name_he: יוגורט טבעי 3%
+  taxonomy_id: dairy.yogurt.plain
+  product_type: yogurt
+  base_unit: 100g
+  critical_attrs: {fat_pct: 3, flavor: plain}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 27
+  is_mvp: true
+- slug: pudding-chocolate-cream
+  display_name_he: מעדן שוקולד עם קצפת
+  taxonomy_id: dairy.yogurt.desserts
+  product_type: pudding_with_cream
+  base_unit: 100g
+  critical_attrs: {flavor: chocolate}
+  soft_attrs: {pack_size: 170, unit: g}
+  rank: 28
+  is_mvp: true
+- slug: sour-cream-15
+  display_name_he: שמנת חמוצה 15%
+  taxonomy_id: dairy.cream.sour
+  product_type: sour_cream
+  base_unit: 100g
+  critical_attrs: {fat_pct: 15}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 29
+  is_mvp: true
+- slug: whipping-cream-32
+  display_name_he: שמנת מתוקה 32%
+  taxonomy_id: dairy.cream.sweet
+  product_type: whipping_cream
+  base_unit: 100ml
+  critical_attrs: {fat_pct: 32}
+  soft_attrs: {pack_size: 250, unit: ml}
+  rank: 30
+  is_mvp: true
+- slug: butter
+  display_name_he: חמאה
+  taxonomy_id: dairy.cream.butter
+  product_type: butter
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 31
+  is_mvp: true
+- slug: eggs-m
+  display_name_he: ביצים M
+  taxonomy_id: dairy.eggs.chicken
+  product_type: eggs_m
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 12, unit: unit}
+  rank: 32
+  is_mvp: true
+- slug: chicken-schnitzel-fresh
+  display_name_he: שניצל עוף טרי (חזה פרוס)
+  taxonomy_id: meat.chicken.breast
+  product_type: chicken_breast_sliced
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 33
+  is_mvp: true
+- slug: chicken-drumstick-fresh
+  display_name_he: שוקיים עוף טריים
+  taxonomy_id: meat.chicken.legs
+  product_type: chicken_drumstick
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 34
+  is_mvp: true
+- slug: beef-ground-fresh
+  display_name_he: בשר בקר טחון טרי
+  taxonomy_id: meat.beef.ground
+  product_type: beef_ground
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 35
+  is_mvp: true
+- slug: salmon-fillet-fresh
+  display_name_he: פילה סלמון טרי
+  taxonomy_id: fish.fillets.salmon
+  product_type: salmon_fillet
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 36
+  is_mvp: true
+- slug: turkey-pastrami
+  display_name_he: פסטרמה הודו פרוסה
+  taxonomy_id: deli.cold_cuts.sliced
+  product_type: turkey_breast_sliced
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 37
+  is_mvp: true
+- slug: chicken-hot-dogs
+  display_name_he: נקניקיות עוף
+  taxonomy_id: deli.cold_cuts.sausages
+  product_type: chicken_hot_dogs
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 38
+  is_mvp: true
+- slug: cherry-tomato
+  display_name_he: עגבניות שרי
+  taxonomy_id: produce.vegetables.fruiting
+  product_type: cherry_tomato
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 39
+  is_mvp: true
+- slug: carrot
+  display_name_he: גזר
+  taxonomy_id: produce.vegetables.root
+  product_type: carrot
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 40
+  is_mvp: true
+- slug: red-pepper
+  display_name_he: פלפל אדום
+  taxonomy_id: produce.vegetables.fruiting
+  product_type: red_pepper
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 41
+  is_mvp: true
+- slug: lemon
+  display_name_he: לימונים
+  taxonomy_id: produce.fruit.citrus
+  product_type: lemon
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 42
+  is_mvp: true
+- slug: avocado
+  display_name_he: אבוקדו
+  taxonomy_id: produce.fruit.tropical
+  product_type: avocado
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 43
+  is_mvp: true
+- slug: apple-red
+  display_name_he: תפוחי עץ אדומים
+  taxonomy_id: produce.fruit.pome
+  product_type: apple_red
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 44
+  is_mvp: true
+- slug: lettuce
+  display_name_he: חסה
+  taxonomy_id: produce.vegetables.leafy
+  product_type: lettuce
+  base_unit: unit
+  critical_attrs: *id001
+  soft_attrs: {pack_size: 1, unit: unit}
+  rank: 45
+  is_mvp: true
+- slug: parsley
+  display_name_he: פטרוזיליה
+  taxonomy_id: produce.herbs.fresh
+  product_type: parsley
+  base_unit: unit
+  critical_attrs: *id001
+  soft_attrs: {pack_size: 1, unit: unit}
+  rank: 46
+  is_mvp: true
+- slug: bread-whole-wheat
+  display_name_he: לחם מחיטה מלאה
+  taxonomy_id: bakery.bread.loaves
+  product_type: bread_whole_wheat
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: g}
+  rank: 47
+  is_mvp: true
+- slug: challah
+  display_name_he: חלה
+  taxonomy_id: bakery.bread.challah
+  product_type: challah
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 48
+  is_mvp: true
+- slug: rice-basmati
+  display_name_he: אורז בסמטי
+  taxonomy_id: pantry.rice.white
+  product_type: rice_basmati
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 49
+  is_mvp: true
+- slug: pasta-penne
+  display_name_he: פסטה פנה
+  taxonomy_id: pantry.pasta.short
+  product_type: pasta_penne
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 50
+  is_mvp: true
+- slug: ptitim
+  display_name_he: פתיתים אפויים
+  taxonomy_id: pantry.pasta.israeli
+  product_type: ptitim
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 51
+  is_mvp: true
+- slug: flour-white
+  display_name_he: קמח לבן
+  taxonomy_id: pantry.baking.flour
+  product_type: flour_white
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 52
+  is_mvp: true
+- slug: olive-oil
+  display_name_he: שמן זית כתית מעולה
+  taxonomy_id: pantry.oils.olive
+  product_type: olive_oil
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: ml}
+  rank: 53
+  is_mvp: true
+- slug: tahini-raw
+  display_name_he: טחינה גולמית
+  taxonomy_id: pantry.spreads.tahini
+  product_type: tahini_raw
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 54
+  is_mvp: true
+- slug: chocolate-spread
+  display_name_he: ממרח שוקולד
+  taxonomy_id: pantry.spreads.sweet
+  product_type: chocolate_spread
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 55
+  is_mvp: true
+- slug: ketchup
+  display_name_he: קטשופ
+  taxonomy_id: pantry.condiments.sauces
+  product_type: ketchup
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: g}
+  rank: 56
+  is_mvp: true
+- slug: mayonnaise
+  display_name_he: מיונז
+  taxonomy_id: pantry.condiments.sauces
+  product_type: mayonnaise
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 57
+  is_mvp: true
+- slug: salt
+  display_name_he: מלח
+  taxonomy_id: pantry.condiments.spices
+  product_type: salt
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 58
+  is_mvp: true
+- slug: cornflakes
+  display_name_he: קורנפלקס
+  taxonomy_id: pantry.breakfast.cereal
+  product_type: cornflakes
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: g}
+  rank: 59
+  is_mvp: true
+- slug: soup-powder-chicken
+  display_name_he: אבקת מרק עוף
+  taxonomy_id: pantry.condiments.soup
+  product_type: soup_powder
+  base_unit: 100g
+  critical_attrs: {flavor: chicken}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 60
+  is_mvp: true
+- slug: sweet-corn-canned
+  display_name_he: תירס מתוק בשימורים
+  taxonomy_id: canned.vegetables.legumes
+  product_type: sweet_corn
+  base_unit: 100g
+  critical_attrs: {state: canned}
+  soft_attrs: {pack_size: 340, unit: g}
+  rank: 61
+  is_mvp: true
+- slug: pickled-cucumbers
+  display_name_he: מלפפונים חמוצים
+  taxonomy_id: canned.vegetables.pickles
+  product_type: pickled_cucumbers
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 560, unit: g}
+  rank: 62
+  is_mvp: true
+- slug: tomato-paste
+  display_name_he: רסק עגבניות
+  taxonomy_id: canned.tomatoes.paste
+  product_type: tomato_paste
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 63
+  is_mvp: true
+- slug: breaded-schnitzel
+  display_name_he: שניצל עוף מצופה קפוא
+  taxonomy_id: frozen.ready.chicken
+  product_type: breaded_schnitzel
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 700, unit: g}
+  rank: 64
+  is_mvp: true
+- slug: cola
+  display_name_he: קולה
+  taxonomy_id: beverages.soft_drinks.cola
+  product_type: cola
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1500, unit: ml}
+  rank: 65
+  is_mvp: true
+- slug: coffee-instant
+  display_name_he: קפה נמס
+  taxonomy_id: beverages.hot.coffee
+  product_type: coffee_instant
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 66
+  is_mvp: true
+- slug: coffee-turkish
+  display_name_he: קפה שחור טחון
+  taxonomy_id: beverages.hot.coffee
+  product_type: coffee_turkish
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 67
+  is_mvp: true
+- slug: tea-black
+  display_name_he: תה שחור בשקיקים
+  taxonomy_id: beverages.hot.tea
+  product_type: tea_black
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: unit}
+  rank: 68
+  is_mvp: true
+- slug: bisli-grill
+  display_name_he: ביסלי גריל
+  taxonomy_id: snacks.salty.puffs
+  product_type: wheat_snack
+  base_unit: 100g
+  critical_attrs: {flavor: grill}
+  soft_attrs: {pack_size: 70, unit: g}
+  rank: 69
+  is_mvp: true
+- slug: potato-chips-salted
+  display_name_he: צ'יפס תפוחי אדמה בטעם מלח
+  taxonomy_id: snacks.salty.chips
+  product_type: potato_chips
+  base_unit: 100g
+  critical_attrs: {flavor: salted}
+  soft_attrs: {pack_size: 50, unit: g}
+  rank: 70
+  is_mvp: true
+- slug: chocolate-milk-bar
+  display_name_he: שוקולד חלב
+  taxonomy_id: snacks.sweet.chocolate
+  product_type: chocolate_bar
+  base_unit: 100g
+  critical_attrs: {flavor: milk}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 71
+  is_mvp: true
+- slug: tea-biscuits
+  display_name_he: ביסקוויטים (פתי בר)
+  taxonomy_id: snacks.sweet.biscuits
+  product_type: tea_biscuits
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 72
+  is_mvp: true
+- slug: dish-soap
+  display_name_he: נוזל כלים
+  taxonomy_id: cleaning.dishes.liquid
+  product_type: dish_soap
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: ml}
+  rank: 73
+  is_mvp: true
+- slug: laundry-gel
+  display_name_he: ג'ל כביסה
+  taxonomy_id: cleaning.laundry.detergent
+  product_type: laundry_gel
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 3000, unit: ml}
+  rank: 74
+  is_mvp: true
+- slug: fabric-softener
+  display_name_he: מרכך כביסה
+  taxonomy_id: cleaning.laundry.softener
+  product_type: fabric_softener
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 4000, unit: ml}
+  rank: 75
+  is_mvp: true
+- slug: bleach
+  display_name_he: אקונומיקה
+  taxonomy_id: cleaning.surfaces.bleach
+  product_type: bleach
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 4000, unit: ml}
+  rank: 76
+  is_mvp: true
+- slug: garbage-bags
+  display_name_he: שקיות אשפה
+  taxonomy_id: cleaning.bags.garbage
+  product_type: garbage_bags
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 30, unit: unit}
+  rank: 77
+  is_mvp: true
+- slug: paper-towels
+  display_name_he: מגבות נייר
+  taxonomy_id: paper.tissue.towels
+  product_type: paper_towels
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 6, unit: unit}
+  rank: 78
+  is_mvp: true
+- slug: milk-long-life-3
+  display_name_he: חלב עמיד 3%
+  taxonomy_id: dairy.milk.long_life
+  product_type: milk_long_life
+  base_unit: 100ml
+  critical_attrs: {fat_pct: 3}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 79
+  is_mvp: true
+- slug: milk-lactose-free-2
+  display_name_he: חלב ללא לקטוז 2%
+  taxonomy_id: dairy.milk.lactose_free
+  product_type: milk_lactose_free
+  base_unit: 100ml
+  critical_attrs: {fat_pct: 2}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 80
+  is_mvp: true
+- slug: white-cheese-9
+  display_name_he: גבינה לבנה 9%
+  taxonomy_id: dairy.cheese.white
+  product_type: white_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 9}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 81
+  is_mvp: true
+- slug: cream-cheese-30-plain
+  display_name_he: גבינת שמנת 30% טבעית
+  taxonomy_id: dairy.cheese.cream
+  product_type: cream_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 30, flavor: plain}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 82
+  is_mvp: true
+- slug: yellow-cheese-sliced-9
+  display_name_he: גבינה צהובה פרוסה 9%
+  taxonomy_id: dairy.cheese.yellow.sliced
+  product_type: yellow_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 9}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 83
+  is_mvp: true
+- slug: grated-mozzarella
+  display_name_he: גבינה מגורדת (מוצרלה)
+  taxonomy_id: dairy.cheese.yellow.grated
+  product_type: grated_cheese
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 84
+  is_mvp: true
+- slug: bulgarian-cheese-5
+  display_name_he: גבינה בולגרית 5%
+  taxonomy_id: dairy.cheese.brined
+  product_type: bulgarian_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 5}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 85
+  is_mvp: true
+- slug: labane-5
+  display_name_he: לבנה 5%
+  taxonomy_id: dairy.cheese.labane
+  product_type: labane
+  base_unit: 100g
+  critical_attrs: {fat_pct: 5}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 86
+  is_mvp: true
+- slug: yogurt-plain-1-5
+  display_name_he: יוגורט טבעי 1.5%
+  taxonomy_id: dairy.yogurt.plain
+  product_type: yogurt
+  base_unit: 100g
+  critical_attrs: {fat_pct: 1.5, flavor: plain}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 87
+  is_mvp: true
+- slug: yogurt-strawberry
+  display_name_he: יוגורט תות
+  taxonomy_id: dairy.yogurt.fruit
+  product_type: yogurt_fruit
+  base_unit: 100g
+  critical_attrs: {flavor: strawberry}
+  soft_attrs: {pack_size: 150, unit: g}
+  rank: 88
+  is_mvp: true
+- slug: greek-yogurt-plain
+  display_name_he: יוגורט יווני טבעי
+  taxonomy_id: dairy.yogurt.greek
+  product_type: greek_yogurt
+  base_unit: 100g
+  critical_attrs: {flavor: plain}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 89
+  is_mvp: true
+- slug: cooking-cream-10
+  display_name_he: שמנת לבישול 10%
+  taxonomy_id: dairy.cream.cooking
+  product_type: cooking_cream
+  base_unit: 100ml
+  critical_attrs: {fat_pct: 10}
+  soft_attrs: {pack_size: 250, unit: ml}
+  rank: 90
+  is_mvp: true
+- slug: eggs-xl
+  display_name_he: ביצים XL
+  taxonomy_id: dairy.eggs.chicken
+  product_type: eggs_xl
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 12, unit: unit}
+  rank: 91
+  is_mvp: true
+- slug: chicken-breast-frozen
+  display_name_he: חזה עוף קפוא
+  taxonomy_id: meat.chicken.breast
+  product_type: chicken_breast
+  base_unit: 100g
+  critical_attrs: &id002 {state: frozen}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 92
+  is_mvp: true
+- slug: chicken-leg-fresh
+  display_name_he: כרעיים עוף טריים
+  taxonomy_id: meat.chicken.legs
+  product_type: chicken_leg
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 93
+  is_mvp: true
+- slug: chicken-whole-fresh
+  display_name_he: עוף שלם טרי
+  taxonomy_id: meat.chicken.whole
+  product_type: chicken_whole
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 94
+  is_mvp: true
+- slug: beef-ground-frozen
+  display_name_he: בשר בקר טחון קפוא
+  taxonomy_id: meat.beef.ground
+  product_type: beef_ground
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 95
+  is_mvp: true
+- slug: salmon-fillet-frozen
+  display_name_he: פילה סלמון קפוא
+  taxonomy_id: fish.fillets.salmon
+  product_type: salmon_fillet
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 96
+  is_mvp: true
+- slug: hake-fillet-frozen
+  display_name_he: פילה מרלוזה קפוא
+  taxonomy_id: fish.fillets.white
+  product_type: hake_fillet
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 97
+  is_mvp: true
+- slug: tahini-salad
+  display_name_he: סלט טחינה
+  taxonomy_id: deli.salads.tahini
+  product_type: tahini_salad
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 98
+  is_mvp: true
+- slug: matbucha
+  display_name_he: מטבוחה
+  taxonomy_id: deli.salads.vegetable
+  product_type: matbucha
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 99
+  is_mvp: true
+- slug: sweet-potato
+  display_name_he: בטטה
+  taxonomy_id: produce.vegetables.root
+  product_type: sweet_potato
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 100
+  is_mvp: true
+- slug: eggplant
+  display_name_he: חצילים
+  taxonomy_id: produce.vegetables.fruiting
+  product_type: eggplant
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 101
+  is_mvp: true
+- slug: zucchini
+  display_name_he: קישואים
+  taxonomy_id: produce.vegetables.fruiting
+  product_type: zucchini
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 102
+  is_mvp: true
+- slug: garlic
+  display_name_he: שום
+  taxonomy_id: produce.vegetables.root
+  product_type: garlic
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 103
+  is_mvp: true
+- slug: apple-green
+  display_name_he: תפוחי עץ ירוקים
+  taxonomy_id: produce.fruit.pome
+  product_type: apple_green
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 104
+  is_mvp: true
+- slug: orange
+  display_name_he: תפוזים
+  taxonomy_id: produce.fruit.citrus
+  product_type: orange
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 105
+  is_mvp: true
+- slug: clementine
+  display_name_he: קלמנטינות
+  taxonomy_id: produce.fruit.citrus
+  product_type: clementine
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 106
+  is_mvp: true
+- slug: watermelon
+  display_name_he: אבטיח
+  taxonomy_id: produce.fruit.melons
+  product_type: watermelon
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 107
+  is_mvp: true
+- slug: mushrooms-fresh
+  display_name_he: פטריות שמפיניון טריות
+  taxonomy_id: produce.vegetables.mushrooms
+  product_type: mushrooms
+  base_unit: 100g
+  critical_attrs: *id001
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 108
+  is_mvp: true
+- slug: coriander
+  display_name_he: כוסברה
+  taxonomy_id: produce.herbs.fresh
+  product_type: coriander
+  base_unit: unit
+  critical_attrs: *id001
+  soft_attrs: {pack_size: 1, unit: unit}
+  rank: 109
+  is_mvp: true
+- slug: bread-rye
+  display_name_he: לחם שיפון
+  taxonomy_id: bakery.bread.loaves
+  product_type: bread_rye
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: g}
+  rank: 110
+  is_mvp: true
+- slug: bread-multigrain
+  display_name_he: לחם דגנים
+  taxonomy_id: bakery.bread.loaves
+  product_type: bread_multigrain
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: g}
+  rank: 111
+  is_mvp: true
+- slug: rolls
+  display_name_he: לחמניות
+  taxonomy_id: bakery.bread.rolls
+  product_type: rolls
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 6, unit: unit}
+  rank: 112
+  is_mvp: true
+- slug: pasta-fusilli
+  display_name_he: פסטה פוזילי
+  taxonomy_id: pantry.pasta.short
+  product_type: pasta_fusilli
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 113
+  is_mvp: true
+- slug: couscous
+  display_name_he: קוסקוס
+  taxonomy_id: pantry.pasta.israeli
+  product_type: couscous
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 114
+  is_mvp: true
+- slug: egg-noodles
+  display_name_he: אטריות ביצים
+  taxonomy_id: pantry.pasta.israeli
+  product_type: egg_noodles
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 115
+  is_mvp: true
+- slug: red-lentils
+  display_name_he: עדשים כתומות
+  taxonomy_id: pantry.legumes.dry
+  product_type: red_lentils
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 116
+  is_mvp: true
+- slug: quinoa
+  display_name_he: קינואה
+  taxonomy_id: pantry.legumes.grains
+  product_type: quinoa
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 117
+  is_mvp: true
+- slug: breadcrumbs
+  display_name_he: פירורי לחם
+  taxonomy_id: pantry.baking.aids
+  product_type: breadcrumbs
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 118
+  is_mvp: true
+- slug: sunflower-oil
+  display_name_he: שמן חמניות
+  taxonomy_id: pantry.oils.vegetable
+  product_type: sunflower_oil
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 119
+  is_mvp: true
+- slug: peanut-butter
+  display_name_he: חמאת בוטנים
+  taxonomy_id: pantry.spreads.sweet
+  product_type: peanut_butter
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 340, unit: g}
+  rank: 120
+  is_mvp: true
+- slug: honey
+  display_name_he: דבש
+  taxonomy_id: pantry.spreads.sweet
+  product_type: honey
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 121
+  is_mvp: true
+- slug: soy-sauce
+  display_name_he: רוטב סויה
+  taxonomy_id: pantry.condiments.sauces
+  product_type: soy_sauce
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: ml}
+  rank: 122
+  is_mvp: true
+- slug: black-pepper
+  display_name_he: פלפל שחור
+  taxonomy_id: pantry.condiments.spices
+  product_type: black_pepper
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 123
+  is_mvp: true
+- slug: sweet-paprika
+  display_name_he: פפריקה מתוקה
+  taxonomy_id: pantry.condiments.spices
+  product_type: sweet_paprika
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 124
+  is_mvp: true
+- slug: rolled-oats
+  display_name_he: שיבולת שועל
+  taxonomy_id: pantry.breakfast.cereal
+  product_type: rolled_oats
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 125
+  is_mvp: true
+- slug: granola
+  display_name_he: גרנולה
+  taxonomy_id: pantry.breakfast.cereal
+  product_type: granola
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 126
+  is_mvp: true
+- slug: jam-strawberry
+  display_name_he: ריבת תות
+  taxonomy_id: pantry.spreads.sweet
+  product_type: jam
+  base_unit: 100g
+  critical_attrs: {flavor: strawberry}
+  soft_attrs: {pack_size: 340, unit: g}
+  rank: 127
+  is_mvp: true
+- slug: chickpeas-dry
+  display_name_he: גרגרי חומוס יבשים
+  taxonomy_id: pantry.legumes.dry
+  product_type: chickpeas
+  base_unit: 100g
+  critical_attrs: {state: dry}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 128
+  is_mvp: true
+- slug: tuna-in-water
+  display_name_he: טונה במים
+  taxonomy_id: canned.fish.tuna
+  product_type: tuna_in_water
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 640, unit: g}
+  rank: 129
+  is_mvp: true
+- slug: chickpeas-canned
+  display_name_he: גרגרי חומוס בשימורים
+  taxonomy_id: canned.vegetables.legumes
+  product_type: chickpeas
+  base_unit: 100g
+  critical_attrs: {state: canned}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 130
+  is_mvp: true
+- slug: olives-green
+  display_name_he: זיתים ירוקים
+  taxonomy_id: canned.vegetables.pickles
+  product_type: olives_green
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 560, unit: g}
+  rank: 131
+  is_mvp: true
+- slug: crushed-tomatoes
+  display_name_he: עגבניות מרוסקות
+  taxonomy_id: canned.tomatoes.paste
+  product_type: crushed_tomatoes
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 132
+  is_mvp: true
+- slug: peas-frozen
+  display_name_he: אפונה קפואה
+  taxonomy_id: frozen.vegetables.single
+  product_type: peas
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 133
+  is_mvp: true
+- slug: french-fries-frozen
+  display_name_he: צ'יפס קפוא
+  taxonomy_id: frozen.vegetables.potato
+  product_type: french_fries
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 134
+  is_mvp: true
+- slug: chicken-nuggets
+  display_name_he: נאגטס עוף
+  taxonomy_id: frozen.ready.chicken
+  product_type: chicken_nuggets
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 700, unit: g}
+  rank: 135
+  is_mvp: true
+- slug: burekas-cheese
+  display_name_he: בורקס גבינה קפוא
+  taxonomy_id: frozen.ready.dough
+  product_type: burekas
+  base_unit: 100g
+  critical_attrs: {flavor: cheese}
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 136
+  is_mvp: true
+- slug: soda-water
+  display_name_he: מים מוגזים (סודה)
+  taxonomy_id: beverages.water.sparkling
+  product_type: soda_water
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1500, unit: ml}
+  rank: 137
+  is_mvp: true
+- slug: cola-zero
+  display_name_he: קולה זירו
+  taxonomy_id: beverages.soft_drinks.cola
+  product_type: cola_zero
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1500, unit: ml}
+  rank: 138
+  is_mvp: true
+- slug: orange-juice-chilled
+  display_name_he: מיץ תפוזים טבעי (מקורר)
+  taxonomy_id: beverages.juice.chilled
+  product_type: orange_juice_chilled
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 139
+  is_mvp: true
+- slug: raspberry-concentrate
+  display_name_he: תרכיז פטל
+  taxonomy_id: beverages.juice.concentrate
+  product_type: raspberry_concentrate
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1500, unit: ml}
+  rank: 140
+  is_mvp: true
+- slug: soy-drink
+  display_name_he: משקה סויה
+  taxonomy_id: beverages.plant_drinks.soy
+  product_type: soy_drink
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 141
+  is_mvp: true
+- slug: almond-drink
+  display_name_he: משקה שקדים
+  taxonomy_id: beverages.plant_drinks.almond
+  product_type: almond_drink
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 142
+  is_mvp: true
+- slug: oat-drink
+  display_name_he: משקה שיבולת שועל
+  taxonomy_id: beverages.plant_drinks.oat
+  product_type: oat_drink
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 143
+  is_mvp: true
+- slug: pretzels
+  display_name_he: בייגלה
+  taxonomy_id: snacks.salty.chips
+  product_type: pretzels
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 144
+  is_mvp: true
+- slug: chocolate-dark-bar
+  display_name_he: שוקולד מריר
+  taxonomy_id: snacks.sweet.chocolate
+  product_type: chocolate_bar
+  base_unit: 100g
+  critical_attrs: {flavor: dark}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 145
+  is_mvp: true
+- slug: wafers-chocolate
+  display_name_he: ופלים בטעם שוקולד
+  taxonomy_id: snacks.sweet.biscuits
+  product_type: wafers
+  base_unit: 100g
+  critical_attrs: {flavor: chocolate}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 146
+  is_mvp: true
+- slug: rice-cakes
+  display_name_he: פריכיות אורז
+  taxonomy_id: snacks.crackers.all
+  product_type: rice_cakes
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 147
+  is_mvp: true
+- slug: wet-wipes
+  display_name_he: מגבונים לחים
+  taxonomy_id: baby.hygiene.wipes
+  product_type: wet_wipes
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 72, unit: unit}
+  rank: 148
+  is_mvp: true
+- slug: dishwasher-tablets
+  display_name_he: טבליות למדיח כלים
+  taxonomy_id: cleaning.dishes.dishwasher
+  product_type: dishwasher_tablets
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 40, unit: unit}
+  rank: 149
+  is_mvp: true
+- slug: sponges
+  display_name_he: ספוגי כלים
+  taxonomy_id: cleaning.dishes.sponges
+  product_type: sponges
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 4, unit: unit}
+  rank: 150
+  is_mvp: true
+- slug: floor-cleaner
+  display_name_he: נוזל לניקוי רצפות
+  taxonomy_id: cleaning.surfaces.floor
+  product_type: floor_cleaner
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 4000, unit: ml}
+  rank: 151
+  is_mvp: true
+- slug: aluminum-foil
+  display_name_he: נייר כסף
+  taxonomy_id: paper.kitchen.foil
+  product_type: aluminum_foil
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1, unit: unit}
+  rank: 152
+  is_mvp: true
+- slug: toothpaste
+  display_name_he: משחת שיניים
+  taxonomy_id: toiletries.oral.toothpaste
+  product_type: toothpaste
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: ml}
+  rank: 153
+  is_mvp: true
+- slug: shampoo
+  display_name_he: שמפו
+  taxonomy_id: toiletries.hair.shampoo
+  product_type: shampoo
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 700, unit: ml}
+  rank: 154
+  is_mvp: true
+- slug: hand-soap
+  display_name_he: סבון ידיים נוזלי
+  taxonomy_id: toiletries.body.soap
+  product_type: hand_soap
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 155
+  is_mvp: true
+- slug: milk-long-life-1
+  display_name_he: חלב עמיד 1%
+  taxonomy_id: dairy.milk.long_life
+  product_type: milk_long_life
+  base_unit: 100ml
+  critical_attrs: {fat_pct: 1}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 156
+  is_mvp: true
+- slug: white-cheese-3
+  display_name_he: גבינה לבנה 3%
+  taxonomy_id: dairy.cheese.white
+  product_type: white_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 3}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 157
+  is_mvp: true
+- slug: bulgarian-cheese-24
+  display_name_he: גבינה בולגרית 24%
+  taxonomy_id: dairy.cheese.brined
+  product_type: bulgarian_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 24}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 158
+  is_mvp: true
+- slug: safed-cheese-5
+  display_name_he: גבינה צפתית 5%
+  taxonomy_id: dairy.cheese.brined
+  product_type: safed_cheese
+  base_unit: 100g
+  critical_attrs: {fat_pct: 5}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 159
+  is_mvp: true
+- slug: yogurt-peach
+  display_name_he: יוגורט אפרסק
+  taxonomy_id: dairy.yogurt.fruit
+  product_type: yogurt_fruit
+  base_unit: 100g
+  critical_attrs: {flavor: peach}
+  soft_attrs: {pack_size: 150, unit: g}
+  rank: 160
+  is_mvp: true
+- slug: dessert-chocolate
+  display_name_he: מעדן חלב שוקולד
+  taxonomy_id: dairy.yogurt.desserts
+  product_type: dairy_dessert
+  base_unit: 100g
+  critical_attrs: {flavor: chocolate}
+  soft_attrs: {pack_size: 125, unit: g}
+  rank: 161
+  is_mvp: true
+- slug: whipping-cream-38
+  display_name_he: שמנת מתוקה 38%
+  taxonomy_id: dairy.cream.sweet
+  product_type: whipping_cream
+  base_unit: 100ml
+  critical_attrs: {fat_pct: 38}
+  soft_attrs: {pack_size: 250, unit: ml}
+  rank: 162
+  is_mvp: true
+- slug: eggs-free-range-l
+  display_name_he: ביצי חופש L
+  taxonomy_id: dairy.eggs.chicken
+  product_type: eggs_free_range_l
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 12, unit: unit}
+  rank: 163
+  is_mvp: true
+- slug: chicken-thigh-boneless-frozen
+  display_name_he: פרגיות קפואות
+  taxonomy_id: meat.chicken.thigh
+  product_type: chicken_thigh_boneless
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 164
+  is_mvp: true
+- slug: chicken-whole-frozen
+  display_name_he: עוף שלם קפוא
+  taxonomy_id: meat.chicken.whole
+  product_type: chicken_whole
+  base_unit: kg
+  critical_attrs: *id002
+  soft_attrs: {}
+  rank: 165
+  is_mvp: true
+- slug: chicken-wings-fresh
+  display_name_he: כנפיים עוף טריות
+  taxonomy_id: meat.chicken.wings
+  product_type: chicken_wings
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 166
+  is_mvp: true
+- slug: chicken-ground-fresh
+  display_name_he: עוף טחון טרי
+  taxonomy_id: meat.chicken.ground
+  product_type: chicken_ground
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 167
+  is_mvp: true
+- slug: chicken-liver-frozen
+  display_name_he: כבד עוף קפוא
+  taxonomy_id: meat.chicken.offal
+  product_type: chicken_liver
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 168
+  is_mvp: true
+- slug: beef-shoulder-fresh
+  display_name_he: צלי כתף בקר טרי
+  taxonomy_id: meat.beef.cuts
+  product_type: beef_shoulder
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 169
+  is_mvp: true
+- slug: beef-goulash-fresh
+  display_name_he: בשר בקר לגולאש טרי
+  taxonomy_id: meat.beef.cuts
+  product_type: beef_goulash
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 170
+  is_mvp: true
+- slug: turkey-breast-fresh
+  display_name_he: חזה הודו טרי
+  taxonomy_id: meat.turkey.breast
+  product_type: turkey_breast
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 171
+  is_mvp: true
+- slug: tilapia-fillet-frozen
+  display_name_he: פילה אמנון קפוא
+  taxonomy_id: fish.fillets.white
+  product_type: tilapia_fillet
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 172
+  is_mvp: true
+- slug: sea-bream-fresh
+  display_name_he: דניס שלם טרי
+  taxonomy_id: fish.whole.sea_bream
+  product_type: sea_bream
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 173
+  is_mvp: true
+- slug: smoked-salmon-sliced
+  display_name_he: סלמון מעושן פרוס
+  taxonomy_id: fish.smoked.salmon
+  product_type: smoked_salmon
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 174
+  is_mvp: true
+- slug: eggplant-mayo-salad
+  display_name_he: סלט חצילים במיונז
+  taxonomy_id: deli.salads.vegetable
+  product_type: eggplant_mayo_salad
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 175
+  is_mvp: true
+- slug: cabbage
+  display_name_he: כרוב לבן
+  taxonomy_id: produce.vegetables.leafy
+  product_type: cabbage
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 176
+  is_mvp: true
+- slug: cauliflower
+  display_name_he: כרובית
+  taxonomy_id: produce.vegetables.leafy
+  product_type: cauliflower
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 177
+  is_mvp: true
+- slug: broccoli-fresh
+  display_name_he: ברוקולי טרי
+  taxonomy_id: produce.vegetables.leafy
+  product_type: broccoli
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 178
+  is_mvp: true
+- slug: pear
+  display_name_he: אגסים
+  taxonomy_id: produce.fruit.pome
+  product_type: pear
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 179
+  is_mvp: true
+- slug: grapes
+  display_name_he: ענבים
+  taxonomy_id: produce.fruit.berries
+  product_type: grapes
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 180
+  is_mvp: true
+- slug: melon
+  display_name_he: מלון
+  taxonomy_id: produce.fruit.melons
+  product_type: melon
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 181
+  is_mvp: true
+- slug: strawberries-fresh
+  display_name_he: תותים טריים
+  taxonomy_id: produce.fruit.berries
+  product_type: strawberries
+  base_unit: 100g
+  critical_attrs: *id001
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 182
+  is_mvp: true
+- slug: dill
+  display_name_he: שמיר
+  taxonomy_id: produce.herbs.fresh
+  product_type: dill
+  base_unit: unit
+  critical_attrs: *id001
+  soft_attrs: {pack_size: 1, unit: unit}
+  rank: 183
+  is_mvp: true
+- slug: green-onion
+  display_name_he: בצל ירוק
+  taxonomy_id: produce.herbs.fresh
+  product_type: green_onion
+  base_unit: unit
+  critical_attrs: *id001
+  soft_attrs: {pack_size: 1, unit: unit}
+  rank: 184
+  is_mvp: true
+- slug: bread-spelt
+  display_name_he: לחם כוסמין
+  taxonomy_id: bakery.bread.loaves
+  product_type: bread_spelt
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 185
+  is_mvp: true
+- slug: baguette
+  display_name_he: באגט
+  taxonomy_id: bakery.bread.rolls
+  product_type: baguette
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1, unit: unit}
+  rank: 186
+  is_mvp: true
+- slug: rice-jasmine
+  display_name_he: אורז יסמין
+  taxonomy_id: pantry.rice.white
+  product_type: rice_jasmine
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 187
+  is_mvp: true
+- slug: rice-round
+  display_name_he: אורז עגול
+  taxonomy_id: pantry.rice.white
+  product_type: rice_round
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 188
+  is_mvp: true
+- slug: rice-brown
+  display_name_he: אורז מלא
+  taxonomy_id: pantry.rice.brown
+  product_type: rice_brown
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 189
+  is_mvp: true
+- slug: white-beans
+  display_name_he: שעועית לבנה יבשה
+  taxonomy_id: pantry.legumes.dry
+  product_type: white_beans
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 190
+  is_mvp: true
+- slug: bulgur
+  display_name_he: בורגול
+  taxonomy_id: pantry.legumes.grains
+  product_type: bulgur
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 191
+  is_mvp: true
+- slug: flour-whole-wheat
+  display_name_he: קמח מלא
+  taxonomy_id: pantry.baking.flour
+  product_type: flour_whole_wheat
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 192
+  is_mvp: true
+- slug: sugar-brown
+  display_name_he: סוכר חום
+  taxonomy_id: pantry.baking.sugar
+  product_type: sugar_brown
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 193
+  is_mvp: true
+- slug: baking-powder
+  display_name_he: אבקת אפייה
+  taxonomy_id: pantry.baking.aids
+  product_type: baking_powder
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 194
+  is_mvp: true
+- slug: vanilla-sugar
+  display_name_he: סוכר וניל
+  taxonomy_id: pantry.baking.aids
+  product_type: vanilla_sugar
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 195
+  is_mvp: true
+- slug: dry-yeast
+  display_name_he: שמרים יבשים
+  taxonomy_id: pantry.baking.aids
+  product_type: dry_yeast
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 196
+  is_mvp: true
+- slug: soybean-oil
+  display_name_he: שמן סויה
+  taxonomy_id: pantry.oils.vegetable
+  product_type: soybean_oil
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 197
+  is_mvp: true
+- slug: silan
+  display_name_he: סילאן
+  taxonomy_id: pantry.spreads.sweet
+  product_type: silan
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 198
+  is_mvp: true
+- slug: mayonnaise-light
+  display_name_he: מיונז לייט
+  taxonomy_id: pantry.condiments.sauces
+  product_type: mayonnaise_light
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 199
+  is_mvp: true
+- slug: mustard
+  display_name_he: חרדל
+  taxonomy_id: pantry.condiments.sauces
+  product_type: mustard
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 300, unit: g}
+  rank: 200
+  is_mvp: true
+- slug: vinegar
+  display_name_he: חומץ
+  taxonomy_id: pantry.condiments.sauces
+  product_type: vinegar
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 201
+  is_mvp: true
+- slug: cumin
+  display_name_he: כמון
+  taxonomy_id: pantry.condiments.spices
+  product_type: cumin
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 202
+  is_mvp: true
+- slug: turmeric
+  display_name_he: כורכום
+  taxonomy_id: pantry.condiments.spices
+  product_type: turmeric
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: g}
+  rank: 203
+  is_mvp: true
+- slug: olives-black
+  display_name_he: זיתים שחורים
+  taxonomy_id: canned.vegetables.pickles
+  product_type: olives_black
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 560, unit: g}
+  rank: 204
+  is_mvp: true
+- slug: mushrooms-canned
+  display_name_he: פטריות בשימורים
+  taxonomy_id: canned.vegetables.other
+  product_type: canned_mushrooms
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 205
+  is_mvp: true
+- slug: mixed-vegetables-frozen
+  display_name_he: תערובת ירקות קפואה
+  taxonomy_id: frozen.vegetables.single
+  product_type: mixed_vegetables
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 206
+  is_mvp: true
+- slug: green-beans-frozen
+  display_name_he: שעועית ירוקה קפואה
+  taxonomy_id: frozen.vegetables.single
+  product_type: green_beans
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 207
+  is_mvp: true
+- slug: broccoli-frozen
+  display_name_he: ברוקולי קפוא
+  taxonomy_id: frozen.vegetables.single
+  product_type: broccoli
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 208
+  is_mvp: true
+- slug: burekas-potato
+  display_name_he: בורקס תפוחי אדמה קפוא
+  taxonomy_id: frozen.ready.dough
+  product_type: burekas
+  base_unit: 100g
+  critical_attrs: {flavor: potato}
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 209
+  is_mvp: true
+- slug: malawach
+  display_name_he: מלוואח קפוא
+  taxonomy_id: frozen.ready.dough
+  product_type: malawach
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 210
+  is_mvp: true
+- slug: frozen-pizza
+  display_name_he: פיצה קפואה
+  taxonomy_id: frozen.ready.other
+  product_type: frozen_pizza
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 211
+  is_mvp: true
+- slug: beef-burger-frozen
+  display_name_he: המבורגר בקר קפוא
+  taxonomy_id: frozen.ready.other
+  product_type: beef_burger
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 212
+  is_mvp: true
+- slug: ice-cream-vanilla
+  display_name_he: גלידה וניל
+  taxonomy_id: frozen.desserts.ice_cream
+  product_type: ice_cream
+  base_unit: 100ml
+  critical_attrs: {flavor: vanilla}
+  soft_attrs: {pack_size: 1000, unit: ml}
+  rank: 213
+  is_mvp: true
+- slug: lemon-lime-soda
+  display_name_he: משקה מוגז לימון-ליים
+  taxonomy_id: beverages.soft_drinks.other
+  product_type: lemon_lime_soda
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1500, unit: ml}
+  rank: 214
+  is_mvp: true
+- slug: orange-juice
+  display_name_he: מיץ תפוזים (מדף)
+  taxonomy_id: beverages.juice.shelf
+  product_type: orange_juice
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1500, unit: ml}
+  rank: 215
+  is_mvp: true
+- slug: grape-juice
+  display_name_he: מיץ ענבים
+  taxonomy_id: beverages.juice.shelf
+  product_type: grape_juice
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1500, unit: ml}
+  rank: 216
+  is_mvp: true
+- slug: bisli-onion
+  display_name_he: ביסלי בצל
+  taxonomy_id: snacks.salty.puffs
+  product_type: wheat_snack
+  base_unit: 100g
+  critical_attrs: {flavor: onion}
+  soft_attrs: {pack_size: 70, unit: g}
+  rank: 217
+  is_mvp: true
+- slug: sunflower-seeds
+  display_name_he: גרעינים
+  taxonomy_id: snacks.salty.seeds
+  product_type: sunflower_seeds
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 218
+  is_mvp: true
+- slug: halva
+  display_name_he: חלבה
+  taxonomy_id: snacks.sweet.halva
+  product_type: halva
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: g}
+  rank: 219
+  is_mvp: true
+- slug: crackers
+  display_name_he: קרקרים
+  taxonomy_id: snacks.crackers.all
+  product_type: crackers
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 220
+  is_mvp: true
+- slug: laundry-powder
+  display_name_he: אבקת כביסה
+  taxonomy_id: cleaning.laundry.detergent
+  product_type: laundry_powder
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 3000, unit: g}
+  rank: 221
+  is_mvp: true
+- slug: cleaning-spray
+  display_name_he: תרסיס ניקוי כללי
+  taxonomy_id: cleaning.surfaces.spray
+  product_type: cleaning_spray
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: ml}
+  rank: 222
+  is_mvp: true
+- slug: facial-tissues
+  display_name_he: ממחטות נייר
+  taxonomy_id: paper.tissue.facial
+  product_type: facial_tissues
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1, unit: unit}
+  rank: 223
+  is_mvp: true
+- slug: baking-paper
+  display_name_he: נייר אפייה
+  taxonomy_id: paper.kitchen.baking
+  product_type: baking_paper
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1, unit: unit}
+  rank: 224
+  is_mvp: true
+- slug: cling-wrap
+  display_name_he: ניילון נצמד
+  taxonomy_id: paper.kitchen.wrap
+  product_type: cling_wrap
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1, unit: unit}
+  rank: 225
+  is_mvp: true
+- slug: disposable-plates
+  display_name_he: צלחות חד-פעמיות
+  taxonomy_id: paper.disposables.tableware
+  product_type: disposable_plates
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 50, unit: unit}
+  rank: 226
+  is_mvp: true
+- slug: disposable-cups
+  display_name_he: כוסות חד-פעמיות
+  taxonomy_id: paper.disposables.tableware
+  product_type: disposable_cups
+  base_unit: unit
+  critical_attrs: {}
+  soft_attrs: {pack_size: 100, unit: unit}
+  rank: 227
+  is_mvp: true
+- slug: body-wash
+  display_name_he: סבון רחצה
+  taxonomy_id: toiletries.body.soap
+  product_type: body_wash
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: ml}
+  rank: 228
+  is_mvp: true
+- slug: matzah
+  display_name_he: מצות
+  taxonomy_id: holiday.passover.matzah
+  product_type: matzah
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 1000, unit: g}
+  rank: 229
+  is_mvp: true
+- slug: lager-beer
+  display_name_he: בירה לאגר
+  taxonomy_id: alcohol.beer.lager
+  product_type: lager_beer
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 500, unit: ml}
+  rank: 230
+  is_mvp: true
+- slug: dessert-vanilla
+  display_name_he: מעדן חלב וניל
+  taxonomy_id: dairy.yogurt.desserts
+  product_type: dairy_dessert
+  base_unit: 100g
+  critical_attrs: {flavor: vanilla}
+  soft_attrs: {pack_size: 125, unit: g}
+  rank: 231
+  is_mvp: true
+- slug: margarine
+  display_name_he: מרגרינה
+  taxonomy_id: dairy.cream.butter
+  product_type: margarine
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 250, unit: g}
+  rank: 232
+  is_mvp: true
+- slug: beef-entrecote-fresh
+  display_name_he: אנטריקוט בקר טרי
+  taxonomy_id: meat.beef.cuts
+  product_type: beef_entrecote
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 233
+  is_mvp: true
+- slug: nile-perch-fillet-frozen
+  display_name_he: פילה נסיכת הנילוס קפוא
+  taxonomy_id: fish.fillets.white
+  product_type: nile_perch_fillet
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 234
+  is_mvp: true
+- slug: salami
+  display_name_he: נקניק סלמי
+  taxonomy_id: deli.cold_cuts.sliced
+  product_type: salami
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 200, unit: g}
+  rank: 235
+  is_mvp: true
+- slug: peach
+  display_name_he: אפרסקים
+  taxonomy_id: produce.fruit.stone
+  product_type: peach
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 236
+  is_mvp: true
+- slug: mango
+  display_name_he: מנגו
+  taxonomy_id: produce.fruit.tropical
+  product_type: mango
+  base_unit: kg
+  critical_attrs: *id001
+  soft_attrs: {}
+  rank: 237
+  is_mvp: true
+- slug: sardines
+  display_name_he: סרדינים בשמן
+  taxonomy_id: canned.fish.other
+  product_type: sardines
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 125, unit: g}
+  rank: 238
+  is_mvp: true
+- slug: peas-canned
+  display_name_he: אפונה בשימורים
+  taxonomy_id: canned.vegetables.legumes
+  product_type: peas
+  base_unit: 100g
+  critical_attrs: {state: canned}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 239
+  is_mvp: true
+- slug: spinach-frozen
+  display_name_he: תרד קפוא
+  taxonomy_id: frozen.vegetables.single
+  product_type: spinach
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 240
+  is_mvp: true
+- slug: sweet-corn-frozen
+  display_name_he: תירס קפוא
+  taxonomy_id: frozen.vegetables.single
+  product_type: sweet_corn
+  base_unit: 100g
+  critical_attrs: *id002
+  soft_attrs: {pack_size: 800, unit: g}
+  rank: 241
+  is_mvp: true
+- slug: fish-fingers
+  display_name_he: אצבעות דגים
+  taxonomy_id: frozen.ready.other
+  product_type: fish_fingers
+  base_unit: 100g
+  critical_attrs: {}
+  soft_attrs: {pack_size: 400, unit: g}
+  rank: 242
+  is_mvp: true
+- slug: flavored-water-lemon
+  display_name_he: מים בטעם לימון
+  taxonomy_id: beverages.water.sparkling
+  product_type: flavored_water
+  base_unit: 100ml
+  critical_attrs: {flavor: lemon}
+  soft_attrs: {pack_size: 1500, unit: ml}
+  rank: 243
+  is_mvp: true
+- slug: deodorant
+  display_name_he: דאודורנט
+  taxonomy_id: toiletries.body.deodorant
+  product_type: deodorant
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 150, unit: ml}
+  rank: 244
+  is_mvp: true
+- slug: red-wine-dry
+  display_name_he: יין אדום יבש
+  taxonomy_id: alcohol.wine.red
+  product_type: red_wine_dry
+  base_unit: 100ml
+  critical_attrs: {}
+  soft_attrs: {pack_size: 750, unit: ml}
+  rank: 245
+  is_mvp: true

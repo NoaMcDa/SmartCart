@@ -1,0 +1,266 @@
+{
+  "_note": "Hand-written in the Message Batches result shape (custom_id + result of type succeeded / errored / canceled / expired), as documented and as parsed by the anthropic SDK 1.11 types. Not recorded from a live call: no API key was available. Re-record from a real batch once the key exists. The fake client attaches each entry to the request for the item with this raw_name; 'omit' drops the result.",
+  "results": [
+    {
+      "raw_name": "חלב תנובה 3% בקרטון 1 ליטר",
+      "expect": "ok",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-sonnet-5-5",
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"category_path\": \"dairy.milk.fresh\", \"product_type\": \"milk\", \"brand\": \"תנובה\", \"is_private_label\": false, \"fat_pct\": 3, \"state\": \"fresh\", \"flavor\": null, \"kosher\": null, \"diet_flags\": [], \"pack_size\": 1000, \"unit\": \"ml\", \"confidence\": 0.95}"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 212,
+            "output_tokens": 148,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 6100
+          }
+        }
+      }
+    },
+    {
+      "raw_name": "משקה סויה אלפרו בד\"ץ 1 ליטר",
+      "expect": "ok",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-sonnet-5-5",
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"category_path\": \"beverages.plant_drinks.soy\", \"product_type\": \"soy_drink\", \"brand\": \"אלפרו\", \"is_private_label\": false, \"fat_pct\": null, \"state\": \"dry\", \"flavor\": null, \"kosher\": \"בד\\\"ץ\", \"diet_flags\": [\"vegan\"], \"pack_size\": 1000, \"unit\": \"ml\", \"confidence\": 0.88}"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 212,
+            "output_tokens": 148,
+            "cache_read_input_tokens": 6100,
+            "cache_creation_input_tokens": 0
+          }
+        }
+      }
+    },
+    {
+      "raw_name": "פילה סלמון קפוא 1 ק\"ג",
+      "expect": "retry",
+      "reason": "invalid output: not JSON",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-sonnet-5-5",
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"category_path\": \"fish.fillets.salmon\", \"product_type\": \"salmon_fil"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 212,
+            "output_tokens": 148,
+            "cache_read_input_tokens": 6100,
+            "cache_creation_input_tokens": 0
+          }
+        }
+      }
+    },
+    {
+      "raw_name": "יוגורט תות 150 גרם",
+      "expect": "retry",
+      "reason": "invalid output: schema",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-sonnet-5-5",
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"category_path\": null, \"product_type\": \"yogurt_fruit\", \"brand\": null, \"is_private_label\": null, \"fat_pct\": null, \"state\": null, \"flavor\": \"strawberry\", \"kosher\": null, \"diet_flags\": [], \"pack_size\": null, \"unit\": null, \"confidence\": 0.9, \"verified_keys\": [\"kosher\"]}"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 212,
+            "output_tokens": 148,
+            "cache_read_input_tokens": 6100,
+            "cache_creation_input_tokens": 0
+          }
+        }
+      }
+    },
+    {
+      "raw_name": "קוטג' 5% 250 גרם",
+      "expect": "retry",
+      "reason": "cut off at max_tokens",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-sonnet-5-5",
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"category_path\": \"dairy.cheese.cottage\", \"product_type\": \"cott"
+            }
+          ],
+          "stop_reason": "max_tokens",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 212,
+            "output_tokens": 1024,
+            "cache_read_input_tokens": 6100,
+            "cache_creation_input_tokens": 0
+          }
+        }
+      }
+    },
+    {
+      "raw_name": "במבה אסם 80 גרם",
+      "expect": "retry",
+      "reason": "model refused",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-sonnet-5-5",
+          "content": [],
+          "stop_reason": "refusal",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 212,
+            "output_tokens": 3,
+            "cache_read_input_tokens": 6100,
+            "cache_creation_input_tokens": 0
+          }
+        }
+      }
+    },
+    {
+      "raw_name": "חומוס אחלה 400 גרם",
+      "expect": "retry",
+      "reason": "request errored: overloaded_error",
+      "result": {
+        "type": "errored",
+        "error": {
+          "type": "error",
+          "error": {
+            "type": "overloaded_error",
+            "message": "Overloaded"
+          }
+        }
+      }
+    },
+    {
+      "raw_name": "ביסלי גריל 70 גרם",
+      "expect": "retry",
+      "reason": "request expired",
+      "result": {
+        "type": "expired"
+      }
+    },
+    {
+      "raw_name": "שוקולד פרה מריר 100 גרם",
+      "expect": "retry",
+      "reason": "no result in the batch output",
+      "omit": true
+    },
+    {
+      "raw_name": "עגבניות",
+      "expect": "retry",
+      "reason": "invalid output: empty response",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-sonnet-5-5",
+          "content": [
+            {
+              "type": "text",
+              "text": ""
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 212,
+            "output_tokens": 148,
+            "cache_read_input_tokens": 6100,
+            "cache_creation_input_tokens": 0
+          }
+        }
+      }
+    },
+    {
+      "raw_name": "לחם אחיד פרוס",
+      "expect": "retry",
+      "reason": "invalid output: schema",
+      "result": {
+        "type": "succeeded",
+        "message": {
+          "id": "msg_fixture",
+          "type": "message",
+          "role": "assistant",
+          "model": "claude-sonnet-5-5",
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"category_path\": \"bakery.bread.loaves\", \"product_type\": \"white_bread\", \"brand\": null, \"is_private_label\": null, \"fat_pct\": null, \"state\": null, \"flavor\": null, \"kosher\": null, \"diet_flags\": [], \"pack_size\": null, \"unit\": null, \"confidence\": 0.9}"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_sequence": null,
+          "usage": {
+            "input_tokens": 212,
+            "output_tokens": 148,
+            "cache_read_input_tokens": 6100,
+            "cache_creation_input_tokens": 0
+          }
+        }
+      }
+    },
+    {
+      "raw_name": "חלב עמיד 1% 1 ליטר",
+      "expect": "failed",
+      "reason": "request errored: invalid_request_error",
+      "result": {
+        "type": "errored",
+        "error": {
+          "type": "error",
+          "error": {
+            "type": "invalid_request_error",
+            "message": "bad request"
+          }
+        }
+      }
+    }
+  ]
+}

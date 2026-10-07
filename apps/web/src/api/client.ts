@@ -46,7 +46,7 @@ export type CompareInput = Opt<Omit<CompareRequest, "items" | "location">, "incl
 };
 export type OptimizeInput = Opt<
   Omit<OptimizeRequest, "items" | "location" | "travel">,
-  "include_online" | "max_stores" | "min_split_saving"
+  "include_online" | "max_stores" | "min_split_saving" | "candidate_stores"
 > & {
   items: BasketItemInput[];
   location: LocationInput;

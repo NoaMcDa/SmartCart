@@ -374,6 +374,7 @@ function pricedItem(store: StoreSpec, line: Line): PricedItem {
   return {
     canonical_id: line.canonical_id,
     item_id: itemId,
+    promo_applied: false,
     display_name_he: line.name ?? cat.display_name_he,
     quantity: String(qty),
     shelf_price: money(toAgorot(line.price)),
@@ -477,6 +478,7 @@ export function optimizeFixture(
   const rami = storeResult(101, homeTotal);
   const single: Plan = {
     kind: "single",
+    travel_cost: money(0),
     stores: [{ store: rami, item_ids: rami.items.map((i) => i.item_id) }],
     total: rami.total,
     missing: rami.missing,
@@ -496,6 +498,7 @@ export function optimizeFixture(
       ? null
       : {
           kind: "split",
+          travel_cost: money(SPLIT_TRAVEL_AGOROT),
           stores: [
             { store: ramiPart, item_ids: ramiPart.items.map((i) => i.item_id) },
             { store: osherPart, item_ids: osherPart.items.map((i) => i.item_id) },
@@ -522,6 +525,7 @@ export function optimizeFixture(
   const minimum_effort: Plan | null = home
     ? {
         kind: "minimum_effort",
+        travel_cost: money(0),
         stores: [
           {
             store: { ...home, saving_vs_home: "0.00" },
