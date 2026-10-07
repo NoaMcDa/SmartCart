@@ -74,15 +74,32 @@ describe("delete my data (issue #30)", () => {
     await seedAccount();
     expect((await api.GET("/me/lists")).data).toHaveLength(2);
 
+    // DELETE /me runs after the device is cleared and while the token is still set.
+    const order: string[] = [];
+    let auth: string | null = null;
+    server.use(
+      http.delete(`${API_BASE_URL}/me`, ({ request }) => {
+        order.push(
+          window.localStorage.getItem(STORAGE_KEYS.profile) === null
+            ? "delete-me:device-clear"
+            : "delete-me:device-NOT-clear",
+        );
+        auth = request.headers.get("authorization");
+        return HttpResponse.json({ ok: true, id: null });
+      }),
+    );
     let signedOut = false;
     const result = await deleteMyData({
       signedIn: true,
       signOut: async () => {
+        order.push("sign-out");
         signedOut = true;
       },
     });
-    expect(result).toEqual({ ok: true, signedIn: true, listsDeleted: 2, accountRowRemains: true });
+    expect(result).toEqual({ ok: true, signedIn: true, listsDeleted: 2, accountRowRemains: false });
     expect(signedOut).toBe(true);
+    expect(order).toEqual(["delete-me:device-clear", "sign-out"]);
+    expect(auth).toBe("Bearer test-token");
 
     // Server side: no lists, and the profile is back to the defaults with no location or consent.
     expect((await api.GET("/me/lists")).data).toEqual([]);
@@ -102,6 +119,37 @@ describe("delete my data (issue #30)", () => {
     for (const key of LOCAL_DATA_KEYS) expect(window.localStorage.getItem(key), key).toBeNull();
     expect(getProfile().location).toBeNull();
     expect(getProfile().homeStoreId).toBeNull();
+  });
+
+  it("DELETE /me failing keeps the device clear, signs out and reports that the account remains", async () => {
+    await seedAccount();
+    server.use(http.delete(`${API_BASE_URL}/me`, () => HttpResponse.json({}, { status: 500 })));
+    let signedOut = false;
+    const result = await deleteMyData({
+      signedIn: true,
+      signOut: async () => {
+        signedOut = true;
+      },
+    });
+    expect(result).toEqual({ ok: true, signedIn: true, listsDeleted: 2, accountRowRemains: true });
+    expect(signedOut).toBe(true);
+    for (const key of LOCAL_DATA_KEYS) expect(window.localStorage.getItem(key), key).toBeNull();
+    expect((await api.GET("/me/lists")).data).toEqual([]);
+  });
+
+  it("does not call DELETE /me when the list or profile cleanup failed", async () => {
+    await seedAccount();
+    let called = false;
+    server.use(
+      http.get(`${API_BASE_URL}/me/lists`, () => HttpResponse.json({}, { status: 500 })),
+      http.delete(`${API_BASE_URL}/me`, () => {
+        called = true;
+        return HttpResponse.json({ ok: true, id: null });
+      }),
+    );
+    const result = await deleteMyData({ signedIn: true, signOut: async () => undefined });
+    expect(result.ok).toBe(false);
+    expect(called).toBe(false);
   });
 
   it("signed out: clears the device without touching the API", async () => {

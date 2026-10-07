@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Plan } from "@/api/client";
-import { Tag, TrustedPrice } from "@/components/ui";
+import { PromoConfidence, Tag, TrustedPrice } from "@/components/ui";
 import styles from "./Results.module.css";
 
 /**
@@ -44,6 +44,9 @@ export function BasketDetails({ plan }: { plan: Plan }) {
                       {line.is_estimated ? <Tag variant="estimated">מחיר משוער · שקיל</Tag> : null}
                       {line.promo_description && !line.club_required ? (
                         <span className={styles.promo}>{line.promo_description}</span>
+                      ) : null}
+                      {line.promo_description || line.club_required ? (
+                        <PromoConfidence confidence={line.promo_confidence} />
                       ) : null}
                     </span>
                   </div>

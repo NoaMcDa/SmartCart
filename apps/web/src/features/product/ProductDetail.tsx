@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip, FlexChip } from "@/components/ui/Chip";
 import { Price } from "@/components/ui/Price";
+import { PromoConfidence } from "@/components/ui/PromoConfidence";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tag } from "@/components/ui/Tag";
 import { IconClock } from "@/components/ui/icons";
@@ -267,7 +268,7 @@ export function ProductDetail({
                               {item.club_required && !member ? (
                                 <span className={styles.muted}>רק לחברי המועדון</span>
                               ) : null}
-                              <Tag variant="unverified">ביטחון במבצע: לא נבדק</Tag>
+                              <PromoConfidence confidence={item.promo_confidence} />
                             </span>
                           ) : null}
                           <span className={styles.updated}>

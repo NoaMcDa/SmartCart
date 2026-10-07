@@ -8,6 +8,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Price } from "@/components/ui/Price";
 import { IconCheck, IconClock, IconWarning } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
+import { reportGapReported } from "@/features/consent/betaEvents";
 import controls from "@/features/profile/controls/controls.module.css";
 import { formatTime } from "@/lib/format";
 import { buildGapRequest, GAP_REASONS, type GapContext, type GapReason } from "./gapReport";
@@ -51,6 +52,7 @@ export function GapReportSheet({ open, onClose, context }: GapReportSheetProps) 
     try {
       ensureApiAuth();
       await reportGap(buildGapRequest(context, { reason, actualPrice: actual, note }));
+      reportGapReported();
       setState("sent");
     } catch {
       setState("error");

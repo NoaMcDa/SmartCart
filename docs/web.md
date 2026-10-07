@@ -493,3 +493,137 @@ onboarding with a granted and a denied location, profile persistence and deletio
 and by pointer (columns on desktop, tabs on a phone), map pins and sheet in light and dark, the map
 chunk loaded only on `/map`, store mode including a reload with the network cut at the proxy, and
 the gap report. Not tested here: the Wake Lock API and real Supabase.
+
+## Phase 2 web follow-ups (P2-D, issue #91)
+
+Loose ends reported by W4b, W5 and W6, plus the UI halves of #12 (promo confidence), #30 and #55
+(account deletion) and #59 (real map pins). Where this section differs from an earlier one, this
+section is current: the "request to W4a", "request to `services/api`" and "not done" notes above
+are closed by the table below.
+
+| Earlier note | Now |
+|---|---|
+| "Mount `AuthProvider` in the root layout" (Auth) | Done: `app/layout.tsx` wraps the app in `AuthProvider`; the `(secondary)` layout keeps only `ProfileSync`. `tests/unit/layout-auth.test.ts` fails if a second provider appears. |
+| "`/design-system` does not show `UpdatedAt`, `TrustedPrice`, `CheckChip`, the new tags" | Done: section "אמון ועדכניות", both themes. |
+| "`StoreResult` has no coordinates" (Map) | `lat` and `lon` are optional on `StoreResult`; `storePosition` uses them when both are finite, otherwise the bearing approximation and the existing note. |
+| "Blocked: `DELETE /me`" (Privacy and deletion) | `deleteMe()` in `src/api/client.ts`; see Account deletion below. |
+| "Not done: a confidence indicator on promos" (Trust signals) and "לא נבדק" (Product detail) | `PromoConfidence`, see below. |
+| Request for "nearest store of chain X" (Home store) | `nearestStore(chainId, lat, lon)` helper added to `client.ts`; **not wired** to `adoptHomeStore` yet (that stays W5's profile logic). |
+
+### Auth in the root layout
+
+`AuthProvider` registers the bearer-token middleware (`ensureApiAuth`) and, new here,
+`setAuthTokenProvider(getApiToken)` so `POST /events` carries the user's token like `/feedback/*`.
+Mock mode and builds without Supabase variables stay signed out.
+
+`supabase-js` is now loaded with a dynamic `import()` (`loadSupabase()` in `supabaseClient.ts`) and
+only when `NEXT_PUBLIC_SUPABASE_URL` and `_ANON_KEY` are set. Without that, the provider in the root
+layout would have put a roughly 250 KB (before gzip) chunk on every SEO page; with it, SEO pages,
+mock builds and local builds download nothing extra. `getSupabase()` is now the synchronous "already
+loaded or null" accessor.
+
+### Beta instrumentation and consent (issue #40, `docs/beta-plan.md` sections 3 and 5)
+
+- **Opt-in, a behavior change.** `isTrackingEnabled()` is true only when the build has
+  `NEXT_PUBLIC_BETA_EVENTS=1`, the API is not the mock, the browser does not send Do Not Track **and
+  the person accepted the consent sheet**. Before this change an unanswered question meant "on";
+  now unset means nothing is queued or sent, so no event can precede the person seeing what is
+  collected. This also applies to the SEO `page_viewed` event: a visitor who never opened the app
+  is not counted.
+- **Storage key:** `localStorage["sc-events-consent"]`, `"1"` accepted, `"0"` declined, absent not
+  asked. Reading and writing are in try/catch; with blocked storage the answer lives in memory for
+  the page and the sheet asks again next visit. The session id key `sc-session` is unchanged.
+- **Where the sheet is.** `features/consent/ConsentSheet.tsx` (`ConsentGate`) is mounted by
+  `AppShell`, so it appears on the app screens (not on the SEO pages) and only in a build that
+  collects events and for a browser without Do Not Track. Accept or decline closes it for good;
+  Escape counts as decline. The wording follows the proposed text in `beta-plan.md` section 3 and
+  **has not had a legal review**; the six-month retention in it is a proposal. In a default build
+  (no flag, as in CI) there is no sheet and no switch.
+- **Opt-out in Profile.** `UsageEventsControl` ("אירועי שימוש לבדיקת הבטא", a `Switch`) in the privacy
+  section: off calls `setTrackingConsent(false)`, which drops the queue at once. With Do Not Track it
+  shows a note instead.
+- **Call sites** (`features/consent/betaEvents.ts` forwards to `trackEvent`; the API allowlist is
+  the contract, so props are integers or fixed strings and never text):
+
+| Event | Fired from | Props |
+|---|---|---|
+| `app_opened` | `ConsentGate`, once per page load after consent | `surface` web or pwa |
+| `list_pasted` | `ListBuilder`, after a successful parse of text that came from a paste into the box or the clipboard button (typing does not count) | `item_count` = parsed rows, at most 200 |
+| `results_shown` | `ResultsView`, once per response, only if a paste happened in this page session | `duration_ms` from the paste (dropped over 10 minutes), `item_count`, `store_count` = stores in the three plans |
+| `substitutions_shown` | `ResultsView`, per flexibility level that lists substitutes in the recommended plan | `flex_level`, `count` |
+| `substitution_verdict` | `features/substitution/actions.ts` (`acceptSubstitute`, `keepOriginal`, `rejectSubstitute`), before the row changes | `flex_level`, `verdict` |
+| `flex_changed` | `FlexibilitySheet` save, only when the level changed | `flex_level` |
+| `split_viewed` | `SplitBoard` on mount (a split is on screen) | none |
+| `gap_reported` | both gap sheets (`compare/ReportGapSheet`, `feedback/GapReportSheet`), after the API accepted the report | none |
+
+  The API does not return a flexibility level on a priced line, so the level of a substitute is the
+  level of the list row with the same canonical id (`compare/substitutionLevels.ts`); a substitute
+  with no matching row is not counted and its verdict is not sent, rather than guessing a level.
+  `results_shown` measures from the paste, as the plan defines it, so it includes the time the
+  person spends reviewing the list before pressing compare: read it with that in mind. The three
+  edits outside the listed directories (`features/split/SplitView.tsx`, `features/feedback/
+  GapReportSheet.tsx`, `features/product/ProductDetail.tsx`) are one-line additions.
+
+### Methodology links
+
+`MethodologyLink` is in the results footer, in the same paragraph as the checkout disclaimer
+("איך אנחנו משווים מחירים"), and on the substitution card under the source line ("איך אנחנו מחליטים
+מה תחליף מתאים"). Both go to `/methodology`.
+
+### Design system page
+
+`/design-system` has a section "אמון ועדכניות" with `UpdatedAt` (today, yesterday, days ago, unknown;
+a fixed "now" so the page reads the same on any day), `TrustedPrice` (stacked and inline),
+`CheckChip` (checked, unchecked, disabled), the `substitute` and `club` tags, `PromoConfidence`
+(96%, 72%, not checked) and a row of `Price` sizes and tones, in both themes. Tests:
+`tests/e2e/followups.spec.ts`.
+
+### Top bar at 195 px
+
+200% zoom on a 390 px phone is 195 CSS px. The 32 px logo, the wordmark, a 16 px gap and the 44 px
+theme switch did not fit in the 163 px left by the 16 px gutters, so the bar overflowed by 7 px.
+Under 260 px the bar now uses an 8 px gap, a 28 px logo and a 15 px wordmark; the switch keeps its 44
+px target. `tests/a11y/top-bar-zoom.spec.ts` checks 195, 240 and 320 px, both themes, four routes
+(no control outside the viewport, no scrolling inside the bar); it failed at 195 px before the fix
+(-6.98 px). Not part of #91, found while testing: at 195 px the list builder (`/`) is 13 px wider
+than the viewport and Profile 69 px wider. Follow-up.
+
+### Promo confidence (UI half of #12)
+
+`PromoConfidence` (in `@/components/ui`) renders a `Tag`: `ביטחון 96%` from `PricedItem.promo_confidence`
+(green at 90% and above, amber below), or `לא נבדק` when it is null or missing. Never a made-up
+number, never nothing. Used next to the promo on the line details (`BasketDetails`) and in the
+product detail table. The mock fixtures carry no `promo_confidence`, so `dev:mock` shows `לא נבדק`
+everywhere; the e2e test overrides one line to prove the score path. The API returns null until the chain adapters record a confidence, so "לא נבדק" is the normal state for now.
+
+### Real map pins (UI half of #59)
+
+`storePosition` uses `StoreResult.lat` and `.lon` when both are finite and in range. A null pair, one
+null coordinate or an invalid one falls back to the distance-and-bearing approximation and the
+existing note ("הכיוון … בקירוב") shows only while at least one pin is approximate. The mock stores
+have no coordinates yet, so the mock still shows the note.
+
+### Account deletion (UI halves of #30 and #55)
+
+"מחקי את הנתונים שלי", signed in: lists and profile are erased on the server (unchanged), then the
+device is cleared, then `DELETE /me` runs (while the token is still set), then the person is signed
+out. The hosted-account notice (`account-remains`: the data is gone but the stored account and email
+could not be deleted, sign in and try again) shows **only** when `DELETE /me` fails; on success the
+status says the account, including the email address, was deleted. If the earlier list or profile
+step fails nothing is cleared and `DELETE /me` is not called, as before. Signed out, no `/me` call is
+made. The server side of the events table (rows with the user's id or session id) belongs to the
+`DELETE /me` implementation; `sc-session` and `sc-events-consent` stay on the device because they are
+not personal data and the consent answer is a choice.
+
+### Tests (this section)
+
+Unit: `features/consent` (`betaEvents.test.ts`: allowlisted props only, nothing sent when declined
+or unset or without the flag, paste-to-results rules; `consent.test.tsx`: sheet shown once, accept,
+decline, Escape, Do Not Track, Profile switch; `wiring.test.tsx`: each call site), `seo/track.test.ts`
+(opt-in), `auth.test.tsx` (token provider), `deleteData.test.ts` and `deleteAccount.test.tsx`
+(`DELETE /me` order and notice), `geo.test.ts` and `MapScreen.test.tsx` (real coordinates),
+`PromoConfidence.test.tsx`, `ResultsView.test.tsx` and `SubstitutionView.test.tsx` (methodology links,
+promo confidence), `api/client.test.ts` (`deleteMe`, `nearestStore`), `tests/unit/layout-auth.test.ts`.
+E2E: `tests/e2e/followups.spec.ts`. A11y: `tests/a11y/top-bar-zoom.spec.ts`. Not testable in CI:
+the consent sheet in a real beta build (needs `NEXT_PUBLIC_BETA_EVENTS=1` at build time) and a real
+Supabase sign-in followed by `DELETE /me`.

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useState, type PointerEvent } from "react";
 import type { PricedItem } from "@/api/client";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -10,6 +10,7 @@ import { Price } from "@/components/ui/Price";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tag } from "@/components/ui/Tag";
 import { IconCheck, IconClock, IconInfo } from "@/components/ui/icons";
+import { reportSplitViewed } from "@/features/consent/betaEvents";
 import { ReportGapButton } from "@/features/feedback/GapReportSheet";
 import { buildSession, startSession } from "@/features/store/session";
 import { formatDistance, formatTime } from "@/lib/format";
@@ -109,6 +110,11 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
   const [tab, setTab] = useState(0);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [announcement, setAnnouncement] = useState("");
+
+  // Beta event (feature use): a split plan is on screen. No-op unless the person consented.
+  useEffect(() => {
+    reportSplitViewed();
+  }, []);
 
   const view = useMemo(() => computeSplit(model, assignment), [model, assignment]);
   const changed = useMemo(

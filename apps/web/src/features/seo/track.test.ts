@@ -2,10 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   flushEvents,
   getSessionId,
+  getTrackingConsent,
+  isTrackingAvailable,
   isTrackingEnabled,
   resetTrackingForTests,
   setAuthTokenProvider,
   setTrackingConsent,
+  subscribeTrackingConsent,
   trackEvent,
 } from "./track";
 
@@ -25,6 +28,8 @@ beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_BETA_EVENTS", "1");
   localStorage.clear();
   resetTrackingForTests();
+  // Opt-in: every test below that expects a send starts from "the person accepted".
+  setTrackingConsent(true);
   fetchMock.mockClear();
 });
 
@@ -137,6 +142,78 @@ describe("session id and consent", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     setTrackingConsent(true);
     expect(isTrackingEnabled()).toBe(true);
+  });
+
+  it("is opt-in: nothing is queued or sent until the consent screen was accepted", async () => {
+    localStorage.clear();
+    resetTrackingForTests();
+    expect(getTrackingConsent()).toBe("unset");
+    expect(isTrackingEnabled()).toBe(false);
+    trackEvent("list_pasted", { item_count: 3 });
+    await vi.advanceTimersByTimeAsync(5000);
+    await flushEvents();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(localStorage.getItem("sc-session")).toBeNull();
+  });
+
+  it("sends nothing after the consent screen was declined, and drops what was queued", async () => {
+    trackEvent("list_pasted", { item_count: 3 });
+    setTrackingConsent(false);
+    expect(getTrackingConsent()).toBe("declined");
+    expect(localStorage.getItem("sc-events-consent")).toBe("0");
+    for (const name of [
+      "app_opened",
+      "list_pasted",
+      "results_shown",
+      "substitutions_shown",
+      "substitution_verdict",
+      "flex_changed",
+      "split_viewed",
+      "gap_reported",
+    ] as const) {
+      // Props are irrelevant here: the call must be a no-op.
+      (trackEvent as (n: string, p?: object) => void)(name, {});
+    }
+    await vi.advanceTimersByTimeAsync(5000);
+    await flushEvents();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("stores the answer and tells subscribers", () => {
+    const listener = vi.fn();
+    const off = subscribeTrackingConsent(listener);
+    setTrackingConsent(false);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(getTrackingConsent()).toBe("declined");
+    setTrackingConsent(true);
+    expect(getTrackingConsent()).toBe("granted");
+    expect(localStorage.getItem("sc-events-consent")).toBe("1");
+    off();
+    setTrackingConsent(false);
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the answer in memory when storage is blocked", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    setTrackingConsent(false);
+    expect(getTrackingConsent()).toBe("declined");
+    expect(isTrackingEnabled()).toBe(false);
+    vi.restoreAllMocks();
+  });
+
+  it("is not available at all without the build flag or with Do Not Track", () => {
+    expect(isTrackingAvailable()).toBe(true);
+    vi.stubEnv("NEXT_PUBLIC_BETA_EVENTS", "");
+    expect(isTrackingAvailable()).toBe(false);
+    vi.stubEnv("NEXT_PUBLIC_BETA_EVENTS", "1");
+    Object.defineProperty(navigator, "doNotTrack", { value: "1", configurable: true });
+    expect(isTrackingAvailable()).toBe(false);
+    Reflect.deleteProperty(navigator, "doNotTrack");
   });
 
   it("respects Do Not Track", () => {

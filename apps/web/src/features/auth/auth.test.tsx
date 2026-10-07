@@ -4,6 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider, useAuth } from "./AuthProvider";
 import { getApiToken, setApiToken } from "./apiAuth";
+import {
+  flushEvents,
+  resetTrackingForTests,
+  setTrackingConsent,
+  trackEvent,
+} from "@/features/seo/track";
 import { isSupabaseConfigured, setSupabaseForTests } from "./supabaseClient";
 
 type Listener = (event: string, session: unknown) => void;
@@ -41,6 +47,14 @@ function Probe() {
   );
 }
 
+/**
+ * The sheet moves focus into itself on the next animation frame. Typing before that happens loses
+ * keystrokes on a slow machine (the CI flake of "shows an error when the code is wrong"), so wait.
+ */
+async function focusSettled(dialog: HTMLElement) {
+  await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+}
+
 beforeEach(() => setApiToken(null));
 afterEach(() => setSupabaseForTests(undefined));
 
@@ -70,6 +84,7 @@ describe("auth", () => {
 
     await user.click(screen.getByText("open"));
     const dialog = await screen.findByRole("dialog", { name: "התחברות" });
+    await focusSettled(dialog);
     // Bad email is rejected before any request.
     await user.type(screen.getByLabelText("אימייל"), "not-an-email");
     await user.click(screen.getByRole("button", { name: "שליחת קוד" }));
@@ -116,6 +131,29 @@ describe("auth", () => {
     expect(getApiToken()).toBe("stored-jwt");
   });
 
+  it("registers the access token with the beta events, so /events carries the user on every screen", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BETA_EVENTS", "1");
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response("{}"));
+    vi.stubGlobal("fetch", fetchMock);
+    resetTrackingForTests();
+    setTrackingConsent(true);
+    const { client } = fakeSupabase({ access_token: "stored-jwt", user: { email: "a@b.co" } });
+    setSupabaseForTests(client);
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed-in"));
+    trackEvent("split_viewed");
+    await flushEvents();
+    const headers = fetchMock.mock.calls[0]![1]!.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer stored-jwt");
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    resetTrackingForTests();
+  });
+
   it("shows an error when the code is wrong", async () => {
     const { client, auth } = fakeSupabase();
     auth.verifyOtp.mockResolvedValueOnce({ error: { message: "bad" } } as never);
@@ -127,6 +165,7 @@ describe("auth", () => {
       </AuthProvider>,
     );
     await user.click(screen.getByText("open"));
+    await focusSettled(await screen.findByRole("dialog", { name: "התחברות" }));
     await user.type(await screen.findByLabelText("אימייל"), "noa@example.com");
     await user.click(screen.getByRole("button", { name: "שליחת קוד" }));
     await user.type(await screen.findByLabelText("קוד אימות"), "000000");

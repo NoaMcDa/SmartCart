@@ -52,15 +52,26 @@ export type StorePosition = LatLon & {
 const GOLDEN_ANGLE = 137.508;
 
 /**
- * Where to draw a store. The API's StoreResult has no coordinates yet (request to services/api:
- * add `lat` and `lon`). If it ever carries numeric `lat`/`lon` those are used. Until then the
- * store is placed at its real distance from the user, on a bearing spread by store id so pins do
- * not stack, and flagged `approximate` so the screen can say the direction is not exact.
+ * Where to draw a store. `StoreResult.lat` and `.lon` (phase 2) are the store's real coordinates
+ * and are used whenever both are finite numbers. They are null until the store's address is
+ * geocoded; only then is the store placed at its real distance from the user on a bearing spread
+ * by store id (so pins do not stack) and flagged `approximate`, so the screen says the direction
+ * is not exact.
  */
-export function storePosition(store: StoreResult, user: LatLon): StorePosition {
-  const withCoords = store as StoreResult & { lat?: unknown; lon?: unknown };
-  if (typeof withCoords.lat === "number" && typeof withCoords.lon === "number") {
-    return { lat: withCoords.lat, lon: withCoords.lon, approximate: false };
+export function storePosition(
+  store: Pick<StoreResult, "store_id" | "distance_m" | "lat" | "lon">,
+  user: LatLon,
+): StorePosition {
+  const { lat, lon } = store;
+  if (
+    typeof lat === "number" &&
+    typeof lon === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lon) <= 180
+  ) {
+    return { lat, lon, approximate: false };
   }
   const bearing = (store.store_id * GOLDEN_ANGLE) % 360;
   return { ...destinationPoint(user, bearing, store.distance_m), approximate: true };

@@ -23,6 +23,7 @@ import {
   type PlanKind,
   type SubstitutionContext,
 } from "@/state/comparison";
+import { MethodologyLink } from "@/features/seo/components";
 import { basketItems, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
 import { acceptSubstitute, keepOriginal, rejectSubstitute } from "./actions";
@@ -150,6 +151,9 @@ export function SubstitutionCard({
             </>
           ) : null}{" "}
           · <UpdatedAt iso={item.price_valid_from} prefix="מחיר עודכן" />
+        </p>
+        <p className={styles.methodology} data-testid="sub-methodology">
+          <MethodologyLink>איך אנחנו מחליטים מה תחליף מתאים</MethodologyLink>
         </p>
       </div>
 

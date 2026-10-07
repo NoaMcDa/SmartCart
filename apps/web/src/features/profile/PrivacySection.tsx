@@ -6,6 +6,7 @@ import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { UsageEventsControl } from "@/features/consent/UsageEventsControl";
 import { deleteMyData, type DeleteResult } from "./deleteData";
 import { loadSavings } from "./savingsHistory";
 import { clearLocation, getProfile, updateProfile, useProfile } from "./profileState";
@@ -61,6 +62,8 @@ export function PrivacySection() {
         }}
       />
 
+      <UsageEventsControl />
+
       <div className={profileStyles.actions}>
         <Button
           variant="outline"
@@ -95,9 +98,15 @@ export function PrivacySection() {
             ? `, ${result.listsDeleted} רשימות נמחקו מהחשבון ופרטי הפרופיל אופסו`
             : ""}
           .
-          {result.accountRowRemains
-            ? " מחיקה מלאה של החשבון עצמו (כתובת האימייל) תתווסף בקרוב."
+          {result.signedIn && !result.accountRowRemains
+            ? " החשבון עצמו, כולל כתובת האימייל, נמחק."
             : ""}
+        </p>
+      ) : null}
+      {result?.ok && result.accountRowRemains ? (
+        <p className={styles.error} role="alert" data-testid="account-remains">
+          הנתונים נמחקו, אבל לא הצלחנו למחוק את החשבון המאוחסן עצמו (כתובת האימייל). התחברי שוב ונסי
+          שוב מהפרופיל.
         </p>
       ) : null}
       {result && !result.ok ? (
@@ -128,7 +137,8 @@ export function PrivacySection() {
         </p>
         {auth.status === "signed-in" ? (
           <p className={styles.hint}>
-            וגם מהחשבון: כל הרשימות השמורות ופרטי הפרופיל. בסיום תתנתקי מהחשבון.
+            וגם מהחשבון: כל הרשימות השמורות, פרטי הפרופיל והחשבון עצמו, כולל כתובת האימייל. בסיום
+            תתנתקי.
           </p>
         ) : null}
       </BottomSheet>

@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import type { FlexLevel } from "@/api/client";
 import { BottomSheet, Button, CheckChip, FLEX_LEVELS, Switch } from "@/components/ui";
+import { reportFlexChanged } from "@/features/consent/betaEvents";
 import { levelCopy, lookupDefault, rememberLabel, softAttributes } from "@/state/flex";
 import { listActions, type ListItem } from "@/state/list";
 import styles from "./FlexibilitySheet.module.css";
@@ -57,6 +58,7 @@ function SheetBody({
 
   function save() {
     listActions.setFlex(item.id, { level, allow, remember: remember && taxonomy !== null });
+    if (level !== item.flexLevel) reportFlexChanged(level);
     onClose();
   }
 

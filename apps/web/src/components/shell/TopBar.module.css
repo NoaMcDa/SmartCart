@@ -76,6 +76,34 @@
   font-weight: 700;
 }
 
+/*
+ * 200% zoom on a 390 px phone is 195 CSS px (issue #91): the brand (32 px logo, wordmark) and the
+ * 44 px theme switch no longer fit side by side with 16 px gutters and a 16 px gap, so the bar
+ * overflowed by 7 px. Tighten the gap, the logo and the wordmark; the switch keeps its 44 px target.
+ */
+@media (width < 260px) {
+  .inner {
+    gap: var(--sc-space-2);
+  }
+
+  .brand {
+    gap: 6px;
+    font-size: 15px;
+    min-inline-size: 0;
+  }
+
+  .logo {
+    inline-size: 28px;
+    block-size: 28px;
+    flex-shrink: 0;
+  }
+
+  .actions {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+}
+
 @media (width >= 768px) {
   .inner {
     padding-inline: var(--sc-gutter-desktop);

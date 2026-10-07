@@ -1,0 +1,26 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.list {
+  margin: 0;
+  padding-inline-start: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.muted {
+  color: var(--sc-muted);
+  font-size: 13px;
+}

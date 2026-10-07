@@ -43,6 +43,15 @@ describe("substitution card", () => {
     );
   });
 
+  it("links the methodology page from the card", () => {
+    renderCard();
+    expect(
+      within(screen.getByTestId("sub-methodology")).getByRole("link", {
+        name: "איך אנחנו מחליטים מה תחליף מתאים",
+      }),
+    ).toHaveAttribute("href", "/methodology");
+  });
+
   it("renders matched, unverified and differing tags, each with an icon and text", () => {
     renderCard();
     const tags = within(screen.getByRole("list", { name: "השוואת תכונות" })).getAllByRole(

@@ -1,18 +1,18 @@
 /**
- * "מחקי את הנתונים שלי" (issue #30, D11).
+ * "מחקי את הנתונים שלי" (issues #30 and #55, D11).
  *
  * Signed in, it erases on the server first: every saved list (DELETE /me/lists/{id}) and the
- * profile content (PUT /me/profile with the defaults, no location and consent off, which is what
- * the API offers today). Only when the server confirms does it clear the device (profile, last
- * result, shopping session, savings history, list inbox) and sign out. If the server fails, local
- * data is kept so the user can try again, and the result says what failed.
+ * profile content (PUT /me/profile with the defaults, no location and consent off). Only when the
+ * server confirms does it clear the device (profile, last result, shopping session, savings
+ * history, list inbox), and then it calls `DELETE /me`, which removes the `profiles` row and the
+ * Supabase auth user (the email address). If the first step fails, local data is kept so the user
+ * can try again and the result says what failed.
  *
- * Not possible with the current API: removing the `profiles` row and the Supabase auth user
- * (email address) themselves. That needs a `DELETE /me` route, a documented request to the API
- * owner (docs/web.md, "Privacy and deletion"). The result reports `accountRowRemains` so the UI
- * says so honestly.
+ * If `DELETE /me` itself fails the content is already gone but the hosted account remains: the
+ * result reports `accountRowRemains` so the UI shows the hosted-account notice, and only then. In
+ * every case that reaches the device step the person is signed out afterwards.
  */
-import { api, ApiError } from "@/api/client";
+import { api, ApiError, deleteMe } from "@/api/client";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { toProfileUpdate } from "./profileApi";
 import { DEFAULT_PROFILE, resetProfileCache } from "./profileState";
@@ -56,11 +56,15 @@ export async function deleteMyData(options: {
   }
   clearLocalData();
   resetProfileCache();
+  let accountRowRemains = false;
+  if (options.signedIn) {
+    // Needs the token, so before signing out.
+    try {
+      await deleteMe();
+    } catch {
+      accountRowRemains = true;
+    }
+  }
   await options.signOut();
-  return {
-    ok: true,
-    signedIn: options.signedIn,
-    listsDeleted,
-    accountRowRemains: options.signedIn,
-  };
+  return { ok: true, signedIn: options.signedIn, listsDeleted, accountRowRemains };
 }

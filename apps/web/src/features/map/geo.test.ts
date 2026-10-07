@@ -39,4 +39,20 @@ describe("geo helpers", () => {
     const store = { ...compareFixture().stores[0]!, lat: 31.9, lon: 35.02 };
     expect(storePosition(store, modiin)).toEqual({ lat: 31.9, lon: 35.02, approximate: false });
   });
+
+  it("falls back to the bearing approximation when a coordinate is null, missing or invalid", () => {
+    const base = compareFixture().stores[0]!;
+    for (const coords of [
+      { lat: null, lon: null },
+      { lat: 31.9, lon: null },
+      { lat: null, lon: 35.02 },
+      { lat: undefined, lon: undefined },
+      { lat: 131.9, lon: 35.02 },
+      { lat: Number.NaN, lon: 35.02 },
+    ]) {
+      const pos = storePosition({ ...base, ...coords }, modiin);
+      expect(pos.approximate, JSON.stringify(coords)).toBe(true);
+      expect(distanceM(modiin, pos)).toBeCloseTo(base.distance_m, 0);
+    }
+  });
 });
