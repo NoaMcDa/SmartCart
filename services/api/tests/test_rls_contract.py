@@ -26,8 +26,12 @@ def two_users(db: psycopg.Connection) -> tuple[uuid.UUID, uuid.UUID]:
 
 
 def _rls_enforced_for_owner(conn: psycopg.Connection) -> bool:
-    """FORCE ROW LEVEL SECURITY applies to the table owner too, unless it is a superuser."""
-    return not conn.execute("SELECT rolsuper FROM pg_roles WHERE rolname = current_user").fetchone()[0]
+    """FORCE ROW LEVEL SECURITY applies to the table owner too, unless the role is a superuser
+    or has BYPASSRLS (the Supabase image's postgres role has both)."""
+    row = conn.execute(
+        "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user"
+    ).fetchone()
+    return not row[0]
 
 
 def test_user_sees_only_own_rows(db: psycopg.Connection, two_users) -> None:
