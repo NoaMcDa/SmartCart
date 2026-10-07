@@ -209,26 +209,19 @@ On failure it prints the API log and uploads the Playwright report, traces and t
 
 ## Known gaps found by the suite
 
-Found by running the real stack; each is recorded here and handled in the tests as noted, not
-fixed (the code belongs to other workstreams).
+Found by running the real stack on 2026-10-07. Four of the five were fixed in the same completion round;
+the fixes are listed so the next run of the suite can tighten its assertions.
 
-1. **The home store is not known after onboarding against the real API.** Onboarding stores a
-   chain; `mockStoreIdFor` gives a store id only with the mock on, and `adoptHomeStore` runs only in
-   `useComparison` (split, map, store mode). So the first results screen shows "מה הסופר שלך?" and
-   no saving until the user opens `/split` or `/map`. `GET /stores/nearest` exists now (#90) and
-   would resolve it in onboarding. `journey.spec.ts` records an annotation and goes through
-   `/split`, as a user would have to.
-2. **No link from the results to `/split` or to `/product/<id>`**, although docs/web.md describes
-   both ("the split card to /split", "a product name to /product/..."). The tests open those
-   pages by URL.
-3. **The substitution card has no checkout disclaimer** ("המחיר הקובע הוא בקופה." is mandatory UI,
-   CLAUDE.md). The results page under it has one.
-4. **Attribute tags and units render raw from the real API.** On the substitution card and the
-   smart-cart card the tags read "unit, g", "1000" and "brand · לא מאומת", and unit prices read
-   "ל-100g": the mocks used Hebrew values. One cause is in the API: `unit` (the unit of
-   `pack_size` in `canonicals.yaml` soft attributes) is emitted as its own attribute tag:
-   `POST /compare` with `{"items":[{"canonical_id":15,"quantity":1,"flex_level":"close"}],
-   "location":{"lat":32.085,"lon":34.82,"radius_m":5000}}` returns, on the substitute line,
-   `{"key":"unit","value":"g","status":"matched"}` next to `{"key":"pack_size","value":"1000"}`.
-5. **`/scan` takes no code in the URL**; the test types the barcode into the manual field, which
+1. **Home store after onboarding** (fixed, #101): picking a chain now resolves a concrete store through
+   `GET /stores/nearest` and the results screen looks it up when it is missing, so the first results
+   page shows the net saving. `journey.spec.ts` still goes through `/split` and records an annotation;
+   it can assert the saving on the first results page now.
+2. **Links from the results to `/split` and `/product/<id>`** (fixed, #101): the split card links to
+   `/split` and each basket line to product detail.
+3. **Checkout disclaimer on the substitution card** (fixed, #101): the card carries
+   "המחיר הקובע הוא בקופה." like the results page.
+4. **Raw attribute tags and units** (fixed): the API folds the pack-size unit into the `pack_size` tag
+   ("1000 g") instead of emitting `unit` as a tag of its own (`services/api/smartcart_api/basket.py`,
+   `_tags`), and the web renders tag keys, values and units in Hebrew (`apps/web/src/lib/attributes.ts`).
+5. **`/scan` takes no code in the URL** (open); the test types the barcode into the manual field, which
    runs the same lookup as the camera.
