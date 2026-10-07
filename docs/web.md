@@ -135,7 +135,7 @@ hard-code a color in a component; use a token.
   `aria-label="מצב כהה"`, moon in light, sun in dark; the icon is picked by CSS so it is right
   before hydration). `ThemePreferenceControl` is the three-state choice in Profile. Both read the
   same context and stay in sync.
-- Not done yet: saving the choice to the signed-in profile (needs Auth; W5).
+- Signed in, `ProfileSync` (W5) saves the choice to `PUT /me/profile` and restores it on sign-in.
 
 ## Components (`src/components/ui`)
 
@@ -372,3 +372,124 @@ car, ₪1.2/km, ₪25 per extra stop, up to 2 stores. The home store defaults to
   for the same cached response the results screen uses.
 - `UpdatedAt`, `TrustedPrice`, `CheckChip` and the new `Tag` variants are in `@/components/ui`;
   they are not on `/design-system` yet because that page belongs to the shell group.
+
+## Secondary screens (W5)
+
+Issues #18 (onboarding), #50 (product detail), #55 (profile), #41 (split), #59 (map), #66 (in-store
+mode), the UI half of #30 (privacy) and of #16 (report-a-gap), plus Supabase email sign-in.
+
+| Route | Client screen | Notes |
+|---|---|---|
+| `/onboarding` | `features/onboarding/OnboardingFlow.tsx` | Three skippable steps, each with a visible "למה אנחנו שואלים"; reuses the controls of Profile |
+| `/profile` | `features/profile/ProfileScreen.tsx` | Account, my savings, location and radius, chains and clubs, travel, diet and kosher, flexibility defaults, theme ("ערכת צבעים" with `ThemePreferenceControl`), privacy and deletion |
+| `/product/[id]?name=` | `features/product/ProductDetail.tsx` | `[id]` is the canonical id; `name` is the Hebrew canonical name (the price lines only carry chain item names) |
+| `/split` | `features/split/SplitView.tsx` | Two stores, drag or move buttons, client-side saving and waterfall |
+| `/map` | `features/map/MapScreen.tsx` | MapLibre GL, OSM raster tiles, loaded with `next/dynamic` (`ssr: false`) |
+| `/store-mode?store=<id>[&plan=split]` | `features/store/StoreMode.tsx` | Checklist by department, offline |
+| `/privacy` | `app/(secondary)/privacy/page.tsx` | Hebrew privacy policy, linked from onboarding and Profile |
+
+`features/feedback` exports `GapReportSheet` and `ReportGapButton` for any screen that shows a price.
+`features/auth` holds the Supabase client, `AuthProvider`/`useAuth`, the email OTP sheet and the API
+token wrapper. The `(secondary)` layout mounts `AuthProvider` and `ProfileSync`.
+
+### State and storage
+
+| Key | Owner | What |
+|---|---|---|
+| `sc-profile` | W5 `features/profile/profileState.ts` | Everything onboarding and Profile collect: consent, location (rounded to 3 decimals before it is stored), radius, home chain and store, clubs, travel, extra stop value, diet, kosher, allergens. Read with `useProfile()` |
+| `sc-profile-v1` | W4b `state/shopper.ts` | What the comparison reads. Every change to `sc-profile` is mirrored here (`mirrorToShopper`), so a change in Profile affects the next comparison. An unset home chain is an explicit `home_store_id: null` (no baseline, no saving, D7) |
+| `sc-list-v1` | W4b `state/list.ts` | The list and the flexibility defaults. Profile edits the defaults through `useFlexDefaults()` and `listActions.setFlexDefault` (smart defaults from `state/flex.ts`) |
+| `sc-shopping` | W5 `features/store/session.ts` | The in-store session: items, labels, prices, update times, check marks. Written when shopping starts, deleted by "סיימתי", expires after 12 hours |
+| `sc-savings-history` | W5 `features/profile/savingsHistory.ts` | "החיסכון שלי": one entry per finished trip, only the lines the user checked, against their own store, after travel and the extra stop |
+
+There is no stored comparison. `useComparison()` (`features/split/lastResult.ts`) assembles one from
+the list, the shopper context, the `/optimize` response through W4b's cache (`useOptimize`, no
+second request) and a `/compare` response with the real quantities. After a reload it is fetched
+again; only the in-store checklist keeps a copy, so it works offline.
+
+Home store: onboarding asks for a chain, the API takes a store. With the mock on a chain maps to its
+fixture store; against the real API `adoptHomeStore(stores)` (called by `useComparison` on every
+compare result) takes the nearest store of that chain. Request to `services/api`: a "nearest store of
+chain X" lookup, so the first comparison can carry a home store.
+
+### Split view arithmetic
+
+Mirrors `docs/api.md` (D7), all in integer agorot (`features/split/savings.ts`):
+`basket_saving` = home total minus plan total over the lines both supply; travel = plan travel minus
+the home store's, split across stores by distance; extra stop = value per stop times visited stores
+minus one; `net = basket_saving - travel - extra_stop`. Each line's saving is split into shelf
+difference (chain switch, or brand swap when the plan line is a substitute) and promo difference, so
+the waterfall steps sum exactly to the net. Moving an item re-prices it from the other store's
+cached line total; an item the store does not stock (`missing`) cannot move and says why.
+
+### Map
+
+OpenStreetMap raster tiles through MapLibre GL, no API key; attribution is the MapLibre control plus a
+text link under the map. Tiles come from `tile.openstreetmap.org`, which sees the viewer's IP and
+the area shown (stated in the privacy policy). OSM's tile usage policy is for light use; before real
+traffic move to a hosted tile provider or a self-hosted server (out of scope in #59). Dark theme
+inverts the tile canvas with a CSS filter. Without WebGL the screen shows a schematic plan with the
+same pins; the store list under the map is the accessible alternative in both cases.
+
+`StoreResult` has no coordinates. Pins are placed at the store's real distance from the user on a
+deterministic bearing and the screen says the direction is approximate. Request to `services/api`:
+add `lat` and `lon` to `StoreResult`; `storePosition` uses them as soon as they exist.
+
+### Privacy and deletion (#30)
+
+- Location is rounded by `setLocation` before it is written and again by `sanitizeProfile` on every
+  read and write; a test scans the stored JSON for anything finer than 3 decimals. It is stored only
+  with explicit consent, and the device is asked only after the user clicks, below the explanation.
+- `tests/unit/privacy-audit.test.ts` fails on any analytics, advertising or tracking package, tracking
+  call, external script, or a host outside the allow-list (localhost, tile.openstreetmap.org,
+  www.openstreetmap.org).
+- "מחקי את הנתונים שלי": signed in, `DELETE /me/lists/{id}` for every list and `PUT /me/profile` with
+  the defaults, no location and consent off; then the device keys above plus `sc-list-v1` and
+  `sc-profile-v1` are removed and the user is signed out. If the server fails the device keeps its
+  data so the user can retry. The theme choice is a display setting and stays.
+  Blocked, request to `services/api`: `DELETE /me`, which must remove the `profiles` row and the
+  Supabase auth user. Until then the account row (and email) remain, and the UI says full account
+  deletion is coming.
+- The privacy text has not had a legal review (tracked separately in #30).
+
+### Auth
+
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (build time). Without them the app is
+signed out and the sheet says so; mock mode needs nothing. Email one-time code, session kept by
+supabase-js. `features/auth/apiAuth.ts` registers an `openapi-fetch` middleware on the shared `api`
+client (no change to `client.ts`) that adds `Authorization: Bearer <access token>`. It is installed
+by `AuthProvider` and by `GapReportSheet`; request to W4a: mount `AuthProvider` in the root layout so
+`/feedback/*` records the user id on every screen. `ProfileSync` mirrors the profile, theme and
+flexibility defaults to `PUT /me/profile` while signed in. Diet flags travel as `vegan`,
+`gluten_free` and `allergen:<key>`; city and neighborhood text stay on the device.
+
+### Gap report
+
+`GapReportSheet` takes `context` (store, canonical and item ids, item name, shown price, price time).
+One tap plus "שליחה" is enough; reason, shelf price and note are optional. The API has no reason or
+price-time field, so they travel as `#reason=...` and `#shown_at=...` at the end of `note` (cut to
+500 characters). Used by product detail, split, map sheet and store mode; W4b's `ReportGapSheet` is
+its own component, switching to this one is optional.
+
+### Product detail
+
+Variants (distinct chain items) ranked by unit price, a per-store table with distance, shelf and final
+price, promo and club tags and an update time on every price, "הוספה לרשימה" with a flexibility chip
+(through `listActions.add`), and a disabled "בקרוב · שלב 2" alert placeholder. No history chart. The
+promo "confidence" is shown as "לא נבדק": the API has no promo confidence field yet.
+
+### Links other screens should use
+
+- Results: "מפה" to `/map`; the split card to `/split`; "התחילי קנייה" to `/store-mode?store=<id>`
+  (`&plan=split` for a split part); a product name to `/product/<canonical_id>?name=<name>`;
+  store anchors on `/compare` should be `id="store-<store_id>"` (the map sheet links there).
+
+### Tests
+
+Unit: `profileState`, `savings` (waterfall sums, moves, blocked items), `session`, `deleteData`
+(MSW, lists and profile erased), `gapReport`, `geo`, `auth`, component tests for onboarding,
+profile, split, map, store mode and product detail, and the privacy audit. E2E (`secondary-*.spec.ts`):
+onboarding with a granted and a denied location, profile persistence and deletion, split by keyboard
+and by pointer (columns on desktop, tabs on a phone), map pins and sheet in light and dark, the map
+chunk loaded only on `/map`, store mode including a reload with the network cut at the proxy, and
+the gap report. Not tested here: the Wake Lock API and real Supabase.

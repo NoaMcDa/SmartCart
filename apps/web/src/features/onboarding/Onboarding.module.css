@@ -1,0 +1,99 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+  max-inline-size: 640px;
+  margin-inline: auto;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.lead {
+  font-size: 14px;
+  color: var(--sc-muted);
+}
+
+.progress {
+  display: flex;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dot {
+  flex: 1;
+  block-size: 6px;
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-border);
+}
+
+.dot[data-state="done"],
+.dot[data-state="current"] {
+  background: var(--sc-accent);
+}
+
+.dot[data-state="done"] {
+  opacity: 0.55;
+}
+
+.stepCount {
+  margin-block-start: var(--sc-space-2);
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.card {
+  gap: var(--sc-space-4);
+}
+
+.stepTitle {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.why {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-accent-soft);
+  color: var(--sc-text);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.why svg {
+  margin-block-start: 2px;
+  color: var(--sc-accent-fg);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+}
+
+.secondary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2);
+}
+
+@media (width >= 768px) {
+  .title {
+    font-size: 28px;
+  }
+}

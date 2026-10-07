@@ -23,6 +23,8 @@
     "lhci": "npx -y @lhci/cli@0.15.1 autorun"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.117.2",
+    "maplibre-gl": "6.13.0",
     "msw": "3.0.2",
     "next": "16.4.0",
     "openapi-fetch": "0.17.0",
