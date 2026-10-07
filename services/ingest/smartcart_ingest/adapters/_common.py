@@ -257,6 +257,53 @@ def _child(element: etree._Element, name: str) -> etree._Element | None:
     return None
 
 
+# --------------------------------------------------------------------------- promo confidence
+
+PROMO_CONFIDENCE_UNPARSED = 0.1
+"""A promo whose reward could not be read from any explicit field (``reward_type = other``).
+The deductions below add up to at most 0.8, so a parsed promo always scores above this."""
+_DESC_X_PLUS_Y = re.compile(r"\d+\s*\+\s*\d+")
+_DESC_PERCENT = re.compile(r"\d+(?:[.,]\d+)?\s*%")
+
+
+def promo_parse_confidence(
+    reward_type: RewardType,
+    *,
+    min_qty: Decimal | None,
+    gift_count: Decimal | None,
+    description: str,
+    ends_at: datetime | None,
+) -> tuple[float, list[str]]:
+    """How sure the adapter is that it read the promo's terms right, in [0, 1], with the reasons
+    for every deduction (docs/adapters.md, "Promo parse confidence").
+
+    1.0 means the reward type, the quantity (``MinQty``) and the value (``DiscountedPrice``,
+    ``DiscountRate`` with ``DiscountType`` 2, or ``AdditionalGiftCount``) were all explicit in
+    the file and the description does not contradict them. The reward is never inferred from
+    the description; the description is only a cross-check that lowers the confidence.
+    """
+    if reward_type == "other":
+        return PROMO_CONFIDENCE_UNPARSED, ["reward_unparsed"]
+    score = 1.0
+    reasons: list[str] = []
+    if min_qty is None:
+        score -= 0.2  # the quantity defaults to 1 (buy X defaults to 1)
+        reasons.append("min_qty_missing")
+    if reward_type == "buy_x_get_y" and not (gift_count is not None and gift_count > 0):
+        score -= 0.2  # only IsGiftItem said so: "get Y" defaults to 1
+        reasons.append("gift_count_inferred")
+    if ends_at is None:
+        score -= 0.1
+        reasons.append("end_date_missing")
+    text = description or ""
+    if (_DESC_X_PLUS_Y.search(text) and reward_type != "buy_x_get_y") or (
+        _DESC_PERCENT.search(text) and reward_type != "percent"
+    ):
+        score -= 0.3
+        reasons.append("description_disagrees")
+    return round(score, 2), reasons
+
+
 # --------------------------------------------------------------------------- adapter base
 
 
@@ -561,14 +608,23 @@ class RegulationAdapter(ChainAdapter):
         hours = (
             f"{start_hour.strip()[:5]}-{end_hour.strip()[:5]}" if start_hour and end_hour else None
         )
+        ends_at = parse_datetime(f.get("promotionenddate"), end_hour)
+        description = f.get("promotiondescription", "")
+        confidence, confidence_reasons = promo_parse_confidence(
+            reward_type,
+            min_qty=min_qty,
+            gift_count=gift_count,
+            description=description,
+            ends_at=ends_at,
+        )
         return PromoRecord(
             chain_id=raw.chain_id,
             store_code=store_code,
             promo_id=promo_id,
-            description=f.get("promotiondescription", ""),
+            description=description,
             item_codes=list(entry["items"]),
             starts_at=parse_datetime(f.get("promotionstartdate"), start_hour),
-            ends_at=parse_datetime(f.get("promotionenddate"), end_hour),
+            ends_at=ends_at,
             hours=hours,
             club_only=bool(clubs),
             club_name=CLUB_NAMES.get(clubs[0], f"club {clubs[0]}") if clubs else None,
@@ -580,5 +636,7 @@ class RegulationAdapter(ChainAdapter):
                 **{k: v for k, v in f.items() if k not in ("itemcode", "itemtype", "isgiftitem")},
                 "club_ids": list(entry["clubs"]),
                 "additional_restrictions": dict(restrictions),
+                "confidence": confidence,
+                "confidence_reasons": confidence_reasons,
             },
         )

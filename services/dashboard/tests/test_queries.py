@@ -300,7 +300,57 @@ def test_queries_only_select(db, world):
     queries.file_counts(db)
     queries.quarantine_counts(db)
     queries.chain_overview(db, NOW)
+    queries.reported_gaps(db, NOW)
+    queries.recent_gap_reports(db, NOW)
 
     # Sanity check that the guard is real: a write in the same transaction is refused.
     with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
         db.execute("DELETE FROM file_tracking")
+
+
+def _store_id(db, chain, code):
+    return db.execute(
+        "SELECT id FROM stores WHERE chain_id = %s AND store_code = %s", (chain, code)
+    ).fetchone()[0]
+
+
+def _gap(db, store_id, shown, actual, ago_h, note=None, item_id=None):
+    db.execute(
+        "INSERT INTO gap_reports (store_id, item_id, shown_price, actual_price, note, created_at)"
+        " VALUES (%s, %s, %s, %s, %s, %s)",
+        (store_id, item_id, shown, actual, note, NOW - timedelta(hours=ago_h)),
+    )
+
+
+def test_reported_gaps_per_store(db, world):
+    s1, s2 = _store_id(db, SHUFERSAL, "001"), _store_id(db, SHUFERSAL, "002")
+    rami = _store_id(db, RAMI_LEVY, "001")
+    item = db.execute("SELECT id FROM items WHERE item_code = 'i0'").fetchone()[0]
+    _gap(db, s1, 5, 6, 1, item_id=item)
+    _gap(db, s1, 5, 7, 2)
+    _gap(db, s1, 5, 5, 3)  # same price: a report, not a mismatch
+    _gap(db, s1, None, None, 4, note="#reason=promo_wrong")
+    _gap(db, s2, 4, None, 5, note="נגמר #reason=wrong_product")
+    _gap(db, rami, 1, 2, 24 * 8)  # older than 7 days
+    db.execute(
+        "INSERT INTO quality_warnings (chain_id, store_code, warning, detail, created_at)"
+        " VALUES (%s, '001', 'gap_report_pressure', 'x', %s)",
+        (SHUFERSAL, NOW - timedelta(hours=1)),
+    )
+    rows = queries.reported_gaps(db, NOW)
+    assert [(r["chain_id"], r["store_code"]) for r in rows] == [
+        (SHUFERSAL, "001"),
+        (SHUFERSAL, "002"),
+    ]
+    first = rows[0]
+    assert first["chain_name"] == "Shufersal" and first["store_name"] == "Store 001"
+    assert (first["reports"], first["price_mismatches"], first["promo_wrong"]) == (4, 2, 1)
+    assert first["last_report_at"] == NOW - timedelta(hours=1)
+    assert first["last_warning_at"] == NOW - timedelta(hours=1)
+    assert (rows[1]["wrong_product"], rows[1]["last_warning_at"]) == (1, None)
+
+    recent = queries.recent_gap_reports(db, NOW)
+    assert len(recent) == 5 and recent[0]["product"] == "item 0"
+    assert "user_id" not in recent[0]
+    assert [r["store_code"] for r in recent] == ["001", "001", "001", "001", "002"]
+    assert queries.recent_gap_reports(db, NOW, limit=2)[1]["actual_price"] == 7

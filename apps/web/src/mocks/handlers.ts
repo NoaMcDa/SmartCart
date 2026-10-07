@@ -322,6 +322,8 @@ function toShoppingList(id: number, body: ShoppingListIn): ShoppingList {
     })),
     created_at: now,
     updated_at: now,
+    shared: false,
+    role: "owner",
   };
 }
 

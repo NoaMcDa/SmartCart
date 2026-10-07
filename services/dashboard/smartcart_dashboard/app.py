@@ -38,6 +38,8 @@ def _load(dsn: str, sha_query: str) -> dict:
             "file_counts": queries.file_counts(conn),
             "quarantine_counts": queries.quarantine_counts(conn),
             "sha_matches": queries.file_by_sha256(conn, sha_query) if sha_query else [],
+            "gaps": queries.reported_gaps(conn),
+            "gap_reports": queries.recent_gap_reports(conn),
         }
         conn.rollback()
     return data
@@ -86,6 +88,33 @@ def _files_frame(rows: list[dict]) -> pd.DataFrame:
     if df["raw key"].isna().all():
         cols.remove("raw key")  # the loader has not recorded raw file locations yet
     return df[cols]
+
+
+def _gaps_frame(rows: list[dict]) -> pd.DataFrame:
+    df = pd.DataFrame(rows)
+    df["chain"] = df["chain_name"].fillna(df["chain_id"])
+    df["warned"] = df["last_warning_at"].map(lambda t: "" if t is None or pd.isna(t) else str(t))
+    cols = [
+        "chain", "store_code", "store_name", "price_mismatches", "reports", "wrong_product",
+        "promo_wrong", "reporters", "last_report_at", "warned",
+    ]  # fmt: skip
+    return df[cols]
+
+
+def _gaps_panel(gaps: list[dict], reports: list[dict]) -> None:
+    st.subheader(f"Reported gaps (last {queries.GAP_DAYS} days)")
+    st.caption(
+        "Report-a-gap per store. price_mismatches: reports with both the shown and the shelf "
+        "price, differing, counted once per reporter and product. A price file for a store at "
+        "or above GAP_REPORT_PRESSURE_MIN gets a gap_report_pressure warning (warned: when); "
+        "it is still loaded."
+    )
+    if not gaps:
+        st.info("No gap reports in the last 7 days.")
+        return
+    st.dataframe(_gaps_frame(gaps), width="stretch", hide_index=True)
+    with st.expander("Newest reports"):
+        st.dataframe(pd.DataFrame(reports), width="stretch", hide_index=True)
 
 
 def main() -> None:
@@ -168,6 +197,8 @@ def main() -> None:
             st.dataframe(q, width="stretch")
         else:
             st.info("No quarantine events.")
+
+    _gaps_panel(data["gaps"], data["gap_reports"])
 
     st.subheader("Look up a file by sha256")
     typed = (

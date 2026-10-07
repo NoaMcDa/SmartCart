@@ -17,6 +17,17 @@ Every gate runs, so one file can fail several. A failing file gets one ``quarant
 per failed gate, status ``quarantined`` with the reasons, and none of its rows reach the data
 tables. Deltas pass through the same gates (no special path), except the item-count gate, which
 only means something for complete files.
+
+Soft warnings (issue #16) never quarantine: the file is loaded, the warning is recorded in
+``quality_warnings`` and sent as a ``quality_warning`` alert.
+
+* ``gap_report_pressure``  a price file (full or delta) for a store that users reported at
+                           least ``gap_report_pressure_min`` confirmed price mismatches for in
+                           the last ``GAP_PRESSURE_DAYS`` days (``gap_report_pressure()`` in
+                           migration 20261009100000_mvp_followups.sql: the report carries the
+                           price we showed and the shelf price, and they differ; counted once per
+                           reporter and product). The prices shown for that store may be wrong
+                           or late. Recorded at most once per store per ``WARNING_REPEAT_HOURS``.
 """
 
 from __future__ import annotations
@@ -41,6 +52,20 @@ _EXAMPLES = 5
 class GateFailure:
     gate: str
     detail: str
+
+
+@dataclass(frozen=True)
+class GateWarning:
+    """A soft finding: recorded and alerted, the file is still loaded."""
+
+    warning: str
+    detail: str
+    store_code: str | None = None
+
+
+GAP_PRESSURE_DAYS = 7
+WARNING_REPEAT_HOURS = 24
+PRICE_KINDS = frozenset({"price_full", "price"})
 
 
 def _examples(values: list[str]) -> str:
@@ -154,6 +179,76 @@ def check(
         gate_stale_date(parsed, thresholds.stale_file_max_age_hours, now),
     ]
     return [r for r in results if r is not None]
+
+
+def warn_gap_report_pressure(
+    conn: psycopg.Connection, parsed: ParsedFile, min_mismatches: int, now: datetime
+) -> GateWarning | None:
+    """``gap_report_pressure`` for the file's store, or None (see the module doc).
+
+    ``min_mismatches`` 0 disables the check. Chain-level files (no store code), files other than
+    price files, and a database without ``gap_report_pressure()`` are not checked."""
+    raw = parsed.raw
+    if min_mismatches <= 0 or raw.kind not in PRICE_KINDS or raw.store_code is None:
+        return None
+    if not _has_function(conn, "gap_report_pressure"):
+        return None
+    row = conn.execute(
+        "SELECT price_mismatches, reports, reporters, last_report_at"
+        " FROM gap_report_pressure(%s, %s) WHERE chain_id = %s AND store_code = %s",
+        (now - timedelta(days=GAP_PRESSURE_DAYS), now, raw.chain_id, raw.store_code),
+    ).fetchone()
+    if row is None or row[0] < min_mismatches:
+        return None
+    mismatches, reports, reporters, last = row
+    return GateWarning(
+        "gap_report_pressure",
+        f"{mismatches} confirmed price mismatches reported for store {raw.store_code} in the last"
+        f" {GAP_PRESSURE_DAYS} days ({reports} reports from {reporters} reporters, latest"
+        f" {last.isoformat()}; threshold {min_mismatches})",
+        raw.store_code,
+    )
+
+
+def warnings(
+    conn: psycopg.Connection, parsed: ParsedFile, thresholds: Thresholds, *, now: datetime
+) -> list[GateWarning]:
+    """Every soft check. The file is loaded whatever this returns."""
+    results = [warn_gap_report_pressure(conn, parsed, thresholds.gap_report_pressure_min, now)]
+    return [r for r in results if r is not None]
+
+
+def record_warnings(
+    conn: psycopg.Connection,
+    chain_id: str,
+    file_id: int | None,
+    found: list[GateWarning],
+    *,
+    now: datetime,
+) -> list[GateWarning]:
+    """Insert each warning into ``quality_warnings`` unless the same warning was recorded for the
+    same store in the last ``WARNING_REPEAT_HOURS`` hours; return the ones inserted (the ones to
+    alert on)."""
+    new: list[GateWarning] = []
+    for w in found:
+        seen = conn.execute(
+            "SELECT 1 FROM quality_warnings WHERE chain_id = %s"
+            " AND store_code IS NOT DISTINCT FROM %s AND warning = %s AND created_at > %s LIMIT 1",
+            (chain_id, w.store_code, w.warning, now - timedelta(hours=WARNING_REPEAT_HOURS)),
+        ).fetchone()
+        if seen:
+            continue
+        conn.execute(
+            "INSERT INTO quality_warnings (file_id, chain_id, store_code, warning, detail,"
+            " created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+            (file_id, chain_id, w.store_code, w.warning, w.detail, now),
+        )
+        new.append(w)
+    return new
+
+
+def _has_function(conn: psycopg.Connection, name: str) -> bool:
+    return bool(conn.execute("SELECT to_regproc(%s) IS NOT NULL", (name,)).fetchone()[0])
 
 
 def quarantine(

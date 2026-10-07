@@ -199,6 +199,8 @@ export const phase2Handlers = [
       ],
       created_at: now,
       updated_at: now,
+      shared: true,
+      role: "editor",
     };
     return HttpResponse.json(list);
   }),

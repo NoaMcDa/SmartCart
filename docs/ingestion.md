@@ -167,6 +167,30 @@ The item-count gate needs the previous file's record count. Schema v1 has no col
 `file_tracking.item_count integer`, the code writes and reads that column instead, with no other
 change.
 
+### Soft warning: gap-report pressure (issue #16)
+
+Users' report-a-gap answers (`POST /feedback/gap`, table `gap_reports`) are a quality signal.
+`gap_report_pressure(since, until)` (migration `20261009100000_mvp_followups.sql`) summarises
+them per (chain, store); the view `quality_gap_reports_7d` is the last 7 days.
+
+| Column | Meaning |
+|---|---|
+| `reports` | every report in the window |
+| `price_mismatches` | confirmed price mismatches: the report carries the price we showed and the shelf price, and they differ by at least one agora. Counted once per reporter and product (one user reporting the same product twice counts once; each anonymous report counts) |
+| `wrong_product`, `promo_wrong` | reports tagged `#reason=wrong_product` / `#reason=promo_wrong` in the note (the web app appends the reason there) |
+| `reporters` | distinct signed-in reporters plus one per anonymous report |
+| `last_report_at` | newest report |
+
+Before a price file (full or delta) of a store is loaded, `quality.warnings` checks it: when the
+store has at least `GAP_REPORT_PRESSURE_MIN` (default 3, per chain in `QUALITY_OVERRIDES` as
+`gap_report_pressure_min`; 0 disables) confirmed price mismatches in the last 7 days, a
+`gap_report_pressure` warning is written to `quality_warnings` (file, chain, store, detail) and a
+`quality_warning` alert fires. **The file is still loaded**: a warning never quarantines, because
+the reports may be about the shelf, not the file, and a newer file is the likeliest fix. The same
+store is warned at most once per 24 hours. Chain-level files and promo or stores files are not
+checked. The threshold of 3 is a placeholder (estimate), not a measured value; revisit it once the
+beta has real report volumes.
+
 ### Quarantine counts for the dashboard
 
 ```sql
@@ -198,6 +222,7 @@ logged and never stops ingestion.
 | `quarantine` | a file failed a gate; names chain, store, file and gates |
 | `load_failure` | the load raised and was rolled back |
 | `portal_failure` | listing or fetching kept failing after the backoff cap |
+| `quality_warning` | a soft warning (`gap_report_pressure`); the file was still loaded; once per store per 24 hours |
 
 A file that fails again with the same reason on a later run is not alerted again.
 
@@ -222,6 +247,7 @@ the next tick starts again.
 | `STALE_FILE_MAX_AGE_HOURS` | 36 | Stale-date gate. |
 | `PRICE_JUMP_FACTOR` | 3 | Price-jump gate. |
 | `ITEM_COUNT_DROP_RATIO` | 0.5 | Item-count gate. |
+| `GAP_REPORT_PRESSURE_MIN` | 3 | Confirmed price mismatches per store in 7 days before a `gap_report_pressure` warning; 0 disables. |
 | `QUALITY_OVERRIDES` | `{}` | Per-chain thresholds, JSON. |
 | `DELTA_INTERVAL_MINUTES` | `{}` | Per-chain delta interval overrides, JSON. |
 | `PORTAL_MAX_ATTEMPTS` | 5 | Portal calls before giving up for this tick. |
