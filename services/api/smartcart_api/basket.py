@@ -300,8 +300,14 @@ def _tags(
     item_attrs: dict, verified: list[str], critical: dict, soft: dict, rule_keys: list[str]
 ) -> list[schemas.AttributeTag]:
     keys = list(dict.fromkeys([*rule_keys, *critical.keys(), *soft.keys()]))
+    # The pack-size unit (g, ml, unit) is not an attribute of its own: it is folded into the
+    # pack_size tag ("1000 g") and its mismatch counts against pack_size.
+    unit_have = item_attrs.get("unit") if "pack_size" in keys else None
+    unit_want = critical.get("unit", soft.get("unit")) if "pack_size" in keys else None
     out = []
     for key in keys:
+        if key == "unit" and "pack_size" in keys:
+            continue
         want = critical.get(key, soft.get(key))
         have = item_attrs.get(key)
         if have is None:
@@ -310,13 +316,18 @@ def _tags(
         if want is None:
             continue  # nothing to compare against
         same = _same(want, have)
+        if key == "pack_size" and unit_want is not None and unit_have is not None:
+            same = same and _same(unit_want, unit_have)
         if not same:
             status = "differs"
         elif key in ALWAYS_UNVERIFIED and key not in verified:
             status = "unverified"
         else:
             status = "matched"
-        out.append(schemas.AttributeTag(key=key, value=_text(have), status=status))
+        value = _text(have)
+        if key == "pack_size" and unit_have is not None:
+            value = f"{value} {_text(unit_have)}"
+        out.append(schemas.AttributeTag(key=key, value=value, status=status))
     return out
 
 
