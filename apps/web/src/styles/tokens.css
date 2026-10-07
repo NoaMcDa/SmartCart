@@ -1,0 +1,161 @@
+/*
+ * SmartCart design tokens. Source of truth: docs/ux-design.md, "Design tokens".
+ * Every row of that table is a --sc-* variable here, light and dark. src/styles/tokens.test.ts
+ * parses the doc table and fails if a value drifts.
+ *
+ * Naming: the table's camelCase name in kebab case with an sc prefix
+ * (accentFg -> --sc-accent-fg, brandBg -> --sc-brand-bg). "accent (fill)" is --sc-accent.
+ * Extra colors used by the artboards' c.* map but not in the table (handle, onWarn, map*) are
+ * marked "artboard".
+ *
+ * Theme selection:
+ *   1. Light on :root by default.
+ *   2. Dark under prefers-color-scheme: dark unless the user chose light (data-theme="light").
+ *   3. Dark under data-theme="dark" (manual choice), regardless of the OS.
+ * [data-theme] on any element also scopes the theme to that subtree (used by /design-system).
+ * The DARK blocks below must stay identical; the token test checks it.
+ */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  /* LIGHT:start */
+  --sc-bg: #f6f5f2;
+  --sc-surface: #ffffff;
+  --sc-subtle: #f1efea;
+  --sc-border: #e3e0da;
+  --sc-divider: #eeece7;
+  --sc-text: #1a1a1a;
+  --sc-muted: #5c5952;
+  --sc-faint: #8a867e;
+  --sc-accent: #1f5f8b;
+  --sc-accent-fg: #1f5f8b;
+  --sc-accent-soft: #eef4f9;
+  --sc-brand-bg: #d9f0ea;
+  --sc-brand-fg: #0e5842;
+  --sc-exact-bg: #e6ebf2;
+  --sc-exact-fg: #263d5c;
+  --sc-warn-bg: #fbefd6;
+  --sc-warn-fg: #7a4e00;
+  --sc-good-bg: #e3f3ea;
+  --sc-good-fg: #1b6b45;
+  --sc-bad-fg: #a32d2d;
+  /* artboard */
+  --sc-on-accent: #ffffff;
+  --sc-on-warn: #ffffff;
+  --sc-handle: #d5d2cb;
+  --sc-map-bg: #eef2ec;
+  --sc-map-grid: #e2e7e0;
+  --sc-map-road: #e6e3dc;
+  --sc-scrim: rgb(20 20 19 / 50%);
+  --sc-shadow-sheet: 0 -8px 30px rgb(0 0 0 / 18%);
+  --sc-shadow-raised: 0 1px 3px rgb(0 0 0 / 8%);
+  --sc-shadow-scan: 0 6px 16px rgb(31 95 139 / 35%);
+  /* LIGHT:end */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    /* DARK:start */
+    --sc-bg: #141413;
+    --sc-surface: #1f1f1d;
+    --sc-subtle: #2a2927;
+    --sc-border: #33322f;
+    --sc-divider: #2a2927;
+    --sc-text: #f2f1ec;
+    --sc-muted: #a8a49b;
+    --sc-faint: #7d7971;
+    --sc-accent: #1f5f8b;
+    --sc-accent-fg: #7fb3e3;
+    --sc-accent-soft: #1c2f3d;
+    --sc-brand-bg: #143d30;
+    --sc-brand-fg: #7fd4b4;
+    --sc-exact-bg: #22314a;
+    --sc-exact-fg: #a9c1e6;
+    --sc-warn-bg: #3e2e0e;
+    --sc-warn-fg: #f0c068;
+    --sc-good-bg: #16352a;
+    --sc-good-fg: #7fd4a6;
+    --sc-bad-fg: #f08c8c;
+    /* artboard */
+    --sc-on-accent: #ffffff;
+    --sc-on-warn: #1a1a1a;
+    --sc-handle: #4a4844;
+    --sc-map-bg: #1b211d;
+    --sc-map-grid: #263029;
+    --sc-map-road: #2e2d2a;
+    --sc-scrim: rgb(0 0 0 / 60%);
+    --sc-shadow-sheet: 0 -8px 30px rgb(0 0 0 / 50%);
+    --sc-shadow-raised: 0 1px 3px rgb(0 0 0 / 40%);
+    --sc-shadow-scan: 0 6px 16px rgb(0 0 0 / 50%);
+    /* DARK:end */
+  }
+}
+
+:root[data-theme="dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
+  /* DARK:start */
+  --sc-bg: #141413;
+  --sc-surface: #1f1f1d;
+  --sc-subtle: #2a2927;
+  --sc-border: #33322f;
+  --sc-divider: #2a2927;
+  --sc-text: #f2f1ec;
+  --sc-muted: #a8a49b;
+  --sc-faint: #7d7971;
+  --sc-accent: #1f5f8b;
+  --sc-accent-fg: #7fb3e3;
+  --sc-accent-soft: #1c2f3d;
+  --sc-brand-bg: #143d30;
+  --sc-brand-fg: #7fd4b4;
+  --sc-exact-bg: #22314a;
+  --sc-exact-fg: #a9c1e6;
+  --sc-warn-bg: #3e2e0e;
+  --sc-warn-fg: #f0c068;
+  --sc-good-bg: #16352a;
+  --sc-good-fg: #7fd4a6;
+  --sc-bad-fg: #f08c8c;
+  /* artboard */
+  --sc-on-accent: #ffffff;
+  --sc-on-warn: #1a1a1a;
+  --sc-handle: #4a4844;
+  --sc-map-bg: #1b211d;
+  --sc-map-grid: #263029;
+  --sc-map-road: #2e2d2a;
+  --sc-scrim: rgb(0 0 0 / 60%);
+  --sc-shadow-sheet: 0 -8px 30px rgb(0 0 0 / 50%);
+  --sc-shadow-raised: 0 1px 3px rgb(0 0 0 / 40%);
+  --sc-shadow-scan: 0 6px 16px rgb(0 0 0 / 50%);
+  /* DARK:end */
+}
+
+/* Theme-independent tokens: layout, radii, type. */
+:root {
+  --sc-font: var(--font-heebo), "Heebo", system-ui, sans-serif;
+  --sc-touch: 44px;
+  --sc-gutter: 20px;
+  --sc-gutter-desktop: 24px;
+  --sc-content-max: 1200px;
+  --sc-radius-card: 16px;
+  --sc-radius-input: 14px;
+  --sc-radius-control: 12px;
+  --sc-radius-small: 10px;
+  --sc-radius-sheet: 22px;
+  --sc-radius-pill: 999px;
+  --sc-space-1: 4px;
+  --sc-space-2: 8px;
+  --sc-space-3: 12px;
+  --sc-space-4: 16px;
+  --sc-space-5: 20px;
+  --sc-space-6: 24px;
+  --sc-bottom-nav-height: 72px;
+  --sc-top-bar-height: 64px;
+}
+
+@media (width < 380px) {
+  :root {
+    --sc-gutter: 16px;
+  }
+}

@@ -1,0 +1,158 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+}
+
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+}
+
+.listName {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sync {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-2);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--sc-muted);
+}
+
+.ok {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sc-good-fg);
+}
+
+.error {
+  font-size: 14px;
+  color: var(--sc-bad-fg);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+}
+
+.row > input {
+  flex: 1 1 160px;
+}
+
+.itemsTitle {
+  padding: 14px 16px 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding: 10px 16px;
+  min-block-size: 64px;
+}
+
+.item + .item {
+  border-block-start: 1px solid var(--sc-divider);
+}
+
+.itemMain {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  flex: 1 1 160px;
+  min-inline-size: 0;
+}
+
+.itemName {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  padding: 8px 16px 16px;
+  font-size: 14px;
+  color: var(--sc-muted);
+}
+
+.hits {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.members {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.members li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2);
+  padding-block: var(--sc-space-2);
+}
+
+.members li + li {
+  border-block-start: 1px solid var(--sc-divider);
+}
+
+.memberName {
+  font-weight: 600;
+}
+
+.memberRole {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.footnote {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+@media (width >= 768px) {
+  .page {
+    max-inline-size: 640px;
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "_note": "The request ClaudeExtractor.build_request produces for one item, with the system prompt and the JSON schema replaced by placeholders (they are built from the seed files and checked separately). Regenerate when the request shape changes on purpose.",
+  "request": {
+    "custom_id": "item-101",
+    "params": {
+      "model": "claude-sonnet-5-5",
+      "max_tokens": 1024,
+      "thinking": {
+        "type": "adaptive"
+      },
+      "output_config": {
+        "effort": "low",
+        "format": {
+          "type": "json_schema",
+          "schema": "<schema_for(catalog)>"
+        }
+      },
+      "system": [
+        {
+          "type": "text",
+          "text": "<system_prompt(catalog)>",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "content": "{\"item_id\": 101, \"name\": \"חלב תנובה 3% בקרטון 1 ליטר\", \"raw_name\": \"חלב תנובה 3% בקרטון 1 ליטר\", \"manufacturer\": \"תנובה\", \"chain\": \"שופרסל\", \"parsed_size\": \"1000 ml\"}"
+        }
+      ]
+    }
+  }
+}

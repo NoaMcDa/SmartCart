@@ -1,0 +1,301 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2) var(--sc-space-4);
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.headerActions {
+  display: flex;
+  gap: var(--sc-space-2);
+}
+
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.muted {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: var(--sc-space-3);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn-fg);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.mapWrap {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius-card);
+  background: var(--sc-map-bg);
+}
+
+.canvas {
+  position: relative;
+  inline-size: 100%;
+  block-size: min(62dvh, 520px);
+  min-block-size: 360px;
+}
+
+/* maplibre-gl.css makes .maplibregl-map position: relative, so size it explicitly. */
+.map {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.mapSkeleton {
+  inline-size: 100%;
+  block-size: min(62dvh, 520px);
+  min-block-size: 360px;
+}
+
+/* Dark theme: tiles are light raster images, so invert and rotate the hue on the canvas only
+   (markers and controls are separate DOM and keep their token colors). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .map :global(.maplibregl-canvas) {
+    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+  }
+}
+
+:root[data-theme="dark"] .map :global(.maplibregl-canvas) {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+
+/* Pins */
+.pin {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-block-size: var(--sc-touch);
+  min-inline-size: 64px;
+  padding: 4px 10px;
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  box-shadow: var(--sc-shadow-raised);
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.pin[data-recommended="true"] {
+  border: 2.5px solid var(--sc-accent-fg);
+}
+
+.pin[data-selected="true"] {
+  background: var(--sc-accent-soft);
+  color: var(--sc-accent-fg);
+}
+
+.pinChain {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sc-muted);
+}
+
+.pinFlags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--sc-accent-fg);
+}
+
+.flagMissing {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--sc-bad-fg);
+}
+
+.userDot {
+  inline-size: 18px;
+  block-size: 18px;
+  border: 3px solid var(--sc-on-accent);
+  border-radius: 50%;
+  background: var(--sc-accent);
+  box-shadow: 0 0 0 6px rgb(31 95 139 / 25%);
+}
+
+/* No-WebGL fallback: a schematic plan, laid out with container query units so east stays on the
+   physical right in an RTL page. */
+.fallback {
+  position: relative;
+  container-type: inline-size;
+  inline-size: 100%;
+  aspect-ratio: 4 / 3;
+  min-block-size: 320px;
+  background-color: var(--sc-map-bg);
+  background-image:
+    linear-gradient(var(--sc-map-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--sc-map-grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.fbRing {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: calc(var(--rr) * 2cqw);
+  block-size: calc(var(--rr) * 2cqw);
+  border: 2px dashed var(--sc-accent-fg);
+  border-radius: 50%;
+  background: rgb(31 95 139 / 8%);
+  transform: translate(50%, -50%);
+}
+
+.fbUser {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 18px;
+  block-size: 18px;
+  border: 3px solid var(--sc-on-accent);
+  border-radius: 50%;
+  background: var(--sc-accent);
+  transform: translate(50%, -50%);
+}
+
+.fbPin {
+  position: absolute;
+  inset-block-start: calc(50% + var(--dy) * 1cqw);
+  inset-inline-start: 50%;
+  translate: calc(var(--dx) * 1cqw) 0;
+  transform: translate(50%, -50%);
+}
+
+.attribution {
+  font-size: 12.5px;
+  color: var(--sc-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+}
+
+.storeList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.storeList li + li {
+  border-block-start: 1px solid var(--sc-divider);
+}
+
+.storeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  inline-size: 100%;
+  min-block-size: 60px;
+  padding: var(--sc-space-2) var(--sc-space-4);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+}
+
+.storeMain {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.storeName {
+  font-weight: 600;
+}
+
+/* Store sheet */
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  margin: 0;
+}
+
+.facts > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+}
+
+.facts dt {
+  font-size: 14px;
+  color: var(--sc-muted);
+}
+
+.facts dd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin: 0;
+  font-weight: 700;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+
+.updated {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+@media (width >= 768px) {
+  .title {
+    font-size: 28px;
+  }
+}

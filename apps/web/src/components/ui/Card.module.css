@@ -1,0 +1,41 @@
+.card {
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius-card);
+  min-width: 0;
+}
+
+.pad-md {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pad-none {
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--sc-radius-input);
+}
+
+.recommended {
+  border: 2px solid var(--sc-accent-fg);
+}
+
+.flat {
+  border-color: transparent;
+  background: var(--sc-subtle);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  min-height: 60px;
+}
+
+.row + .row {
+  border-block-start: 1px solid var(--sc-divider);
+}

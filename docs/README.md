@@ -1,7 +1,7 @@
 # SmartCart documentation index
 
 Everything here was produced in October 2026 from two research documents and a series of design
-discussions. Nothing has been built yet. Read in this order if you are new:
+discussions. Phases 0, 1 and 2 are built (see phase-2-status.md). Read in this order if you are new:
 
 1. [product-and-market.md](product-and-market.md): what the market looks like, what the product is, and why it can win.
 2. [decisions.md](decisions.md): the architecture decisions, each with the reasoning and the alternatives rejected.
@@ -12,6 +12,9 @@ discussions. Nothing has been built yet. Read in this order if you are new:
 7. [research/](research/): the two original Hebrew research documents, kept verbatim.
 8. [design/artboards/](design/artboards/): source of the UI design canvas.
 9. [adapters.md](adapters.md), [ingestion.md](ingestion.md), [dashboard.md](dashboard.md), [dev-setup.md](dev-setup.md), [infra-provisioning.md](infra-provisioning.md): phase 0 engineering docs.
+10. [catalog.md](catalog.md), [matching.md](matching.md), [api.md](api.md), [web.md](web.md), [seo.md](seo.md), [methodology.md](methodology.md), [beta-plan.md](beta-plan.md), [a11y-report.md](a11y-report.md), [phase-0-exit-report.md](phase-0-exit-report.md): phase 1 engineering docs.
+11. [optimizer.md](optimizer.md): the phase 2 cart optimizer (MILP and the heuristic it is compared with).
+12. [phase-2-status.md](phase-2-status.md): status of every phase 0, 1 and 2 issue, what is blocked, and the owner's runbook, in order.
 
 ## Facts versus estimates
 
@@ -25,7 +28,7 @@ here keep that distinction. When you see "estimate", it is not a measured number
 |---|---|
 | Canonical product | A product concept independent of brand and chain, e.g. "fresh milk 3%, 1 liter". Chain-specific items map to it. |
 | Flexibility level | Per-item user setting: exact (barcode), any brand (same critical attributes), close substitute (soft attributes may differ). |
-| Critical attribute | An attribute that must match at "any brand" level: fat percentage, fresh/frozen/chilled, size class, kosher level. |
+| Critical attribute | An attribute that must match at "any brand" level: fat percentage, fresh/frozen/chilled, size class. Kosher is never critical because it cannot be verified from chain data. |
 | Soft attribute | An attribute that may differ at "close substitute" level: pack size, packaging type, nearby fat percentage. |
 | Effective price | Shelf price after applying promos the user is eligible for, precomputed nightly per (canonical, store). |
 | Unit price | Price per 100 g, 100 ml, or unit. The basis for all "cheaper" decisions. |

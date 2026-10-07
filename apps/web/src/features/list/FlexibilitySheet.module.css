@@ -1,0 +1,115 @@
+.sheet {
+  gap: 14px;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.option {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-height: var(--sc-touch);
+  padding: 12px;
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-input);
+  background: var(--sc-surface);
+  cursor: pointer;
+}
+
+.selected {
+  border: 2px solid var(--sc-accent-fg);
+  background: var(--sc-accent-soft);
+}
+
+.option:focus-within {
+  outline: 2px solid var(--sc-accent-fg);
+  outline-offset: 2px;
+}
+
+.radio {
+  inline-size: 18px;
+  block-size: 18px;
+  margin: 3px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--sc-accent);
+}
+
+.optionText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.optionLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tone-exact {
+  color: var(--sc-exact-fg);
+}
+
+.tone-brand {
+  color: var(--sc-brand-fg);
+}
+
+.tone-warn {
+  color: var(--sc-warn-fg);
+}
+
+.explanation {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--sc-muted);
+}
+
+.example {
+  color: var(--sc-text);
+}
+
+.soft {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.softTitle {
+  padding: 0;
+  margin-block-end: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sc-muted);
+}
+
+.softList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.footer {
+  display: flex;
+  gap: 10px;
+  padding-block-start: 2px;
+}
+
+.save {
+  flex: 1;
+}

@@ -69,7 +69,9 @@ class ItemRecord(_Frozen):
 
 class PriceRecord(_Frozen):
     chain_id: str
-    store_code: str
+    store_code: str | None
+    """The store this price applies to; ``None`` is the chain base price (issue #80): the loader
+    writes it with ``store_id NULL`` and every store without its own exception inherits it."""
     item_code: str
     price: Decimal
     unit_price: Decimal | None = None

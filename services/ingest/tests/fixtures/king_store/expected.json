@@ -1,0 +1,71 @@
+{
+  "chain_id": "7290058108879",
+  "files": {
+    "Stores7290058108879-000-202610060500.xml": {
+      "kind": "stores",
+      "schema": "v1",
+      "counts": {
+        "stores": 3
+      },
+      "online": [],
+      "checks": {
+        "stores[0].store_code": "1",
+        "stores[0].name": "קינג סטור טייבה",
+        "stores[2].city": "כפר קאסם",
+        "stores[2].lon": "34.976"
+      }
+    },
+    "PriceFull7290058108879-001-202610060510.xml": {
+      "kind": "price_full",
+      "schema": "v1",
+      "counts": {
+        "items": 7,
+        "prices": 7
+      },
+      "checks": {
+        "prices[0].store_code": "1",
+        "prices[0].price": "7.22",
+        "items[0].raw_name": "חלב תנובה 3% בקרטון 1 ליטר",
+        "items[3].is_weighed": "True",
+        "prices[1].unit_of_measure": "100 גרם"
+      }
+    },
+    "PromoFull7290058108879-001-202610060510.xml": {
+      "kind": "promo_full",
+      "schema": "v1",
+      "counts": {
+        "promos": 4
+      },
+      "checks": {
+        "promos[0].reward_type": "bundle",
+        "promos[0].club_name": "מועדון לקוחות",
+        "promos[1].reward_type": "buy_x_get_y",
+        "promos[2].reward_type": "percent",
+        "promos[3].reward_type": "price",
+        "promos[3].hours": "07:00-12:00"
+      }
+    },
+    "Price7290058108879-001-202610061200.xml": {
+      "kind": "price",
+      "schema": "v1",
+      "counts": {
+        "items": 3,
+        "prices": 3
+      },
+      "checks": {
+        "prices[0].price": "7.52",
+        "prices[2].price": "8.70"
+      }
+    },
+    "Promo7290058108879-002-202610061200.xml": {
+      "kind": "promo",
+      "schema": "v1",
+      "counts": {},
+      "checks": {}
+    },
+    "PriceFull7290058108879-004-202610060510.xml": {
+      "kind": "price_full",
+      "error": "AdapterError"
+    }
+  }
+}

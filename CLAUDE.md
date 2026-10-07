@@ -4,9 +4,11 @@ Semantic supermarket price comparison for Israel. The user pastes a shopping lis
 flexibility level per item, and gets the cheapest nearby store plus a two-store split that accounts for
 travel cost. The differentiator is matching depth and trust, not being another barcode comparer.
 
-Phase 0 (data foundation) is implemented in `services/ingest`, `services/dashboard` and `supabase/`;
-see `docs/ingestion.md`, `docs/adapters.md`, `docs/dashboard.md` and `docs/dev-setup.md`. Infrastructure is
-not provisioned yet (`docs/infra-provisioning.md`). Read this file first, then `docs/README.md`.
+Phase 0 (data foundation) and Phase 1 (MVP) are implemented: `services/ingest`, `services/catalog`,
+`services/api`, `services/dashboard`, `supabase/` and `apps/web`. Engineering docs are indexed in
+`docs/README.md`. Infrastructure is not provisioned yet (`docs/infra-provisioning.md`); the catalog
+runs on synthetic fixtures and a synthetic gold set until real transparency files are loaded. Read
+this file first, then `docs/README.md`.
 
 ## Key decisions (do not re-litigate without reading `docs/decisions.md`)
 

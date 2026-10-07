@@ -23,8 +23,13 @@ Any exception rolls the whole transaction back (no row of the file remains, the 
 loaded) and the file is marked ``failed`` with the reason; the exception is re-raised as
 LoadError.
 
-Phase 0 writes per-store events only. Chain base prices (``store_id IS NULL``) need the adapter
-to say a file is chain-level, which the model does not express yet (see docs/ingestion.md).
+Chain base prices (issue #80): a ``PriceRecord`` with ``store_code=None`` is the chain's base
+price and is written with ``store_id NULL``; ``current_price()`` falls back to it for every store
+without an exception in force. A store record is written as a store event only when it changes
+that store's price in force: against the store's latest exception when it has one (including a
+return to the base price, which must supersede the exception), otherwise against the base price
+in force at that time. A store price equal to the base is counted in ``prices_same_as_base`` and
+not stored, so per-store exceptions stay small.
 """
 
 from __future__ import annotations
@@ -70,6 +75,8 @@ class LoadResult:
     prices_written: int = 0
     prices_unchanged: int = 0
     prices_stale: int = 0
+    prices_same_as_base: int = 0
+    base_prices_written: int = 0
     promos: int = 0
     promo_items: int = 0
     promo_items_unknown: int = 0
@@ -214,7 +221,7 @@ def _upsert_stores(
                 [(s.lon, s.lat, s.chain_id, s.store_code) for s in located],
             )
         # Stores named by price or promo records but not (yet) delivered by a Stores file.
-        referenced = {(p.chain_id, p.store_code) for p in parsed.prices}
+        referenced = {(p.chain_id, p.store_code) for p in parsed.prices if p.store_code is not None}
         referenced |= {(p.chain_id, p.store_code) for p in parsed.promos}
         missing = sorted(referenced - set(records))
         if missing:
@@ -306,30 +313,41 @@ def _insert_prices(
             file_id, f"{len(unknown)} price records for unknown items, e.g. {unknown[:5]}"
         )
 
-    # (item_id, store_id) -> records, last one wins per valid_from
-    events: dict[tuple[int, int], dict[datetime, tuple[PriceRecord, bool]]] = defaultdict(dict)
+    # (item_id, store_id or None for the base price) -> records, last one wins per valid_from
+    events: dict[tuple[int, int | None], dict[datetime, tuple[PriceRecord, bool]]] = defaultdict(
+        dict
+    )
     for p in parsed.prices:
         item_id, weighed = items[(p.chain_id, p.item_code)]
-        events[(item_id, store_ids[(p.chain_id, p.store_code)])][p.observed_at] = (p, weighed)
+        sid = None if p.store_code is None else store_ids[(p.chain_id, p.store_code)]
+        events[(item_id, sid)][p.observed_at] = (p, weighed)
 
     for month in sorted({_month(p.observed_at) for p in parsed.prices}):
         conn.execute("SELECT ensure_price_partition(%s::date)", (month,))
 
-    store_list = sorted({s for _, s in events})
+    store_list = sorted({s for _, s in events if s is not None})
     item_list = sorted({i for i, _ in events})
-    latest: dict[tuple[int, int], tuple[datetime, tuple]] = {}
+    latest: dict[tuple[int, int | None], tuple[datetime, tuple]] = {}
+    # The latest store event of each (item, store) in the file, and the latest base event of
+    # each item in the file: the base decides whether a store record is an exception at all.
     for item_id, store_id, price, unit_price, uom, est, valid_from in conn.execute(
         "SELECT DISTINCT ON (item_id, store_id) item_id, store_id, price, unit_price, uom,"
         "   is_estimated, valid_from"
-        " FROM prices WHERE store_id = ANY(%s) AND item_id = ANY(%s)"
+        " FROM prices WHERE (store_id = ANY(%s) OR store_id IS NULL) AND item_id = ANY(%s)"
         " ORDER BY item_id, store_id, valid_from DESC",
         (store_list, item_list),
     ).fetchall():
         latest[(item_id, store_id)] = (valid_from, (price, unit_price, uom, est))
 
     rows: list[tuple] = []
-    for key, by_time in events.items():
+    # Base events first, so store records compare against the base this file delivers.
+    base_timeline: dict[int, list[tuple[datetime, tuple]]] = defaultdict(list)
+    for key in sorted(events, key=lambda k: (k[1] is not None, k[0], k[1] or 0)):
+        by_time = events[key]
+        item_id, store_id = key
         last = latest.get(key)
+        if store_id is None and last is not None:
+            base_timeline[item_id].append(last)
         for observed_at in sorted(by_time):
             p, weighed = by_time[observed_at]
             unit_price, uom, est = normalize_unit_price(
@@ -344,8 +362,16 @@ def _insert_prices(
                 if values == last_values:
                     result.prices_unchanged += 1
                     continue
-            rows.append((key[0], key[1], *values, observed_at, file_id))
+            elif store_id is not None:
+                base = _base_in_force(base_timeline.get(item_id, []), observed_at)
+                if base is not None and values == base:
+                    result.prices_same_as_base += 1
+                    continue
+            rows.append((item_id, store_id, *values, observed_at, file_id))
             last = (observed_at, values)
+            if store_id is None:
+                base_timeline[item_id].append(last)
+                result.base_prices_written += 1
     if rows:
         with conn.cursor() as cur:
             cur.executemany(
@@ -358,6 +384,15 @@ def _insert_prices(
                 rows,
             )
     result.prices_written = len(rows)
+
+
+def _base_in_force(timeline: list[tuple[datetime, tuple]], at: datetime) -> tuple | None:
+    """The values of the latest base event at or before ``at`` among ``timeline``."""
+    best: tuple[datetime, tuple] | None = None
+    for ts, values in timeline:
+        if ts <= at and (best is None or ts >= best[0]):
+            best = (ts, values)
+    return best[1] if best else None
 
 
 def _upsert_promos(

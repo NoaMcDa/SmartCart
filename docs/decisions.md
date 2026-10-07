@@ -238,3 +238,65 @@ exposed of the ten (estimate; no turnover figures are in the research). Mitigati
 - Chains 3 and 9 pin the ingestion VPS to an Israeli IP (see `infra-provisioning.md`); acceptance of #22 uses them as the "known to block cloud IPs" test.
 - The daily full job must tolerate the laibcatalog empty window; the infra timers run the full sync twice (06:00 and 08:30 Israel time), which is safe because loads are idempotent by file hash.
 - Cerberus usernames and portal hosts come from upstream and may change; adapters should read them from configuration, not hard-coded constants (for the adapter issue).
+
+## D14. Attribute extraction model: Claude Sonnet 5.5 in batch mode, rules as the baseline
+
+**Date.** 2026-10-07 (phase 1, issue #25). **Status:** provisional. The comparison on a labeled
+sample that issue #25 asks for has not been run; it needs an API key and loaded items. Revisit this
+decision with its results.
+
+**Context.** Matching step B extracts structured attributes once per new chain item
+(`architecture.md` section 3). The research proposes "a cheap commercial LLM in batch mode, or an open
+Hebrew LLM (Dicta-LM) run locally", and estimates the full extraction at "tens of dollars" (estimate,
+research section 4.3). GPT-4-class models led every product entity-matching benchmark in Peeters, Der
+and Bizer (arXiv 2310.11244; verified, published result), which supports a strong commercial model
+over a small local one for the judgement-heavy part. Chain files do not carry kosher or allergens
+structurally (verified, research), so those values are unverified whatever extracts them.
+
+**Decision.**
+- Default extractor in code: the deterministic **rule extractor** (`EXTRACTOR=rule`). It needs no key,
+  costs nothing, and is the baseline any model must beat.
+- Model extractor: **`claude-sonnet-5-5` through the Message Batches API** (`EXTRACTOR=claude`), one
+  request per item, structured output with a strict JSON schema whose product types and taxonomy ids
+  are closed vocabularies, adaptive thinking with no budget at low effort, `max_tokens` 1024, the
+  system prompt cached. Invalid output goes to the retry queue, never to the table as a trusted value.
+- Kosher and diet flags are always unverified unless a human confirmed them, whichever extractor runs.
+
+**Why Sonnet 5.5 in batch.** It is the current Sonnet: cheaper than the Opus tier and capable on
+Hebrew text and structured output (general knowledge, not measured here). Batches bill at 50% of list
+price and suit a job that runs once per new item with no latency need. Structured outputs guarantee
+parseable JSON against the schema, which removes most of the failure handling a free-text answer
+needs. Dicta-LM locally avoids per-token cost but needs a GPU host and our own constrained decoding,
+and has no published entity-matching result in the research.
+
+**Cost (estimate).** Rates: $1 per million input tokens and $5 per million output tokens with the
+batch discount (Sonnet 5.5 list price $2 / $10; pricing page as cached in the SDK documentation,
+2026-09-25), cache reads 0.1x input. Per item, assuming a system prompt of about 6,000 to 7,000 tokens
+(the product type and taxonomy vocabularies; Hebrew tokenization not measured), about 150 tokens of
+item input, and 150 to 450 output tokens including low-effort thinking: about $0.002 to $0.003 with the
+prompt cached, about $0.008 to $0.009 without. That gives roughly $40 to $120 for an MVP slice of
+20,000 to 40,000 items (the items whose rule-extracted type is one of the 222 MVP types; slice size is
+an estimate), and $300 to $500 for 170,000 items with caching, more without. This is about ten times
+the research's "tens of dollars", mostly because of the vocabulary prompt and thinking tokens. Levers
+before a full run: extract once per barcode across chains, send only items the rule extractor places
+in an MVP block or cannot place, trim the vocabularies per department, and measure a 1,000-item pilot
+with `smartcart-catalog cost-report`.
+
+**Pending, needs a human and a key.**
+1. A labeled sample (at least 300 items across departments, drawn from the gold set of issue #29),
+   scored per attribute for the rule extractor, Sonnet 5.5 batch, and Dicta-LM if a GPU host is
+   available. Record precision of `product_type`, `fat_pct` and `state` (the critical keys) here.
+2. The cost of the first run on the MVP catalog from the cost report, against the estimate above.
+
+**Alternatives considered.**
+- Opus tier: stronger, about twice the per-token price of Sonnet 5.5; kept as the fallback if the
+  sample shows Sonnet errors on critical keys.
+- Haiku 4.5: cheaper; rejected for now because critical-key errors cost more than tokens (D5).
+- Dicta-LM locally: see above; stays in the comparison.
+- Rules only: free and deterministic, but keyword tables miss unseen phrasing and brands; kept as the
+  baseline and the no-key default.
+
+**Consequences.** `ANTHROPIC_API_KEY` becomes a secret of the catalog worker when `EXTRACTOR=claude`.
+Items are sent to an external API: they are public price-file data with no user data, so D11 is not
+affected. The model name, effort and batch size are configuration, so the comparison can switch them
+without code changes. Details: `catalog.md` section 4.

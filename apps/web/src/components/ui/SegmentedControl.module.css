@@ -1,0 +1,33 @@
+.group {
+  display: flex;
+  min-height: var(--sc-touch);
+  padding: 3px;
+  background: var(--sc-subtle);
+  border-radius: var(--sc-radius-control);
+}
+
+.option {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: var(--sc-radius-small);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sc-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.option[aria-checked="true"] {
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-weight: 700;
+  box-shadow: var(--sc-shadow-raised);
+}

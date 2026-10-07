@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-10-07T05:50:15Z",
+  "available": true,
+  "run_id": 7,
+  "measured_at": "2026-10-07T05:50:15Z",
+  "precision": {
+    "exact": 1.0,
+    "any_brand": 1.0,
+    "close": 1.0
+  },
+  "sample": {
+    "exact": 100,
+    "any_brand": 530,
+    "close": 609
+  },
+  "gold_items": 831,
+  "gold_pairs": 2419,
+  "synthetic": true,
+  "judge": "rule-v1",
+  "target_any_brand": 0.98
+}

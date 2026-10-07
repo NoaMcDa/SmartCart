@@ -1,0 +1,277 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+  max-inline-size: 720px;
+  margin-inline: auto;
+  inline-size: 100%;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.storeName {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--sc-accent-fg);
+}
+
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.muted {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.legend {
+  margin-block-end: var(--sc-space-1);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.offline {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn-fg);
+  font-size: 13.5px;
+}
+
+/* Progress */
+.progressCard {
+  gap: var(--sc-space-2);
+}
+
+.progressRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sc-space-1) var(--sc-space-3);
+}
+
+.progressText {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.bar {
+  block-size: 10px;
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-subtle);
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  block-size: 100%;
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-accent);
+  transition: inline-size 150ms ease;
+}
+
+/* Groups and rows */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+}
+
+.groupTitle {
+  padding-block: var(--sc-space-1);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sc-muted);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.itemWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius-card);
+  background: var(--sc-surface);
+}
+
+.itemWrap[data-checked="true"] {
+  background: var(--sc-subtle);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  inline-size: 100%;
+  min-block-size: 80px;
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: 0;
+  border-radius: var(--sc-radius-card);
+  background: transparent;
+  color: var(--sc-text);
+  text-align: start;
+  cursor: pointer;
+}
+
+.box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  inline-size: 44px;
+  block-size: 44px;
+  border: 2.5px solid var(--sc-faint);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+  color: var(--sc-on-accent);
+}
+
+.item[data-checked="true"] .box {
+  border-color: var(--sc-accent);
+  background: var(--sc-accent);
+}
+
+.itemText {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.itemName {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* Checked: strikethrough as well as dimming, so it never relies on color alone. */
+.item[data-checked="true"] .itemName {
+  text-decoration: line-through;
+}
+
+.item[data-checked="true"] .itemText,
+.item[data-checked="true"] .itemPrice {
+  opacity: 0.6;
+}
+
+.itemPrice {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-1);
+}
+
+.updated {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--sc-muted);
+}
+
+/* Finish bar and undo snackbar sit above the bottom navigation on phones. */
+.finishBar {
+  position: sticky;
+  inset-block-end: calc(var(--sc-bottom-nav-height) + var(--sc-space-2));
+  z-index: 5;
+  padding-block: var(--sc-space-2);
+  background: linear-gradient(to top, var(--sc-bg) 70%, transparent);
+}
+
+.snackbar {
+  position: fixed;
+  inset-inline: var(--sc-gutter);
+  inset-block-end: calc(var(--sc-bottom-nav-height) + 84px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  max-inline-size: 520px;
+  margin-inline: auto;
+  padding: var(--sc-space-2) var(--sc-space-4);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-text);
+  color: var(--sc-bg);
+  font-size: 14px;
+  box-shadow: var(--sc-shadow-sheet);
+}
+
+.snackbar button {
+  color: var(--sc-bg);
+  text-decoration: underline;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  margin: 0;
+}
+
+.summary > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+}
+
+.summary dt {
+  font-size: 14px;
+  color: var(--sc-muted);
+}
+
+.summary dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.uncheckedList {
+  margin: 0;
+  padding-inline-start: 20px;
+  font-size: 14px;
+}
+
+@media (width >= 768px) {
+  .title {
+    font-size: 28px;
+  }
+
+  .finishBar {
+    inset-block-end: var(--sc-space-3);
+  }
+
+  .snackbar {
+    inset-block-end: 88px;
+  }
+}

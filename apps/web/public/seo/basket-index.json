@@ -1,0 +1,185 @@
+{
+  "generated_at": "2026-10-07T05:51:34Z",
+  "basket": {
+    "version": 1,
+    "item_count": 25,
+    "items": [
+      {
+        "slug": "milk-fresh-3",
+        "name_he": "חלב טרי 3%",
+        "amount": 20.0,
+        "base_unit": "100ml",
+        "label_he": "2 ליטר"
+      },
+      {
+        "slug": "cottage-5",
+        "name_he": "קוטג' 5%",
+        "amount": 5.0,
+        "base_unit": "100g",
+        "label_he": "2 גביעים של 250 גרם"
+      },
+      {
+        "slug": "white-cheese-5",
+        "name_he": "גבינה לבנה 5%",
+        "amount": 5.0,
+        "base_unit": "100g",
+        "label_he": "500 גרם"
+      },
+      {
+        "slug": "yellow-cheese-sliced-28",
+        "name_he": "גבינה צהובה פרוסה 28%",
+        "amount": 4.0,
+        "base_unit": "100g",
+        "label_he": "400 גרם"
+      },
+      {
+        "slug": "yogurt-plain-3",
+        "name_he": "יוגורט טבעי 3%",
+        "amount": 8.0,
+        "base_unit": "100g",
+        "label_he": "800 גרם"
+      },
+      {
+        "slug": "butter",
+        "name_he": "חמאה",
+        "amount": 2.0,
+        "base_unit": "100g",
+        "label_he": "200 גרם"
+      },
+      {
+        "slug": "eggs-l",
+        "name_he": "ביצים L",
+        "amount": 12.0,
+        "base_unit": "unit",
+        "label_he": "12 ביצים"
+      },
+      {
+        "slug": "chicken-breast-fresh",
+        "name_he": "חזה עוף טרי",
+        "amount": 1.0,
+        "base_unit": "kg",
+        "label_he": "ק״ג אחד"
+      },
+      {
+        "slug": "hummus-plain",
+        "name_he": "חומוס (סלט)",
+        "amount": 4.0,
+        "base_unit": "100g",
+        "label_he": "400 גרם"
+      },
+      {
+        "slug": "tomato",
+        "name_he": "עגבניות",
+        "amount": 1.5,
+        "base_unit": "kg",
+        "label_he": "1.5 ק״ג"
+      },
+      {
+        "slug": "cucumber",
+        "name_he": "מלפפונים",
+        "amount": 1.0,
+        "base_unit": "kg",
+        "label_he": "ק״ג אחד"
+      },
+      {
+        "slug": "onion",
+        "name_he": "בצל יבש",
+        "amount": 1.0,
+        "base_unit": "kg",
+        "label_he": "ק״ג אחד"
+      },
+      {
+        "slug": "potato",
+        "name_he": "תפוחי אדמה",
+        "amount": 2.0,
+        "base_unit": "kg",
+        "label_he": "2 ק״ג"
+      },
+      {
+        "slug": "banana",
+        "name_he": "בננות",
+        "amount": 1.0,
+        "base_unit": "kg",
+        "label_he": "ק״ג אחד"
+      },
+      {
+        "slug": "bread-standard",
+        "name_he": "לחם אחיד",
+        "amount": 7.5,
+        "base_unit": "100g",
+        "label_he": "כיכר של 750 גרם"
+      },
+      {
+        "slug": "pita",
+        "name_he": "פיתות",
+        "amount": 10.0,
+        "base_unit": "unit",
+        "label_he": "10 פיתות"
+      },
+      {
+        "slug": "rice-persian",
+        "name_he": "אורז פרסי",
+        "amount": 10.0,
+        "base_unit": "100g",
+        "label_he": "ק״ג אחד"
+      },
+      {
+        "slug": "pasta-spaghetti",
+        "name_he": "ספגטי",
+        "amount": 5.0,
+        "base_unit": "100g",
+        "label_he": "500 גרם"
+      },
+      {
+        "slug": "sugar-white",
+        "name_he": "סוכר לבן",
+        "amount": 10.0,
+        "base_unit": "100g",
+        "label_he": "ק״ג אחד"
+      },
+      {
+        "slug": "canola-oil",
+        "name_he": "שמן קנולה",
+        "amount": 10.0,
+        "base_unit": "100ml",
+        "label_he": "ליטר אחד"
+      },
+      {
+        "slug": "tuna-in-oil",
+        "name_he": "טונה בשמן",
+        "amount": 4.8,
+        "base_unit": "100g",
+        "label_he": "3 קופסאות של 160 גרם"
+      },
+      {
+        "slug": "mineral-water",
+        "name_he": "מים מינרליים",
+        "amount": 60.0,
+        "base_unit": "100ml",
+        "label_he": "6 ליטר"
+      },
+      {
+        "slug": "bamba",
+        "name_he": "חטיף בוטנים (במבה)",
+        "amount": 2.0,
+        "base_unit": "100g",
+        "label_he": "200 גרם"
+      },
+      {
+        "slug": "chocolate-milk",
+        "name_he": "שוקו",
+        "amount": 10.0,
+        "base_unit": "100ml",
+        "label_he": "ליטר אחד"
+      },
+      {
+        "slug": "toilet-paper",
+        "name_he": "נייר טואלט",
+        "amount": 24.0,
+        "base_unit": "unit",
+        "label_he": "24 גלילים"
+      }
+    ]
+  },
+  "months": []
+}
