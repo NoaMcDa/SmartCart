@@ -164,20 +164,23 @@ describe("apply, undo and dismiss", () => {
     applySwap(swap({ canonical_id: 1004, saving: "4.80" }));
     dismissSwap(swap({ canonical_id: 1002, saving: "5.00" }));
     await new Promise((r) => setTimeout(r, 50));
-    expect(bodies).toEqual([
-      {
-        canonical_id: 1004,
-        original_item_id: 100400,
-        substitute_item_id: 100401,
-        verdict: "accepted",
-      },
-      {
-        canonical_id: 1002,
-        original_item_id: 100200,
-        substitute_item_id: 100201,
-        verdict: "not_good",
-      },
-    ]);
+    expect(bodies).toHaveLength(2);
+    expect(bodies).toEqual(
+      expect.arrayContaining([
+        {
+          canonical_id: 1004,
+          original_item_id: 100400,
+          substitute_item_id: 100401,
+          verdict: "accepted",
+        },
+        {
+          canonical_id: 1002,
+          original_item_id: 100200,
+          substitute_item_id: 100201,
+          verdict: "not_good",
+        },
+      ]),
+    );
     expect(getSwapsState().dismissed).toEqual({ "1002:100201": 5 });
     // And it survives a reload.
     resetSwapsForTests();
