@@ -86,6 +86,35 @@ describe("comparison results", () => {
     expect(screen.getByRole("button", { name: "דיווח על פער במחיר" })).toBeInTheDocument();
   });
 
+  it("links the methodology page next to the checkout disclaimer", () => {
+    renderResults();
+    const footer = screen.getByTestId("disclaimer");
+    expect(footer).toHaveTextContent("המחיר הקובע הוא בקופה.");
+    expect(within(footer).getByRole("link", { name: "איך אנחנו משווים מחירים" })).toHaveAttribute(
+      "href",
+      "/methodology",
+    );
+  });
+
+  it("shows the promo confidence on promo lines: the score when the API gives one, otherwise not checked", () => {
+    const res = optimizeFixture();
+    // Give the first club-promo line a score; every other promo line has none.
+    let scored = 0;
+    for (const store of res.single.stores.flatMap((s) => [s.store])) {
+      for (const item of store.items) {
+        if (item.promo_description && scored === 0) {
+          item.promo_confidence = 0.96;
+          scored += 1;
+        }
+      }
+    }
+    expect(scored).toBe(1);
+    renderResults(res);
+    const details = screen.getByTestId("basket-details");
+    expect(within(details).getByText("ביטחון 96%")).toBeInTheDocument();
+    expect(within(details).getAllByText("לא נבדק").length).toBeGreaterThanOrEqual(1);
+  });
+
   it("labels weighed lines estimated and club promos (trust signals, #12)", () => {
     renderResults();
     const details = screen.getByTestId("basket-details");

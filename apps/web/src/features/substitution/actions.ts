@@ -5,7 +5,9 @@
  * results recompute on the next render. Feedback goes to /feedback/substitution (D5 labeling).
  */
 import { substitutionFeedback, type PricedItem } from "@/api/client";
-import { listActions } from "@/state/list";
+import { levelForCanonical } from "@/features/compare/substitutionLevels";
+import { reportSubstitutionVerdict } from "@/features/consent/betaEvents";
+import { getListState, listActions } from "@/state/list";
 import { setFlash } from "@/state/flash";
 
 function feedbackBody(item: PricedItem, verdict: "not_good" | "kept_original" | "accepted") {
@@ -17,13 +19,20 @@ function feedbackBody(item: PricedItem, verdict: "not_good" | "kept_original" | 
   };
 }
 
+/** Beta event for the answer, with the level the user set for this product (read before it changes). */
+function reportVerdict(item: PricedItem, verdict: "not_good" | "kept_original" | "accepted") {
+  reportSubstitutionVerdict(levelForCanonical(getListState().items, item.canonical_id), verdict);
+}
+
 export function acceptSubstitute(item: PricedItem): void {
+  reportVerdict(item, "accepted");
   substitutionFeedback(feedbackBody(item, "accepted")).catch(() => {
     // Accepting is the default; a lost signal changes nothing for the user.
   });
 }
 
 export function keepOriginal(item: PricedItem, originalName?: string | null): void {
+  reportVerdict(item, "kept_original");
   listActions.keepOriginal(item.canonical_id, item.original_item_id ?? null);
   substitutionFeedback(feedbackBody(item, "kept_original")).catch(() => {});
   setFlash(
@@ -37,6 +46,7 @@ export async function rejectSubstitute(
   item: PricedItem,
   originalName?: string | null,
 ): Promise<boolean> {
+  reportVerdict(item, "not_good");
   let sent = true;
   try {
     await substitutionFeedback(feedbackBody(item, "not_good"));

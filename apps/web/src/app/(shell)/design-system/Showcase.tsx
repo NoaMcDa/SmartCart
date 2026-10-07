@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   CardRow,
+  CheckChip,
   Chip,
   FlexChip,
   IconCheck,
@@ -15,12 +16,15 @@ import {
   IconPin,
   Price,
   PriceRange,
+  PromoConfidence,
   SegmentedControl,
   Skeleton,
   SkeletonText,
   Stepper,
   Switch,
   Tag,
+  TrustedPrice,
+  UpdatedAt,
   type FlexLevel,
 } from "@/components/ui";
 import styles from "./Showcase.module.css";
@@ -48,6 +52,9 @@ const TOKENS = [
   "bad-fg",
 ] as const;
 
+/** Fixed "now" so the relative update times read the same whenever the page is opened. */
+const DS_NOW = new Date("2026-10-07T12:00:00Z");
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className={styles.section}>
@@ -63,6 +70,8 @@ function Panel({ theme }: { theme: "light" | "dark" }) {
   const [view, setView] = useState<"list" | "map">("list");
   const [flex, setFlex] = useState<FlexLevel>("any_brand");
   const [allowCarton, setAllowCarton] = useState(true);
+  const [allowBrand, setAllowBrand] = useState(true);
+  const [allowFlavor, setAllowFlavor] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const next: Record<FlexLevel, FlexLevel> = {
     exact: "any_brand",
@@ -125,6 +134,42 @@ function Panel({ theme }: { theme: "light" | "dark" }) {
         </div>
       </Section>
 
+      <Section title="אמון ועדכניות">
+        <div className={styles.row} data-testid={`ds-updated-${theme}`}>
+          <UpdatedAt iso="2026-10-07T03:40:00Z" now={DS_NOW} prefix="מחירים עודכנו" withIcon />
+          <UpdatedAt iso="2026-10-06T15:20:00Z" now={DS_NOW} />
+          <UpdatedAt iso="2026-10-04T08:00:00Z" now={DS_NOW} />
+          <UpdatedAt iso={null} />
+        </div>
+        <div className={styles.row} data-testid={`ds-trusted-${theme}`}>
+          <TrustedPrice amount="12.90" updatedAt="2026-10-07T03:40:00Z" size="lg" />
+          <TrustedPrice
+            amount="4.50"
+            updatedAt="2026-10-06T15:20:00Z"
+            layout="inline"
+            fractionDigits={2}
+          />
+        </div>
+        <div className={styles.row} data-testid={`ds-trust-tags-${theme}`}>
+          <Tag variant="substitute">תחליף</Tag>
+          <Tag variant="club">מבצע מועדון</Tag>
+          <PromoConfidence confidence={0.96} />
+          <PromoConfidence confidence={0.72} />
+          <PromoConfidence confidence={null} />
+        </div>
+        <div className={styles.row} role="group" aria-label="אפשר לוותר על">
+          <CheckChip checked={allowBrand} onChange={setAllowBrand}>
+            מותג אחר
+          </CheckChip>
+          <CheckChip checked={allowFlavor} onChange={setAllowFlavor}>
+            טעם אחר
+          </CheckChip>
+          <CheckChip checked={false} onChange={() => {}} disabled>
+            לא זמין
+          </CheckChip>
+        </div>
+      </Section>
+
       <Section title="תגיות">
         <div className={styles.row}>
           <Tag variant="matched">אותו סוג מוצר</Tag>
@@ -146,6 +191,15 @@ function Panel({ theme }: { theme: "light" | "dark" }) {
         <p className={styles.sentence}>
           הערכת סל: <PriceRange from={412} to={468} size="lg" />
         </p>
+        <div className={styles.row} data-testid={`ds-price-sizes-${theme}`}>
+          <Price amount="3.9" size="sm" />
+          <Price amount="3.9" size="md" />
+          <Price amount="3.9" size="lg" />
+          <Price amount="3.9" size="xl" />
+          <Price amount="389" size="hero" />
+          <Price amount="3.9" tone="muted" />
+          <Price amount="57" tone="good" />
+        </div>
       </Section>
 
       <Section title="כרטיסים">

@@ -4,6 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider, useAuth } from "./AuthProvider";
 import { getApiToken, setApiToken } from "./apiAuth";
+import {
+  flushEvents,
+  resetTrackingForTests,
+  setTrackingConsent,
+  trackEvent,
+} from "@/features/seo/track";
 import { isSupabaseConfigured, setSupabaseForTests } from "./supabaseClient";
 
 type Listener = (event: string, session: unknown) => void;
@@ -114,6 +120,29 @@ describe("auth", () => {
     );
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed-in"));
     expect(getApiToken()).toBe("stored-jwt");
+  });
+
+  it("registers the access token with the beta events, so /events carries the user on every screen", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BETA_EVENTS", "1");
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response("{}"));
+    vi.stubGlobal("fetch", fetchMock);
+    resetTrackingForTests();
+    setTrackingConsent(true);
+    const { client } = fakeSupabase({ access_token: "stored-jwt", user: { email: "a@b.co" } });
+    setSupabaseForTests(client);
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed-in"));
+    trackEvent("split_viewed");
+    await flushEvents();
+    const headers = fetchMock.mock.calls[0]![1]!.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer stored-jwt");
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    resetTrackingForTests();
   });
 
   it("shows an error when the code is wrong", async () => {

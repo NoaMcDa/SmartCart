@@ -30,6 +30,7 @@ export type SearchHit = Schemas["SearchHit"];
 export type GapReportRequest = Schemas["GapReportRequest"];
 export type SubstitutionFeedbackRequest = Schemas["SubstitutionFeedbackRequest"];
 export type Ack = Schemas["Ack"];
+export type StoreRef = Schemas["StoreRef"];
 export type FlexLevel = NonNullable<BasketItem["flex_level"]>;
 
 /*
@@ -120,4 +121,19 @@ export async function substitutionFeedback(body: SubstitutionFeedbackRequest): P
 
 export async function health() {
   return unwrap(await api.GET("/health"));
+}
+
+/**
+ * DELETE /me: removes the signed-in user's `profiles` row and the Supabase auth user (issues #30
+ * and #55). Needs the bearer token (`ensureApiAuth()` installs it). Throws ApiError on failure.
+ */
+export async function deleteMe(): Promise<Ack> {
+  return unwrap(await api.DELETE("/me"));
+}
+
+/** GET /stores/nearest: the nearest store of a chain to a point (the home store lookup). */
+export async function nearestStore(chainId: string, lat: number, lon: number): Promise<StoreRef> {
+  return unwrap(
+    await api.GET("/stores/nearest", { params: { query: { chain_id: chainId, lat, lon } } }),
+  );
 }

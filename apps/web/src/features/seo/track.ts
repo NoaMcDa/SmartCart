@@ -14,15 +14,16 @@ import type { components } from "@/api/types";
  *  - the session id is a random token kept in localStorage, not derived from anything about the
  *    person; the signed-in user id is added by the API from the JWT, never sent from here;
  *  - tracking is OFF unless NEXT_PUBLIC_BETA_EVENTS=1 is set at build time, never runs against the
- *    mock API, and stops when the browser sends Do Not Track or the person opted out
- *    (`setTrackingConsent(false)`, stored as localStorage["sc-events-consent"] = "0").
+ *    mock API, stops when the browser sends Do Not Track, and is opt-in: nothing is queued or sent
+ *    until the person accepted the consent screen (`setTrackingConsent(true)`, stored as
+ *    localStorage["sc-events-consent"] = "1"). Declining stores "0"; absent = not asked yet.
+ *    Opting out later (Profile) calls `setTrackingConsent(false)` and drops the queue.
  *
- * Wiring (W4b and W5, docs/beta-plan.md "Events"): call `trackEvent` from the list builder
- * (`list_pasted`), the results screen (`results_shown`, `substitutions_shown`), the substitution
- * card (`substitution_verdict`), the flexibility sheet (`flex_changed`), the split view
- * (`split_viewed`), report-a-gap (`gap_reported`) and the shell (`app_opened`, once per visit).
- * After sign-in call `setAuthTokenProvider(() => session.access_token)` so the API can attach the
- * user; without it events are anonymous. A failed send is dropped, never retried and never thrown.
+ * Wiring (docs/beta-plan.md "Events"): the list builder fires `list_pasted`, the results screen
+ * `results_shown` and `substitutions_shown`, the substitution card `substitution_verdict`, the
+ * flexibility sheet `flex_changed`, the split view `split_viewed` and report-a-gap `gap_reported`.
+ * `AuthProvider` registers the access token with `setAuthTokenProvider`, so the API attaches the
+ * user to every event while signed in. A failed send is dropped, never retried and never thrown.
  */
 
 type FlexLevel = "exact" | "any_brand" | "close";
@@ -79,25 +80,75 @@ function storage(): Storage | undefined {
   }
 }
 
-/** Whether events are collected at all in this build and browser. */
-export function isTrackingEnabled(): boolean {
-  if (process.env.NEXT_PUBLIC_BETA_EVENTS !== "1" || API_MOCK) return false;
-  if (typeof navigator !== "undefined" && navigator.doNotTrack === "1") return false;
-  try {
-    return storage()?.getItem(CONSENT_KEY) !== "0";
-  } catch {
-    return true;
-  }
+/**
+ * Whether this build and browser can collect events at all: the beta flag is on, the API is not
+ * the mock, and the browser does not send Do Not Track. The consent screen and the Profile
+ * switch only appear when this is true; otherwise nothing is collected and there is nothing to
+ * ask about.
+ */
+export function isTrackingAvailable(): boolean {
+  return isBetaBuild() && !isDoNotTrack();
 }
 
-/** Opt in or out for this browser. Opting out also drops anything still queued. */
+/** The build has beta events switched on (NEXT_PUBLIC_BETA_EVENTS=1) and talks to a real API. */
+export function isBetaBuild(): boolean {
+  return process.env.NEXT_PUBLIC_BETA_EVENTS === "1" && !API_MOCK;
+}
+
+/** The browser sends Do Not Track: nothing is collected, whatever the consent says. */
+export function isDoNotTrack(): boolean {
+  return typeof navigator !== "undefined" && navigator.doNotTrack === "1";
+}
+
+/** The person's answer to the consent screen. `unset` = not asked yet (nothing is collected). */
+export type TrackingConsent = "granted" | "declined" | "unset";
+
+const consentListeners = new Set<() => void>();
+let memoryConsent: TrackingConsent | undefined;
+
+/**
+ * Reads the stored answer: localStorage["sc-events-consent"] is "1" (accepted) or "0" (declined);
+ * absent means the consent screen has not been answered. When storage is blocked the answer is kept
+ * in memory for the page's life (the screen asks again on the next visit).
+ */
+export function getTrackingConsent(): TrackingConsent {
+  try {
+    const raw = storage()?.getItem(CONSENT_KEY);
+    if (raw === "1") return "granted";
+    if (raw === "0") return "declined";
+    if (raw === null || raw === undefined) return memoryConsent ?? "unset";
+  } catch {
+    return memoryConsent ?? "unset";
+  }
+  return "unset";
+}
+
+/** Subscribe to consent changes (for `useSyncExternalStore`). */
+export function subscribeTrackingConsent(listener: () => void): () => void {
+  consentListeners.add(listener);
+  return () => {
+    consentListeners.delete(listener);
+  };
+}
+
+/**
+ * Whether an event may be queued right now. Opt-in: the person must have accepted the consent
+ * screen (consent "granted"); "declined" and "unset" both collect nothing.
+ */
+export function isTrackingEnabled(): boolean {
+  return isTrackingAvailable() && getTrackingConsent() === "granted";
+}
+
+/** Accept or decline for this browser. Declining also drops anything still queued. */
 export function setTrackingConsent(enabled: boolean): void {
+  memoryConsent = enabled ? "granted" : "declined";
   try {
     storage()?.setItem(CONSENT_KEY, enabled ? "1" : "0");
   } catch {
-    // nothing to persist; the in-memory queue is still cleared below
+    // nothing to persist; the in-memory answer and queue below still apply
   }
   if (!enabled) clearQueue();
+  for (const listener of consentListeners) listener();
 }
 
 /** Register how to get the signed-in user's access token (W5, after Supabase sign-in). */
@@ -186,5 +237,7 @@ export async function flushEvents(): Promise<void> {
 export function resetTrackingForTests(): void {
   clearQueue();
   memorySession = undefined;
+  memoryConsent = undefined;
   tokenProvider = undefined;
+  consentListeners.clear();
 }
