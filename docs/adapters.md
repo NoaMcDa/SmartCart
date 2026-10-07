@@ -2,7 +2,7 @@
 
 How SmartCart turns each chain's transparency files into the internal model
 (`services/ingest/smartcart_ingest/models.py`). Covers issues #32 (adapter framework), #57 (dual
-schema) and #53 (sales channel).
+schema), #53 (sales channel) and #81 (the last two D13 chains: Machsanei Hashuk and King Store).
 
 > **All fixtures are synthetic.** The chain portals cannot be reached from the development
 > container (at least one portal blocks cloud IP ranges), so no real file has been downloaded
@@ -71,6 +71,11 @@ as timezone-aware datetimes (`Asia/Jerusalem`).
 | `hazihinam` | חצי חינם | 7290700100008 | own web portal `shop.hazi-hinam.co.il/Prices` | `Promo7290700100008-000-207-20261006-103225.xml.gz` (chain-subchain-store-date-time) |
 | `tivtaam` | טיב טעם | 7290873255550 | Cerberus (user TivTaam) | same as Cerberus above |
 | `mega` | קרפור (מגה) | 7290055700007 | PublishPrice web portal `prices.carrefour.co.il` | `PriceFull7290055700007-2960-202610060300.gz` |
+| `machsanei_hashuk` | מחסני השוק | 7290661400001, 7290633800006 | laibcatalog JSON API (`laibcatalog.co.il/webapi/api/getfiles`), scraper `MAHSANI_ASHUK_NEW_SOURCE`; portal value `matrix` | `PriceFull7290661400001-003-202610060810.xml.gz` |
+| `king_store` | קינג סטור | 7290058108879 | Bina `kingstore.binaprojects.com` (plain HTTP, `MainIO_Hok.aspx`), scraper `KING_STORE`; portal value `bina` | `PriceFull7290058108879-001-202610060510.xml` (compressed content, see below) |
+
+All ten D13 chains have an adapter, so `smartcart-ingest run --mode full` no longer skips any
+of them (`test_every_d13_chain_has_an_adapter`).
 
 Notes:
 
@@ -81,6 +86,20 @@ Notes:
 - **Victory publishes under two chain ids.** `REGISTRY` is keyed by a single chain id, so the
   second id is accepted through `chain_ids` but is not registered separately. See the contract
   notes below.
+- **Machsanei Hashuk** (upstream, `scrappers/machsani_ashuk.py`): the active scraper is
+  `MahsaniAShukNewSource`, a `_LaibcatalogApiScraper` (upstream engine `ApiWebEngine`) on the same
+  laibcatalog host as Victory; the older Matrix ASPX scraper is deprecated. The `portal` value is
+  `matrix`, the same as Victory, because both publish through that host and engine; if the column
+  ever has to tell the laibcatalog API from the legacy Matrix site, both chains change together.
+  It **needs the Israeli-IP VPS** (laibcatalog blocks cloud IPs, verified, research) and its
+  listing is empty overnight until about 08:00 and, per upstream's stability notes, on Saturdays
+  (upstream `scraper_stability.MahsaniAshukNewSource`). It publishes under two chain ids; the
+  second, 7290633800006, is in `chain_ids` and is also registered as an alias, so
+  `get_adapter("7290633800006")` works.
+- **King Store** (upstream, `scrappers/king_store.py`, `engines/bina.py`): the only Bina chain.
+  The listing is ASPX returning JSON; a file name is resolved through `Download.aspx?FileNm=` to
+  its `SPath`. Upstream notes that King Store serves gzip content under names that do not end in
+  `.gz`; `xmlutil.unwrap` detects compression by magic bytes, so no special case is needed.
 - `parse_filename` handles all three upstream name shapes: chain-store-datetime, five-part
   chain-subchain-store-date-time, and Stores files with no store segment. It also accepts the
   `NULL` prefix some portals emit. A file whose name or header carries another chain's id is
@@ -102,6 +121,8 @@ container fails the test and names the chain.
 | hazihinam | `Items/Item` | `Promotions/Promotion` | `SubChains`, `StoreID` casing | Stores: **declared ISO-8859-8 over UTF-8 content** |
 | tivtaam | `Items/Item`, or **`NewDataSet/item`** (.NET DataSet export with inline `xs:schema`) | `Promotions/Promotion` | `SubChains` | Stores: UTF-16 BE with BOM, gzip |
 | mega | `Items/Item` | `Promotions/Promotion` | `SubChains` (two sub-chains) | Stores: **windows-1255 with no XML declaration** |
+| machsanei_hashuk | new source `Items/Item` (`ChainID` casing); legacy `Products/Product` | new source `Promotions/Promotion` (`PromotionID`), falling back to legacy flat `Sales/Sale` (upstream conditional converter) | new source `SubChains` (`StoreID`); legacy `Branches` | UTF-8, `.xml.gz` (Stores with BOM); a `Sales` promo delta under the second chain id in **windows-1255** |
+| king_store | `Items/Item` | `Promotions/Promotion` | `SubChains` | Stores: plain `.xml`; PriceFull and Price delta: **gzip under a `.xml` name**; PromoFull: **zip under a `.xml` name** |
 
 The container and row elements are taken from upstream. The encoding and container assigned to
 each chain's fixture is **provisional**: it was chosen so that every decoding path runs through
@@ -204,8 +225,10 @@ replaced with the real codes after the first real Stores file.
 | hazihinam | name contains `אתר` (the web shop); code in `{299}` (placeholder) | `חצי חינם אתר` | yes |
 | tivtaam | address contains `מרכז הפצה`; name contains משלוחים | `טיב טעם - הזמנות` at `מרכז הפצה ראשון לציון` (no shared keyword) | yes |
 | mega | code in `{5000}` (placeholder) | `קרפור מרכז ליקוט` (no keyword in the name) | yes |
+| machsanei_hashuk | name contains אונליין/משלוחים; code in `{90}` (placeholder) | `מחסני השוק אונליין`, store 90, no address or coordinates | yes |
+| king_store | none; only the shared heuristic runs | no store tagged online | **no online record known** |
 
-**Chains with no online record:** Osher Ad, as far as we know. This is a hypothesis to confirm
+**Chains with no online record:** Osher Ad and King Store, as far as we know. This is a hypothesis to confirm
 on the first real Stores file. Every other chain is expected to have an online record because
 it runs an online shop, but the exact record has not been seen. `has_online_record` on each
 adapter records this, and a test keeps it consistent with the fixtures.
@@ -257,7 +280,12 @@ transparency portals, never a chain's online store. Run it on a machine with por
 uv run python -m smartcart_ingest.adapters.fetch_fixtures --list     # plan, no network
 uv run python -m smartcart_ingest.adapters.fetch_fixtures            # all chains
 uv run python -m smartcart_ingest.adapters.fetch_fixtures shufersal ramilevy
+uv run python -m smartcart_ingest.adapters.fetch_fixtures machsanei_hashuk king_store
 ```
+
+The plan covers every registered chain, Machsanei Hashuk and King Store included. Run the
+laibcatalog chains (victory, machsanei_hashuk) after about 08:00 Israel time, and Machsanei
+Hashuk not on a Saturday: their listings are empty outside those hours (upstream stability notes).
 
 Files land raw (still compressed) in `tests/fixtures/real/<slug>/`, together with a
 `manifest.json` that holds the sha256 and our adapter's parse result for each file. The test
@@ -287,7 +315,8 @@ The shared contract files were not changed. Requests for the contract owner:
    `StoreRecord`.
 2. **One chain id per adapter in `REGISTRY`.** Victory publishes under two ids. The workaround:
    `RegulationAdapter.chain_ids` accepts the extra id, but `get_adapter("7290058103393")`
-   fails. Suggested change: allow aliases in `register`.
+   fails. `ChainAdapter.aliases` now exists (`register` registers each alias); Machsanei Hashuk
+   uses it for its second id, and Victory can adopt it the same way.
 3. **`detect_schema(xml_root: Any)`** receives the partial root from `xmlutil.read_header`
    (header plus the first row). It would help to document that adapters must not expect a
    fully built tree.

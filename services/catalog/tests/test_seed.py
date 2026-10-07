@@ -112,6 +112,16 @@ def test_unknown_taxonomy_and_bad_value_rejected(catalog) -> None:
     assert "bad critical attribute value" in str(exc.value)
 
 
+def test_reference_barcodes_are_validated(catalog) -> None:
+    doc = copy.deepcopy(_raw("canonicals.yaml"))
+    doc["canonicals"][0]["reference_barcodes"] = ["7290000000017", "12ab"]
+    doc["canonicals"][1]["reference_barcodes"] = [7290000000017]
+    with pytest.raises(SeedError) as exc:
+        parse_canonicals(doc, catalog.taxonomy, catalog.rules)
+    assert "must be 8-14 digits: ['12ab']" in str(exc.value)
+    assert "barcode 7290000000017 is also a reference of" in str(exc.value)
+
+
 def test_rules_reject_unknown_keys() -> None:
     with pytest.raises(SeedError, match="unknown attribute keys"):
         parse_rules({"rules": [{"product_type": "milk", "critical_keys": ["fat"]}]})
@@ -161,3 +171,27 @@ def test_seed_updates_changed_rows_only(db: psycopg.Connection, tmp_path: Path) 
     report = seed_all(db, load_catalog(tmp_path))
     assert (report.canonicals.inserted, report.canonicals.updated) == (0, 1)
     assert report.taxonomy.updated == 0
+
+
+@pytest.mark.db
+@pytest.mark.pgvector
+def test_seed_loads_reference_barcodes_when_present(db: psycopg.Connection, tmp_path: Path) -> None:
+    """``reference_barcodes`` in canonicals.yaml land in the column; an entry without the key
+    leaves stored barcodes alone (issue #92)."""
+    seed_all(db, load_catalog())
+    for name in ("taxonomy.yaml", "product_type_rules.yaml", "canonicals.yaml"):
+        (tmp_path / name).write_text((default_data_dir() / name).read_text(encoding="utf-8"),
+                                     encoding="utf-8")
+    doc = yaml.safe_load((tmp_path / "canonicals.yaml").read_text(encoding="utf-8"))
+    doc["canonicals"][0]["reference_barcodes"] = ["7290004131074"]
+    (tmp_path / "canonicals.yaml").write_text(yaml.safe_dump(doc, allow_unicode=True),
+                                              encoding="utf-8")
+    report = seed_all(db, load_catalog(tmp_path))
+    assert report.canonicals.updated == 1
+    slug = doc["canonicals"][0]["slug"]
+    codes = "SELECT reference_barcodes FROM canonical_products WHERE slug = %s"
+    assert db.execute(codes, (slug,)).fetchone()[0] == ["7290004131074"]
+    assert seed_all(db, load_catalog(tmp_path)).canonicals.updated == 0
+    # the shipped file has no barcodes for this canonical: the stored ones stay
+    assert seed_all(db, load_catalog()).canonicals.updated == 0
+    assert db.execute(codes, (slug,)).fetchone()[0] == ["7290004131074"]

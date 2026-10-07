@@ -946,6 +946,247 @@ def build_mega() -> None:
 # --------------------------------------------------------------------------- xmlutil
 
 
+def _big_id_promos(promos: list[str]) -> list[str]:
+    """Promotions in the BigID spelling the laibcatalog new source uses upstream
+    (``PromotionID``, ``ClubID``, ``PromotionUpdateTime``)."""
+    return [
+        p.replace("PromotionId>", "PromotionID>")
+        .replace("ClubId>", "ClubID>")
+        .replace("PromotionUpdateDate>", "PromotionUpdateTime>")
+        for p in promos
+    ]
+
+
+def build_machsanei_hashuk() -> None:
+    """Machsanei Hashuk: laibcatalog new source (upstream MAHSANI_ASHUK_NEW_SOURCE), two chain
+    ids. Regulation Items/Promotions/SubChains layout with BigID (``ChainID``) casing, UTF-8,
+    ``.xml.gz``. The second chain id publishes a legacy flat ``<Sales>`` promo delta, which the
+    upstream converter still accepts as a fallback. Files appear after the 08:00 republish."""
+    chain, alias = "7290661400001", "7290633800006"
+    f = "machsanei_hashuk"
+    stores = subchains_doc(
+        chain,
+        "מחסני השוק",
+        [
+            (
+                "001",
+                "מחסני השוק",
+                [
+                    ("003", 1, "מחסני השוק בני ברק", "רבי עקיבא 100", "בני ברק", "32.0840", "34.8340"),
+                    ("012", 1, "מחסני השוק אשדוד", "הבנים 9", "אשדוד", "31.7990", "34.6480"),
+                    ("090", 1, "מחסני השוק אונליין", "", ""),
+                ],
+            ),
+            (
+                "002",
+                "מחסני השוק בשכונה",
+                [("041", 1, "מחסני השוק בשכונה ירושלים", "מלכי ישראל 20", "ירושלים", "31.7890", "35.2150")],
+            ),
+        ],
+        id_case="ID",
+        store_id_tag="StoreID",
+    )
+    write(f, f"Stores{chain}-000-202610060810.xml.gz", gz(encode(stores, "utf-8", declare="utf-8", bom=True)))
+    prices = price_doc(chain, "003", ITEMS, id_case="ID", price_delta="-0.20")
+    write(f, f"PriceFull{chain}-003-202610060810.xml.gz", gz(encode(prices, "utf-8", declare="utf-8")))
+    promos = promo_doc(chain, "003", _big_id_promos(standard_promos()[:3]), id_case="ID")
+    write(f, f"PromoFull{chain}-003-202610060810.xml.gz", gz(encode(promos, "utf-8", declare="utf-8")))
+    # hourly delta: two prices changed
+    delta = price_doc(chain, "003", ITEMS[:2], id_case="ID", price_delta="-0.50")
+    write(f, f"Price{chain}-003-202610061110.xml.gz", gz(encode(delta, "utf-8", declare="utf-8")))
+    # legacy flat <Sales> promo delta under the second chain id (windows-1255)
+    sales = "".join(
+        row(
+            "Sale",
+            {
+                "ItemCode": code,
+                "ItemType": 1,
+                "PromotionID": "77001",
+                "PromotionDescription": "במבה וחטיף 2 ב-9",
+                "PromotionStartDate": "2026-10-06",
+                "PromotionStartHour": "08:00",
+                "PromotionEndDate": "2026-10-12",
+                "PromotionEndHour": "23:59",
+                "MinQty": "2.00",
+                "MaxQty": "0",
+                "DiscountType": 1,
+                "DiscountedPrice": "9.00",
+                "AdditionalGiftCount": 0,
+                "ClubID": 0,
+            },
+        )
+        for code in ("7290000066318", "7290107932158")
+    )
+    legacy = (
+        "<Promos>" + el("ChainID", alias) + el("SubChainID", 1) + el("StoreID", "003")
+        + el("BikoretNo", 8) + f"<Sales>{sales}</Sales></Promos>"
+    )
+    write(f, f"Promo{alias}-003-202610061110.xml.gz", gz(encode(legacy, "windows-1255", declare="windows-1255")))
+    write_expected(
+        f,
+        {
+            "chain_id": chain,
+            "files": {
+                f"Stores{chain}-000-202610060810.xml.gz": {
+                    "kind": "stores",
+                    "schema": "v1",
+                    "counts": {"stores": 4},
+                    "online": ["90"],
+                    "checks": {
+                        "stores[0].store_code": "3",
+                        "stores[0].name": "מחסני השוק בני ברק",
+                        "stores[0].lat": "32.084",
+                        "stores[2].address": "None",
+                        "stores[2].lat": "None",
+                        "stores[3].city": "ירושלים",
+                    },
+                },
+                f"PriceFull{chain}-003-202610060810.xml.gz": {
+                    "kind": "price_full",
+                    "schema": "v1",
+                    "counts": {"items": 8, "prices": 8},
+                    "checks": {
+                        "prices[0].store_code": "3",
+                        "prices[0].price": "6.92",
+                        "prices[3].price": "12.70",
+                        "items[0].barcode": "7290004131074",
+                        "items[0].manufacturer": "תנובה",
+                        "items[3].barcode": "None",
+                        "items[3].is_weighed": "True",
+                        "prices[0].observed_at": "2026-10-05 22:01:00+03:00",
+                    },
+                },
+                f"PromoFull{chain}-003-202610060810.xml.gz": {
+                    "kind": "promo_full",
+                    "schema": "v1",
+                    "counts": {"promos": 3},
+                    "checks": {
+                        "promos[0].promo_id": "1001",
+                        "promos[0].reward_type": "bundle",
+                        "promos[0].club_only": "True",
+                        "promos[1].reward_type": "buy_x_get_y",
+                        "promos[2].reward_type": "percent",
+                        "promos[2].reward_value": "20",
+                        "promos[2].item_codes": "['7290011194246', '7290107932158']",
+                    },
+                },
+                f"Price{chain}-003-202610061110.xml.gz": {
+                    "kind": "price",
+                    "schema": "v1",
+                    "counts": {"items": 2, "prices": 2},
+                    "checks": {"prices[0].price": "6.62", "prices[1].price": "5.40"},
+                },
+                f"Promo{alias}-003-202610061110.xml.gz": {
+                    "kind": "promo",
+                    "schema": "v1",
+                    "counts": {"promos": 1},
+                    "checks": {
+                        "raw.chain_id": alias,
+                        "promos[0].chain_id": alias,
+                        "promos[0].promo_id": "77001",
+                        "promos[0].item_codes": "['7290000066318', '7290107932158']",
+                        "promos[0].reward_type": "bundle",
+                        "promos[0].club_only": "False",
+                    },
+                },
+            },
+        },
+    )
+
+
+def build_king_store() -> None:
+    """King Store: Bina portal (kingstore.binaprojects.com, upstream KING_STORE). Regulation
+    Items/Promotions/SubChains layout, ``Id`` casing (upstream BaseFileConverter). Bina serves
+    compressed content under names that do not end in ``.gz`` (upstream gzip_utils names King
+    Store), so the PriceFull and delta are gzip and the PromoFull a zip, all named ``.xml``.
+    PROVISIONAL until a real file is fetched."""
+    chain = "7290058108879"
+    f = "king_store"
+    stores = subchains_doc(
+        chain,
+        "קינג סטור",
+        [
+            (
+                "001",
+                "קינג סטור",
+                [
+                    ("001", 1, "קינג סטור טייבה", "הראשי 1", "טייבה", "32.2660", "35.0100"),
+                    ("002", 1, "קינג סטור טירה", "הראשי 5", "טירה", "32.2340", "34.9500"),
+                    ("004", 1, "קינג סטור כפר קאסם", "הראשי 12", "כפר קאסם", "32.1140", "34.9760"),
+                ],
+            )
+        ],
+    )
+    write(f, f"Stores{chain}-000-202610060500.xml", encode(stores, "utf-8", declare="utf-8"))
+    write(f, f"PriceFull{chain}-001-202610060510.xml", gz(encode(price_doc(chain, "001", ITEMS[:7], price_delta="0.10"), "utf-8", declare="utf-8")))
+    promo_xml = encode(promo_doc(chain, "001", standard_promos()), "utf-8", declare="utf-8")
+    write(f, f"PromoFull{chain}-001-202610060510.xml", zipped([(f"PromoFull{chain}-001-202610060510.xml", promo_xml)]))
+    write(f, f"Price{chain}-001-202610061200.xml", gz(encode(price_doc(chain, "001", ITEMS[:3], price_delta="0.40"), "utf-8", declare="utf-8")))
+    # a promo delta with no rows is legitimate (no changes this hour)
+    write(f, f"Promo{chain}-002-202610061200.xml", gz(encode(promo_doc(chain, "002", []), "utf-8", declare="utf-8")))
+    # a truncated download must fail loudly
+    good = gz(encode(price_doc(chain, "004", ITEMS), "utf-8", declare="utf-8"))
+    write(f, f"PriceFull{chain}-004-202610060510.xml", good[: len(good) // 2])
+    write_expected(
+        f,
+        {
+            "chain_id": chain,
+            "files": {
+                f"Stores{chain}-000-202610060500.xml": {
+                    "kind": "stores",
+                    "schema": "v1",
+                    "counts": {"stores": 3},
+                    "online": [],
+                    "checks": {
+                        "stores[0].store_code": "1",
+                        "stores[0].name": "קינג סטור טייבה",
+                        "stores[2].city": "כפר קאסם",
+                        "stores[2].lon": "34.976",
+                    },
+                },
+                f"PriceFull{chain}-001-202610060510.xml": {
+                    "kind": "price_full",
+                    "schema": "v1",
+                    "counts": {"items": 7, "prices": 7},
+                    "checks": {
+                        "prices[0].store_code": "1",
+                        "prices[0].price": "7.22",
+                        "items[0].raw_name": "חלב תנובה 3% בקרטון 1 ליטר",
+                        "items[3].is_weighed": "True",
+                        "prices[1].unit_of_measure": "100 גרם",
+                    },
+                },
+                f"PromoFull{chain}-001-202610060510.xml": {
+                    "kind": "promo_full",
+                    "schema": "v1",
+                    "counts": {"promos": 4},
+                    "checks": {
+                        "promos[0].reward_type": "bundle",
+                        "promos[0].club_name": "מועדון לקוחות",
+                        "promos[1].reward_type": "buy_x_get_y",
+                        "promos[2].reward_type": "percent",
+                        "promos[3].reward_type": "price",
+                        "promos[3].hours": "07:00-12:00",
+                    },
+                },
+                f"Price{chain}-001-202610061200.xml": {
+                    "kind": "price",
+                    "schema": "v1",
+                    "counts": {"items": 3, "prices": 3},
+                    "checks": {"prices[0].price": "7.52", "prices[2].price": "8.70"},
+                },
+                f"Promo{chain}-002-202610061200.xml": {
+                    "kind": "promo",
+                    "schema": "v1",
+                    "counts": {},
+                    "checks": {},
+                },
+                f"PriceFull{chain}-004-202610060510.xml": {"kind": "price_full", "error": "AdapterError"},
+            },
+        },
+    )
+
+
 def build_xmlutil() -> None:
     f = "xmlutil"
     body = (
@@ -980,6 +1221,8 @@ def main() -> None:
     build_hazihinam()
     build_tivtaam()
     build_mega()
+    build_machsanei_hashuk()
+    build_king_store()
     build_xmlutil()
 
 

@@ -83,3 +83,39 @@ def test_rejection_rates_and_gold_candidates(db) -> None:
         (substitute, ids["t-milk-3"]),
     )
     assert feedback_gold_candidates(db) == []  # a human already labeled the pair
+
+
+@pytest.mark.db
+def test_feedback_context_columns_are_written_when_given(db) -> None:
+    ids = seed_catalog(db)
+    original, substitute = _mapped(db, ids)
+    res = record_feedback(db, None, ids["t-milk-3"], original, substitute, "not_good",
+                          list_item_id=42, flex_level="any_brand", match_confidence=0.95)  # fmt: skip
+    row = db.execute(
+        "SELECT list_item_id, flex_level, match_confidence::float FROM substitution_feedback"
+        " WHERE id = %s", (res.feedback_id,),
+    ).fetchone()
+    assert row == (42, "any_brand", 0.95)
+    bare = record_feedback(db, None, ids["t-milk-3"], original, substitute, "accepted")
+    assert db.execute(
+        "SELECT list_item_id, flex_level, match_confidence FROM substitution_feedback"
+        " WHERE id = %s", (bare.feedback_id,),
+    ).fetchone() == (None, None, None)
+    with pytest.raises(ValueError):
+        record_feedback(db, None, ids["t-milk-3"], original, substitute, "accepted",
+                        flex_level="loose")  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        record_feedback(db, None, ids["t-milk-3"], original, substitute, "accepted",
+                        match_confidence=1.5)
+
+
+@pytest.mark.db
+def test_feedback_on_a_rejected_pair_does_not_flag_it(db) -> None:
+    ids = seed_catalog(db)
+    original, substitute = _mapped(db, ids)
+    db.execute("UPDATE item_canonical SET human_rejected = true, source = 'human'"
+               " WHERE item_id = %s", (substitute,))  # fmt: skip
+    res = record_feedback(db, None, ids["t-milk-3"], original, substitute, "not_good")
+    assert not res.flagged and res.flex_level is None
+    rates = {(r["category"], r["flex_level"]) for r in rejection_rates(db)}
+    assert ("dairy.milk", "rejected") in rates

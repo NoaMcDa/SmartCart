@@ -17,11 +17,22 @@ def _map(db, item_id, canonical_id, *, review=True, conf=0.75, level="any_brand"
 
 
 def _row(db, item_id, canonical_id):
+    """The mapping as served: None when absent or human-rejected."""
     return db.execute(
         "SELECT flex_level, source, needs_review, reviewed_by, reviewed_at IS NOT NULL,"
-        " confidence::float FROM item_canonical WHERE item_id = %s AND canonical_id = %s",
+        " confidence::float FROM item_canonical WHERE item_id = %s AND canonical_id = %s"
+        " AND NOT human_rejected",
         (item_id, canonical_id),
     ).fetchone()
+
+
+def _rejected(db, item_id, canonical_id):
+    row = db.execute(
+        "SELECT human_rejected, needs_review, confidence::float, source, reviewed_by, reason"
+        " FROM item_canonical WHERE item_id = %s AND canonical_id = %s",
+        (item_id, canonical_id),
+    ).fetchone()
+    return row
 
 
 def _gold(db, item_id, canonical_id):
@@ -50,6 +61,22 @@ def test_queue_lists_review_items_with_feedback_first(db) -> None:
     assert [r["item_id"] for r in queue] == [b, a]  # reported first; accepted c not listed
     assert queue[0]["feedback_marker"] and not queue[1]["feedback_marker"]
     assert queue[1]["item_name"] == "חלב 3% 1 ליטר" and queue[1]["canonical_slug"] == "t-milk-3"
+    assert queue[0]["reason"] == "" and "reason" in queue[1]
+
+
+@pytest.mark.db
+def test_queue_shows_the_stored_judge_reason(db) -> None:
+    ids = seed_catalog(db)
+    it = add_item(db, "חלב 3% 1 ליטר")
+    apply_decisions(db, [MatchDecision(item_id=it, canonical_id=ids["t-milk-3"],
+                                       flex_level="any_brand", confidence=0.8, source="rule",
+                                       needs_review=True,
+                                       reason="review: t-milk-3 critical unknown state")])  # fmt: skip
+    [row] = review_app.review_queue(db)
+    assert row["reason"] == "review: t-milk-3 critical unknown state"
+    review_app.accept(db, it, ids["t-milk-3"], "noa")
+    stored = db.execute("SELECT reason FROM item_canonical WHERE item_id = %s", (it,)).fetchone()[0]
+    assert stored == "human: accepted by noa | judge: review: t-milk-3 critical unknown state"
 
 
 @pytest.mark.db
@@ -76,9 +103,17 @@ def test_reject_and_remap(db) -> None:
     _map(db, it, ids["t-milk-3"])
     review_app.reject(db, it, ids["t-milk-3"], "noa")
     assert _row(db, it, ids["t-milk-3"]) is None
-    assert _gold(db, it, ids["t-milk-3"]) == "no_match"
+    flag, review, conf, source, who, reason = _rejected(db, it, ids["t-milk-3"])
+    assert (flag, review, conf, source, who) == (True, True, 0.0, "human", "noa")
+    assert reason.startswith("human: not this canonical (noa)")
+    assert _gold(db, it, ids["t-milk-3"]) == "no_match"  # kept for evaluation
     _map(db, it, ids["t-milk-3"], review=False, conf=0.99)  # the judge cannot bring it back
     assert _row(db, it, ids["t-milk-3"]) is None
+    assert review_app.review_queue(db) == []  # a rejection is not a review item
+    # Accepting it later overrides the rejection.
+    review_app.accept(db, it, ids["t-milk-3"], "dana", "any_brand")
+    assert _row(db, it, ids["t-milk-3"])[:3] == ("any_brand", "human", False)
+    assert _rejected(db, it, ids["t-milk-3"])[0] is False
 
     other = add_item(db, "משקה סויה 2 ליטר")
     _map(db, other, ids["t-almond"])

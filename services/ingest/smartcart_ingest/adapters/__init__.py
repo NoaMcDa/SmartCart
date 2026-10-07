@@ -7,6 +7,8 @@ __all__ = ["REGISTRY", "ChainAdapter", "get_adapter", "register"]
 # Importing the chain modules registers their adapters.
 from smartcart_ingest.adapters import (  # noqa: E402, F401
     hazihinam,
+    king_store,
+    machsanei_hashuk,
     mega,
     osherad,
     ramilevy,

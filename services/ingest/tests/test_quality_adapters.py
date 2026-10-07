@@ -142,3 +142,67 @@ def test_chain_fixtures_the_adapter_rejects_fail_and_alert(db, tmp_path, cls) ->
     assert rep.loaded == 0 and rep.failed == len(processed)
     assert sorted(a.kind for a in sink.alerts) == sorted(processed.values())
     assert all(a.chain_id == cls.chain_id for a in sink.alerts)
+
+
+# --------------------------------------------------------------------------- base prices (#80)
+#
+# The price-jump gate compares a store price with the store's own latest event and, when the
+# store has no history for the item (or is not loaded yet), with the chain base price
+# (``store_id NULL``). A chain-level record is compared with the base.
+
+
+def _load_base_price(db, code: str, amount: str) -> None:
+    from smartcart_ingest.loader import load
+    from tests.fakes import NOW, FakeAdapter, encode, item, parsed_file, price, store
+
+    data = encode(
+        stores=[store(c) for c in ("1", "2")],
+        items=[item(code)],
+        prices=[price(code, None, amount, NOW - timedelta(hours=6))],
+        salt=f"base-{code}",
+    )
+    parsed = parsed_file("price_full", data, None, NOW - timedelta(hours=6), f"raw/fake/b-{code}")
+    row, _ = tracking.register(db, parsed.raw)
+    tracking.mark_downloaded(db, row.id, parsed.raw.path)
+    load(db, parsed, FakeAdapter())
+
+
+def _jumps(db, prices) -> list[str]:
+    from tests.fakes import NOW, encode, parsed_file
+
+    parsed = parsed_file("price", encode(prices=prices, salt="jump"), "1", NOW, "raw/fake/jump")
+    failure = quality.gate_price_jump(db, parsed, 3.0)
+    return [] if failure is None else failure.detail.split(": ", 1)[1].split(", ")
+
+
+@pytest.mark.db
+def test_price_jump_falls_back_to_the_chain_base_price(db) -> None:
+    from tests.fakes import price
+
+    _load_base_price(db, "100", "9.90")
+    # Store 1 has no event of its own for the item: 40.00 is more than 3x the base 9.90.
+    assert _jumps(db, [price("100", "1", "40.00")]) == ["100@1 9.90->40.00"]
+    # A store that is not loaded yet is compared with the base too.
+    assert _jumps(db, [price("100", "77", "40.00")]) == ["100@77 9.90->40.00"]
+    # A chain-level record is compared with the previous base.
+    assert _jumps(db, [price("100", None, "40.00")]) == ["100@base 9.90->40.00"]
+    # Within the factor, nothing is flagged.
+    assert _jumps(db, [price("100", "1", "29.70"), price("100", None, "12.00")]) == []
+
+
+@pytest.mark.db
+def test_price_jump_prefers_the_store_event_over_the_base(db) -> None:
+    from smartcart_ingest.loader import load
+    from tests.fakes import NOW, FakeAdapter, encode, item, parsed_file, price, store
+
+    _load_base_price(db, "200", "5.00")
+    data = encode(stores=[store("1")], items=[item("200")],
+                  prices=[price("200", "1", "20.00", NOW - timedelta(hours=5))], salt="exc")  # fmt: skip
+    parsed = parsed_file("price", data, "1", NOW - timedelta(hours=5), "raw/fake/exc-200")
+    row, _ = tracking.register(db, parsed.raw)
+    tracking.mark_downloaded(db, row.id, parsed.raw.path)
+    load(db, parsed, FakeAdapter())
+    # Store 1's own price is 20.00, so 50.00 is fine there, but 4x the base at store 2.
+    assert _jumps(db, [price("200", "1", "50.00"), price("200", "2", "50.00")]) == [
+        "200@2 5.00->50.00"
+    ]

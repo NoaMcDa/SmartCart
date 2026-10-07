@@ -3,8 +3,9 @@
 Hard rules on critical attributes run after embedding similarity and are never replaced by it
 (decision D5). The rules, per candidate:
 
-1. **Exact.** The item's barcode is one of the canonical's reference barcodes
-   (``soft_attrs.barcodes``): flex level ``exact``, confidence 1.0.
+1. **Exact.** The item's barcode (``NormalizedItem.barcode``) is one of the canonical's
+   reference barcodes (``CanonicalProduct.reference_barcodes``, the
+   ``canonical_products.reference_barcodes`` column): flex level ``exact``, confidence 1.0.
 2. **Critical veto.** The product type and every critical key of the candidate's product type
    (``product_type_rules.critical_keys``) that the canonical defines in ``critical_attrs`` are
    compared with the item's extracted attributes. Any known value that differs blocks the
@@ -31,6 +32,9 @@ cannot tell them apart). Bands:
 
 ``LLMJudge`` asks Claude to choose among the candidates that survived the hard rules; it can
 never pick a vetoed candidate nor a tighter level than the rules allow.
+
+The decision's ``reason`` is stored in ``item_canonical.reason`` by ``match.apply_decisions``,
+so the review UI shows the judge's own words instead of recomputing them.
 """
 
 from __future__ import annotations
@@ -193,7 +197,7 @@ class RuleJudge:
 
     ``sim_floor``/``sim_ceil`` map raw cosine similarity onto 0..1 and depend on the embedder.
     The defaults suit ``HashEmbedder``; recalibrate on the gold set for BGE-M3.
-    ``barcodes`` maps item id to barcode for the exact rule (``NormalizedItem`` carries none).
+    The exact rule reads the barcode from the item (``NormalizedItem.barcode``).
     """
 
     name = "rule-v1"
@@ -205,14 +209,12 @@ class RuleJudge:
         sim_floor: float = 0.25,
         sim_ceil: float = 0.75,
         ambiguity_margin: float = 0.03,
-        barcodes: Mapping[int, str | None] | None = None,
     ) -> None:
         if sim_ceil <= sim_floor:
             raise ValueError("sim_ceil must be above sim_floor")
         self.sim_floor = sim_floor
         self.sim_ceil = sim_ceil
         self.ambiguity_margin = ambiguity_margin
-        self.barcodes = dict(barcodes or {})
 
     # -- per candidate
 
@@ -221,7 +223,6 @@ class RuleJudge:
         attrs: Attributes,
         candidate: Candidate,
         rules: Mapping[str, ProductTypeRule],
-        barcode: str | None = None,
         normalized: NormalizedItem | None = None,
     ) -> Assessment:
         sim = candidate.similarity
@@ -231,8 +232,8 @@ class RuleJudge:
             return Assessment(candidate, False, None, 0.0, sim_score, 0.0,
                               notes=["canonical not loaded"])  # fmt: skip
 
-        ref_barcodes = {str(b) for b in (canon.soft_attrs.get("barcodes") or [])}
-        if barcode and str(barcode) in ref_barcodes:
+        barcode = normalized.barcode if normalized is not None else None
+        if barcode and barcode in canon.reference_barcodes:
             return Assessment(candidate, True, "exact", 1.0, sim_score, 1.0,
                               agreed=["barcode"], notes=["barcode equals a reference barcode"])  # fmt: skip
 
@@ -300,10 +301,8 @@ class RuleJudge:
         attrs: Attributes,
         candidates: Sequence[Candidate],
         rules: Mapping[str, ProductTypeRule],
-        barcode: str | None = None,
     ) -> list[Assessment]:
-        barcode = barcode if barcode is not None else self.barcodes.get(item.item_id)
-        out = [self.assess(attrs, c, rules, barcode, item) for c in candidates]
+        out = [self.assess(attrs, c, rules, item) for c in candidates]
         eligible = [a for a in out if a.eligible]
         # Rank: tighter level first, then confidence, then similarity.
         eligible.sort(key=lambda a: (LEVEL_ORDER[a.flex_level or "close"], -a.confidence,
@@ -328,10 +327,8 @@ class RuleJudge:
         attrs: Attributes,
         candidates: list[Candidate],
         rules: dict[str, ProductTypeRule],
-        *,
-        barcode: str | None = None,
     ) -> MatchDecision:
-        assessments = self.assess_all(item, attrs, candidates, rules, barcode)
+        assessments = self.assess_all(item, attrs, candidates, rules)
         return decide(item.item_id, assessments, self.source)
 
 
@@ -484,10 +481,8 @@ class LLMJudge:
         attrs: Attributes,
         candidates: list[Candidate],
         rules: dict[str, ProductTypeRule],
-        *,
-        barcode: str | None = None,
     ) -> MatchDecision:
-        assessments = self.rules_judge.assess_all(item, attrs, candidates, rules, barcode)
+        assessments = self.rules_judge.assess_all(item, attrs, candidates, rules)
         eligible = [a for a in assessments if a.eligible]
         if not eligible or eligible[0].flex_level == "exact":
             # Nothing to ask, or the barcode rule already decided.
