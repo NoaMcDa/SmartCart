@@ -1,0 +1,20 @@
+/** Every placeholder route and the Hebrew h1 it must render. */
+export const ROUTES: ReadonlyArray<{ path: string; h1: string }> = [
+  { path: "/", h1: "הקנייה השבועית" },
+  { path: "/compare", h1: "איפה הכי זול השבוע?" },
+  { path: "/compare/substitution/42", h1: "פרטי החלפה" },
+  { path: "/onboarding", h1: "ברוכים הבאים" },
+  { path: "/product/1001", h1: "פרטי מוצר" },
+  { path: "/profile", h1: "פרופיל" },
+  { path: "/split", h1: "פיצול סל" },
+  { path: "/map", h1: "מפת סניפים" },
+  { path: "/store-mode", h1: "מצב חנות" },
+  { path: "/methodology", h1: "איך אנחנו משווים מחירים" },
+  { path: "/c/dairy", h1: "מחירי קטגוריה" },
+  { path: "/p/milk-3-1l", h1: "מחיר מוצר" },
+  { path: "/basket-index", h1: "מדד הסל החודשי" },
+  { path: "/alerts", h1: "התראות" },
+  { path: "/scan", h1: "סריקת ברקוד" },
+  { path: "/offline", h1: "אין חיבור לאינטרנט" },
+  { path: "/design-system", h1: "ערכת עיצוב" },
+];

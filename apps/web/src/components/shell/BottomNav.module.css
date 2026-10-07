@@ -1,0 +1,57 @@
+.nav {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  padding: 6px 8px calc(10px + env(safe-area-inset-bottom));
+  background: var(--sc-surface);
+  border-block-start: 1px solid var(--sc-border);
+}
+
+.item,
+.scanItem {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--sc-muted);
+}
+
+.item {
+  min-height: var(--sc-touch);
+  padding-block: 8px;
+  text-decoration: none;
+}
+
+.item[aria-current="page"] {
+  color: var(--sc-accent-fg);
+  font-weight: 600;
+}
+
+.scanItem {
+  padding-block-end: 8px;
+}
+
+.scanButton {
+  inline-size: 56px;
+  block-size: 56px;
+  margin-block-start: -26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-accent);
+  color: var(--sc-on-accent);
+  box-shadow: var(--sc-shadow-scan);
+}
+
+@media (width >= 768px) {
+  .nav {
+    display: none;
+  }
+}

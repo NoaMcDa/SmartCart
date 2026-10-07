@@ -1,0 +1,28 @@
+.skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--sc-subtle) 0%,
+    var(--sc-divider) 50%,
+    var(--sc-subtle) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  inline-size: 100%;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}

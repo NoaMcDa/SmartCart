@@ -1,0 +1,35 @@
+{
+  "rules": {
+    "property-disallowed-list": [
+      [
+        "left",
+        "right",
+        "margin-left",
+        "margin-right",
+        "padding-left",
+        "padding-right",
+        "float",
+        "clear",
+        "/^border-(left|right)/",
+        "/^border-(top|bottom)-(left|right)-radius$/",
+        "/^scroll-(margin|padding)-(left|right)$/"
+      ],
+      {
+        "message": "Use logical properties (inset-inline-start/end, margin-inline, padding-inline, border-inline-*, border-start-*-radius). SmartCart is RTL-first; see docs/web.md."
+      }
+    ],
+    "declaration-property-value-disallowed-list": [
+      {
+        "text-align": ["left", "right"],
+        "justify-self": ["left", "right"],
+        "justify-items": ["left", "right"],
+        "justify-content": ["left", "right"],
+        "transform-origin": ["/\\b(left|right)\\b/"],
+        "background-position": ["/\\b(left|right)\\b/"]
+      },
+      {
+        "message": "Use start/end instead of left/right. SmartCart is RTL-first; see docs/web.md."
+      }
+    ]
+  }
+}

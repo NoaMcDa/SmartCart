@@ -1,0 +1,79 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: var(--sc-radius-pill);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.size-sm {
+  height: 24px;
+  padding-inline: 8px;
+  font-size: 11.5px;
+}
+
+/*
+ * Interactive chips keep the 30 px pill look from the artboards but get a 44 px hit area via an
+ * invisible pseudo-element, so touch targets meet the 44 px minimum.
+ */
+.interactive {
+  position: relative;
+  cursor: pointer;
+}
+
+.interactive::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: -7px;
+  min-height: var(--sc-touch);
+}
+
+.brand {
+  background: var(--sc-brand-bg);
+  color: var(--sc-brand-fg);
+}
+
+.exact {
+  background: var(--sc-exact-bg);
+  color: var(--sc-exact-fg);
+}
+
+.warn {
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn-fg);
+}
+
+.neutral {
+  background: var(--sc-subtle);
+  color: var(--sc-muted);
+}
+
+.accent {
+  background: var(--sc-accent);
+  color: var(--sc-on-accent);
+  font-weight: 700;
+}
+
+/* Toggle chips (flexibility sheet "allow" options): outline, accent when selected. */
+.neutral.interactive {
+  height: 36px;
+  padding-inline: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sc-text);
+  background: var(--sc-surface);
+  border: 1.5px solid var(--sc-border);
+}
+
+.neutral.interactive.selected {
+  border-color: var(--sc-accent-fg);
+  background: var(--sc-accent-soft);
+}
