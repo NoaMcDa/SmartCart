@@ -13,8 +13,14 @@ import type {
   ParseListResponse,
   ParsedRow,
   SearchResponse,
+  Schemas,
 } from "@/api/client";
 import { CATALOG, canonicalRef, compareFixture, HOME_STORE_ID, optimizeFixture } from "./fixtures";
+
+type Profile = Schemas["Profile"];
+type ProfileUpdate = Schemas["ProfileUpdate"];
+type ShoppingList = Schemas["ShoppingList"];
+type ShoppingListIn = Schemas["ShoppingListIn"];
 
 const url = (path: string) => `${API_BASE_URL}${path}`;
 
@@ -189,4 +195,136 @@ export const handlers = [
     await latency();
     return HttpResponse.json({ ok: true, id: 1 } satisfies Ack);
   }),
+
+  // ---- Signed-in user routes (/me/*). In memory, per mock instance; the Authorization header is
+  // ignored (the real API verifies the Supabase JWT, see docs/api.md). Added by W5.
+
+  http.get(url("/me/profile"), async () => {
+    await latency();
+    return HttpResponse.json(meProfile ?? defaultProfile());
+  }),
+
+  http.put(url("/me/profile"), async ({ request }) => {
+    const body = (await request.json()) as ProfileUpdate;
+    await latency();
+    const hasLocation =
+      body.neighborhood_lat !== null &&
+      body.neighborhood_lat !== undefined &&
+      body.neighborhood_lon !== null &&
+      body.neighborhood_lon !== undefined;
+    if (hasLocation && !body.consent_location) {
+      return HttpResponse.json(
+        { detail: "consent_location is required to store a neighborhood location" },
+        { status: 422 },
+      );
+    }
+    const round3 = (n: number | null | undefined) =>
+      n === null || n === undefined ? null : Math.round(n * 1000) / 1000;
+    meProfile = {
+      ...defaultProfile(),
+      ...body,
+      cost_per_km: String(body.cost_per_km ?? "1.2"),
+      extra_stop_value: String(body.extra_stop_value ?? "25"),
+      neighborhood_lat: round3(body.neighborhood_lat),
+      neighborhood_lon: round3(body.neighborhood_lon),
+      exists: true,
+    };
+    return HttpResponse.json(meProfile);
+  }),
+
+  http.get(url("/me/lists"), async () => {
+    await latency();
+    return HttpResponse.json(meLists);
+  }),
+
+  http.post(url("/me/lists"), async ({ request }) => {
+    const body = (await request.json()) as ShoppingListIn;
+    await latency();
+    const list = toShoppingList(meNextListId++, body);
+    meLists.push(list);
+    return HttpResponse.json(list, { status: 201 });
+  }),
+
+  http.get(url("/me/lists/:id"), async ({ params }) => {
+    await latency();
+    const list = meLists.find((l) => l.id === Number(params.id));
+    return list
+      ? HttpResponse.json(list)
+      : HttpResponse.json({ detail: "not found" }, { status: 404 });
+  }),
+
+  http.put(url("/me/lists/:id"), async ({ params, request }) => {
+    const body = (await request.json()) as ShoppingListIn;
+    await latency();
+    const idx = meLists.findIndex((l) => l.id === Number(params.id));
+    if (idx < 0) return HttpResponse.json({ detail: "not found" }, { status: 404 });
+    const next = toShoppingList(Number(params.id), body);
+    meLists[idx] = next;
+    return HttpResponse.json(next);
+  }),
+
+  http.delete(url("/me/lists/:id"), async ({ params }) => {
+    await latency();
+    const idx = meLists.findIndex((l) => l.id === Number(params.id));
+    if (idx < 0) return HttpResponse.json({ detail: "not found" }, { status: 404 });
+    meLists.splice(idx, 1);
+    return new HttpResponse(null, { status: 204 });
+  }),
 ];
+
+// ---------------------------------------------------------------------------------------------
+// In-memory state behind /me/*
+
+const MOCK_USER_ID = "00000000-0000-4000-8000-000000000001";
+
+function defaultProfile(): Profile {
+  return {
+    user_id: MOCK_USER_ID,
+    exists: false,
+    clubs: [],
+    consent_location: false,
+    cost_per_km: "1.2",
+    diet_flags: [],
+    extra_stop_value: "25",
+    flex_defaults: {},
+    home_store_id: null,
+    kosher_level: null,
+    max_stores: 2,
+    neighborhood_lat: null,
+    neighborhood_lon: null,
+    radius_m: 5000,
+    theme: "system",
+    travel_mode: "car",
+  };
+}
+
+let meProfile: Profile | null = null;
+let meLists: ShoppingList[] = [];
+let meNextListId = 1;
+
+function toShoppingList(id: number, body: ShoppingListIn): ShoppingList {
+  const now = new Date().toISOString();
+  return {
+    id,
+    name: body.name,
+    is_recurring: body.is_recurring ?? false,
+    items: (body.items ?? []).map((item, i) => ({
+      id: id * 1000 + i + 1,
+      sort: i,
+      canonical_id: item.canonical_id ?? null,
+      confirmed: item.confirmed ?? true,
+      flex_level: item.flex_level ?? "any_brand",
+      input_text: item.input_text ?? null,
+      quantity: String(item.quantity ?? "1"),
+    })),
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+/** Test hook: forget the signed-in user's profile and lists. */
+export function resetMeMock(): void {
+  meProfile = null;
+  meLists = [];
+  meNextListId = 1;
+}

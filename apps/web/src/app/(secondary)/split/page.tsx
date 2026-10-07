@@ -1,14 +1,8 @@
 import type { Metadata } from "next";
-import { PlaceholderPage } from "@/components/shell/PlaceholderPage";
+import { SplitView } from "@/features/split/SplitView";
 
 export const metadata: Metadata = { title: "פיצול סל" };
 
 export default function Page() {
-  return (
-    <PlaceholderPage
-      title="פיצול סל"
-      description="שני סופרים, סכום לכל אחד וחיסכון נטו אחרי נסיעה."
-      owner="W5"
-    />
-  );
+  return <SplitView />;
 }

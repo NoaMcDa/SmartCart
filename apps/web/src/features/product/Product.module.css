@@ -1,0 +1,304 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.crumbs li + li::before {
+  content: "›";
+  margin-inline-end: var(--sc-space-1);
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+}
+
+.added {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+}
+
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.muted {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+/* Variants */
+.variants {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.variant {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  min-block-size: 64px;
+}
+
+.variant + .variant {
+  border-block-start: 1px solid var(--sc-divider);
+}
+
+.rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-subtle);
+  color: var(--sc-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.variantMain {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.variantName {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-1);
+}
+
+.unit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+/* Per-store table: a real table from 640 px, cards below. */
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  padding: var(--sc-space-3) var(--sc-space-4);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table thead th {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sc-muted);
+  background: var(--sc-subtle);
+}
+
+.table tbody tr + tr {
+  border-block-start: 1px solid var(--sc-divider);
+}
+
+.storeCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-weight: 400;
+}
+
+.storeName {
+  font-weight: 700;
+}
+
+.shelfCell,
+.finalCell {
+  white-space: nowrap;
+}
+
+.finalCell {
+  font-weight: 700;
+}
+
+.promo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sc-space-1);
+  margin-block-start: var(--sc-space-1);
+  white-space: normal;
+  font-weight: 400;
+}
+
+.updated {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-block-start: var(--sc-space-1);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--sc-muted);
+}
+
+.reportCell {
+  text-align: end;
+}
+
+@media (width < 640px) {
+  .table,
+  .table tbody,
+  .table tr,
+  .table th,
+  .table td {
+    display: block;
+  }
+
+  .table thead {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "store final"
+      "shelf final"
+      "report report";
+    gap: var(--sc-space-1) var(--sc-space-3);
+    padding: var(--sc-space-3) var(--sc-space-4);
+  }
+
+  .table th,
+  .table td {
+    padding: 0;
+  }
+
+  .storeCell {
+    grid-area: store;
+  }
+
+  .shelfCell {
+    grid-area: shelf;
+    display: flex;
+    align-items: center;
+    gap: var(--sc-space-2);
+  }
+
+  .shelfCell::before {
+    content: attr(data-label);
+    font-size: 12px;
+    color: var(--sc-muted);
+  }
+
+  .finalCell {
+    grid-area: final;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .finalCell .promo {
+    align-items: flex-end;
+  }
+
+  .reportCell {
+    grid-area: report;
+    text-align: start;
+  }
+}
+
+.footnote {
+  font-size: 12.5px;
+  color: var(--sc-muted);
+}
+
+/* Alert placeholder (phase 2) */
+.alert {
+  gap: var(--sc-space-3);
+}
+
+.alertHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+}
+
+.alertForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+}
+
+.alertLabel {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.alertInput {
+  inline-size: 96px;
+  min-block-size: var(--sc-touch);
+  padding-inline: var(--sc-space-3);
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-subtle);
+  color: var(--sc-muted);
+}
+
+@media (width >= 768px) {
+  .title {
+    font-size: 28px;
+  }
+}

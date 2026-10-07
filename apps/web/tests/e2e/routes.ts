@@ -9,6 +9,7 @@ export const ROUTES: ReadonlyArray<{ path: string; h1: string }> = [
   { path: "/split", h1: "פיצול סל" },
   { path: "/map", h1: "מפת סניפים" },
   { path: "/store-mode", h1: "מצב חנות" },
+  { path: "/privacy", h1: "מדיניות פרטיות" },
   { path: "/methodology", h1: "איך אנחנו משווים מחירים" },
   { path: "/c/dairy", h1: "מחירי קטגוריה" },
   { path: "/p/milk-3-1l", h1: "מחיר מוצר" },
