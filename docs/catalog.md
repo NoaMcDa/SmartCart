@@ -146,8 +146,8 @@ The product type itself is always critical, so different types are never merged.
 | Fresh versus frozen or canned | meat, fish, produce, peas, corn, chickpeas, frozen vegetables | `state` | fresh and frozen salmon fillet; frozen and canned peas |
 | Flavor defines the product | fruit yogurt, desserts, jam, bisli, chips, chocolate, burekas, ice cream, soup powder | `flavor` | strawberry and peach yogurt |
 | Plain yogurt, cream cheese | yogurt, cream_cheese | `fat_pct`, `flavor` | plain yogurt 3% |
-| Type alone | bread, rice, pasta, oils, sauces, drinks, non-food | none beyond the type | soy, almond and oat drinks are separate types |
-| Base of a plant drink | (available; the gold set uses it) | `base` | soy vs almond drink under one type |
+| Type alone | bread, rice, pasta, oils, sauces, drinks, non-food | none beyond the type | white and whole wheat flour are separate types |
+| Base of a plant drink | soy_drink, almond_drink, oat_drink | `base` | `soy-drink` has `base: soy`; an item read as `base: almond` is vetoed even if its type was guessed wrong |
 
 Soft keys are `pack_size` and `brand` everywhere, plus `fat_pct` or `flavor` where they are not
 critical.
@@ -156,20 +156,46 @@ critical.
 alternative is made from (`soy`, `almond`, `oat`, `rice`, `coconut`); `Attributes.variety` is a
 named variety that is not a flavor (`barista`, `protein`). Both are attribute keys, so a product
 type rule may list them: `base` as a critical key vetoes soy against almond even inside one
-product type, `variety` as a soft key turns a barista drink into a "close" substitute. The shipped
-`product_type_rules.yaml` keeps soy, almond and oat drinks as separate product types (the type
-already vetoes the pair) and does not list `base` yet: making it critical means adding
-`base: soy` to those canonicals' `critical_attrs`, which changes the committed SEO snapshot
-(`apps/web/public/seo`), so it is left for the catalog owner. The synthetic gold set lists `base`
-as critical for its plant drinks, so the evaluation exercises the key end to end. Kosher and diet flags are **not** critical keys: the chain files do not carry them
+product type, `variety` as a soft key turns a barista drink into a "close" substitute.
+
+**`base` is critical (issue #102, 2026-10-07).** The critical attribute list per pattern is in
+the table above; `base` is now a critical key of the three plant drink types, which keep their
+separate product types (the type already vetoes soy against almond; the base is the second
+lock, for an item whose type was guessed wrong, or a rice or coconut drink, which has no type of
+its own and is vetoed by its base). Three canonicals changed their critical attributes, which
+the seed validation requires to equal the type's critical keys:
+
+| Canonical | `critical_attrs` before | after |
+|---|---|---|
+| `soy-drink` | `{}` | `{base: soy}` |
+| `almond-drink` | `{}` | `{base: almond}` |
+| `oat-drink` | `{}` | `{base: oat}` |
+
+No canonical was added or removed (still 245), slugs and ranks are unchanged, and no two
+canonicals are indistinguishable at "any brand". The three types also declare
+`implied: {base: ...}`, and `seed` now checks that a critical value a type implies is carried by
+one of its canonicals (`seed.implied_conflicts`), so the extractor's default can never veto every
+canonical of its own type. Other types were checked and left alone: there are no plant yogurts
+or plant flours in the MVP list (the two flours are wheat, split by type), and soy sauce, soybean
+oil, rolled oats and the rice types are not plant-milk products. To keep plant products out of
+the dairy types, `milk`, `milk_long_life`, `milk_lactose_free`, `yogurt` and `yogurt_fruit` now
+exclude the plant words (סויה, שקדים, שיבולת, קוקוס, אורז where they apply): "משקה סויה ללא
+לקטוז" used to tie with the lactose-free milk keyword and was typed as cow's milk, and "יוגורט
+סויה" was typed as a dairy yogurt. `oat_drink` gained the keywords "חלב שיבולת (שועל)", which
+the rolled oats type used to win. The committed SEO snapshot was regenerated (`docs/seo.md`); the
+three drinks are ranked 141 to 143, beyond the 130 product pages of the page budget, so they
+appear as rows on `/c/beverages-plant_drinks`, not as pages of their own.
+
+Kosher and diet flags are **not** critical keys: the chain files do not carry them
 structurally, so extracted values are always unverified (`ALWAYS_UNVERIFIED`) and cannot gate a
 match. They are user preference filters (features.md) instead. This differs from the glossary in
 `docs/README.md`, which lists "kosher level" among critical attributes.
 
 **Validation** (`seed.py`): critical attributes name exactly the type's critical keys, values pass the
 `Attributes` model (for example `state` is one of fresh, frozen, chilled, canned, dry), soft
-attributes are soft keys, slugs unique, ranks 1..N, every product type has a canonical, and **no two
-canonicals share product type and critical values** (they would be indistinguishable at "any brand").
+attributes are soft keys, slugs unique, ranks 1..N, every product type has a canonical, **no two
+canonicals share product type and critical values** (they would be indistinguishable at "any brand"),
+and a critical value a type implies (`implied: {base: soy}`) is carried by one of its canonicals.
 
 ### Base units
 
@@ -262,8 +288,11 @@ manufacturer and raw name from each `NormalizedItem`):
   `product_type_rules.yaml` pick the product type (whole-word match, longest keyword wins, excludes
   veto), regexes read the fat percentage (not cocoa or juice percentages), keyword lists give state,
   flavor, kosher text and diet flags, a brand list and per-chain private-label lists give brand and
-  `is_private_label`. For plant drink types it fills `base` from the name (סויה, שקדים,
-  שיבולת שועל, אורז, קוקוס) or from the type itself, and `variety` from בריסטה / חלבון. Types may
+  `is_private_label`. For plant drink types it fills `base` from the name (סויה or סוייה,
+  שקדים, שיבולת שועל, אורז, קוקוס; the first one wins, and one right after "בטעם" is a flavor,
+  not a base) or from the type itself; an untyped name that says it is a drink, a "milk" or a
+  yogurt ("משקה אורז", "חלב קוקוס", "יוגורט סויה") gets its base too, so the base vetoes the
+  plant drink canonicals it is not. `variety` comes from בריסטה / חלבון. Types may
   imply a value (milk without "עמיד" is fresh; produce is fresh). The
   private-label lists hold only the chains' own names for now (estimate); house-brand names must be
   collected from loaded data. Confidence is capped at 0.8.

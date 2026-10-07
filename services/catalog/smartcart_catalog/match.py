@@ -79,17 +79,23 @@ def load_rules(conn: psycopg.Connection) -> dict[str, ProductTypeRule]:
 # --- fallback attribute extraction --------------------------------------------------------------
 
 
+_FLAVOR_MARK = " " + normalize_text("בטעם")  # "בטעם קוקוס" is a flavor, not a base
+
+
 @dataclass(frozen=True)
 class Lexicon:
     """Keywords for the fallback extractor: product type keywords (with the taxonomy id that
-    gives the block, and attributes the type implies, such as a plant drink's ``base``) and
-    flavor/variety keywords. Keywords are matched as whole words on ``normalize_text`` output;
-    the longest match wins."""
+    gives the block, and attributes the type implies, such as a plant drink's ``base``),
+    flavor/variety keywords, and base keywords (soy, almond, ...) read from the name for the
+    ``base_types``. Keywords are matched as whole words on ``normalize_text`` output; the
+    longest match wins, except for the base, where the first one that is not a flavor wins."""
 
     product_types: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     categories: Mapping[str, str] = field(default_factory=dict)
     flavors: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     implied: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    bases: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    base_types: frozenset[str] = frozenset()
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any] | None) -> Lexicon:
@@ -107,7 +113,28 @@ class Lexicon:
             v: tuple(normalize_text(k) for k in kws)
             for v, kws in (data.get("flavors") or {}).items()
         }
-        return cls(product_types=pts, categories=cats, flavors=flavors, implied=implied)
+        bases = {
+            v: tuple(normalize_text(k) for k in kws) for v, kws in (data.get("bases") or {}).items()
+        }
+        return cls(product_types=pts, categories=cats, flavors=flavors, implied=implied,
+                   bases=bases, base_types=frozenset(data.get("base_types") or ()))  # fmt: skip
+
+    def base_of(self, text: str, product_type: str | None) -> str | None:
+        """The base a ``base_types`` name states (the first base keyword not right after
+        "בטעם", which makes it a flavor), else the base the product type implies."""
+        implied = self.implied.get(product_type, {}).get("base") if product_type else None
+        if product_type not in self.base_types:
+            return implied
+        padded = f" {text} "
+        best: tuple[int, str] | None = None
+        for value, keywords in self.bases.items():
+            for kw in keywords:
+                start = padded.find(f" {kw} ")
+                while start != -1 and padded[:start].endswith(_FLAVOR_MARK):
+                    start = padded.find(f" {kw} ", start + 1)
+                if kw and start != -1 and (best is None or start < best[0]):
+                    best = (start, value)
+        return best[1] if best else implied
 
 
 def _longest_keyword(text: str, table: Mapping[str, tuple[str, ...]]) -> str | None:
@@ -184,7 +211,7 @@ def fallback_attributes(raw_name: str, lexicon: Lexicon | None = None) -> Attrib
         diet_flags=diet,
         pack_size=pack,
         unit=unit,
-        base=implied.get("base"),
+        base=lexicon.base_of(text, ptype),
         variety=implied.get("variety"),
         confidence=0.5,
     )

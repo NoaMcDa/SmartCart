@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T05:51:34Z",
+  "generated_at": "2026-10-07T21:02:36Z",
   "count": 245,
   "page_count": 130,
   "priced_count": 0,
@@ -4381,7 +4381,9 @@
       ],
       "product_type": "soy_drink",
       "base_unit": "100ml",
-      "critical_attrs": {},
+      "critical_attrs": {
+        "base": "soy"
+      },
       "rank": 141,
       "has_page": false,
       "no_prices_yet": true,
@@ -4411,7 +4413,9 @@
       ],
       "product_type": "almond_drink",
       "base_unit": "100ml",
-      "critical_attrs": {},
+      "critical_attrs": {
+        "base": "almond"
+      },
       "rank": 142,
       "has_page": false,
       "no_prices_yet": true,
@@ -4441,7 +4445,9 @@
       ],
       "product_type": "oat_drink",
       "base_unit": "100ml",
-      "critical_attrs": {},
+      "critical_attrs": {
+        "base": "oat"
+      },
       "rank": 143,
       "has_page": false,
       "no_prices_yet": true,

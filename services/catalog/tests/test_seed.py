@@ -13,6 +13,7 @@ from smartcart_catalog.seed import (
     MAX_CANONICALS,
     MIN_CANONICALS,
     SeedError,
+    implied_conflicts,
     load_catalog,
     parse_canonicals,
     parse_rules,
@@ -71,6 +72,26 @@ def test_fresh_and_frozen_salmon_are_distinct(by_slug) -> None:
 def test_plant_drinks_are_separate_product_types(by_slug) -> None:
     types = {by_slug[s].product_type for s in ("soy-drink", "almond-drink", "oat-drink")}
     assert types == {"soy_drink", "almond_drink", "oat_drink"}
+
+
+def test_plant_drink_base_is_critical(catalog, by_slug) -> None:
+    """Issue #102: ``base`` is a critical key of the plant drinks and their canonicals carry it."""
+    for slug, base in (("soy-drink", "soy"), ("almond-drink", "almond"), ("oat-drink", "oat")):
+        c = by_slug[slug]
+        assert "base" in catalog.rules[c.product_type].critical_keys
+        assert c.critical_attrs == {"base": base}
+        assert catalog.extras[c.product_type].implied.get("base") == base
+
+
+def test_an_implied_critical_value_no_canonical_carries_is_rejected(catalog) -> None:
+    rules = copy.deepcopy(_raw("product_type_rules.yaml"))
+    soy = next(r for r in rules["rules"] if r["product_type"] == "soy_drink")
+    soy["implied"] = {"base": "almond"}
+    parsed, extras = parse_rules(rules)
+    assert implied_conflicts(parsed, extras, catalog.canonicals) == [
+        "soy_drink: implies base=almond, canonicals have ['soy']"
+    ]
+    assert implied_conflicts(catalog.rules, catalog.extras, catalog.canonicals) == []
 
 
 def test_no_two_canonicals_share_type_and_critical_values(catalog) -> None:

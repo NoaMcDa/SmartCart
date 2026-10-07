@@ -267,6 +267,13 @@ product_type_rules:
   - pack_size
   - flavor
   - brand
+- product_type: plant_yogurt
+  critical_keys:
+  - base
+  soft_keys:
+  - pack_size
+  - flavor
+  - brand
 - product_type: salmon
   critical_keys:
   - state
@@ -1056,6 +1063,32 @@ canonicals:
     unit: ml
   reference_barcodes:
   - '7290000000550'
+- slug: soy-yogurt-400g
+  taxonomy_id: dairy.yogurt
+  display_name_he: יוגורט סויה טבעי, 400 גרם
+  product_type: plant_yogurt
+  base_unit: 100g
+  critical_attrs:
+    base: soy
+  soft_attrs:
+    pack_size: 400
+    unit: g
+    flavor: natural
+  reference_barcodes:
+  - '7290000000560'
+- slug: coconut-yogurt-400g
+  taxonomy_id: dairy.yogurt
+  display_name_he: יוגורט קוקוס טבעי, 400 גרם
+  product_type: plant_yogurt
+  base_unit: 100g
+  critical_attrs:
+    base: coconut
+  soft_attrs:
+    pack_size: 400
+    unit: g
+    flavor: natural
+  reference_barcodes:
+  - '7290000000570'
 lexicon:
   product_types:
     milk:
@@ -1142,6 +1175,12 @@ lexicon:
       taxonomy_id: dairy.plant_drinks
       implied:
         base: rice
+    plant_yogurt:
+      keywords:
+      - יוגורט סויה
+      - יוגורט קוקוס
+      - יוגורט שקדים
+      taxonomy_id: dairy.yogurt
     salmon:
       keywords:
       - סלמון
@@ -1336,9 +1375,29 @@ lexicon:
     - תות
     vanilla:
     - וניל
+    coconut:
+    - בטעם קוקוס
     spaghetti:
     - ספגטי
     penne:
     - פנה
     fusilli:
     - פוזילי
+  bases:
+    soy:
+    - סויה
+    almond:
+    - שקדים
+    oat:
+    - שיבולת שועל
+    - שיבולת
+    rice:
+    - אורז
+    coconut:
+    - קוקוס
+  base_types:
+  - soy_drink
+  - almond_drink
+  - oat_drink
+  - rice_drink
+  - plant_yogurt

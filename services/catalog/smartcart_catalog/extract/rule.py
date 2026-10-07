@@ -81,16 +81,23 @@ _FLAVOR_BY_TYPE: dict[str, tuple[tuple[str, str], ...]] = {
 }
 _EXTRA_INGREDIENT = re.compile(rf"(?<!{_LETTER})(?:עם|בתוספת|ממולא)(?!{_LETTER})")
 
-# Plant drinks (issue #92): the base is critical (soy vs almond is never "any brand").
+# Plant drinks (issues #92, #102): the base is a critical key of the plant drink types, so soy
+# vs almond is never "any brand" even when the product type was guessed wrong.
 PLANT_DRINK_TYPES: frozenset[str] = frozenset(
-    {"soy_drink", "almond_drink", "oat_drink", "rice_drink", "coconut_drink", "plant_drink"}
-)
+    {"soy_drink", "almond_drink", "oat_drink", "rice_drink", "coconut_drink", "plant_drink",
+     "plant_yogurt"}
+)  # fmt: skip
 _BASE_WORDS: tuple[tuple[str, str], ...] = (
     ("שיבולת שועל", "oat"), ("שיבולת", "oat"), ("אוטלי", "oat"), ("oat", "oat"),
-    ("סויה", "soy"), ("soy", "soy"), ("שקדים", "almond"), ("שקד", "almond"),
+    ("סויה", "soy"), ("סוייה", "soy"), ("soy", "soy"), ("שקדים", "almond"), ("שקד", "almond"),
     ("almond", "almond"), ("אורז", "rice"), ("rice", "rice"), ("קוקוס", "coconut"),
     ("coconut", "coconut"),
 )
+# A name with no product type still gets a base when it says it is a drink, a "milk" or a
+# yogurt made from one ("משקה אורז", "חלב קוקוס"): the base then vetoes the plant drink
+# canonicals it is not. A base word right after "בטעם" is a flavor ("בטעם קוקוס"), not a base.
+_BASE_CUES: tuple[str, ...] = ("משקה", "חלב", "יוגורט", "מעדן", "תחליף חלב")
+_FLAVOR_MARKER = re.compile(rf"(?<!{_LETTER})בטעם\s+$")
 _BASE_BY_TYPE: dict[str, str] = {
     "soy_drink": "soy", "almond_drink": "almond", "oat_drink": "oat", "rice_drink": "rice",
     "coconut_drink": "coconut",
@@ -199,11 +206,20 @@ class RuleExtractor:
 
     @staticmethod
     def base(name: str, product_type: str | None) -> str | None:
-        """Plant-drink base, only for plant drink types: the first base word in the name, else
-        the one the product type implies."""
-        if product_type not in PLANT_DRINK_TYPES:
+        """Plant base (soy, almond, oat, rice, coconut): the first base word in the name that
+        is not a flavor ("בטעם קוקוס"), else the one the product type implies. Only for plant
+        drink types, or for an untyped name that says it is a drink, a "milk" or a yogurt."""
+        if product_type is None:
+            if not any(_has(cue, name) for cue in _BASE_CUES):
+                return None
+        elif product_type not in PLANT_DRINK_TYPES:
             return None
-        found = [(m.start(), b) for word, b in _BASE_WORDS if (m := _find(word, name))]
+        found = []
+        for word, b in _BASE_WORDS:
+            for m in _word_re(word).finditer(name):
+                if not _FLAVOR_MARKER.search(name[: m.start()]):
+                    found.append((m.start(), b))
+                    break
         if found:
             return min(found)[1]
         return _BASE_BY_TYPE.get(product_type or "")
