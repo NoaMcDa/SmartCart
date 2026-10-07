@@ -1,0 +1,104 @@
+name: Matching evaluation
+
+# Runs the gold-set evaluation harness on every change to matching code or the gold set and
+# fails when precision at "any brand" drops below the threshold (decision D5, issue #38).
+# The gold set is SYNTHETIC until real items are labeled; see docs/matching.md.
+
+on:
+  pull_request:
+    paths:
+      - "services/catalog/**"
+      - "data/gold/**"
+      - ".github/workflows/matching-eval.yml"
+  push:
+    paths:
+      - "services/catalog/**"
+      - "data/gold/**"
+      - ".github/workflows/matching-eval.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: matching-eval-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: gold-set evaluation (any_brand precision >= 0.98)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      # Same image Supabase runs (Postgres + PostGIS + pgvector + pg_trgm). Keep in sync with
+      # .github/workflows/ci.yml and infra/docker-compose.yml.
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      EMBEDDER: hash
+      MATCH_PRECISION_THRESHOLD: "0.98"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install
+        run: uv sync
+
+      - name: Gold set is up to date with its generator
+        run: |
+          uv run python data/gold/build_gold.py
+          git diff --exit-code -- data/gold
+
+      - name: Migrate
+        run: uv run smartcart-ingest migrate
+
+      - name: Evaluate (precision and recall per flexibility level)
+        run: |
+          set -o pipefail
+          uv run python -m smartcart_catalog.cli_matching evaluate \
+            --fail-below "$MATCH_PRECISION_THRESHOLD" | tee evaluation.txt
+
+      - name: Metrics as JSON
+        if: always()
+        run: |
+          uv run python -m smartcart_catalog.cli_matching evaluate --no-load --json \
+            > evaluation.json || true
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo '## Matching evaluation (synthetic gold set)'
+            echo '```'
+            cat evaluation.txt 2>/dev/null || echo 'no report'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matching-evaluation
+          path: |
+            evaluation.txt
+            evaluation.json
+          if-no-files-found: ignore

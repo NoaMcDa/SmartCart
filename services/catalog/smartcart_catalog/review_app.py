@@ -1,0 +1,282 @@
+"""Human review of uncertain matches (issue #38, architecture section 3 step E).
+
+Run from the repo root (needs a DATABASE_URL role that may write ``item_canonical`` and
+``gold_pairs``)::
+
+    uv run smartcart-catalog review          # or:
+    uv run streamlit run services/catalog/smartcart_catalog/review_app.py
+
+Three tabs: the review queue (``needs_review`` mappings; items a user reported as "not a good
+substitute" first, then by canonical rank), the best-seller checklist (the 300 top-ranked
+canonicals must have every mapping human-reviewed before launch) and feedback rates.
+
+All reads and writes are plain functions below, tested without Streamlit:
+
+* ``accept``  the mapping becomes ``source='human'``, ``needs_review=false``, with
+  ``reviewed_by``/``reviewed_at``; the pair is added to ``gold_pairs`` with its level.
+* ``reject``  the mapping is deleted and a ``no_match`` gold pair records the human decision,
+  so the judge never re-creates it (``match.apply_decisions`` honors it).
+* ``remap``   reject the old canonical and accept the new one.
+
+The judge's reason is not stored on ``item_canonical`` (no column for it), so ``explain`` re-runs
+the rule judge for the item to show the candidates and the reasons.
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Any
+
+import psycopg
+
+from smartcart_catalog.judge import RuleJudge
+from smartcart_catalog.match import Lexicon, load_items, load_rules, match_item
+from smartcart_catalog.models import FlexLevel, Judge
+
+FEEDBACK_SQL = (
+    "(SELECT count(*) FROM substitution_feedback f WHERE f.substitute_item_id = ic.item_id"
+    " AND f.canonical_id = ic.canonical_id AND f.verdict = 'not_good')"
+)
+
+
+def review_queue(conn: psycopg.Connection, limit: int = 100) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        f"""
+        SELECT ic.item_id, ic.canonical_id, i.raw_name, i.chain_id, i.barcode, cp.slug,
+               cp.display_name_he, cp.rank, ic.flex_level, ic.confidence, ic.source,
+               a.attrs, a.verified_keys, {FEEDBACK_SQL} AS feedback
+        FROM item_canonical ic
+        JOIN items i ON i.id = ic.item_id
+        JOIN canonical_products cp ON cp.id = ic.canonical_id
+        LEFT JOIN item_attributes a ON a.item_id = ic.item_id
+        WHERE ic.needs_review
+        ORDER BY feedback DESC, cp.rank ASC NULLS LAST, ic.confidence DESC, ic.item_id
+        LIMIT %s
+        """,
+        (limit,),
+    ).fetchall()
+    keys = ["item_id", "canonical_id", "item_name", "chain_id", "barcode", "canonical_slug",
+            "canonical_name", "canonical_rank", "flex_level", "confidence", "source", "attrs",
+            "verified_keys", "feedback"]  # fmt: skip
+    out = []
+    for r in rows:
+        d = dict(zip(keys, r, strict=True))
+        d["confidence"] = float(d["confidence"])
+        d["feedback_marker"] = d["feedback"] > 0
+        out.append(d)
+    return out
+
+
+def explain(
+    conn: psycopg.Connection,
+    item_id: int,
+    judge: Judge | None = None,
+    *,
+    k: int = 5,
+    lexicon: Lexicon | None = None,
+) -> dict[str, Any]:
+    """Re-run retrieval and the judge for one item: attributes, block, candidates, reasons."""
+    judge = judge or RuleJudge()
+    ctx = load_items(conn, [item_id], lexicon)[item_id]
+    rules = load_rules(conn)
+    res = match_item(conn, ctx, judge, rules, k=k)
+    cands = []
+    assess = RuleJudge().assess_all(ctx.item, ctx.attrs, res.candidates, rules, ctx.barcode)
+    by_id = {a.canonical_id: a for a in assess}
+    for c in res.candidates:
+        a = by_id.get(c.canonical_id)
+        cands.append({
+            "canonical_id": c.canonical_id,
+            "slug": c.canonical.slug if c.canonical else None,
+            "name": c.canonical.display_name_he if c.canonical else None,
+            "similarity": round(c.similarity, 4),
+            "eligible": a.eligible if a else None,
+            "flex_level": a.flex_level if a else None,
+            "confidence": round(a.confidence, 4) if a else None,
+            "reason": a.reason() if a else "",
+        })  # fmt: skip
+    return {
+        "item_id": item_id,
+        "item_name": ctx.raw_name,
+        "attributes": ctx.attrs.model_dump(mode="json", exclude_defaults=True),
+        "attributes_source": ctx.attrs_source,
+        "block": res.block.describe(),
+        "candidates": cands,
+        "decision": res.decision.model_dump(mode="json"),
+    }
+
+
+def bestseller_status(conn: psycopg.Connection, top: int = 300) -> list[dict[str, Any]]:
+    """Review progress of the ``top`` best-selling canonicals (by ``rank``)."""
+    rows = conn.execute(
+        """
+        SELECT cp.id, cp.slug, cp.display_name_he, cp.rank,
+               count(ic.item_id) AS mapped,
+               count(ic.item_id) FILTER (WHERE ic.source = 'human') AS human_reviewed,
+               count(ic.item_id) FILTER (WHERE ic.needs_review) AS pending
+        FROM (SELECT * FROM canonical_products WHERE rank IS NOT NULL
+              ORDER BY rank LIMIT %s) cp
+        LEFT JOIN item_canonical ic ON ic.canonical_id = cp.id
+        GROUP BY cp.id, cp.slug, cp.display_name_he, cp.rank
+        ORDER BY cp.rank
+        """,
+        (top,),
+    ).fetchall()
+    return [
+        {"canonical_id": cid, "slug": slug, "name": name, "rank": rank, "mapped": mapped,
+         "human_reviewed": human, "pending": pending,
+         "fully_reviewed": mapped > 0 and human == mapped}
+        for cid, slug, name, rank, mapped, human, pending in rows
+    ]  # fmt: skip
+
+
+def search_canonicals(conn: psycopg.Connection, text: str, limit: int = 20) -> list[dict[str, Any]]:
+    pattern = f"%{text.strip()}%"
+    rows = conn.execute(
+        "SELECT id, slug, display_name_he, taxonomy_id FROM canonical_products"
+        " WHERE slug ILIKE %s OR display_name_he ILIKE %s ORDER BY rank NULLS LAST, slug LIMIT %s",
+        (pattern, pattern, limit),
+    ).fetchall()
+    return [{"canonical_id": r[0], "slug": r[1], "name": r[2], "taxonomy_id": r[3]} for r in rows]
+
+
+def _record_gold(
+    conn: psycopg.Connection, item_id: int, canonical_id: int, label: str, note: str
+) -> None:
+    conn.execute(
+        "INSERT INTO gold_pairs (item_id, canonical_id, label, category, note)"
+        " SELECT %s, cp.id, %s, split_part(cp.taxonomy_id, '.', 1), %s"
+        " FROM canonical_products cp WHERE cp.id = %s"
+        " ON CONFLICT (item_id, canonical_id) DO UPDATE SET label = EXCLUDED.label,"
+        " note = EXCLUDED.note",
+        (item_id, label, note, canonical_id),
+    )
+
+
+def accept(
+    conn: psycopg.Connection,
+    item_id: int,
+    canonical_id: int,
+    reviewer: str,
+    flex_level: FlexLevel | None = None,
+) -> None:
+    """Confirm (or create) the mapping as a human decision, optionally at another level."""
+    if not reviewer.strip():
+        raise ValueError("reviewer is required")
+    row = conn.execute(
+        "SELECT flex_level FROM item_canonical WHERE item_id = %s AND canonical_id = %s",
+        (item_id, canonical_id),
+    ).fetchone()
+    level = flex_level or (row[0] if row else None)
+    if level is None:
+        raise ValueError("flex_level is required when there is no mapping to confirm")
+    conn.execute(
+        "INSERT INTO item_canonical (item_id, canonical_id, flex_level, confidence, source,"
+        " needs_review, reviewed_by, reviewed_at)"
+        " VALUES (%s, %s, %s, 1, 'human', false, %s, now())"
+        " ON CONFLICT (item_id, canonical_id) DO UPDATE SET flex_level = EXCLUDED.flex_level,"
+        " confidence = 1, source = 'human', needs_review = false,"
+        " reviewed_by = EXCLUDED.reviewed_by, reviewed_at = EXCLUDED.reviewed_at",
+        (item_id, canonical_id, level, reviewer),
+    )
+    # The human decision replaces any other machine mapping of this item.
+    conn.execute(
+        "DELETE FROM item_canonical WHERE item_id = %s AND canonical_id <> %s"
+        " AND source <> 'human'",
+        (item_id, canonical_id),
+    )
+    _record_gold(conn, item_id, canonical_id, level, f"review: accepted by {reviewer}")
+
+
+def reject(conn: psycopg.Connection, item_id: int, canonical_id: int, reviewer: str) -> None:
+    """The item is not this canonical: drop the mapping and remember the human decision."""
+    if not reviewer.strip():
+        raise ValueError("reviewer is required")
+    conn.execute(
+        "DELETE FROM item_canonical WHERE item_id = %s AND canonical_id = %s",
+        (item_id, canonical_id),
+    )
+    _record_gold(conn, item_id, canonical_id, "no_match", f"review: rejected by {reviewer}")
+
+
+def remap(
+    conn: psycopg.Connection,
+    item_id: int,
+    old_canonical_id: int,
+    new_canonical_id: int,
+    flex_level: FlexLevel,
+    reviewer: str,
+) -> None:
+    if old_canonical_id == new_canonical_id:
+        accept(conn, item_id, new_canonical_id, reviewer, flex_level)
+        return
+    reject(conn, item_id, old_canonical_id, reviewer)
+    accept(conn, item_id, new_canonical_id, reviewer, flex_level)
+
+
+# --- Streamlit UI -------------------------------------------------------------------------------
+
+
+def main() -> None:  # pragma: no cover - UI glue, the functions above are tested
+    import streamlit as st
+
+    from smartcart_catalog.feedback import rejection_rates
+
+    st.set_page_config(page_title="SmartCart match review", layout="wide")
+    dsn = os.environ.get("DATABASE_URL")
+    if not dsn:
+        st.error("DATABASE_URL is not set")
+        return
+    reviewer = st.sidebar.text_input("Reviewer (name or email)", key="reviewer")
+    limit = st.sidebar.number_input("Queue size", 10, 500, 50, step=10)
+    tab_queue, tab_best, tab_feedback = st.tabs(
+        ["Review queue", "Best sellers (top 300)", "Feedback"]
+    )
+    with psycopg.connect(dsn) as conn:
+        with tab_queue:
+            queue = review_queue(conn, int(limit))
+            st.caption(f"{len(queue)} mappings need review. Reported substitutes come first.")
+            for row in queue:
+                marker = " · REPORTED BY USERS" if row["feedback_marker"] else ""
+                title = (f"{row['item_name']} → {row['canonical_name']} "
+                         f"({row['flex_level']}, {row['confidence']:.2f}){marker}")  # fmt: skip
+                with st.expander(title):
+                    info = explain(conn, row["item_id"])
+                    st.write(f"chain {row['chain_id']}, barcode {row['barcode'] or '-'}, "
+                             f"block {info['block']}, attributes from {info['attributes_source']}")  # fmt: skip
+                    st.json(info["attributes"])
+                    st.write("Judge:", info["decision"]["reason"])
+                    st.dataframe(info["candidates"], use_container_width=True)
+                    key = f"{row['item_id']}-{row['canonical_id']}"
+                    levels = ["exact", "any_brand", "close"]
+                    level = st.selectbox("Level", levels, levels.index(row["flex_level"]),
+                                         key=f"lvl-{key}")  # fmt: skip
+                    c1, c2, c3 = st.columns(3)
+                    if c1.button("Accept", key=f"acc-{key}", disabled=not reviewer):
+                        accept(conn, row["item_id"], row["canonical_id"], reviewer, level)
+                        conn.commit()
+                        st.rerun()
+                    if c2.button("Reject", key=f"rej-{key}", disabled=not reviewer):
+                        reject(conn, row["item_id"], row["canonical_id"], reviewer)
+                        conn.commit()
+                        st.rerun()
+                    options = {f"{c['slug']} ({c['name']})": c["canonical_id"]
+                               for c in info["candidates"] if c["eligible"]}  # fmt: skip
+                    target = c3.selectbox("Re-map to", ["", *options], key=f"tgt-{key}")
+                    if target and c3.button("Re-map", key=f"map-{key}", disabled=not reviewer):
+                        remap(conn, row["item_id"], row["canonical_id"], options[target], level,
+                              reviewer)  # fmt: skip
+                        conn.commit()
+                        st.rerun()
+        with tab_best:
+            status = bestseller_status(conn)
+            done = sum(1 for s in status if s["fully_reviewed"])
+            st.metric("Best sellers fully human-reviewed", f"{done} / {len(status)}")
+            st.dataframe(status, use_container_width=True)
+        with tab_feedback:
+            st.dataframe(rejection_rates(conn), use_container_width=True)
+        conn.rollback()
+
+
+if __name__ == "__main__":
+    main()
