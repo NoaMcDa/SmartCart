@@ -1,0 +1,111 @@
+name: Full stack
+
+# The MVP end to end on synthetic data (docs/fullstack.md): the Supabase Postgres image, the
+# migrations, the chains' synthetic transparency files through the real loader and quality gates,
+# the matching pipeline, the precompute, the real FastAPI, then an HTTP smoke test and the
+# Playwright suite that drives the production build of the web app against that API.
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: fullstack-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fullstack:
+    name: demo pipeline, API smoke test, web e2e against the real API
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      # Same image and tag as ci.yml (Postgres 17 with PostGIS, pgvector and pg_trgm).
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      SMARTCART_DEMO_DIR: ${{ github.workspace }}/.demo
+      DEMO_API_PORT: "8000"
+      DEMO_API_BASE_URL: http://127.0.0.1:8000
+      NEXT_TELEMETRY_DISABLED: "1"
+      CI: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install Python packages
+        run: uv sync
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install web packages
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
+
+      - name: Install Chromium for Playwright
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Demo up (migrate, seed, load through the gates, match, precompute, API)
+        run: scripts/demo/up.sh
+
+      - name: API smoke test
+        run: uv run python scripts/demo/smoke.py
+
+      - name: Web end to end against the real API
+        working-directory: apps/web
+        run: npm run e2e:fullstack
+
+      - name: API log
+        if: failure()
+        run: tail -n 200 "$SMARTCART_DEMO_DIR/logs/api.log" || true
+
+      - name: Upload Playwright report and demo logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fullstack-report
+          path: |
+            apps/web/playwright-report/fullstack
+            apps/web/test-results/fullstack
+            .demo/logs
+            .demo/load.json
+            .demo/counts.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Demo down
+        if: always()
+        run: scripts/demo/down.sh --keep-db

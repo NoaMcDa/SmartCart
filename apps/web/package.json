@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "e2e:fullstack": "playwright test -c playwright.fullstack.config.ts",
     "a11y": "playwright test -c playwright.a11y.config.ts",
     "gen:api": "openapi-typescript src/api/openapi.json -o src/api/types.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"*.{ts,mjs}\" scripts",
