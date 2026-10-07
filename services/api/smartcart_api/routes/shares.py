@@ -50,7 +50,7 @@ from smartcart_api.routes.me_delete import as_user
 from smartcart_api.settings import get_settings
 
 router = APIRouter(tags=["shares"])
-UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn)]
+UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="function")]
 
 
 def token_hash(token: str) -> str:
@@ -180,7 +180,7 @@ def shared_lists(uc: UserConn) -> list[schemas.ShoppingList]:
 def accept_share(
     token: str,
     user: Annotated[User, Depends(current_user)],
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> schemas.ShoppingList:
     # Service connection: a pending invite is not visible to the invitee under RLS.
     row = conn.execute(

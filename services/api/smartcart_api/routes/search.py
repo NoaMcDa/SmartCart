@@ -36,7 +36,7 @@ def canonical_ref(h: Hit) -> schemas.CanonicalRef:
 @router.get("/search", response_model=schemas.SearchResponse, tags=["basket"])
 def search(
     q: Annotated[str, Query(min_length=1, max_length=200)],
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
 ) -> schemas.SearchResponse:
     hits = hybrid_search(conn, q, limit=limit)
@@ -117,7 +117,7 @@ def _row(
 @router.post("/parse-list", response_model=schemas.ParseListResponse, tags=["basket"])
 def parse_list(
     body: schemas.ParseListRequest,
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> schemas.ParseListResponse:
     resolved: list[tuple[Fragment, list[Hit], float]] = []
     for part in split_items(body.text):

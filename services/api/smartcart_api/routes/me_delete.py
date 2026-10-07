@@ -118,7 +118,7 @@ _SERVICE_ROWS = (
 @router.delete("", response_model=schemas.Ack)
 def delete_me(
     user: Annotated[User, Depends(current_user)],
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> schemas.Ack:
     admin = supabase_admin()
     if admin is not None:

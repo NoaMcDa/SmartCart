@@ -215,7 +215,7 @@ def _price(body: schemas.OptimizeRequest, conn: psycopg.Connection) -> _Priced:
 @router.post("/optimize", response_model=schemas.OptimizeResponse, tags=["basket"])
 def optimize(
     body: schemas.OptimizeRequest,
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> schemas.OptimizeResponse:
     priced = _price(body, conn)
     if body.solver == "milp":

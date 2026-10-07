@@ -34,7 +34,7 @@ router = APIRouter(prefix="/feedback", tags=["feedback"])
 @router.post("/substitution", response_model=schemas.Ack)
 def substitution(
     body: schemas.SubstitutionFeedbackRequest,
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
     user: Annotated[User | None, Depends(optional_user)],
 ) -> schemas.Ack:
     try:
@@ -59,7 +59,7 @@ def substitution(
 @router.post("/gap", response_model=schemas.Ack)
 def gap(
     body: schemas.GapReportRequest,
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
     user: Annotated[User | None, Depends(optional_user)],
 ) -> schemas.Ack:
     try:

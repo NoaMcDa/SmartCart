@@ -99,7 +99,7 @@ def lookup_barcode(
     barcode: str,
     lon: Annotated[float, Query(ge=-180, le=180)],
     lat: Annotated[float, Query(ge=-90, le=90)],
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
     radius_m: Annotated[int, Query(ge=500, le=15000)] = 5000,
     store_id: int | None = None,
     clubs: Annotated[list[str] | None, Query(description="The user's clubs, as in /compare")] = None,

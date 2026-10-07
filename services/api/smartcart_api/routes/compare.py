@@ -38,7 +38,7 @@ def sort_key(r: schemas.StoreResult) -> tuple:
 @router.post("/compare", response_model=schemas.CompareResponse, tags=["basket"])
 def compare(
     body: schemas.CompareRequest,
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> schemas.CompareResponse:
     stores = stores_in_radius(conn, body.location, body.include_online)
     home_info = None

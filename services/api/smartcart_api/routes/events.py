@@ -148,7 +148,7 @@ def maybe_user(authorization: Annotated[str | None, Header()] = None) -> User | 
 @router.post("", response_model=schemas.EventsAck, summary="Record a batch of beta events")
 def post_events(
     body: schemas.EventsRequest,
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
     user: Annotated[User | None, Depends(maybe_user)],
 ) -> schemas.EventsAck:
     problems = [p for i, e in enumerate(body.events) for p in validate_event(i, e)]

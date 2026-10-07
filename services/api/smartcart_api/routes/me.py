@@ -23,7 +23,7 @@ from smartcart_api.auth import User, user_conn
 from smartcart_api.lists import load_lists
 
 router = APIRouter(prefix="/me", tags=["me"])
-UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn)]
+UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="function")]
 
 _PROFILE_COLS = (
     "home_store_id", "radius_m", "neighborhood_lat", "neighborhood_lon", "travel_mode",
