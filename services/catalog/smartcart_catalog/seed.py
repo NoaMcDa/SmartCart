@@ -3,8 +3,10 @@
 Three files under ``data/``: ``taxonomy.yaml``, ``product_type_rules.yaml`` and
 ``canonicals.yaml``. Loading validates them against each other (a canonical's taxonomy node and
 product type exist, its critical attributes are exactly the type's critical keys, no two
-canonicals are indistinguishable at "any brand"). Seeding is idempotent: rows are upserted by
-their natural key and a second run with unchanged files changes nothing (``updated_at`` stays).
+canonicals are indistinguishable at "any brand", a critical value a type implies, such as a
+plant drink's ``base``, is carried by one of its canonicals). Seeding is idempotent: rows are
+upserted by their natural key and a second run with unchanged files changes nothing
+(``updated_at`` stays).
 Rows that disappear from the files are reported, never deleted, because matches may point at them.
 
 A canonical may list ``reference_barcodes`` (issue #92): the barcodes that are exactly this
@@ -192,7 +194,31 @@ def load_catalog(data_dir: Path | None = None) -> Catalog:
     unused = set(rules) - {c.product_type for c in canonicals}
     if unused:
         raise SeedError(f"product types without a canonical: {sorted(unused)}")
+    problems = implied_conflicts(rules, extras, canonicals)
+    if problems:
+        raise SeedError("implied attributes no canonical carries:\n  " + "\n  ".join(problems))
     return Catalog(taxonomy, rules, extras, canonicals)
+
+
+def implied_conflicts(
+    rules: dict[str, ProductTypeRule],
+    extras: dict[str, RuleExtras],
+    canonicals: tuple[CanonicalProduct, ...],
+) -> list[str]:
+    """A critical value a product type implies (a soy drink's ``base: soy``) must be carried by
+    at least one canonical of that type; otherwise every item the extractor types that way is
+    vetoed against all of them and can never match at "any brand"."""
+    problems: list[str] = []
+    for pt, extra in sorted(extras.items()):
+        rule = rules.get(pt)
+        if rule is None:
+            continue
+        for key in sorted(set(extra.implied) & set(rule.critical_keys)):
+            values = {str(c.critical_attrs.get(key)) for c in canonicals if c.product_type == pt}
+            if values and str(extra.implied[key]) not in values:
+                problems.append(f"{pt}: implies {key}={extra.implied[key]}, canonicals have"
+                                f" {sorted(values)}")  # fmt: skip
+    return problems
 
 
 def _read(path: Path) -> dict[str, Any]:

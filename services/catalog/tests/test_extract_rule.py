@@ -130,6 +130,45 @@ def test_plant_drink_base_and_variety(rx, name, base, variety) -> None:
     assert (a.base, a.variety) == (base, variety)
 
 
+@pytest.mark.parametrize(
+    ("name", "product_type", "base"),
+    [
+        # the five bases, from the name, with the usual Hebrew spellings
+        ("משקה סויה אלפרו 1 ליטר", "soy_drink", "soy"),
+        ("חלב סוייה 1 ליטר", "soy_drink", "soy"),
+        ("משקה שקדים ללא סוכר 1 ליטר", "almond_drink", "almond"),
+        ("חלב שקדים וניל 1 ליטר", "almond_drink", "almond"),
+        ("משקה שיבולת שועל 1 ליטר", "oat_drink", "oat"),
+        ("חלב שיבולת שועל בריסטה 1 ליטר", "oat_drink", "oat"),  # not rolled oats
+        ("אוטלי בריסטה 1 ליטר", "oat_drink", "oat"),
+        # a plant drink is never lactose-free cow's milk, even on a keyword tie
+        ("משקה סויה ללא לקטוז 1 ליטר", "soy_drink", "soy"),
+        ("משקה שקדים ללא לקטוז 1 ליטר", "almond_drink", "almond"),
+        # no product type of their own: the base still comes from the name
+        ("משקה אורז 1 ליטר", None, "rice"),
+        ("משקה קוקוס 1 ליטר", None, "coconut"),
+        ('חלב קוקוס 400 מ"ל', None, "coconut"),
+        # a soy or coconut yogurt is not a dairy yogurt
+        ("יוגורט סויה טבעי 400 גרם", None, "soy"),
+        ("יוגורט קוקוס 150 גרם", None, "coconut"),
+        # the first base wins; a base word after "בטעם" is a flavor
+        ("משקה סויה בטעם שקדים 1 ליטר", "soy_drink", "soy"),
+        ("משקה בטעם קוקוס אורז 1 ליטר", None, "rice"),
+        # not plant products: no base
+        ("יוגורט בטעם קוקוס 150 גרם", "yogurt_fruit", None),
+        ("שמן סויה 1 ליטר", "soybean_oil", None),
+        ('אורז בסמטי 1 ק"ג', "rice_basmati", None),
+        ("שיבולת שועל 500 גרם", "rolled_oats", None),
+        ("עוגיות שקדים 200 גרם", None, None),
+        ("חלב טרי 3% 1 ליטר", "milk", None),
+    ],
+)
+def test_base_from_hebrew_names(rx, name, product_type, base) -> None:
+    """Issue #102: ``base`` is critical for the plant drinks, so it must be read reliably."""
+    a = _extract(rx, name)
+    assert (a.product_type, a.base) == (product_type, base)
+
+
 def test_private_label_reads_chain_and_manufacturer_from_the_item(rx) -> None:
     item = normalize({"raw_name": "חלב 3% 1 ליטר", "item_code": "1", "chain_id": SHUFERSAL,
                       "manufacturer": "שופרסל בע\"מ"}, item_id=3)

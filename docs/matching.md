@@ -9,7 +9,7 @@ everything here; architecture section 3 steps C to E describe the plan this impl
 Code: `services/catalog/smartcart_catalog/` — `embed.py`, `block.py`, `judge.py`, `match.py`,
 `evaluate.py`, `review_app.py`, `feedback.py`, `cli_matching.py`. Gold set: `data/gold/`.
 
-> **The gold set is synthetic.** `data/gold/` holds 2,419 pairs over 831 items and 56 canonicals,
+> **The gold set is synthetic.** `data/gold/` holds 2,523 pairs over 857 items and 58 canonicals,
 > generated from templates by `data/gold/build_gold.py`. They are placeholders until real chain
 > items are loaded and labeled by a human. Numbers measured on them show that the pipeline runs
 > end to end and that the hard rules hold; they are **not** an estimate of precision on real data.
@@ -48,6 +48,24 @@ report on that mapping is unresolved.
 |---|---|---|
 | `hash` (`HashEmbedder`) | tests, CI, local dev | Deterministic 1024-dim signed feature hashing of character 2-4-grams and words of the normalized text (final letters folded, nikud and quotes stripped, digits and `%` kept), L2-normalized. Similar strings get similar vectors; there is no semantics. |
 | `bge-m3` (`BgeM3Embedder`) | production | BGE-M3 dense vectors via sentence-transformers (`uv sync --extra embed`), imported lazily, model name configurable (`$EMBEDDING_MODEL`, default `BAAI/bge-m3`). Not runnable in the build sandbox (Hugging Face is unreachable there), so no BGE-M3 numbers exist yet. |
+
+**Model name (issue #102).** Every embedder exposes `model_name: str` (the `Embedder` protocol in
+`models.py`; no separate `name` attribute was added). It names the vector space, and it is the
+value `embed` writes to both `canonical_products.embedding_model` and `item_embeddings.model`:
+
+| Embedder | `model_name` | Constant |
+|---|---|---|
+| `get_embedder("hash")`, `HashEmbedder()` | `hash-ngram-2-3-4-v1` | `embed.HASH_MODEL_NAME` |
+| `get_embedder("bge-m3")`, `BgeM3Embedder()` | `BAAI/bge-m3` (or `$EMBEDDING_MODEL`) | `embed.BGE_M3_MODEL_NAME` |
+
+`tests/test_embed.py` pins both strings: changing one means re-embedding every row. A reader that
+compares a query vector with stored vectors (the API's `/search`) must embed the query with the
+same embedder (`smartcart_catalog.embed.get_embedder(...)`) and filter
+`canonical_products.embedding_model = embedder.model_name` (and `item_embeddings.model` for item
+vectors). Another implementation of the same idea, with another name, is another vector space.
+The catalog's own top-k does the same: it compares an item only with canonicals embedded by the
+item's model (`cp.embedding_model = e.model`), so a half-finished re-embed returns no candidates
+instead of distances across two spaces.
 
 **Batch jobs** `embed_canonicals` and `embed_items` are idempotent: an item already embedded with
 the same model and not updated since is skipped; a canonical is re-embedded only when its vector
@@ -151,7 +169,9 @@ The judge needs item attributes. They come from `item_attributes` (the extractio
 When an item has no row there, `match.fallback_attributes` derives a minimal set from the name:
 fat percent (`3%`), state words (טרי, קפוא, ...), pack size and unit (`1 ליטר`, `6*1.5 ל'`,
 `250 גרם`), "zero"/"diet" as sugar-free, and product type, category and variety from a keyword
-`Lexicon`. The only lexicon so far is the gold set's (`gold_catalog.yaml`, `lexicon`), which the
+`Lexicon`. For the lexicon's `base_types` the plant base comes from its `bases` keywords in the
+name (the first one, skipping one right after "בטעם", which is a flavor), else from the type's
+`implied` base (issue #102). The only lexicon so far is the gold set's (`gold_catalog.yaml`, `lexicon`), which the
 evaluation uses and `smartcart-catalog judge --gold-lexicon` can use. Without a lexicon the
 product type is unknown, so nothing but barcode matches is auto-accepted: everything else goes
 to review, which is the safe failure.
@@ -225,21 +245,39 @@ of gold items with a pair qualifying at L that were predicted correctly at L. Re
 share of items with a positive pair whose positive canonical is among the k retrieved
 candidates. `gold_pairs` rows from human review count too.
 
-**Measured on the synthetic gold set** (RuleJudge, HashEmbedder, k = 10, 2026-10-07):
+**Measured on the synthetic gold set** (RuleJudge, HashEmbedder, k = 10, 2026-10-07, after
+issue #102). These are synthetic-gold-set numbers, a pipeline regression baseline, **not
+evidence** of precision on real chain data:
 
 | Level | Precision | Recall | Served predictions | Gold items |
 |---|---|---|---|---|
-| exact | 1.0000 | 1.0000 | 100 | 100 |
-| any_brand | 1.0000 | 0.8079 | 530 | 656 |
-| close | 1.0000 | 0.7546 | 609 | 807 |
+| exact | 1.0000 | 1.0000 | 104 | 104 |
+| any_brand | 1.0000 | 0.8125 | 546 | 672 |
+| close | 1.0000 | 0.7611 | 634 | 833 |
 
-Re-run on 2026-10-07 after the issue #92 contract changes (reference barcodes in their own
-column, `base` critical for the gold set's plant drinks): identical numbers.
-
-Retrieval recall@10: 0.9988. Of 831 items, 609 auto-accepted, 197 to the review queue, 25
+Retrieval recall@10: 0.9988. Of 857 items, 634 auto-accepted, 198 to the review queue, 25
 unmapped (the 24 orphans, correctly, and one other item). If the review queue were
-auto-accepted, precision at "any brand" would be 0.9939: the review band is what keeps the rest
-out. Why these numbers are optimistic: the labels, the item names and the fallback lexicon come
+auto-accepted, precision at "any brand" would be 0.9940: the review band is what keeps the rest
+out. Run the same way as `.github/workflows/matching-eval.yml` (fresh database, `EMBEDDER=hash`,
+`python -m smartcart_catalog.cli_matching evaluate --fail-below 0.98`); exit 0.
+
+Before issue #102, on the earlier set (2,419 pairs, 831 items, same day): exact 1.0000 / 1.0000
+(100 served), any_brand 1.0000 / 0.8079 (530 of 656), close 1.0000 / 0.7546 (609 of 807),
+recall@10 0.9988, 609 auto-accepted, 197 review, 25 unmapped; review-queue-accepted any_brand
+precision 0.9939. Those numbers were also identical after the issue #92 contract changes.
+
+**What issue #102 changed in the gold set.** No existing pair changed label and none was removed:
+every one of the 124 earlier pairs that crosses a base boundary (a soy item against the almond or
+oat canonical, the rice drink orphans against all three) was already `no_match`, because the
+plant drinks are separate product types. The type therefore did all the vetoing and `base` never
+decided a pair. `BASE_SPECS` in `build_gold.py` add 26 items and 104 pairs on two plant yogurts
+that share one product type (`plant_yogurt`) and differ only by base (soy, coconut): 4 exact,
+12 any_brand, 10 close and 78 no_match, of which 26 are base-boundary negatives that only the
+`base` key can veto (the other 52 are the plant yogurt against the dairy yogurt and a random
+dairy canonical). The soy yogurt "בטעם קוקוס" variant checks that a base word after "בטעם" is
+read as a flavor. All 150 base-crossing pairs are `no_match` (`tests/test_gold.py`). The new
+items are generated after the others with their own random stream, so the earlier 2,419 pairs
+are byte-identical. Why these numbers are optimistic: the labels, the item names and the fallback lexicon come
 from the same generator; the hash embedder benefits from template names sharing substrings with
 canonical names; and real chain names are messier (truncation, internal codes, typos). Treat
 them as a regression baseline for the pipeline, not as the D5 target being met.
@@ -285,5 +323,5 @@ The workarounds this work started with are gone; migration 20261008100000 added 
 | Plant-drink base only as separate product types | `Attributes.base` (soy, almond, oat, rice, coconut) and `Attributes.variety` |
 
 What readers outside the catalog must do: filter `NOT human_rejected` on every `item_canonical`
-read, and compare query embeddings only with canonicals whose `embedding_model` is the query's
-model.
+read, and compare query embeddings only with canonicals whose `embedding_model` is the query
+embedder's `model_name` (see "Model name" under step C).

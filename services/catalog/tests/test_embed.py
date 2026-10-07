@@ -6,8 +6,11 @@ import sys
 import pytest
 from test_match_seed import add_item, seed_catalog
 
+from smartcart_catalog.block import top_k
 from smartcart_catalog.embed import (
+    BGE_M3_MODEL_NAME,
     DIM,
+    HASH_MODEL_NAME,
     BgeM3Embedder,
     HashEmbedder,
     embed_canonicals,
@@ -58,6 +61,23 @@ def test_get_embedder_and_lazy_bge() -> None:
     assert bge.embed([]) == []  # no model load for an empty batch
     with pytest.raises(ValueError):
         get_embedder("word2vec")
+
+
+def test_embedder_model_names_are_stable() -> None:
+    """The API filters stored vectors by these names (issue #102); changing one needs a
+    re-embed of every row, so it is pinned here."""
+    assert HashEmbedder().model_name == HASH_MODEL_NAME == "hash-ngram-2-3-4-v1"
+    assert get_embedder("hash").model_name == HASH_MODEL_NAME
+    assert get_embedder("bge-m3").model_name == BGE_M3_MODEL_NAME == "BAAI/bge-m3"
+    assert HashEmbedder(ngram_sizes=(3,)).model_name != HASH_MODEL_NAME  # another space
+
+    class Nameless:
+        dim = DIM
+
+        def embed(self, texts: list[str]) -> list[list[float]]:
+            return []
+
+    assert not isinstance(Nameless(), Embedder)  # model_name is part of the protocol
 
 
 def test_to_pgvector_format() -> None:
@@ -122,3 +142,30 @@ def test_canonical_rows_record_their_embedding_model(db) -> None:
                (ids["t-almond"],))  # fmt: skip
     res = embed_canonicals(db, emb)
     assert res["embedded"] == 1 and res["full"] is False
+
+
+@pytest.mark.db
+@pytest.mark.pgvector
+def test_items_and_canonicals_carry_the_same_model_and_retrieval_never_mixes_models(db) -> None:
+    """Issue #102: both tables record ``Embedder.model_name``; top-k compares an item only with
+    canonicals embedded by the item's model."""
+    ids = seed_catalog(db)
+    item = add_item(db, "חלב טרי 3% תנובה 1 ליטר")
+    emb = HashEmbedder()
+    embed_canonicals(db, emb)
+    embed_items(db, emb, [item])
+    canon_models = {r[0] for r in db.execute(
+        "SELECT embedding_model FROM canonical_products WHERE id = ANY(%s)", (list(ids.values()),)
+    ).fetchall()}  # fmt: skip
+    item_model = db.execute("SELECT model FROM item_embeddings WHERE item_id = %s",
+                            (item,)).fetchone()[0]  # fmt: skip
+    assert canon_models == {item_model} == {HASH_MODEL_NAME}
+    assert top_k(db, item, 5, "dairy", "100ml")
+
+    # The item moves to another model while the canonicals still hold the old one: no
+    # candidates rather than distances between two vector spaces.
+    other = HashEmbedder(ngram_sizes=(3,))
+    embed_items(db, other, [item])
+    assert top_k(db, item, 5, "dairy", "100ml") == []
+    embed_canonicals(db, other)
+    assert top_k(db, item, 5, "dairy", "100ml")

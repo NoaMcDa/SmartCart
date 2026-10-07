@@ -1277,7 +1277,7 @@ canonicals:
   taxonomy_id: beverages.plant_drinks.soy
   product_type: soy_drink
   base_unit: 100ml
-  critical_attrs: {}
+  critical_attrs: {base: soy}
   soft_attrs: {pack_size: 1000, unit: ml}
   rank: 141
   is_mvp: true
@@ -1286,7 +1286,7 @@ canonicals:
   taxonomy_id: beverages.plant_drinks.almond
   product_type: almond_drink
   base_unit: 100ml
-  critical_attrs: {}
+  critical_attrs: {base: almond}
   soft_attrs: {pack_size: 1000, unit: ml}
   rank: 142
   is_mvp: true
@@ -1295,7 +1295,7 @@ canonicals:
   taxonomy_id: beverages.plant_drinks.oat
   product_type: oat_drink
   base_unit: 100ml
-  critical_attrs: {}
+  critical_attrs: {base: oat}
   soft_attrs: {pack_size: 1000, unit: ml}
   rank: 143
   is_mvp: true
