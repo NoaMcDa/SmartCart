@@ -6,7 +6,6 @@ from decimal import Decimal
 
 import pytest
 
-from smartcart_catalog.extract.base import ItemContext
 from smartcart_catalog.extract.rule import MAX_CONFIDENCE, RuleExtractor
 from smartcart_catalog.models import Attributes, ExtractionError, NormalizedItem
 from smartcart_catalog.normalize import normalize
@@ -21,8 +20,8 @@ def rx() -> RuleExtractor:
 
 
 def _extract(rx: RuleExtractor, name: str, chain: str | None = SHUFERSAL) -> Attributes:
-    item = normalize({"raw_name": name, "item_code": "7290000000000"}, item_id=1)
-    out = rx.extract([item], context={1: ItemContext(chain_id=chain)})[0]
+    item = normalize({"raw_name": name, "item_code": "7290000000000", "chain_id": chain}, item_id=1)
+    out = rx.extract([item])[0]
     assert isinstance(out, Attributes)
     return out
 
@@ -113,3 +112,27 @@ def test_output_order_and_count_match_input(rx) -> None:
     items = [normalize({"raw_name": n}, item_id=i) for i, n in enumerate(["חלב 1 ליטר", "", "במבה"])]
     out = rx.extract(items)
     assert [type(o).__name__ for o in out] == ["Attributes", "ExtractionError", "Attributes"]
+
+
+@pytest.mark.parametrize(
+    ("name", "base", "variety"),
+    [
+        ("משקה סויה אלפרו 1 ליטר", "soy", None),
+        ("משקה שקדים ללא סוכר 1 ליטר", "almond", None),
+        ("משקה שיבולת שועל בריסטה 1 ליטר", "oat", "barista"),
+        ("חלב תנובה 3% בקרטון 1 ליטר", None, None),
+        ("רוטב סויה 250 מ\"ל", None, None),  # soy sauce is not a plant drink
+    ],
+)
+def test_plant_drink_base_and_variety(rx, name, base, variety) -> None:
+    """Issue #92: ``base`` for plant drinks, ``variety`` for named varieties."""
+    a = _extract(rx, name)
+    assert (a.base, a.variety) == (base, variety)
+
+
+def test_private_label_reads_chain_and_manufacturer_from_the_item(rx) -> None:
+    item = normalize({"raw_name": "חלב 3% 1 ליטר", "item_code": "1", "chain_id": SHUFERSAL,
+                      "manufacturer": "שופרסל בע\"מ"}, item_id=3)
+    out = rx.extract([item])[0]
+    assert isinstance(out, Attributes)
+    assert (out.brand, out.is_private_label) == ("שופרסל", True)

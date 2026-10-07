@@ -119,6 +119,8 @@ class PricedItem(_Model):
     tags: list[AttributeTag] = Field(default_factory=list)
     original_item_id: int | None = None
     promo_confidence: float | None = Field(default=None, ge=0, le=1, description="Confidence that the promo was parsed correctly; null when unknown")
+    club_offer_name: str | None = Field(default=None, description="A club deal on this line for a club the user did not mark; information only, never in a total or saving")
+    club_offer_discount: Decimal | None = Field(default=None, description="What club_offer_name would save on this line, ILS; information only")
 
 
 class StoreResult(_Model):
@@ -349,6 +351,10 @@ class PromoWindow(_Model):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     description: str
+    promo_type: str | None = Field(default=None, description="reward_type: price, percent, buy_x_get_y, bundle, other")
+    club_only: bool | None = Field(default=None, description="true when only club members (or card holders) get it")
+    club_name: str | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1, description="Promo parsing confidence; null when unknown")
 
 
 class PriceHistoryResponse(_Model):
@@ -358,6 +364,8 @@ class PriceHistoryResponse(_Model):
     points: list[PricePoint]
     promos: list[PromoWindow] = Field(default_factory=list)
     generated_at: datetime
+    item_id: int | None = Field(default=None, description="The item whose price events make the series; null when none")
+    display_name_he: str | None = None
 
 
 class PriceAlertIn(_Model):
@@ -365,6 +373,7 @@ class PriceAlertIn(_Model):
     threshold_unit_price: Decimal = Field(gt=0)
     flex_level: FlexLevel = "any_brand"
     radius_m: int = Field(default=5000, ge=500, le=15000)
+    active: bool = Field(default=True, description="false pauses the alert")
 
 
 class PriceAlert(PriceAlertIn):
@@ -407,6 +416,12 @@ class StorePrice(_Model):
     unit_price: Decimal
     uom: str
     price_valid_from: datetime
+    promo_description: str | None = None
+    club_required: bool | None = Field(default=None, description="true when the price is a club deal the user marked")
+    club_name: str | None = None
+    is_substitute: bool | None = Field(default=None, description="true: another product than the one scanned")
+    confidence: float | None = Field(default=None, description="Mapping confidence of a substitute")
+    tags: list[AttributeTag] | None = Field(default=None, description="Why it is a substitute: attributes against the scanned product")
 
 
 class BarcodeLookupResponse(_Model):

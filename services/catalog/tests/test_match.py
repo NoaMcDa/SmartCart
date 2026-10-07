@@ -125,17 +125,34 @@ def test_apply_decisions_never_overwrites_human_rows(db) -> None:
     assert counts["skipped_human"] == 3
 
 
+def _reject(db, item_id, canonical_id) -> None:
+    db.execute(
+        "INSERT INTO item_canonical (item_id, canonical_id, flex_level, confidence, source,"
+        " needs_review, human_rejected, reviewed_by, reviewed_at)"
+        " VALUES (%s, %s, 'close', 0, 'human', true, true, 'noa', now())",
+        (item_id, canonical_id),
+    )
+
+
 @pytest.mark.db
 def test_apply_decisions_respects_human_rejections_and_open_feedback(db) -> None:
     ids = seed_catalog(db)
     rejected = add_item(db, "חלב 1% 1 ליטר")
+    _reject(db, rejected, ids["t-milk-3"])
+    counts = apply_decisions(db, [_decision(rejected, ids["t-milk-3"])])
+    assert counts["skipped_rejected_by_human"] == 1
+    assert _mapping(db, rejected) == [(ids["t-milk-3"], "close", 0.0, "human", True)]
+    # A rejection is not a human mapping: the judge may still map the item elsewhere.
+    apply_decisions(db, [_decision(rejected, ids["t-milk-1"])])
+    assert [m[0] for m in _mapping(db, rejected)] == [ids["t-milk-3"], ids["t-milk-1"]]
+    # gold_pairs is for evaluation only: a no_match gold pair no longer blocks the judge.
+    gold_only = add_item(db, "חלב טרי 3% 1 ליטר")
     db.execute(
-        "INSERT INTO gold_pairs (item_id, canonical_id, label, note) VALUES (%s, %s, 'no_match',"
-        " 'review: rejected by noa')",
-        (rejected, ids["t-milk-3"]),
+        "INSERT INTO gold_pairs (item_id, canonical_id, label) VALUES (%s, %s, 'no_match')",
+        (gold_only, ids["t-milk-3"]),
     )
-    apply_decisions(db, [_decision(rejected, ids["t-milk-3"])])
-    assert _mapping(db, rejected) == []
+    apply_decisions(db, [_decision(gold_only, ids["t-milk-3"])])
+    assert _mapping(db, gold_only) == [(ids["t-milk-3"], "any_brand", 0.95, "rule", False)]
 
     reported = add_item(db, "חלב טרי 3% 1 ליטר")
     db.execute(
@@ -187,3 +204,54 @@ def test_run_matching_end_to_end_and_rerun_is_idempotent(db) -> None:
         "SELECT metrics FROM match_runs WHERE kind = 'judge' ORDER BY id DESC LIMIT 1"
     ).fetchone()[0]
     assert run["items"] >= 5 and run["judge"] == "rule-v1"
+
+
+@pytest.mark.db
+def test_apply_decisions_stores_the_reason(db) -> None:
+    ids = seed_catalog(db)
+    it = add_item(db, "חלב טרי 3% 1 ליטר")
+    d = _decision(it, ids["t-milk-3"]).model_copy(update={"reason": "accept: t-milk-3 | why"})
+    apply_decisions(db, [d])
+    assert db.execute("SELECT reason FROM item_canonical WHERE item_id = %s",
+                      (it,)).fetchone()[0] == "accept: t-milk-3 | why"  # fmt: skip
+    apply_decisions(db, [d.model_copy(update={"reason": "accept: again"})])
+    assert db.execute("SELECT reason FROM item_canonical WHERE item_id = %s",
+                      (it,)).fetchone()[0] == "accept: again"  # fmt: skip
+
+
+@pytest.mark.db
+@pytest.mark.pgvector
+def test_the_judge_never_proposes_a_human_rejected_canonical(db) -> None:
+    ids = seed_catalog(db)
+    lex = Lexicon.from_mapping(LEXICON)
+    it = add_item(db, "חלב טרי 3% תנובה 1 ליטר")
+    embed_all(db)
+    first = run_matching(db, RuleJudge(), [it], k=5, lexicon=lex)[0]
+    assert first.decision.canonical_id == ids["t-milk-3"]
+    db.execute("UPDATE item_canonical SET human_rejected = true, source = 'human',"
+               " needs_review = true WHERE item_id = %s", (it,))  # fmt: skip
+    ctx = load_items(db, [it], lex)[it]
+    assert ctx.rejected == frozenset({ids["t-milk-3"]})
+    again = run_matching(db, RuleJudge(), [it], k=5, lexicon=lex)[0]
+    assert ids["t-milk-3"] not in [c.canonical_id for c in again.candidates]
+    assert again.decision.canonical_id != ids["t-milk-3"]
+    rows = db.execute("SELECT canonical_id, human_rejected FROM item_canonical"
+                      " WHERE item_id = %s", (it,)).fetchall()  # fmt: skip
+    assert (ids["t-milk-3"], True) in rows
+
+
+@pytest.mark.db
+def test_load_items_carries_barcode_chain_and_manufacturer(db) -> None:
+    seed_catalog(db)
+    it = add_item(db, "חלב טרי 3% 1 ליטר", barcode=MILK3_BARCODE)
+    ctx = load_items(db, [it])[it]
+    assert ctx.item.barcode == MILK3_BARCODE and ctx.item.chain_id == "test-match"
+    assert ctx.item.raw_name == "חלב טרי 3% 1 ליטר"
+
+
+def test_fallback_applies_the_lexicon_implied_base() -> None:
+    lex = Lexicon.from_mapping({"product_types": {"soy_drink": {
+        "keywords": ["משקה סויה"], "taxonomy_id": "dairy.plant_drinks",
+        "implied": {"base": "soy"}}}})  # fmt: skip
+    assert fallback_attributes("משקה סויה אלפרו 1 ליטר", lex).base == "soy"
+    assert fallback_attributes("חלב 3% 1 ליטר", lex).base is None

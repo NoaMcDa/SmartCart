@@ -86,10 +86,10 @@ RULES: dict[str, tuple[list[str], list[str]]] = {
     "sweet_cream": (["fat_pct"], ["pack_size", "brand"]),
     "sour_cream": (["fat_pct"], ["pack_size", "brand"]),
     "eggs": ([], ["pack_size", "brand"]),
-    "soy_drink": ([], ["pack_size", "flavor", "brand"]),
-    "almond_drink": ([], ["pack_size", "flavor", "brand"]),
-    "oat_drink": ([], ["pack_size", "flavor", "brand"]),
-    "rice_drink": ([], ["pack_size", "flavor", "brand"]),
+    "soy_drink": (["base"], ["pack_size", "flavor", "brand"]),
+    "almond_drink": (["base"], ["pack_size", "flavor", "brand"]),
+    "oat_drink": (["base"], ["pack_size", "flavor", "brand"]),
+    "rice_drink": (["base"], ["pack_size", "flavor", "brand"]),
     "salmon": (["state"], ["pack_size", "brand"]),
     "smoked_salmon": ([], ["pack_size", "brand"]),
     "tilapia": (["state"], ["pack_size", "brand"]),
@@ -171,6 +171,14 @@ LEXICON_PT: dict[str, list[str]] = {
     "orange_juice": ["מיץ תפוזים", "תפוזים"],
     "toilet_paper": ["נייר טואלט"],
     "dish_soap": ["סבון כלים", "נוזל כלים"],
+}
+# Attributes a product type implies (Attributes.base, issue #92), applied by the fallback
+# extractor when the name does not state them.
+LEXICON_IMPLIED: dict[str, dict[str, str]] = {
+    "soy_drink": {"base": "soy"},
+    "almond_drink": {"base": "almond"},
+    "oat_drink": {"base": "oat"},
+    "rice_drink": {"base": "rice"},
 }
 LEXICON_FLAVORS: dict[str, list[str]] = {
     "white": ["לבן", "לחם לבן", "קמח לבן", "סוכר לבן"],
@@ -451,14 +459,15 @@ SPECS: list[dict[str, Any]] = [
         neg=[],
         n=14,
     ),
-    # dairy.plant_drinks: soy vs almond vs oat are different product types.
+    # dairy.plant_drinks: soy vs almond vs oat are different product types, and the base
+    # (Attributes.base) is critical as well.
     dict(
         slug="soy-drink-1l",
         tax="dairy.plant_drinks",
         name="משקה סויה, 1 ליטר",
         pt="soy_drink",
         bu="100ml",
-        crit={},
+        crit={"base": "soy"},
         soft={"pack_size": 1, "unit": "l", "flavor": "natural"},
         templates=["משקה סויה {v} {b} {s}", "{b} משקה סויה {v} {s}", "סויה {b} {v} {s}"],
         brands=PLANT_BRANDS,
@@ -473,7 +482,7 @@ SPECS: list[dict[str, Any]] = [
         name="משקה שקדים, 1 ליטר",
         pt="almond_drink",
         bu="100ml",
-        crit={},
+        crit={"base": "almond"},
         soft={"pack_size": 1, "unit": "l", "flavor": "natural"},
         templates=["משקה שקדים {v} {b} {s}", "{b} משקה שקדים {v} {s}", "שקדים {b} משקה {s}"],
         brands=PLANT_BRANDS,
@@ -488,7 +497,7 @@ SPECS: list[dict[str, Any]] = [
         name="משקה שיבולת שועל, 1 ליטר",
         pt="oat_drink",
         bu="100ml",
-        crit={},
+        crit={"base": "oat"},
         soft={"pack_size": 1, "unit": "l", "flavor": "natural"},
         templates=[
             "משקה שיבולת שועל {b} {s}",
@@ -1258,7 +1267,8 @@ def build(seed: int = SEED) -> tuple[dict[str, Any], list[dict[str, Any]]]:
                 "product_type": s["pt"],
                 "base_unit": s["bu"],
                 "critical_attrs": s["crit"],
-                "soft_attrs": s["soft"],
+                "soft_attrs": {k: v for k, v in s["soft"].items() if k != "barcodes"},
+                "reference_barcodes": s["soft"]["barcodes"],
             }
             for s in SPECS
         ],  # fmt: skip
@@ -1269,6 +1279,7 @@ def build(seed: int = SEED) -> tuple[dict[str, Any], list[dict[str, Any]]]:
                     "taxonomy_id": next(
                         (s["tax"] for s in SPECS if s["pt"] == pt), _orphan_tax(pt)
                     ),
+                    **({"implied": LEXICON_IMPLIED[pt]} if pt in LEXICON_IMPLIED else {}),
                 }
                 for pt, kws in LEXICON_PT.items()
             },  # fmt: skip

@@ -118,6 +118,8 @@ def test_phase0_chains_registered() -> None:
         "hazihinam": "7290700100008",
         "tivtaam": "7290873255550",
         "mega": "7290055700007",
+        "machsanei_hashuk": "7290661400001",
+        "king_store": "7290058108879",
     }
     adapters = chain_adapters()
     assert {slug: cls.chain_id for slug, cls in adapters.items()} == expected
@@ -230,6 +232,30 @@ def test_detect_kind_rejects_other_chains_file() -> None:
 def test_victory_accepts_second_chain_id() -> None:
     adapter = get_adapter("7290696200003")
     assert adapter.detect_kind("PriceFull7290058103393-001-202610060300.xml.gz") == "price_full"
+
+
+def test_every_d13_chain_has_an_adapter() -> None:
+    """``smartcart-ingest run --mode full`` skips D13 chains without an adapter (issue #81)."""
+    from smartcart_ingest.scheduler import D13_CHAINS
+
+    assert [c.chain_id for c in D13_CHAINS if c.chain_id not in REGISTRY] == []
+
+
+def test_machsanei_hashuk_second_chain_id_is_an_alias() -> None:
+    adapter = get_adapter("7290633800006")
+    assert type(adapter) is type(get_adapter("7290661400001"))
+    assert adapter.detect_kind("Promo7290633800006-003-202610061110.xml.gz") == "promo"
+    assert adapter.portal == "matrix" and adapter.upstream_scraper == "MAHSANI_ASHUK_NEW_SOURCE"
+
+
+def test_king_store_is_the_bina_chain() -> None:
+    adapter = get_adapter("7290058108879")
+    assert adapter.portal == "bina" and adapter.upstream_scraper == "KING_STORE"
+    # Bina serves compressed bytes under a plain .xml name: detected by content, not extension.
+    name = "PriceFull7290058108879-001-202610060510.xml"
+    data = (FIXTURES / "king_store" / name).read_bytes()
+    assert data[:2] == b"\x1f\x8b"
+    assert parse_fixture(adapter, FIXTURES / "king_store" / name).prices
 
 
 # --------------------------------------------------------------------------- alerts (#32)

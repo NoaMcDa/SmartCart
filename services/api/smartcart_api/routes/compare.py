@@ -10,6 +10,10 @@
   expensive store or chain anywhere in the response (D7).
 * Every line carries ``price_valid_from``; each store carries ``prices_updated_at``, the newest of
   its lines.
+* Club deals follow ``basket.club_member`` (issue #19): only for the clubs in ``clubs``; a deal
+  the user did not mark is reported as ``club_offer_name`` / ``club_offer_discount``, never in a
+  total. Lines carry ``promo_confidence`` when the adapter recorded one; stores carry ``lat`` and
+  ``lon`` from ``stores.geog`` (issue #90).
 """
 
 from __future__ import annotations

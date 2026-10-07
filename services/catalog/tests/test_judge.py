@@ -41,15 +41,16 @@ RULES = {
 
 
 def canon(
-    cid: int, slug: str, ptype: str, crit: dict, soft: dict, name: str = ""
+    cid: int, slug: str, ptype: str, crit: dict, soft: dict, name: str = "",
+    barcodes: tuple[str, ...] = (),
 ) -> CanonicalProduct:
     return CanonicalProduct(id=cid, taxonomy_id="x.y", slug=slug, display_name_he=name or slug,
                             product_type=ptype, base_unit="100ml", critical_attrs=crit,
-                            soft_attrs=soft)  # fmt: skip
+                            soft_attrs=soft, reference_barcodes=barcodes)  # fmt: skip
 
 
 MILK3 = canon(1, "milk-3", "milk", {"fat_pct": 3, "state": "fresh"},
-              {"pack_size": 1, "unit": "l", "barcodes": ["7290000000017"]})  # fmt: skip
+              {"pack_size": 1, "unit": "l"}, barcodes=("7290000000017",))  # fmt: skip
 MILK1 = canon(2, "milk-1", "milk", {"fat_pct": 1, "state": "fresh"}, {"pack_size": 1, "unit": "l"})
 SALMON_FRESH = canon(3, "salmon-fresh", "salmon", {"state": "fresh"}, {})
 SALMON_FROZEN = canon(4, "salmon-frozen", "salmon", {"state": "frozen"}, {})
@@ -59,8 +60,8 @@ COTTAGE_250 = canon(7, "cottage-5-250", "cottage", {"fat_pct": 5}, {"pack_size":
 COTTAGE_500 = canon(8, "cottage-5-500", "cottage", {"fat_pct": 5}, {"pack_size": 500, "unit": "g"})
 
 
-def item(name: str = "x", iid: int = 100) -> NormalizedItem:
-    return NormalizedItem(item_id=iid, clean_name=name)
+def item(name: str = "x", iid: int = 100, barcode: str | None = None) -> NormalizedItem:
+    return NormalizedItem(item_id=iid, clean_name=name, barcode=barcode)
 
 
 def cand(c: CanonicalProduct, sim: float) -> Candidate:
@@ -156,12 +157,40 @@ def test_brand_never_demotes_any_brand() -> None:
 
 
 def test_exact_when_barcode_equal() -> None:
-    d = RuleJudge().judge(item(), Attributes(), [cand(MILK3, 0.3)], RULES, barcode="7290000000017")
+    """The barcode comes from the item and the reference barcodes from the canonical (#92)."""
+    d = RuleJudge().judge(item(barcode="7290000000017"), Attributes(), [cand(MILK3, 0.3)], RULES)
     assert d.flex_level == "exact" and d.confidence == 1.0 and not d.needs_review
     assert d.source == "rule"
-    via_map = RuleJudge(barcodes={100: "7290000000017"}).judge(item(), Attributes(),
-                                                               [cand(MILK3, 0.3)], RULES)  # fmt: skip
-    assert via_map.flex_level == "exact"
+    other = RuleJudge().judge(item(barcode="7290000000024"), Attributes(), [cand(MILK3, 0.3)],
+                              RULES)  # fmt: skip
+    assert other.flex_level != "exact"
+    # A barcode left in soft_attrs (the pre-#92 workaround) no longer counts.
+    legacy = canon(11, "milk-3-legacy", "milk", {"fat_pct": 3, "state": "fresh"},
+                   {"pack_size": 1, "unit": "l", "barcodes": ["7290000000017"]})  # fmt: skip
+    d2 = RuleJudge().judge(item(barcode="7290000000017"), Attributes(), [cand(legacy, 0.3)],
+                           RULES)  # fmt: skip
+    assert d2.flex_level != "exact"
+
+
+def test_reference_barcodes_are_text() -> None:
+    c = CanonicalProduct(taxonomy_id="x.y", slug="s", display_name_he="s", product_type="milk",
+                         base_unit="100ml", reference_barcodes=[7290000000017])  # fmt: skip
+    assert c.reference_barcodes == ("7290000000017",)
+
+
+def test_plant_drink_base_is_a_critical_veto() -> None:
+    """With ``base`` critical, soy vs almond is vetoed even under one product type (#92)."""
+    rules = {"plant_drink": ProductTypeRule(product_type="plant_drink", critical_keys=("base",),
+                                            soft_keys=("pack_size", "brand"))}  # fmt: skip
+    soy = canon(20, "plant-soy", "plant_drink", {"base": "soy"}, {"pack_size": 1, "unit": "l"})
+    almond = canon(21, "plant-almond", "plant_drink", {"base": "almond"},
+                   {"pack_size": 1, "unit": "l"})  # fmt: skip
+    attrs = Attributes(product_type="plant_drink", base="soy", pack_size=Decimal(1), unit="l")
+    d = RuleJudge().judge(item(), attrs, [cand(almond, 0.95), cand(soy, 0.70)], rules)
+    assert d.canonical_id == soy.id and d.flex_level == "any_brand"
+    assert "base almond vs soy" in d.reason or "base soy vs almond" in d.reason
+    only_almond = RuleJudge().judge(item(), attrs, [cand(almond, 0.99)], rules)
+    assert only_almond.canonical_id is None
 
 
 def test_high_similarity_and_all_critical_verified_is_auto_accepted() -> None:
@@ -295,7 +324,7 @@ def test_llm_none_refusal_and_invalid_output() -> None:
 def test_llm_skips_the_call_for_barcode_and_vetoed_only() -> None:
     client = ReplayClient()
     judge = LLMJudge(client)
-    exact = judge.judge(item(), milk_attrs(), [cand(MILK3, 0.5)], RULES, barcode="7290000000017")
+    exact = judge.judge(item(barcode="7290000000017"), milk_attrs(), [cand(MILK3, 0.5)], RULES)
     assert exact.flex_level == "exact"
     vetoed = judge.judge(item(), milk_attrs(fat="1"), [cand(MILK3, 0.9)], RULES)
     assert vetoed.canonical_id is None
