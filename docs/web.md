@@ -44,7 +44,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
 | `npm run typecheck` | `next typegen` (route types) then `tsc --noEmit`, strict with `noUncheckedIndexedAccess` |
 | `npm test` | Vitest unit tests (jsdom): components, theme, tokens versus the doc table, AA contrast, mock API, RTL guard |
 | `npm run e2e` | Playwright against `next start` on port 3100. Run `npm run build` first |
-| `npm run gen:api` | Regenerate `src/api/types.ts` from `src/api/openapi.json` (commit the output; CI fails if it is stale) |
+| `npm run gen:api` | Regenerate `src/api/types.ts` from `src/api/openapi.json` (commit the output; CI fails if it is stale). Not run through Prettier (`.prettierignore`), so it matches `services/api/scripts/gen_ts_client.sh`, which the Python CI checks too |
 | `npm run lhci` | Lighthouse CI on `/`, `/compare`, `/design-system` (accessibility, best practices, SEO). Needs a build and `CHROME_PATH` |
 | `npm run fetch:fonts` | Re-download Heebo into `public/fonts` (one-time setup, output committed) |
 

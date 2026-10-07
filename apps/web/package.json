@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "gen:api": "openapi-typescript src/api/openapi.json -o src/api/types.ts && prettier --write src/api/types.ts",
+    "gen:api": "openapi-typescript src/api/openapi.json -o src/api/types.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"*.{ts,mjs}\" scripts",
     "fetch:fonts": "bash scripts/fetch-heebo.sh",
     "lhci": "npx -y @lhci/cli@0.15.1 autorun"
