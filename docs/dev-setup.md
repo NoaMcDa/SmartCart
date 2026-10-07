@@ -27,14 +27,41 @@ uv run pytest                # all tests
 uv run pytest -m "not db"    # only tests that need no database
 ```
 
+## Run the whole stack locally
+
+`scripts/demo/up.sh` brings up everything on synthetic data with one command and can be re-run
+safely: a throwaway Postgres with PostGIS and pgvector (or the database in `DATABASE_URL`), the
+migrations, the catalog seed, every chain's synthetic transparency files through the real loader
+and quality gates, normalize, rule extraction, hash embeddings, the rule judge, the precompute and
+the API on port 8000. [fullstack.md](fullstack.md) has every step, its expected counts and the
+known gaps.
+
+```bash
+uv sync
+scripts/demo/up.sh                         # prints the env the web app needs at the end
+uv run python scripts/demo/smoke.py        # the MVP path over HTTP; exits 1 on a failed check
+
+cd apps/web && npm ci
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 NEXT_PUBLIC_API_MOCK=0 npm run dev
+npm run e2e:fullstack                      # Playwright against the real API (builds the app first)
+
+cd ../.. && scripts/demo/down.sh           # stop the API, delete the throwaway database
+```
+
+`NEXT_PUBLIC_*` values are inlined at build time, and `e2e:fullstack` rebuilds `.next` with them:
+run `npm run build` again before the mock suite (`npm run e2e`). The demo's shopper lives in Ramat
+Gan; in onboarding pick the city רמת גן, not the device location.
+
 ## Repository layout
 
 ```
-apps/web            Next.js PWA (phase 1; empty for now)
-services/api        FastAPI (phase 1; empty for now)
-services/catalog    normalization, embeddings, matching (phase 1; empty for now)
-services/ingest     Python: transparency files -> Postgres, quality gates
+apps/web            Next.js PWA and the static SEO pages (docs/web.md)
+services/api        FastAPI: parse-list, search, compare, optimize, user routes (docs/api.md)
+services/catalog    normalization, extraction, embeddings, judge, review UI (docs/catalog.md)
+services/ingest     Python: transparency files -> Postgres, quality gates (docs/ingestion.md)
+services/dashboard  ingestion dashboard (docs/dashboard.md)
 supabase            SQL migrations (see supabase/README.md)
+scripts/demo        the one-command full-stack demo on synthetic data (docs/fullstack.md)
 infra               docker compose for a local database, provisioning notes
 docs                product, decisions, architecture, roadmap, this file
 ```
@@ -92,3 +119,8 @@ To run everything locally, use one of:
 `supabase/postgres:17.11.0.004` service container (PostGIS, pgvector and pg_trgm available). That
 tag was verified to exist on Docker Hub on 2026-10-06. Supabase publishes Postgres 15 and 17
 images, not 16; the schema uses nothing that differs between 16 and 17.
+
+`.github/workflows/fullstack.yml` runs the demo end to end on every push and pull request:
+`scripts/demo/up.sh` against the same Supabase Postgres service image, `scripts/demo/smoke.py`,
+then `npm run e2e:fullstack`; the Playwright report and the demo logs are uploaded on failure.
+`.github/workflows/web.yml` runs the web app's lint, unit, mock e2e and accessibility suites.
