@@ -101,6 +101,7 @@ test.describe("alerts", () => {
     await mockApi(page);
     await seedProfile(page);
     await page.goto(PRODUCT);
+    await page.getByTestId("variants").waitFor(); // the unit label comes from the loaded prices
 
     const region = page.getByRole("region", { name: "התראה כשהמחיר יורד" });
     await expect(region).toBeVisible();
