@@ -1,0 +1,1459 @@
+{
+  "components": {
+    "schemas": {
+      "Ack": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "Ack",
+        "type": "object"
+      },
+      "AttributeTag": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "matched",
+              "differs",
+              "unverified"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "status"
+        ],
+        "title": "AttributeTag",
+        "type": "object"
+      },
+      "BasketItem": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_id": {
+            "title": "Canonical Id",
+            "type": "integer"
+          },
+          "exact_item_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required when flex_level is exact",
+            "title": "Exact Item Id"
+          },
+          "flex_level": {
+            "default": "any_brand",
+            "enum": [
+              "exact",
+              "any_brand",
+              "close"
+            ],
+            "title": "Flex Level",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Quantity"
+          }
+        },
+        "required": [
+          "canonical_id",
+          "quantity"
+        ],
+        "title": "BasketItem",
+        "type": "object"
+      },
+      "CanonicalRef": {
+        "additionalProperties": false,
+        "properties": {
+          "base_unit": {
+            "enum": [
+              "100g",
+              "100ml",
+              "unit",
+              "kg"
+            ],
+            "title": "Base Unit",
+            "type": "string"
+          },
+          "canonical_id": {
+            "title": "Canonical Id",
+            "type": "integer"
+          },
+          "display_name_he": {
+            "title": "Display Name He",
+            "type": "string"
+          },
+          "taxonomy_id": {
+            "title": "Taxonomy Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "canonical_id",
+          "display_name_he",
+          "taxonomy_id",
+          "base_unit"
+        ],
+        "title": "CanonicalRef",
+        "type": "object"
+      },
+      "CompareRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "clubs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Clubs",
+            "type": "array"
+          },
+          "home_store_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The user's usual store; savings are measured against it only",
+            "title": "Home Store Id"
+          },
+          "include_online": {
+            "default": false,
+            "title": "Include Online",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BasketItem"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          }
+        },
+        "required": [
+          "items",
+          "location"
+        ],
+        "title": "CompareRequest",
+        "type": "object"
+      },
+      "CompareResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "disclaimer_he": {
+            "default": "המחיר הקובע הוא בקופה.",
+            "title": "Disclaimer He",
+            "type": "string"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "home_store_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Store Id"
+          },
+          "home_store_total": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Store Total"
+          },
+          "stores": {
+            "description": "Sorted: complete baskets first, then by total",
+            "items": {
+              "$ref": "#/components/schemas/StoreResult"
+            },
+            "title": "Stores",
+            "type": "array"
+          }
+        },
+        "required": [
+          "stores",
+          "home_store_id",
+          "home_store_total",
+          "generated_at"
+        ],
+        "title": "CompareResponse",
+        "type": "object"
+      },
+      "GapReportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Price"
+          },
+          "canonical_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Id"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "shown_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shown Price"
+          },
+          "store_id": {
+            "title": "Store Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "store_id"
+        ],
+        "title": "GapReportRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "Location": {
+        "additionalProperties": false,
+        "properties": {
+          "lat": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lon",
+            "type": "number"
+          },
+          "radius_m": {
+            "default": 5000,
+            "maximum": 15000.0,
+            "minimum": 500.0,
+            "title": "Radius M",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lon",
+          "lat"
+        ],
+        "title": "Location",
+        "type": "object"
+      },
+      "OptimizeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "clubs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Clubs",
+            "type": "array"
+          },
+          "home_store_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The user's usual store; savings are measured against it only",
+            "title": "Home Store Id"
+          },
+          "include_online": {
+            "default": false,
+            "title": "Include Online",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BasketItem"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          },
+          "max_stores": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Max Stores",
+            "type": "integer"
+          },
+          "min_split_saving": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "default": "25",
+            "description": "A split is recommended only above this net saving",
+            "title": "Min Split Saving"
+          },
+          "travel": {
+            "$ref": "#/components/schemas/TravelSettings"
+          }
+        },
+        "required": [
+          "items",
+          "location"
+        ],
+        "title": "OptimizeRequest",
+        "type": "object"
+      },
+      "OptimizeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "disclaimer_he": {
+            "default": "המחיר הקובע הוא בקופה.",
+            "title": "Disclaimer He",
+            "type": "string"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "minimum_effort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Plan"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The home store itself; null without a home store"
+          },
+          "single": {
+            "$ref": "#/components/schemas/Plan"
+          },
+          "split": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Plan"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when no split beats min_split_saving"
+          },
+          "subsets_evaluated": {
+            "title": "Subsets Evaluated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "single",
+          "subsets_evaluated",
+          "generated_at"
+        ],
+        "title": "OptimizeResponse",
+        "type": "object"
+      },
+      "ParseListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "flex_defaults": {
+            "additionalProperties": {
+              "enum": [
+                "exact",
+                "any_brand",
+                "close"
+              ],
+              "type": "string"
+            },
+            "description": "taxonomy_id -> flex level",
+            "title": "Flex Defaults",
+            "type": "object"
+          },
+          "text": {
+            "description": "Free text, Hebrew, comma or newline separated",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ParseListRequest",
+        "type": "object"
+      },
+      "ParseListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ParsedRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "generated_at"
+        ],
+        "title": "ParseListResponse",
+        "type": "object"
+      },
+      "ParsedRow": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "description": "Alternatives when confidence is low",
+            "items": {
+              "$ref": "#/components/schemas/CanonicalRef"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "canonical": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CanonicalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "flex_level": {
+            "default": "any_brand",
+            "enum": [
+              "exact",
+              "any_brand",
+              "close"
+            ],
+            "title": "Flex Level",
+            "type": "string"
+          },
+          "input_text": {
+            "title": "Input Text",
+            "type": "string"
+          },
+          "is_weighed": {
+            "default": false,
+            "title": "Is Weighed",
+            "type": "boolean"
+          },
+          "needs_confirmation": {
+            "title": "Needs Confirmation",
+            "type": "boolean"
+          },
+          "not_found": {
+            "default": false,
+            "title": "Not Found",
+            "type": "boolean"
+          },
+          "quantity": {
+            "default": "1",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Quantity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_text",
+          "confidence",
+          "needs_confirmation"
+        ],
+        "title": "ParsedRow",
+        "type": "object"
+      },
+      "Plan": {
+        "additionalProperties": false,
+        "properties": {
+          "breakdown": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SavingBreakdown"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when there is no home store to compare with"
+          },
+          "extra_minutes": {
+            "default": 0,
+            "title": "Extra Minutes",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "single",
+              "split",
+              "minimum_effort"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "missing": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "recommended": {
+            "title": "Recommended",
+            "type": "boolean"
+          },
+          "stores": {
+            "items": {
+              "$ref": "#/components/schemas/StoreAssignment"
+            },
+            "title": "Stores",
+            "type": "array"
+          },
+          "substituted_count": {
+            "default": 0,
+            "title": "Substituted Count",
+            "type": "integer"
+          },
+          "total": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "stores",
+          "total",
+          "recommended"
+        ],
+        "title": "Plan",
+        "type": "object"
+      },
+      "PricedItem": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_id": {
+            "title": "Canonical Id",
+            "type": "integer"
+          },
+          "club_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Club Name"
+          },
+          "club_required": {
+            "default": false,
+            "title": "Club Required",
+            "type": "boolean"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Match confidence when is_substitute",
+            "title": "Confidence"
+          },
+          "display_name_he": {
+            "title": "Display Name He",
+            "type": "string"
+          },
+          "effective_unit_price": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Effective Unit Price",
+            "type": "string"
+          },
+          "is_estimated": {
+            "default": false,
+            "description": "Weighed goods",
+            "title": "Is Estimated",
+            "type": "boolean"
+          },
+          "is_substitute": {
+            "title": "Is Substitute",
+            "type": "boolean"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "line_total": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Line Total",
+            "type": "string"
+          },
+          "original_item_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Item Id"
+          },
+          "price_valid_from": {
+            "format": "date-time",
+            "title": "Price Valid From",
+            "type": "string"
+          },
+          "promo_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo Description"
+          },
+          "quantity": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Quantity",
+            "type": "string"
+          },
+          "shelf_price": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Shelf Price",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/AttributeTag"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "uom": {
+            "title": "Uom",
+            "type": "string"
+          }
+        },
+        "required": [
+          "canonical_id",
+          "item_id",
+          "display_name_he",
+          "quantity",
+          "shelf_price",
+          "effective_unit_price",
+          "uom",
+          "line_total",
+          "is_substitute",
+          "price_valid_from"
+        ],
+        "title": "PricedItem",
+        "type": "object"
+      },
+      "SavingBreakdown": {
+        "additionalProperties": false,
+        "properties": {
+          "basket_saving": {
+            "description": "Home store total minus this plan's basket total",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Basket Saving",
+            "type": "string"
+          },
+          "extra_stop_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Extra Stop Cost",
+            "type": "string"
+          },
+          "net_saving": {
+            "description": "basket_saving - travel_cost - extra_stop_cost; the hero number",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Saving",
+            "type": "string"
+          },
+          "travel_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Travel Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "basket_saving",
+          "travel_cost",
+          "extra_stop_cost",
+          "net_saving"
+        ],
+        "title": "SavingBreakdown",
+        "type": "object"
+      },
+      "SearchHit": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical": {
+            "$ref": "#/components/schemas/CanonicalRef"
+          },
+          "matched_by": {
+            "items": {
+              "enum": [
+                "trigram",
+                "fts",
+                "vector"
+              ],
+              "type": "string"
+            },
+            "title": "Matched By",
+            "type": "array"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "canonical",
+          "score",
+          "matched_by"
+        ],
+        "title": "SearchHit",
+        "type": "object"
+      },
+      "SearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "title": "Hits",
+            "type": "array"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query",
+          "hits"
+        ],
+        "title": "SearchResponse",
+        "type": "object"
+      },
+      "StoreAssignment": {
+        "additionalProperties": false,
+        "properties": {
+          "item_ids": {
+            "description": "item ids bought at this store",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Item Ids",
+            "type": "array"
+          },
+          "store": {
+            "$ref": "#/components/schemas/StoreResult"
+          }
+        },
+        "required": [
+          "store",
+          "item_ids"
+        ],
+        "title": "StoreAssignment",
+        "type": "object"
+      },
+      "StoreResult": {
+        "additionalProperties": false,
+        "properties": {
+          "chain_id": {
+            "title": "Chain Id",
+            "type": "string"
+          },
+          "chain_name": {
+            "title": "Chain Name",
+            "type": "string"
+          },
+          "channel": {
+            "enum": [
+              "physical",
+              "online"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "distance_m": {
+            "title": "Distance M",
+            "type": "integer"
+          },
+          "found_count": {
+            "title": "Found Count",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PricedItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "missing": {
+            "description": "canonical_ids not available at this store; never ignored",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "prices_updated_at": {
+            "format": "date-time",
+            "title": "Prices Updated At",
+            "type": "string"
+          },
+          "saving_vs_home": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Positive means cheaper than the home store; null when no home store",
+            "title": "Saving Vs Home"
+          },
+          "store_id": {
+            "title": "Store Id",
+            "type": "integer"
+          },
+          "store_name": {
+            "title": "Store Name",
+            "type": "string"
+          },
+          "substituted_count": {
+            "title": "Substituted Count",
+            "type": "integer"
+          },
+          "total": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "store_id",
+          "chain_id",
+          "chain_name",
+          "store_name",
+          "distance_m",
+          "channel",
+          "total",
+          "found_count",
+          "missing",
+          "substituted_count",
+          "items",
+          "prices_updated_at"
+        ],
+        "title": "StoreResult",
+        "type": "object"
+      },
+      "SubstitutionFeedbackRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_id": {
+            "title": "Canonical Id",
+            "type": "integer"
+          },
+          "original_item_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Item Id"
+          },
+          "substitute_item_id": {
+            "title": "Substitute Item Id",
+            "type": "integer"
+          },
+          "verdict": {
+            "enum": [
+              "not_good",
+              "kept_original",
+              "accepted"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "canonical_id",
+          "substitute_item_id",
+          "verdict"
+        ],
+        "title": "SubstitutionFeedbackRequest",
+        "type": "object"
+      },
+      "TravelSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "cost_per_km": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "default": "1.2",
+            "title": "Cost Per Km"
+          },
+          "extra_stop_value": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "default": "25",
+            "description": "What one more stop is worth to the user, ILS",
+            "title": "Extra Stop Value"
+          },
+          "mode": {
+            "default": "car",
+            "enum": [
+              "car",
+              "walk_transit",
+              "delivery"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "title": "TravelSettings",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Semantic supermarket price comparison for Israel. Prices are from the chains' transparency files; המחיר הקובע הוא בקופה.",
+    "title": "SmartCart API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/compare": {
+      "post": {
+        "operationId": "compare_compare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Compare",
+        "tags": [
+          "basket"
+        ]
+      }
+    },
+    "/feedback/gap": {
+      "post": {
+        "operationId": "feedback_gap_feedback_gap_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GapReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Feedback Gap",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/feedback/substitution": {
+      "post": {
+        "operationId": "feedback_substitution_feedback_substitution_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubstitutionFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Feedback Substitution",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/optimize": {
+      "post": {
+        "operationId": "optimize_optimize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptimizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptimizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Optimize",
+        "tags": [
+          "basket"
+        ]
+      }
+    },
+    "/parse-list": {
+      "post": {
+        "operationId": "parse_list_parse_list_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Parse List",
+        "tags": [
+          "basket"
+        ]
+      }
+    },
+    "/search": {
+      "get": {
+        "operationId": "search_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "basket"
+        ]
+      }
+    }
+  }
+}
