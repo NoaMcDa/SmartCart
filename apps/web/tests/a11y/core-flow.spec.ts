@@ -13,7 +13,25 @@ const VIEWPORTS = [
 ] as const;
 const THEMES = ["light", "dark"] as const;
 
+/**
+ * The sheets slide and fade in (200 ms). axe reads the colors under each text from what is at that
+ * point on screen, so a run during the animation sees the page behind the half-risen sheet and
+ * reports false color-contrast failures (it flaked in CI, dark theme). Wait for every finite
+ * animation to end first; infinite ones (skeleton shimmer) are left alone.
+ */
+async function animationsSettled(page: Page) {
+  await page.evaluate(async () => {
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    );
+  });
+}
+
 async function expectNoBlockingViolations(page: Page, where: string) {
+  await animationsSettled(page);
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   const blocking = results.violations.filter((v) =>
     ["serious", "critical"].includes(v.impact ?? ""),

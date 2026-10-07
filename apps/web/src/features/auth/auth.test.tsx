@@ -47,6 +47,14 @@ function Probe() {
   );
 }
 
+/**
+ * The sheet moves focus into itself on the next animation frame. Typing before that happens loses
+ * keystrokes on a slow machine (the CI flake of "shows an error when the code is wrong"), so wait.
+ */
+async function focusSettled(dialog: HTMLElement) {
+  await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+}
+
 beforeEach(() => setApiToken(null));
 afterEach(() => setSupabaseForTests(undefined));
 
@@ -76,6 +84,7 @@ describe("auth", () => {
 
     await user.click(screen.getByText("open"));
     const dialog = await screen.findByRole("dialog", { name: "התחברות" });
+    await focusSettled(dialog);
     // Bad email is rejected before any request.
     await user.type(screen.getByLabelText("אימייל"), "not-an-email");
     await user.click(screen.getByRole("button", { name: "שליחת קוד" }));
@@ -156,6 +165,7 @@ describe("auth", () => {
       </AuthProvider>,
     );
     await user.click(screen.getByText("open"));
+    await focusSettled(await screen.findByRole("dialog", { name: "התחברות" }));
     await user.type(await screen.findByLabelText("אימייל"), "noa@example.com");
     await user.click(screen.getByRole("button", { name: "שליחת קוד" }));
     await user.type(await screen.findByLabelText("קוד אימות"), "000000");
