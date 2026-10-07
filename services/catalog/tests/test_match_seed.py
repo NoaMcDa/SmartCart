@@ -31,9 +31,10 @@ RULES = [
     ("salmon", ["state"], ["pack_size", "brand"]),
     ("olive_oil", [], ["pack_size", "brand"]),
 ]
+# The last field is canonical_products.reference_barcodes (issue #92).
 CANONICALS = [
     ("dairy.milk", "t-milk-3", "חלב טרי 3% 1 ליטר", "milk", "100ml",
-     {"fat_pct": 3, "state": "fresh"}, {"pack_size": 1, "unit": "l", "barcodes": [MILK3_BARCODE]}),
+     {"fat_pct": 3, "state": "fresh"}, {"pack_size": 1, "unit": "l"}, [MILK3_BARCODE]),
     ("dairy.milk", "t-milk-1", "חלב טרי 1% 1 ליטר", "milk", "100ml",
      {"fat_pct": 1, "state": "fresh"}, {"pack_size": 1, "unit": "l"}),
     ("dairy.plant_drinks", "t-soy", "משקה סויה 1 ליטר", "soy_drink", "100ml", {},
@@ -74,13 +75,13 @@ def seed_catalog(db: psycopg.Connection) -> dict[str, int]:
             (pt, ck, sk),
         )
     ids = {}
-    for tax, slug, name, pt, bu, crit, soft in CANONICALS:
+    for tax, slug, name, pt, bu, crit, soft, *codes in CANONICALS:
         ids[slug] = db.execute(
             "INSERT INTO canonical_products (taxonomy_id, slug, display_name_he, product_type,"
-            " base_unit, critical_attrs, soft_attrs, rank) VALUES (%s, %s, %s, %s, %s, %s, %s,"
-            " %s) RETURNING id",
+            " base_unit, critical_attrs, soft_attrs, rank, reference_barcodes)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (tax, slug, name, pt, bu, json.dumps(crit), json.dumps(soft, ensure_ascii=False),
-             len(ids) + 1),
+             len(ids) + 1, codes[0] if codes else []),
         ).fetchone()[0]  # fmt: skip
     return ids
 

@@ -14,7 +14,7 @@
           "content": [
             {
               "type": "text",
-              "text": "{\"category_path\": \"dairy.milk.fresh\", \"product_type\": \"milk\", \"brand\": \"תנובה\", \"is_private_label\": false, \"fat_pct\": 3, \"state\": \"fresh\", \"flavor\": null, \"kosher\": null, \"diet_flags\": [], \"pack_size\": 1000, \"unit\": \"ml\", \"confidence\": 0.95}"
+              "text": "{\"category_path\": \"dairy.milk.fresh\", \"product_type\": \"milk\", \"brand\": \"תנובה\", \"is_private_label\": false, \"fat_pct\": 3, \"state\": \"fresh\", \"flavor\": null, \"kosher\": null, \"diet_flags\": [], \"pack_size\": 1000, \"unit\": \"ml\", \"base\": null, \"variety\": null, \"confidence\": 0.95}"
             }
           ],
           "stop_reason": "end_turn",
@@ -41,7 +41,7 @@
           "content": [
             {
               "type": "text",
-              "text": "{\"category_path\": \"beverages.plant_drinks.soy\", \"product_type\": \"soy_drink\", \"brand\": \"אלפרו\", \"is_private_label\": false, \"fat_pct\": null, \"state\": \"dry\", \"flavor\": null, \"kosher\": \"בד\\\"ץ\", \"diet_flags\": [\"vegan\"], \"pack_size\": 1000, \"unit\": \"ml\", \"confidence\": 0.88}"
+              "text": "{\"category_path\": \"beverages.plant_drinks.soy\", \"product_type\": \"soy_drink\", \"brand\": \"אלפרו\", \"is_private_label\": false, \"fat_pct\": null, \"state\": \"dry\", \"flavor\": null, \"kosher\": \"בד\\\"ץ\", \"diet_flags\": [\"vegan\"], \"pack_size\": 1000, \"unit\": \"ml\", \"base\": \"soy\", \"variety\": null, \"confidence\": 0.88}"
             }
           ],
           "stop_reason": "end_turn",
@@ -97,7 +97,7 @@
           "content": [
             {
               "type": "text",
-              "text": "{\"category_path\": null, \"product_type\": \"yogurt_fruit\", \"brand\": null, \"is_private_label\": null, \"fat_pct\": null, \"state\": null, \"flavor\": \"strawberry\", \"kosher\": null, \"diet_flags\": [], \"pack_size\": null, \"unit\": null, \"confidence\": 0.9, \"verified_keys\": [\"kosher\"]}"
+              "text": "{\"category_path\": null, \"product_type\": \"yogurt_fruit\", \"brand\": null, \"is_private_label\": null, \"fat_pct\": null, \"state\": null, \"flavor\": \"strawberry\", \"kosher\": null, \"diet_flags\": [], \"pack_size\": null, \"unit\": null, \"base\": null, \"variety\": null, \"confidence\": 0.9, \"verified_keys\": [\"kosher\"]}"
             }
           ],
           "stop_reason": "end_turn",
@@ -233,7 +233,7 @@
           "content": [
             {
               "type": "text",
-              "text": "{\"category_path\": \"bakery.bread.loaves\", \"product_type\": \"white_bread\", \"brand\": null, \"is_private_label\": null, \"fat_pct\": null, \"state\": null, \"flavor\": null, \"kosher\": null, \"diet_flags\": [], \"pack_size\": null, \"unit\": null, \"confidence\": 0.9}"
+              "text": "{\"category_path\": \"bakery.bread.loaves\", \"product_type\": \"white_bread\", \"brand\": null, \"is_private_label\": null, \"fat_pct\": null, \"state\": null, \"flavor\": null, \"kosher\": null, \"diet_flags\": [], \"pack_size\": null, \"unit\": null, \"base\": null, \"variety\": null, \"confidence\": 0.9}"
             }
           ],
           "stop_reason": "end_turn",

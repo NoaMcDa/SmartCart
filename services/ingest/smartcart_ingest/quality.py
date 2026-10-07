@@ -4,7 +4,10 @@ Gates (thresholds per chain from :meth:`Settings.thresholds_for`):
 
 * ``zero_price``       any price record with a price of zero or less.
 * ``price_jump``       a price more than ``price_jump_factor`` times the latest known price for
-                       the same item and store (the store's own event, else the chain base).
+                       the same item and store: the store's own event, else the chain base price
+                       (``store_id NULL``) when the store has no history for the item, or is not
+                       loaded yet. A chain-level record (``store_code`` None, issue #80) is
+                       compared with the latest base price.
 * ``item_count_drop``  a full file (PriceFull, PromoFull, Stores) with fewer records than
                        ``item_count_drop_ratio`` times the previous loaded file of the same kind
                        for the same chain and store.
@@ -53,9 +56,12 @@ def gate_zero_price(parsed: ParsedFile) -> GateFailure | None:
 
 
 def latest_known_prices(
-    conn: psycopg.Connection, chain_id: str, pairs: set[tuple[str, str]]
-) -> dict[tuple[str, str], Decimal]:
-    """(item_code, store_code) -> latest price in force (store event first, else base)."""
+    conn: psycopg.Connection, chain_id: str, pairs: set[tuple[str, str | None]]
+) -> dict[tuple[str, str | None], Decimal]:
+    """(item_code, store_code) -> latest price in force: the store's own latest event, else the
+    latest chain base price (``store_id NULL``). The base is used when the store has no event
+    for the item and when the store is not in ``stores`` yet (a new store's first file). A
+    ``store_code`` of None (a chain-level record) is compared with the base price only."""
     if not pairs:
         return {}
     item_codes = [i for i, _ in pairs]
@@ -64,10 +70,11 @@ def latest_known_prices(
         "SELECT r.item_code, r.store_code, lp.price"
         " FROM unnest(%s::text[], %s::text[]) AS r(item_code, store_code)"
         " JOIN items AS i ON i.chain_id = %s AND i.item_code = r.item_code"
-        " JOIN stores AS s ON s.chain_id = %s AND s.store_code = r.store_code"
+        " LEFT JOIN stores AS s ON s.chain_id = %s AND s.store_code = r.store_code"
         " JOIN LATERAL ("
         "   SELECT p.price FROM prices AS p"
-        "   WHERE p.item_id = i.id AND (p.store_id = s.id OR p.store_id IS NULL)"
+        "   WHERE p.item_id = i.id"
+        "     AND (p.store_id IS NULL OR (s.id IS NOT NULL AND p.store_id = s.id))"
         "   ORDER BY (p.store_id IS NOT NULL) DESC, p.valid_from DESC LIMIT 1"
         " ) AS lp ON true",
         (item_codes, store_codes, chain_id, chain_id),
@@ -78,7 +85,7 @@ def latest_known_prices(
 def gate_price_jump(
     conn: psycopg.Connection, parsed: ParsedFile, factor: float
 ) -> GateFailure | None:
-    by_chain: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    by_chain: dict[str, set[tuple[str, str | None]]] = defaultdict(set)
     for p in parsed.prices:
         by_chain[p.chain_id].add((p.item_code, p.store_code))
     limit = Decimal(str(factor))
@@ -90,7 +97,7 @@ def gate_price_jump(
                 continue
             prev = known.get((p.item_code, p.store_code))
             if prev is not None and prev > 0 and p.price > prev * limit:
-                bad.append(f"{p.item_code}@{p.store_code} {prev}->{p.price}")
+                bad.append(f"{p.item_code}@{p.store_code or 'base'} {prev}->{p.price}")
     if not bad:
         return None
     return GateFailure(

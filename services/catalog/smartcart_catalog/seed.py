@@ -6,6 +6,10 @@ product type exist, its critical attributes are exactly the type's critical keys
 canonicals are indistinguishable at "any brand"). Seeding is idempotent: rows are upserted by
 their natural key and a second run with unchanged files changes nothing (``updated_at`` stays).
 Rows that disappear from the files are reported, never deleted, because matches may point at them.
+
+A canonical may list ``reference_barcodes`` (issue #92): the barcodes that are exactly this
+product, stored in ``canonical_products.reference_barcodes`` and used by the judge's exact rule.
+An entry without the key leaves the stored barcodes untouched.
 """
 
 from __future__ import annotations
@@ -33,6 +37,7 @@ MIN_CANONICALS, MAX_CANONICALS = 150, 300
 ATTRIBUTE_KEYS: frozenset[str] = frozenset(get_args(AttributeKey))
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _PRODUCT_TYPE = re.compile(r"^[a-z][a-z0-9_]*$")
+_BARCODE = re.compile(r"^\d{8,14}$")
 
 
 class SeedError(ValueError):
@@ -146,11 +151,20 @@ def parse_canonicals(
                 problems.append(f"{slug}: bad {label} attribute value: {exc}")
         if cp.rank is None:
             problems.append(f"{slug}: missing rank")
+        bad_codes = [b for b in cp.reference_barcodes if not _BARCODE.match(b)]
+        if bad_codes:
+            problems.append(f"{slug}: reference_barcodes must be 8-14 digits: {bad_codes}")
         out.append(cp)
 
     for slug, n in Counter(c.slug for c in out).items():
         if n > 1:
             problems.append(f"{slug}: duplicate slug")
+    owner: dict[str, str] = {}
+    for c in out:
+        for code in c.reference_barcodes:
+            if code in owner and owner[code] != c.slug:
+                problems.append(f"{c.slug}: barcode {code} is also a reference of {owner[code]}")
+            owner.setdefault(code, c.slug)
     ranks = sorted(c.rank for c in out if c.rank is not None)
     if ranks != list(range(1, len(out) + 1)):
         problems.append("ranks must be 1..N without gaps or duplicates")
@@ -276,23 +290,33 @@ def seed_canonicals(
     for c in canonicals:
         row = conn.execute(
             "INSERT INTO canonical_products AS c (taxonomy_id, slug, display_name_he,"
-            "   product_type, base_unit, critical_attrs, soft_attrs, is_mvp, rank)"
-            " VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)"
+            "   product_type, base_unit, critical_attrs, soft_attrs, is_mvp, rank,"
+            "   reference_barcodes)"
+            " VALUES (%(tax)s, %(slug)s, %(name)s, %(pt)s, %(bu)s, %(crit)s::jsonb,"
+            "   %(soft)s::jsonb, %(mvp)s, %(rank)s, %(codes)s)"
             " ON CONFLICT (slug) DO UPDATE SET taxonomy_id = EXCLUDED.taxonomy_id,"
             "   display_name_he = EXCLUDED.display_name_he,"
             "   product_type = EXCLUDED.product_type, base_unit = EXCLUDED.base_unit,"
             "   critical_attrs = EXCLUDED.critical_attrs, soft_attrs = EXCLUDED.soft_attrs,"
-            "   is_mvp = EXCLUDED.is_mvp, rank = EXCLUDED.rank"
+            "   is_mvp = EXCLUDED.is_mvp, rank = EXCLUDED.rank,"
+            "   reference_barcodes = CASE WHEN %(has_codes)s THEN EXCLUDED.reference_barcodes"
+            "                             ELSE c.reference_barcodes END"
             " WHERE (c.taxonomy_id, c.display_name_he, c.product_type, c.base_unit,"
             "        c.critical_attrs, c.soft_attrs, c.is_mvp, c.rank) IS DISTINCT FROM"
             "   (EXCLUDED.taxonomy_id, EXCLUDED.display_name_he, EXCLUDED.product_type,"
             "    EXCLUDED.base_unit, EXCLUDED.critical_attrs, EXCLUDED.soft_attrs,"
             "    EXCLUDED.is_mvp, EXCLUDED.rank)"
+            "   OR (%(has_codes)s AND c.reference_barcodes IS DISTINCT FROM"
+            "       EXCLUDED.reference_barcodes)"
             " RETURNING (xmax = 0)",
-            (
-                c.taxonomy_id, c.slug, c.display_name_he, c.product_type, c.base_unit,
-                _jsonb(c.critical_attrs), _jsonb(c.soft_attrs), c.is_mvp, c.rank,
-            ),
+            {
+                "tax": c.taxonomy_id, "slug": c.slug, "name": c.display_name_he,
+                "pt": c.product_type, "bu": c.base_unit, "crit": _jsonb(c.critical_attrs),
+                "soft": _jsonb(c.soft_attrs), "mvp": c.is_mvp, "rank": c.rank,
+                "codes": list(c.reference_barcodes),
+                # a file entry without the key leaves the stored barcodes as they are
+                "has_codes": "reference_barcodes" in c.model_fields_set,
+            },
         ).fetchone()
         _tally(counts, row)
     slugs = {c.slug for c in canonicals}

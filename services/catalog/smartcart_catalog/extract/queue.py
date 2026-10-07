@@ -26,7 +26,6 @@ from psycopg.rows import dict_row
 
 from smartcart_catalog.extract.base import (
     HUMAN,
-    ItemContext,
     Result,
     attrs_json,
     trusted_verified_keys,
@@ -160,18 +159,9 @@ def run_extraction(
         if not rows:
             break
         after = rows[-1]["id"]
+        # normalize copies chain, chain name, manufacturer, barcode and raw name onto the item
         items: list[NormalizedItem] = [normalize(r, item_id=r["id"]) for r in rows]
-        context = {
-            r["id"]: ItemContext(
-                chain_id=r["chain_id"], chain_name=r["chain_name"],
-                manufacturer=r["manufacturer"], raw_name=r["raw_name"], barcode=r["barcode"],
-            )
-            for r in rows
-        }
-        if getattr(extractor, "uses_context", False):
-            results = extractor.extract(items, context=context)  # type: ignore[call-arg]
-        else:
-            results = extractor.extract(items)
+        results = extractor.extract(items)
         if len(results) != len(items):
             raise RuntimeError(f"{name} returned {len(results)} results for {len(items)} items")
         for row, result in zip(rows, results, strict=True):

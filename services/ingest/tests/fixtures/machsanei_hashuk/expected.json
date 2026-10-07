@@ -1,0 +1,84 @@
+{
+  "chain_id": "7290661400001",
+  "files": {
+    "Stores7290661400001-000-202610060810.xml.gz": {
+      "kind": "stores",
+      "schema": "v1",
+      "counts": {
+        "stores": 4
+      },
+      "online": [
+        "90"
+      ],
+      "checks": {
+        "stores[0].store_code": "3",
+        "stores[0].name": "מחסני השוק בני ברק",
+        "stores[0].lat": "32.084",
+        "stores[2].address": "None",
+        "stores[2].lat": "None",
+        "stores[3].city": "ירושלים"
+      }
+    },
+    "PriceFull7290661400001-003-202610060810.xml.gz": {
+      "kind": "price_full",
+      "schema": "v1",
+      "counts": {
+        "items": 8,
+        "prices": 8
+      },
+      "checks": {
+        "prices[0].store_code": "3",
+        "prices[0].price": "6.92",
+        "prices[3].price": "12.70",
+        "items[0].barcode": "7290004131074",
+        "items[0].manufacturer": "תנובה",
+        "items[3].barcode": "None",
+        "items[3].is_weighed": "True",
+        "prices[0].observed_at": "2026-10-05 22:01:00+03:00"
+      }
+    },
+    "PromoFull7290661400001-003-202610060810.xml.gz": {
+      "kind": "promo_full",
+      "schema": "v1",
+      "counts": {
+        "promos": 3
+      },
+      "checks": {
+        "promos[0].promo_id": "1001",
+        "promos[0].reward_type": "bundle",
+        "promos[0].club_only": "True",
+        "promos[1].reward_type": "buy_x_get_y",
+        "promos[2].reward_type": "percent",
+        "promos[2].reward_value": "20",
+        "promos[2].item_codes": "['7290011194246', '7290107932158']"
+      }
+    },
+    "Price7290661400001-003-202610061110.xml.gz": {
+      "kind": "price",
+      "schema": "v1",
+      "counts": {
+        "items": 2,
+        "prices": 2
+      },
+      "checks": {
+        "prices[0].price": "6.62",
+        "prices[1].price": "5.40"
+      }
+    },
+    "Promo7290633800006-003-202610061110.xml.gz": {
+      "kind": "promo",
+      "schema": "v1",
+      "counts": {
+        "promos": 1
+      },
+      "checks": {
+        "raw.chain_id": "7290633800006",
+        "promos[0].chain_id": "7290633800006",
+        "promos[0].promo_id": "77001",
+        "promos[0].item_codes": "['7290000066318', '7290107932158']",
+        "promos[0].reward_type": "bundle",
+        "promos[0].club_only": "False"
+      }
+    }
+  }
+}
