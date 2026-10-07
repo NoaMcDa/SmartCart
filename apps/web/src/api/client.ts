@@ -11,6 +11,7 @@ import { API_BASE_URL, API_MOCK } from "./config";
 import type { components, paths } from "./types";
 
 export type Schemas = components["schemas"];
+type Opt<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 export type ParseListRequest = Schemas["ParseListRequest"];
 export type ParseListResponse = Schemas["ParseListResponse"];
 export type ParsedRow = Schemas["ParsedRow"];
@@ -32,11 +33,29 @@ export type SubstitutionFeedbackRequest = Schemas["SubstitutionFeedbackRequest"]
 export type Ack = Schemas["Ack"];
 export type FlexLevel = NonNullable<BasketItem["flex_level"]>;
 
+// Phase 2 (history, alerts, push, shared lists, barcode, swaps)
+export type PriceHistoryResponse = Schemas["PriceHistoryResponse"];
+export type PricePoint = Schemas["PricePoint"];
+export type PromoWindow = Schemas["PromoWindow"];
+export type PriceAlert = Schemas["PriceAlert"];
+export type PriceAlertInput = Opt<Schemas["PriceAlertIn"], "flex_level" | "radius_m">;
+export type PushSubscriptionInput = Schemas["PushSubscriptionIn"];
+export type ShareInvite = Schemas["ShareInvite"];
+export type ShareRole = Schemas["ShareRequest"]["role"];
+export type ListMember = Schemas["ListMember"];
+export type ShoppingList = Schemas["ShoppingList"];
+export type ShoppingListInput = Schemas["ShoppingListIn"];
+export type ListItemInput = Opt<Schemas["ListItemIn"], "confirmed" | "flex_level" | "quantity">;
+export type BarcodeLookupResponse = Schemas["BarcodeLookupResponse"];
+export type StorePrice = Schemas["StorePrice"];
+export type StoreRef = Schemas["StoreRef"];
+export type SwapSuggestion = Schemas["SwapSuggestion"];
+export type SwapSuggestionResponse = Schemas["SwapSuggestionResponse"];
+
 /*
  * Request inputs. openapi-typescript marks every field that has a server-side default as required;
  * for requests those fields are optional (FastAPI fills the default), so the helpers accept these.
  */
-type Opt<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 export type BasketItemInput = Opt<BasketItem, "flex_level">;
 export type LocationInput = Opt<Schemas["Location"], "radius_m">;
 export type TravelInput = Partial<Schemas["TravelSettings"]>;
@@ -120,4 +139,118 @@ export async function substitutionFeedback(body: SubstitutionFeedbackRequest): P
 
 export async function health() {
   return unwrap(await api.GET("/health"));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 2 routes (P2-E): history, alerts, push subscriptions, shared lists, barcode, swaps.
+
+function expectOk(result: { error?: unknown; response: Response }): void {
+  if (!result.response.ok) throw new ApiError(result.response.status, result.error);
+}
+
+/** `GET /history/{id}`: `storeId` null or omitted is the chain base price series. */
+export async function priceHistory(
+  canonicalId: number,
+  opts: { storeId?: number | null; days?: number } = {},
+): Promise<PriceHistoryResponse> {
+  return unwrap(
+    await api.GET("/history/{canonical_id}", {
+      params: {
+        path: { canonical_id: canonicalId },
+        query: { store_id: opts.storeId ?? undefined, days: opts.days ?? 90 },
+      },
+    }),
+  );
+}
+
+export async function listAlerts(): Promise<PriceAlert[]> {
+  return unwrap(await api.GET("/me/alerts"));
+}
+
+export async function createAlert(body: PriceAlertInput): Promise<PriceAlert> {
+  return unwrap(await api.POST("/me/alerts", { body: body as Schemas["PriceAlertIn"] }));
+}
+
+export async function deleteAlert(alertId: number): Promise<void> {
+  expectOk(await api.DELETE("/me/alerts/{alert_id}", { params: { path: { alert_id: alertId } } }));
+}
+
+export async function addPushSubscription(body: PushSubscriptionInput): Promise<Ack> {
+  return unwrap(await api.POST("/me/push-subscriptions", { body }));
+}
+
+export async function createList(body: ShoppingListInput): Promise<ShoppingList> {
+  return unwrap(await api.POST("/me/lists", { body }));
+}
+
+export async function getList(listId: number): Promise<ShoppingList> {
+  return unwrap(await api.GET("/me/lists/{list_id}", { params: { path: { list_id: listId } } }));
+}
+
+export async function updateList(listId: number, body: ShoppingListInput): Promise<ShoppingList> {
+  return unwrap(
+    await api.PUT("/me/lists/{list_id}", { params: { path: { list_id: listId } }, body }),
+  );
+}
+
+export async function shareList(listId: number, role: ShareRole = "editor"): Promise<ShareInvite> {
+  return unwrap(
+    await api.POST("/me/lists/{list_id}/share", {
+      params: { path: { list_id: listId } },
+      body: { role },
+    }),
+  );
+}
+
+export async function listMembers(listId: number): Promise<ListMember[]> {
+  return unwrap(
+    await api.GET("/me/lists/{list_id}/members", { params: { path: { list_id: listId } } }),
+  );
+}
+
+export async function acceptShare(token: string): Promise<ShoppingList> {
+  return unwrap(await api.POST("/lists/accept/{token}", { params: { path: { token } } }));
+}
+
+export async function lookupBarcode(
+  barcode: string,
+  where: { lat: number; lon: number; radiusM?: number; storeId?: number | null },
+): Promise<BarcodeLookupResponse> {
+  return unwrap(
+    await api.GET("/items/barcode/{barcode}", {
+      params: {
+        path: { barcode },
+        query: {
+          lat: where.lat,
+          lon: where.lon,
+          radius_m: where.radiusM,
+          store_id: where.storeId ?? undefined,
+        },
+      },
+    }),
+  );
+}
+
+/** `POST /optimize/swaps?store_id=`: swaps that cheapen the list at one store, biggest first. */
+export async function swapSuggestions(
+  storeId: number,
+  body: CompareInput,
+): Promise<SwapSuggestionResponse> {
+  return unwrap(
+    await api.POST("/optimize/swaps", {
+      params: { query: { store_id: storeId } },
+      body: body as CompareRequest,
+    }),
+  );
+}
+
+export async function nearestStore(
+  chainId: string,
+  where: { lat: number; lon: number },
+): Promise<StoreRef> {
+  return unwrap(
+    await api.GET("/stores/nearest", {
+      params: { query: { chain_id: chainId, lat: where.lat, lon: where.lon } },
+    }),
+  );
 }

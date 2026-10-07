@@ -1,0 +1,200 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+}
+
+.title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+}
+
+.select {
+  min-block-size: var(--sc-touch);
+  padding-inline: var(--sc-space-3);
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-size: 15px;
+  max-inline-size: 100%;
+}
+
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+}
+
+.axisName {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.svg {
+  inline-size: 100%;
+  block-size: auto;
+  display: block;
+  touch-action: manipulation;
+}
+
+.grid {
+  stroke: var(--sc-divider);
+  stroke-width: 1;
+}
+
+.tick {
+  fill: var(--sc-muted);
+  font-size: 12px;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.line {
+  fill: none;
+  stroke: var(--sc-accent-fg);
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.dot {
+  fill: var(--sc-accent-fg);
+}
+
+.latest {
+  fill: var(--sc-accent-fg);
+  stroke: var(--sc-surface);
+  stroke-width: 2;
+}
+
+.promoBand {
+  fill: var(--sc-warn-bg);
+  opacity: 0.85;
+}
+
+.gapBand {
+  stroke: var(--sc-border);
+  stroke-dasharray: 4 3;
+  stroke-width: 1;
+}
+
+.hatch {
+  stroke: var(--sc-border);
+  stroke-width: 1.5;
+}
+
+.marker {
+  fill: var(--sc-warn-fg);
+  stroke: var(--sc-surface);
+  stroke-width: 2;
+  cursor: pointer;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2) var(--sc-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+  color: var(--sc-muted);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  display: inline-block;
+  flex-shrink: 0;
+  inline-size: 16px;
+  block-size: 12px;
+}
+
+.swatchLine {
+  block-size: 3px;
+  border-radius: 2px;
+  background: var(--sc-accent-fg);
+}
+
+.swatchPromo {
+  border-radius: 2px;
+  background: var(--sc-warn-bg);
+  box-shadow: inset 0 0 0 1px var(--sc-warn-fg);
+}
+
+.swatchMarker {
+  inline-size: 11px;
+  block-size: 11px;
+  border-radius: 50%;
+  background: var(--sc-warn-fg);
+}
+
+.swatchGap {
+  border-radius: 2px;
+  border: 1px dashed var(--sc-muted);
+}
+
+.tooltip {
+  min-block-size: 24px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.summary {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.note {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--sc-muted);
+}
+
+.promoList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.empty,
+.state {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--sc-muted);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2);
+  font-size: 12.5px;
+  color: var(--sc-muted);
+}

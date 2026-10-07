@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { resetPhase2Mock } from "@/mocks/handlers.phase2";
 import { getListState, resetListStoreForTests } from "@/state/list";
 import { PROFILE_KEY } from "@/state/shopper";
 import { server } from "@/mocks/node";
@@ -12,6 +13,7 @@ beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 beforeEach(() => {
+  resetPhase2Mock();
   window.localStorage.clear();
   resetListStoreForTests();
 });
@@ -41,7 +43,7 @@ describe("product data", () => {
 });
 
 describe("product detail", () => {
-  it("shows variants by unit price, a price per store with update times, and the phase-2 alert placeholder", async () => {
+  it("shows variants by unit price, a price per store with update times, the history and the alert form", async () => {
     window.localStorage.setItem(
       PROFILE_KEY,
       JSON.stringify({ clubs: ["רמי לוי"], home_store_id: 103 }),
@@ -65,13 +67,13 @@ describe("product detail", () => {
     expect(rows[0]).toHaveTextContent("אושר עד");
     expect(rows[0]).toHaveTextContent('5.1 ק"מ');
 
-    // The alert is a visible, disabled placeholder labeled as phase 2, and it creates nothing.
+    // The alert form is live (issue #23): a price field and a create button.
     const alert = screen.getByRole("region", { name: "התראה כשהמחיר יורד" });
-    expect(within(alert).getByText("בקרוב · שלב 2")).toBeInTheDocument();
-    expect(within(alert).getByRole("textbox")).toBeDisabled();
-    expect(within(alert).getByRole("button", { name: "יצירת התראה" })).toBeDisabled();
-    // No price history chart.
-    expect(document.querySelector("canvas, svg[role='img'], [data-chart]")).toBeNull();
+    expect(within(alert).getByRole("textbox", { name: /התריעי לי מתחת ל-₪/ })).toBeEnabled();
+    expect(within(alert).getByRole("button", { name: "יצירת התראה" })).toBeEnabled();
+    expect(within(alert).queryByText("בקרוב · שלב 2")).toBeNull();
+    // The 90-day history is there (issue #28), with the accessible table fallback.
+    expect(await screen.findByTestId("history-chart")).toBeInTheDocument();
     // Every row has a report-a-gap control.
     expect(screen.getAllByRole("button", { name: /דיווח:/ })).toHaveLength(5);
   });
@@ -87,5 +89,31 @@ describe("product detail", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ flexLevel: "exact", quantity: 1 });
     expect(rows[0]!.canonical).toMatchObject({ canonical_id: 1001 });
+  });
+
+  it("creates a price alert at the chosen level and remembers the product name for /alerts", async () => {
+    const user = userEvent.setup();
+    render(<ProductDetail canonicalId={1001} nameHint="חלב טרי 3%, 1 ליטר" />);
+    await screen.findByTestId("variants");
+    const alert = screen.getByRole("region", { name: "התראה כשהמחיר יורד" });
+    await user.click(within(alert).getByRole("radio", { name: "תחליף קרוב" }));
+    await user.type(within(alert).getByRole("textbox", { name: /התריעי לי מתחת ל-₪/ }), "5,90");
+    await user.click(within(alert).getByRole("button", { name: "יצירת התראה" }));
+    const done = await within(alert).findByTestId("alert-created");
+    expect(done).toHaveTextContent(/₪\s5\.90/);
+    expect(within(alert).getAllByTestId("alert-existing")).toHaveLength(1);
+    expect(JSON.parse(window.localStorage.getItem("sc-alert-names-v1") ?? "{}")).toMatchObject({
+      byCanonical: { "1001": { name: "חלב טרי 3%, 1 ליטר" } },
+    });
+  });
+
+  it("rejects an empty or non-positive alert price without calling the API", async () => {
+    const user = userEvent.setup();
+    render(<ProductDetail canonicalId={1001} nameHint="חלב טרי 3%, 1 ליטר" />);
+    await screen.findByTestId("variants");
+    const alert = screen.getByRole("region", { name: "התראה כשהמחיר יורד" });
+    await user.click(within(alert).getByRole("button", { name: "יצירת התראה" }));
+    expect(await within(alert).findByTestId("alert-error")).toHaveTextContent("הקלידי מחיר חיובי");
+    expect(within(alert).queryByTestId("alert-existing")).toBeNull();
   });
 });

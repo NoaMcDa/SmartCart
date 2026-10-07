@@ -14,12 +14,14 @@ import { Chip, FlexChip } from "@/components/ui/Chip";
 import { Price } from "@/components/ui/Price";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tag } from "@/components/ui/Tag";
+import { AlertMe } from "@/features/alerts/AlertMe";
+import { PriceHistory, type HistoryStoreOption } from "@/features/history/PriceHistory";
 import { IconClock } from "@/components/ui/icons";
 import { ReportGapButton } from "@/features/feedback/GapReportSheet";
 import { useShopper } from "@/state/shopper";
 import { formatDistance } from "@/lib/format";
 import { listActions } from "@/state/list";
-import { formatUpdated, storeRows, variantsOf } from "./productData";
+import { formatUpdated, storeRows, variantsOf, type StoreRow } from "./productData";
 import styles from "./Product.module.css";
 
 const NEXT_LEVEL: Record<FlexLevel, FlexLevel> = {
@@ -46,8 +48,8 @@ type Loaded =
 
 /**
  * Product detail (issue #50): the canonical name, variants ranked by unit price, and what it costs
- * at each store in the radius, every price with its update time (D10). The 90-day history chart
- * and working alerts are phase 2; the alert control is a visible, disabled placeholder.
+ * at each store in the radius, every price with its update time (D10). Phase 2 adds the 90-day
+ * price history chart (issue #28) and the working "alert me below" form (issue #23).
  *
  * Data: one /compare call for this canonical (quantity 1) at the profile's location. The name comes
  * from the `?name=` hint the linking screen passes (the compare lines only carry chain item names).
@@ -301,34 +303,19 @@ export function ProductDetail({
         </>
       ) : null}
 
-      <Card as="section" aria-labelledby="alert-heading" className={styles.alert}>
-        <div className={styles.alertHead}>
-          <h2 id="alert-heading" className={styles.sectionTitle}>
-            התראה כשהמחיר יורד
-          </h2>
-          <Tag variant="unverified">בקרוב · שלב 2</Tag>
-        </div>
-        <div className={styles.alertForm}>
-          <label htmlFor="alert-price" className={styles.alertLabel}>
-            הודיעו לי מתחת ל-₪
-          </label>
-          <input
-            id="alert-price"
-            className={styles.alertInput}
-            inputMode="decimal"
-            dir="ltr"
-            placeholder="__"
-            disabled
-            aria-describedby="alert-note"
-          />
-          <Button size="sm" variant="outline" disabled>
-            יצירת התראה
-          </Button>
-        </div>
-        <p id="alert-note" className={styles.muted}>
-          התראות על ירידת מחיר יגיעו בשלב 2. עד אז לא נוצרת שום התראה.
-        </p>
-      </Card>
+      {state.kind !== "loading" ? (
+        <PriceHistory
+          canonicalId={canonicalId}
+          stores={historyStores(rows, home)}
+          unitLabel={variants[0]?.unitLabel ?? "ליחידה"}
+        />
+      ) : null}
+
+      <AlertMe
+        canonicalId={canonicalId}
+        name={title}
+        unitLabel={variants[0]?.unitLabel ?? "ליחידה"}
+      />
     </div>
   );
 }
@@ -361,4 +348,28 @@ function addToList(canonicalId: number, name: string, level: FlexLevel, ref: Can
   // A remembered category default would win over `level` when the row is created; the user's
   // choice on this screen is explicit, so set it on the row.
   if (row) listActions.setFlex(row.id, { level, allow: row.allow, remember: false });
+}
+
+/** The stores the history can be shown for: my store, the cheapest nearby, the chain base price. */
+function historyStores(
+  rows: ReadonlyArray<StoreRow>,
+  homeStoreId: number | null,
+): HistoryStoreOption[] {
+  const options: HistoryStoreOption[] = [];
+  if (homeStoreId !== null) {
+    const mine = rows.find((r) => r.store.store_id === homeStoreId);
+    options.push({
+      storeId: homeStoreId,
+      label: mine ? `הסניף שלי · ${mine.store.chain_name}` : "הסניף שלי",
+    });
+  }
+  const cheapest = rows[0];
+  if (cheapest && cheapest.store.store_id !== homeStoreId) {
+    options.push({
+      storeId: cheapest.store.store_id,
+      label: `הכי זול בקרבתך · ${cheapest.store.chain_name}`,
+    });
+  }
+  options.push({ storeId: null, label: "מחיר בסיס של הרשת" });
+  return options;
 }
