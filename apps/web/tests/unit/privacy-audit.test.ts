@@ -23,6 +23,8 @@ const ALLOWED_HOSTS = new Set([
   "localhost", // the default API origin in development
   "tile.openstreetmap.org", // map tiles (privacy policy discloses it)
   "www.openstreetmap.org", // attribution link
+  "schema.org", // JSON-LD @context identifier on the SEO pages, a name and never fetched
+  "smartcart.example", // placeholder public origin for canonical URLs and the sitemap (no request)
 ]);
 
 function walk(dir: string, out: string[] = []): string[] {
