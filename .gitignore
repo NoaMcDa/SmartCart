@@ -11,6 +11,13 @@ __pycache__/
 # Node
 node_modules/
 .next/
+*.tsbuildinfo
+npm-debug.log*
+.npm/
+playwright-report/
+test-results/
+blob-report/
+.lighthouseci/
 
 # Env
 .env

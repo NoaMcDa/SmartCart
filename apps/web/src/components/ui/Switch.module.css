@@ -1,0 +1,71 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  min-height: var(--sc-touch);
+  font-size: 14px;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.label {
+  cursor: pointer;
+}
+
+.description {
+  font-size: 12.5px;
+  color: var(--sc-muted);
+}
+
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  inline-size: 48px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-border);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+/* 44 px hit area around the 28 px track. */
+.switch::before {
+  content: "";
+  position: absolute;
+  inset-block: -8px;
+  inset-inline: -2px;
+}
+
+.switch[aria-checked="true"] {
+  background: var(--sc-accent);
+}
+
+.switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.thumb {
+  position: absolute;
+  inset-block-start: 3px;
+  inset-inline-start: 3px;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 50%;
+  background: var(--sc-on-accent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 25%);
+  transition: inset-inline-start 150ms ease;
+}
+
+/* RTL: "on" moves the thumb toward the inline end (left in Hebrew). */
+.switch[aria-checked="true"] .thumb {
+  inset-inline-start: 23px;
+}

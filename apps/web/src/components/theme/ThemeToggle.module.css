@@ -1,0 +1,40 @@
+.toggle {
+  inline-size: var(--sc-touch);
+  block-size: var(--sc-touch);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+  color: var(--sc-muted);
+  cursor: pointer;
+}
+
+.round {
+  border-radius: var(--sc-radius-pill);
+}
+
+/* Light (default): moon. Dark: sun. Mirrors the token selectors in tokens.css. */
+.sun {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .moon {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .sun {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"])) .moon {
+    display: none;
+  }
+
+  :global(:root:not([data-theme="light"])) .sun {
+    display: block;
+  }
+}

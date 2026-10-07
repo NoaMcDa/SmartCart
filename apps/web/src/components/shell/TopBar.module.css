@@ -1,0 +1,111 @@
+.header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 20;
+  background: var(--sc-surface);
+  border-block-end: 1px solid var(--sc-border);
+  padding-block-start: env(safe-area-inset-top);
+}
+
+.inner {
+  max-inline-size: var(--sc-content-max);
+  margin-inline: auto;
+  padding-inline: var(--sc-gutter);
+  min-block-size: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-block-size: var(--sc-touch);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--sc-text);
+  text-decoration: none;
+}
+
+.logo {
+  inline-size: 32px;
+  block-size: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--sc-radius-small);
+  background: var(--sc-accent);
+  color: var(--sc-on-accent);
+}
+
+.nav {
+  display: none;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile {
+  display: none;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--sc-touch);
+  padding-inline: 14px;
+  border-radius: var(--sc-radius-small);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sc-muted);
+  text-decoration: none;
+}
+
+.link:hover {
+  background: var(--sc-subtle);
+}
+
+.link[aria-current="page"] {
+  color: var(--sc-accent-fg);
+  background: var(--sc-accent-soft);
+  font-weight: 700;
+}
+
+@media (width >= 768px) {
+  .inner {
+    padding-inline: var(--sc-gutter-desktop);
+    min-block-size: var(--sc-top-bar-height);
+  }
+
+  .brand {
+    font-size: 20px;
+  }
+
+  .nav {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .profile {
+    inline-size: var(--sc-touch);
+    block-size: var(--sc-touch);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid var(--sc-border);
+    border-radius: var(--sc-radius-pill);
+    background: var(--sc-surface);
+    color: var(--sc-muted);
+  }
+
+  .profile[aria-current="page"] {
+    color: var(--sc-accent-fg);
+    border-color: var(--sc-accent-fg);
+  }
+}
