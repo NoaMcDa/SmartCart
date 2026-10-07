@@ -119,3 +119,18 @@ def test_feedback_on_a_rejected_pair_does_not_flag_it(db) -> None:
     assert not res.flagged and res.flex_level is None
     rates = {(r["category"], r["flex_level"]) for r in rejection_rates(db)}
     assert ("dairy.milk", "rejected") in rates
+
+
+@pytest.mark.db
+def test_dismissed_swap_is_stored_with_its_source_but_does_not_flag(db) -> None:
+    """A smart-cart dismissal is a weak signal: counted, never pulls the mapping from the price run."""
+    ids = seed_catalog(db)
+    original, substitute = _mapped(db, ids)
+    res = record_feedback(db, None, ids["t-milk-3"], original, substitute, "not_good", source="swap")
+    assert not res.flagged and res.flex_level == "any_brand"
+    assert _mapping(db, substitute, ids["t-milk-3"])[4] is False
+    assert db.execute(
+        "SELECT source FROM substitution_feedback WHERE id = %s", (res.feedback_id,)
+    ).fetchone() == ("swap",)
+    # The card's verdict on the same pair still flags it.
+    assert record_feedback(db, None, ids["t-milk-3"], original, substitute, "not_good").flagged

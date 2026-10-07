@@ -94,7 +94,9 @@ def test_swap_verdicts_round_trip_through_the_catalog(client, db, world: World, 
         "SELECT needs_review FROM item_canonical WHERE item_id = %s AND canonical_id = %s",
         (w.items["milk3_c1_private"], w.canon["milk3"]),
     ).fetchone()[0]
-    assert flagged is (action == "dismiss")  # dismiss = not_good puts the mapping in review
+    # A dismissed swap is stored as not_good but is a weak signal: it never puts the mapping in
+    # review (only the substitution card does, see smartcart_catalog.feedback.record_feedback).
+    assert flagged is False
 
 
 def test_swap_verdicts_count_in_the_catalog_rejection_rates(client, db, world: World) -> None:

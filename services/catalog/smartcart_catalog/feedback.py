@@ -56,7 +56,15 @@ def record_feedback(
     list_item_id: int | None = None,
     flex_level: FlexLevel | None = None,
     match_confidence: float | Decimal | None = None,
+    source: str = "substitution_card",
 ) -> FeedbackResult:
+    """Store a verdict; ``source`` says where it came from (``substitution_card`` or ``swap``).
+
+    Only a ``not_good`` verdict from the substitution card flags the mapping for review: the
+    person looked at the two products and said they are not the same. Dismissing a smart-cart
+    swap is a weaker signal (they may just not want to change stores or brands today), so it is
+    stored and counted in ``rejection_rates`` but does not pull the mapping from the next price run.
+    """
     if verdict not in VERDICTS:
         raise ValueError(f"verdict must be one of {sorted(VERDICTS)}, got {verdict!r}")
     if flex_level is not None and flex_level not in LEVELS:
@@ -71,14 +79,14 @@ def record_feedback(
     fid = conn.execute(
         "INSERT INTO substitution_feedback"
         " (user_id, canonical_id, original_item_id, substitute_item_id, verdict, list_item_id,"
-        "  flex_level, match_confidence)"
-        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        "  flex_level, match_confidence, source)"
+        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
         (str(user_id) if user_id else None, canonical_id, original_item_id, substitute_item_id,
          verdict, list_item_id, flex_level,
-         None if match_confidence is None else Decimal(str(match_confidence))),
+         None if match_confidence is None else Decimal(str(match_confidence)), source),
     ).fetchone()[0]  # fmt: skip
     flagged = False
-    if verdict == "not_good" and mapping is not None:
+    if verdict == "not_good" and mapping is not None and source == "substitution_card":
         cur = conn.execute(
             "UPDATE item_canonical SET needs_review = true"
             " WHERE item_id = %s AND canonical_id = %s AND NOT human_rejected",

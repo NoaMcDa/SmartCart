@@ -7,10 +7,11 @@ a location.
   ``smartcart_catalog.feedback.record_feedback``, with its context (``list_item_id``,
   ``flex_level``, ``match_confidence``) and its ``source``: the substitution card, or the
   smart-cart swap (apply = ``accepted``, undo = ``kept_original``, dismiss = ``not_good``). A
-  ``not_good`` verdict also flags the (substitute item, canonical) mapping in ``item_canonical``
-  with ``needs_review`` (unless a human already rejected it), which removes it from the next
-  effective-price precompute until a human reviews it. Swap verdicts count in the catalog's
-  ``rejection_rates`` like any other.
+  ``not_good`` verdict from the substitution card also flags the (substitute item, canonical)
+  mapping in ``item_canonical`` with ``needs_review`` (unless a human already rejected it), which
+  removes it from the next effective-price precompute until a human reviews it. A dismissed swap
+  is stored and counted in the catalog's ``rejection_rates`` but does not flag the mapping: one
+  dismissal is a weak signal (the catalog decides, see ``record_feedback``).
 * ``POST /feedback/gap`` records a shown-versus-actual price (or a missing item) in
   ``gap_reports`` for the data-quality review.
 """
@@ -48,12 +49,8 @@ def substitution(
                 list_item_id=body.list_item_id,
                 flex_level=body.flex_level,
                 match_confidence=body.match_confidence,
+                source=body.source,
             )
-            if body.source != "substitution_card":  # the column's default
-                conn.execute(
-                    "UPDATE substitution_feedback SET source = %s WHERE id = %s",
-                    (body.source, result.feedback_id),
-                )
     except psycopg.errors.ForeignKeyViolation as exc:
         raise HTTPException(status_code=422, detail="unknown canonical or item") from exc
     return schemas.Ack(id=result.feedback_id)
