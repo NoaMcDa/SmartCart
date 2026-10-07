@@ -16,6 +16,7 @@ import type {
   Schemas,
 } from "@/api/client";
 import { CATALOG, canonicalRef, compareFixture, HOME_STORE_ID, optimizeFixture } from "./fixtures";
+import { phase2Handlers } from "./handlers.phase2";
 
 type Profile = Schemas["Profile"];
 type ProfileUpdate = Schemas["ProfileUpdate"];
@@ -99,6 +100,7 @@ export function parseRow(input: string, flexDefaults: Record<string, string> = {
 }
 
 export const handlers = [
+  ...phase2Handlers,
   http.get(url("/health"), () =>
     HttpResponse.json({ status: "ok" as const, version: "0.1.0-mock" }),
   ),

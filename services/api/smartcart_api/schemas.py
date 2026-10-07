@@ -118,6 +118,7 @@ class PricedItem(_Model):
     confidence: float | None = Field(default=None, description="Match confidence when is_substitute")
     tags: list[AttributeTag] = Field(default_factory=list)
     original_item_id: int | None = None
+    promo_confidence: float | None = Field(default=None, ge=0, le=1, description="Confidence that the promo was parsed correctly; null when unknown")
 
 
 class StoreResult(_Model):
@@ -135,6 +136,8 @@ class StoreResult(_Model):
     items: list[PricedItem]
     prices_updated_at: datetime
     saving_vs_home: Decimal | None = Field(default=None, description="Positive means cheaper than the home store; null when no home store")
+    lat: float | None = Field(default=None, description="Store latitude when known (phase 2)")
+    lon: float | None = Field(default=None, description="Store longitude when known (phase 2)")
 
 
 class CompareResponse(_Model):
@@ -158,6 +161,14 @@ class OptimizeRequest(CompareRequest):
     candidate_stores: int = Field(default=10, ge=1, le=15, description="N nearest stores the subsets are drawn from")
     min_split_saving: Decimal = Field(default=Decimal(25), ge=0, description="A split is recommended only above this net saving")
     travel: TravelSettings = Field(default_factory=TravelSettings)
+    solver: Literal["heuristic", "milp"] = Field(default="heuristic", description="milp handles cross-item promos and quantity rounding (phase 2)")
+
+
+class PromoBundle(_Model):
+    promo_description: str
+    bundle_count: int = Field(ge=1)
+    saving: Decimal
+    add_qty: Decimal | None = Field(default=None, description="Quantity to add to complete one more bundle")
 
 
 class SavingBreakdown(_Model):
@@ -182,6 +193,7 @@ class Plan(_Model):
     recommended: bool
     missing: list[int] = Field(default_factory=list)
     substituted_count: int = 0
+    promo_bundles: list[PromoBundle] = Field(default_factory=list, description="Cross-item promos the MILP solver exploited")
 
 
 class OptimizeResponse(_Model):
@@ -189,6 +201,7 @@ class OptimizeResponse(_Model):
     split: Plan | None = Field(default=None, description="null when no split beats min_split_saving")
     minimum_effort: Plan | None = Field(default=None, description="The home store itself; null without a home store")
     subsets_evaluated: int
+    solver: Literal["heuristic", "milp"] = "heuristic"
     generated_at: datetime
     disclaimer_he: str = "המחיר הקובע הוא בקופה."
 
@@ -308,3 +321,120 @@ class EventsRequest(_Model):
 class EventsAck(_Model):
     ok: bool = True
     accepted: int
+
+
+# --- phase 2 contracts (issues #13, #23, #28, #34, #39, #45, #90) ----------------------------
+
+class StoreRef(_Model):
+    store_id: int
+    chain_id: str
+    chain_name: str
+    store_name: str
+    city: str | None = None
+    distance_m: int | None = None
+    lat: float | None = None
+    lon: float | None = None
+    channel: Literal["physical", "online"] = "physical"
+
+
+class PricePoint(_Model):
+    date: datetime
+    unit_price: Decimal
+    shelf_price: Decimal | None = None
+    store_id: int | None = Field(default=None, description="null means the chain base price")
+    promo_description: str | None = None
+
+
+class PromoWindow(_Model):
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    description: str
+
+
+class PriceHistoryResponse(_Model):
+    canonical_id: int
+    store_id: int | None
+    days: int
+    points: list[PricePoint]
+    promos: list[PromoWindow] = Field(default_factory=list)
+    generated_at: datetime
+
+
+class PriceAlertIn(_Model):
+    canonical_id: int
+    threshold_unit_price: Decimal = Field(gt=0)
+    flex_level: FlexLevel = "any_brand"
+    radius_m: int = Field(default=5000, ge=500, le=15000)
+
+
+class PriceAlert(PriceAlertIn):
+    id: int
+    active: bool = True
+    last_fired_at: datetime | None = None
+    created_at: datetime
+
+
+class PushSubscriptionIn(_Model):
+    endpoint: str = Field(max_length=2000)
+    p256dh: str
+    auth: str
+    user_agent: str | None = Field(default=None, max_length=300)
+
+
+class ShareInvite(_Model):
+    list_id: int
+    token: str
+    url: str
+    role: Literal["editor", "viewer"] = "editor"
+
+
+class ShareRequest(_Model):
+    role: Literal["editor", "viewer"] = "editor"
+
+
+class ListMember(_Model):
+    user_id: str | None = Field(default=None, description="null while the invite is pending")
+    role: Literal["editor", "viewer"]
+    accepted_at: datetime | None = None
+    is_owner: bool = False
+
+
+class StorePrice(_Model):
+    store: StoreRef
+    item_id: int
+    display_name_he: str
+    shelf_price: Decimal
+    unit_price: Decimal
+    uom: str
+    price_valid_from: datetime
+
+
+class BarcodeLookupResponse(_Model):
+    barcode: str
+    found: bool
+    display_name_he: str | None = None
+    canonical: CanonicalRef | None = None
+    here: StorePrice | None = Field(default=None, description="Price at the store the user is in, when store_id was given")
+    cheapest_nearby: StorePrice | None = None
+    cheaper_substitute: StorePrice | None = Field(default=None, description="A cheaper any-brand match nearby, labeled as a substitute")
+    generated_at: datetime
+    disclaimer_he: str = "המחיר הקובע הוא בקופה."
+
+
+class SwapSuggestion(_Model):
+    canonical_id: int
+    from_item_id: int
+    to_item_id: int
+    to_display_name_he: str
+    flex_level: FlexLevel
+    saving: Decimal = Field(description="For the requested quantity, ILS")
+    confidence: float | None = None
+    tags: list[AttributeTag] = Field(default_factory=list)
+
+
+class SwapSuggestionResponse(_Model):
+    store_id: int
+    swaps: list[SwapSuggestion] = Field(description="Sorted by saving, largest first")
+    top_swap: SwapSuggestion | None = None
+    total_saving: Decimal
+    generated_at: datetime

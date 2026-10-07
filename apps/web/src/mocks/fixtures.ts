@@ -558,6 +558,7 @@ export function optimizeFixture(
     single,
     split,
     minimum_effort,
+    solver: "heuristic",
     subsets_evaluated: n + (n * (n - 1)) / 2,
     generated_at: new Date().toISOString(),
     disclaimer_he: "המחיר הקובע הוא בקופה.",

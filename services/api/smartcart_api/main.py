@@ -23,7 +23,21 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from smartcart_api import schemas
 from smartcart_api.db import close_pool
-from smartcart_api.routes import compare, events, feedback, me, optimize, search
+from smartcart_api.routes import (
+    alerts,
+    barcode,
+    compare,
+    events,
+    feedback,
+    history,
+    me,
+    me_delete,
+    optimize,
+    search,
+    shares,
+    stores,
+    swaps,
+)
 from smartcart_api.settings import API_VERSION, get_settings
 
 VERSION = API_VERSION
@@ -61,6 +75,14 @@ app.include_router(optimize.router)
 app.include_router(feedback.router)
 app.include_router(me.router)
 app.include_router(events.router)
+# Phase 2 routers (stubs until their workstreams land; one module per workstream).
+app.include_router(me_delete.router)
+app.include_router(stores.router)
+app.include_router(history.router)
+app.include_router(alerts.router)
+app.include_router(shares.router)
+app.include_router(barcode.router)
+app.include_router(swaps.router)
 
 
 def run() -> None:

@@ -89,6 +89,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/history/{canonical_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Price History */
+        get: operations["price_history_history__canonical_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/barcode/{barcode}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lookup Barcode */
+        get: operations["lookup_barcode_items_barcode__barcode__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists/accept/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Share */
+        post: operations["accept_share_lists_accept__token__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Me */
+        delete: operations["delete_me_me_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Alerts */
+        get: operations["list_alerts_me_alerts_get"];
+        put?: never;
+        /** Create Alert */
+        post: operations["create_alert_me_alerts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/alerts/{alert_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Alert */
+        delete: operations["delete_alert_me_alerts__alert_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/lists": {
         parameters: {
             query?: never;
@@ -129,6 +232,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/lists/{list_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Members */
+        get: operations["list_members_me_lists__list_id__members_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/lists/{list_id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Share List */
+        post: operations["share_list_me_lists__list_id__share_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/profile": {
         parameters: {
             query?: never;
@@ -147,6 +284,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/push-subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Push Subscription */
+        post: operations["add_push_subscription_me_push_subscriptions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/optimize": {
         parameters: {
             query?: never;
@@ -158,6 +312,23 @@ export interface paths {
         put?: never;
         /** Optimize */
         post: operations["optimize_optimize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/optimize/swaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Swap Suggestions */
+        post: operations["swap_suggestions_optimize_swaps_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -198,6 +369,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stores/nearest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Nearest Store */
+        get: operations["nearest_store_stores_nearest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -223,6 +411,31 @@ export interface components {
             status: "matched" | "differs" | "unverified";
             /** Value */
             value?: string | null;
+        };
+        /** BarcodeLookupResponse */
+        BarcodeLookupResponse: {
+            /** Barcode */
+            barcode: string;
+            canonical?: components["schemas"]["CanonicalRef"] | null;
+            /** @description A cheaper any-brand match nearby, labeled as a substitute */
+            cheaper_substitute?: components["schemas"]["StorePrice"] | null;
+            cheapest_nearby?: components["schemas"]["StorePrice"] | null;
+            /**
+             * Disclaimer He
+             * @default המחיר הקובע הוא בקופה.
+             */
+            disclaimer_he: string;
+            /** Display Name He */
+            display_name_he?: string | null;
+            /** Found */
+            found: boolean;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** @description Price at the store the user is in, when store_id was given */
+            here?: components["schemas"]["StorePrice"] | null;
         };
         /** BasketItem */
         BasketItem: {
@@ -416,6 +629,26 @@ export interface components {
              */
             quantity: number | string;
         };
+        /** ListMember */
+        ListMember: {
+            /** Accepted At */
+            accepted_at?: string | null;
+            /**
+             * Is Owner
+             * @default false
+             */
+            is_owner: boolean;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "editor" | "viewer";
+            /**
+             * User Id
+             * @description null while the invite is pending
+             */
+            user_id?: string | null;
+        };
         /** Location */
         Location: {
             /** Lat */
@@ -462,6 +695,13 @@ export interface components {
              * @default 25
              */
             min_split_saving: number | string;
+            /**
+             * Solver
+             * @description milp handles cross-item promos and quantity rounding (phase 2)
+             * @default heuristic
+             * @enum {string}
+             */
+            solver: "heuristic" | "milp";
             travel?: components["schemas"]["TravelSettings"];
         };
         /** OptimizeResponse */
@@ -479,6 +719,12 @@ export interface components {
             /** @description The home store itself; null without a home store */
             minimum_effort?: components["schemas"]["Plan"] | null;
             single: components["schemas"]["Plan"];
+            /**
+             * Solver
+             * @default heuristic
+             * @enum {string}
+             */
+            solver: "heuristic" | "milp";
             /** @description null when no split beats min_split_saving */
             split?: components["schemas"]["Plan"] | null;
             /** Subsets Evaluated */
@@ -566,6 +812,11 @@ export interface components {
             kind: "single" | "split" | "minimum_effort";
             /** Missing */
             missing?: number[];
+            /**
+             * Promo Bundles
+             * @description Cross-item promos the MILP solver exploited
+             */
+            promo_bundles?: components["schemas"]["PromoBundle"][];
             /** Recommended */
             recommended: boolean;
             /** Stores */
@@ -583,6 +834,93 @@ export interface components {
              * @default 0
              */
             travel_cost: string;
+        };
+        /** PriceAlert */
+        PriceAlert: {
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /** Canonical Id */
+            canonical_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Flex Level
+             * @default any_brand
+             * @enum {string}
+             */
+            flex_level: "exact" | "any_brand" | "close";
+            /** Id */
+            id: number;
+            /** Last Fired At */
+            last_fired_at?: string | null;
+            /**
+             * Radius M
+             * @default 5000
+             */
+            radius_m: number;
+            /** Threshold Unit Price */
+            threshold_unit_price: string;
+        };
+        /** PriceAlertIn */
+        PriceAlertIn: {
+            /** Canonical Id */
+            canonical_id: number;
+            /**
+             * Flex Level
+             * @default any_brand
+             * @enum {string}
+             */
+            flex_level: "exact" | "any_brand" | "close";
+            /**
+             * Radius M
+             * @default 5000
+             */
+            radius_m: number;
+            /** Threshold Unit Price */
+            threshold_unit_price: number | string;
+        };
+        /** PriceHistoryResponse */
+        PriceHistoryResponse: {
+            /** Canonical Id */
+            canonical_id: number;
+            /** Days */
+            days: number;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Points */
+            points: components["schemas"]["PricePoint"][];
+            /** Promos */
+            promos?: components["schemas"]["PromoWindow"][];
+            /** Store Id */
+            store_id: number | null;
+        };
+        /** PricePoint */
+        PricePoint: {
+            /**
+             * Date
+             * Format: date-time
+             */
+            date: string;
+            /** Promo Description */
+            promo_description?: string | null;
+            /** Shelf Price */
+            shelf_price?: string | null;
+            /**
+             * Store Id
+             * @description null means the chain base price
+             */
+            store_id?: number | null;
+            /** Unit Price */
+            unit_price: string;
         };
         /** PricedItem */
         PricedItem: {
@@ -639,6 +977,11 @@ export interface components {
              * @default false
              */
             promo_applied: boolean;
+            /**
+             * Promo Confidence
+             * @description Confidence that the promo was parsed correctly; null when unknown
+             */
+            promo_confidence?: number | null;
             /** Promo Description */
             promo_description?: string | null;
             /**
@@ -782,6 +1125,40 @@ export interface components {
              */
             travel_mode: "car" | "walk_transit" | "delivery";
         };
+        /** PromoBundle */
+        PromoBundle: {
+            /**
+             * Add Qty
+             * @description Quantity to add to complete one more bundle
+             */
+            add_qty?: string | null;
+            /** Bundle Count */
+            bundle_count: number;
+            /** Promo Description */
+            promo_description: string;
+            /** Saving */
+            saving: string;
+        };
+        /** PromoWindow */
+        PromoWindow: {
+            /** Description */
+            description: string;
+            /** Ends At */
+            ends_at?: string | null;
+            /** Starts At */
+            starts_at?: string | null;
+        };
+        /** PushSubscriptionIn */
+        PushSubscriptionIn: {
+            /** Auth */
+            auth: string;
+            /** Endpoint */
+            endpoint: string;
+            /** P256Dh */
+            p256dh: string;
+            /** User Agent */
+            user_agent?: string | null;
+        };
         /** SavingBreakdown */
         SavingBreakdown: {
             /**
@@ -821,6 +1198,30 @@ export interface components {
             hits: components["schemas"]["SearchHit"][];
             /** Query */
             query: string;
+        };
+        /** ShareInvite */
+        ShareInvite: {
+            /** List Id */
+            list_id: number;
+            /**
+             * Role
+             * @default editor
+             * @enum {string}
+             */
+            role: "editor" | "viewer";
+            /** Token */
+            token: string;
+            /** Url */
+            url: string;
+        };
+        /** ShareRequest */
+        ShareRequest: {
+            /**
+             * Role
+             * @default editor
+             * @enum {string}
+             */
+            role: "editor" | "viewer";
         };
         /** ShoppingList */
         ShoppingList: {
@@ -864,6 +1265,50 @@ export interface components {
             item_ids: number[];
             store: components["schemas"]["StoreResult"];
         };
+        /** StorePrice */
+        StorePrice: {
+            /** Display Name He */
+            display_name_he: string;
+            /** Item Id */
+            item_id: number;
+            /**
+             * Price Valid From
+             * Format: date-time
+             */
+            price_valid_from: string;
+            /** Shelf Price */
+            shelf_price: string;
+            store: components["schemas"]["StoreRef"];
+            /** Unit Price */
+            unit_price: string;
+            /** Uom */
+            uom: string;
+        };
+        /** StoreRef */
+        StoreRef: {
+            /** Chain Id */
+            chain_id: string;
+            /** Chain Name */
+            chain_name: string;
+            /**
+             * Channel
+             * @default physical
+             * @enum {string}
+             */
+            channel: "physical" | "online";
+            /** City */
+            city?: string | null;
+            /** Distance M */
+            distance_m?: number | null;
+            /** Lat */
+            lat?: number | null;
+            /** Lon */
+            lon?: number | null;
+            /** Store Id */
+            store_id: number;
+            /** Store Name */
+            store_name: string;
+        };
         /** StoreResult */
         StoreResult: {
             /** Chain Id */
@@ -883,6 +1328,16 @@ export interface components {
             found_count: number;
             /** Items */
             items: components["schemas"]["PricedItem"][];
+            /**
+             * Lat
+             * @description Store latitude when known (phase 2)
+             */
+            lat?: number | null;
+            /**
+             * Lon
+             * @description Store longitude when known (phase 2)
+             */
+            lon?: number | null;
             /**
              * Missing
              * @description canonical_ids not available at this store; never ignored
@@ -920,6 +1375,49 @@ export interface components {
              * @enum {string}
              */
             verdict: "not_good" | "kept_original" | "accepted";
+        };
+        /** SwapSuggestion */
+        SwapSuggestion: {
+            /** Canonical Id */
+            canonical_id: number;
+            /** Confidence */
+            confidence?: number | null;
+            /**
+             * Flex Level
+             * @enum {string}
+             */
+            flex_level: "exact" | "any_brand" | "close";
+            /** From Item Id */
+            from_item_id: number;
+            /**
+             * Saving
+             * @description For the requested quantity, ILS
+             */
+            saving: string;
+            /** Tags */
+            tags?: components["schemas"]["AttributeTag"][];
+            /** To Display Name He */
+            to_display_name_he: string;
+            /** To Item Id */
+            to_item_id: number;
+        };
+        /** SwapSuggestionResponse */
+        SwapSuggestionResponse: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Store Id */
+            store_id: number;
+            /**
+             * Swaps
+             * @description Sorted by saving, largest first
+             */
+            swaps: components["schemas"]["SwapSuggestion"][];
+            top_swap?: components["schemas"]["SwapSuggestion"] | null;
+            /** Total Saving */
+            total_saving: string;
         };
         /** TravelSettings */
         TravelSettings: {
@@ -1121,6 +1619,209 @@ export interface operations {
             };
         };
     };
+    price_history_history__canonical_id__get: {
+        parameters: {
+            query?: {
+                store_id?: number | null;
+                days?: number;
+            };
+            header?: never;
+            path: {
+                canonical_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lookup_barcode_items_barcode__barcode__get: {
+        parameters: {
+            query: {
+                lon: number;
+                lat: number;
+                radius_m?: number;
+                store_id?: number | null;
+            };
+            header?: never;
+            path: {
+                barcode: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BarcodeLookupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_share_lists_accept__token__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_me_me_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ack"];
+                };
+            };
+        };
+    };
+    list_alerts_me_alerts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceAlert"][];
+                };
+            };
+        };
+    };
+    create_alert_me_alerts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceAlertIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceAlert"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_alert_me_alerts__alert_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_lists_me_lists_get: {
         parameters: {
             query?: never;
@@ -1288,6 +1989,72 @@ export interface operations {
             };
         };
     };
+    list_members_me_lists__list_id__members_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMember"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    share_list_me_lists__list_id__share_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareInvite"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_profile_me_profile_get: {
         parameters: {
             query?: never;
@@ -1354,6 +2121,39 @@ export interface operations {
             };
         };
     };
+    add_push_subscription_me_push_subscriptions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushSubscriptionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ack"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     optimize_optimize_post: {
         parameters: {
             query?: never;
@@ -1374,6 +2174,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OptimizeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    swap_suggestions_optimize_swaps_post: {
+        parameters: {
+            query: {
+                store_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwapSuggestionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1439,6 +2274,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    nearest_store_stores_nearest_get: {
+        parameters: {
+            query: {
+                chain_id: string;
+                lon: number;
+                lat: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreRef"];
                 };
             };
             /** @description Validation Error */

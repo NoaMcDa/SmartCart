@@ -20,7 +20,7 @@ from typing import Annotated
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-API_VERSION = "0.2.0"
+API_VERSION = "0.3.0"
 
 
 class Settings(BaseSettings):
