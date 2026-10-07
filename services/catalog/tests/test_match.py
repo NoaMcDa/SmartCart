@@ -255,3 +255,23 @@ def test_fallback_applies_the_lexicon_implied_base() -> None:
         "implied": {"base": "soy"}}}})  # fmt: skip
     assert fallback_attributes("משקה סויה אלפרו 1 ליטר", lex).base == "soy"
     assert fallback_attributes("חלב 3% 1 ליטר", lex).base is None
+
+
+@pytest.mark.parametrize(
+    ("name", "product_type", "base", "flavor"),
+    [
+        ("יוגורט סויה אלפרו 400 גרם", "plant_yogurt", "soy", None),
+        ("יוגורט קוקוס וניל שופרסל 150 גרם", "plant_yogurt", "coconut", "vanilla"),
+        # a base word after "בטעם" is a flavor: still a soy yogurt
+        ("יוגורט סויה בטעם קוקוס אלפרו 400 גרם", "plant_yogurt", "soy", "coconut"),
+        ("שקדים תנובה משקה 1 ליטר", "almond_drink", "almond", None),
+        ("משקה אורז אלפרו 1 ליטר", "rice_drink", "rice", None),
+        ("יוגורט טבעי 3% תנובה 200 גרם", "yogurt", None, "natural"),  # not a base type
+    ],
+)
+def test_fallback_reads_the_base_from_the_name(name, product_type, base, flavor) -> None:
+    """Issue #102: the gold lexicon's ``bases`` give the base of a ``base_types`` item."""
+    from smartcart_catalog.evaluate import gold_lexicon
+
+    a = fallback_attributes(name, gold_lexicon())
+    assert (a.product_type, a.base, a.flavor) == (product_type, base, flavor)

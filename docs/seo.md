@@ -93,6 +93,25 @@ that goes live**, or every canonical URL points at the placeholder.
 `--from-files` leaves `quality.json` untouched. Every `export-seo` run also refreshes the basket
 definition in `basket-index.json` and keeps stored months.
 
+**Last regenerated: 2026-10-07** (issue #102, `base` made critical for the plant drinks), with
+
+```
+SMARTCART_REGEN_SEO=1 uv run pytest services/catalog/tests/test_export_seo.py -k regenerate
+uv run smartcart-catalog export-seo --from-files      # same files, plus the basket definition
+```
+
+Changes: `products.json` gives `soy-drink`, `almond-drink` and `oat-drink` their `critical_attrs`
+(`{"base": "soy"}`, `almond`, `oat`); they rank 141 to 143, so they stay `has_page: false` and
+show as rows on `/c/beverages-plant_drinks`. `quality.json` comes from a fresh evaluation of the
+enlarged synthetic gold set (857 items, 2,523 pairs). `categories.json` changed only its
+`generated_at`, and `basket-index.json` not at all (the basket has no plant drink). As a check,
+`export-seo` against a database seeded with `smartcart-catalog seed` writes the same
+`categories.json`, `products.json` and `basket-index.json` (apart from `generated_at`); its
+`quality.json` has no number because that database has no evaluate run. `next build` passes with
+the new snapshot. The page template has Hebrew labels for `fat_pct`, `state` and `flavor` only:
+if a plant drink ever gets a product page, `base` and its value would show untranslated until
+`features/seo/format.ts` learns them.
+
 Prices in `products.json` follow the app: the "any brand" row of `effective_prices` per store, physical
 stores only, promos included unless they need a club (then the row's `noclub` option, or the store is
 left out). Unit is the canonical's base unit; weighed goods are per kg and flagged estimated.

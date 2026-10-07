@@ -17,6 +17,12 @@ Every item is paired with its own canonical, its hard negatives and one random c
 same department, so the set is rich in hard negatives. "Orphan" items (goat milk, smoked salmon,
 rice drink, ...) have no canonical at all and are paired only as no_match.
 
+Base boundary (issue #102): the plant drinks are separate product types, so the type alone
+already vetoes soy against almond. ``BASE_SPECS`` add two plant yogurts that share one product
+type and differ only by their ``base`` (soy, coconut), so a soy yogurt paired with the coconut
+yogurt is a no_match that only the ``base`` critical key can catch. They are generated after
+everything else with their own random stream, so adding them left every earlier pair unchanged.
+
 Replace with real items labeled by a human as soon as real chain items are loaded: the numbers
 measured on this set say the pipeline works end to end, not that it reaches 98% precision on
 real data. Deterministic: the same seed always produces the same files.
@@ -90,6 +96,7 @@ RULES: dict[str, tuple[list[str], list[str]]] = {
     "almond_drink": (["base"], ["pack_size", "flavor", "brand"]),
     "oat_drink": (["base"], ["pack_size", "flavor", "brand"]),
     "rice_drink": (["base"], ["pack_size", "flavor", "brand"]),
+    "plant_yogurt": (["base"], ["pack_size", "flavor", "brand"]),
     "salmon": (["state"], ["pack_size", "brand"]),
     "smoked_salmon": ([], ["pack_size", "brand"]),
     "tilapia": (["state"], ["pack_size", "brand"]),
@@ -140,6 +147,7 @@ LEXICON_PT: dict[str, list[str]] = {
     "almond_drink": ["משקה שקדים", "שקדים"],
     "oat_drink": ["משקה שיבולת שועל", "שיבולת שועל", "משקה שיבולת"],
     "rice_drink": ["משקה אורז"],
+    "plant_yogurt": ["יוגורט סויה", "יוגורט קוקוס", "יוגורט שקדים"],
     "salmon": ["סלמון", "פילה סלמון", "נתחי סלמון"],
     "smoked_salmon": ["סלמון מעושן"],
     "tilapia": ["אמנון", "פילה אמנון"],
@@ -180,6 +188,16 @@ LEXICON_IMPLIED: dict[str, dict[str, str]] = {
     "oat_drink": {"base": "oat"},
     "rice_drink": {"base": "rice"},
 }
+# Base keywords, read from the name for these product types (the first one that does not follow
+# "בטעם" wins; "יוגורט סויה בטעם קוקוס" is a soy yogurt with a coconut flavor).
+LEXICON_BASES: dict[str, list[str]] = {
+    "soy": ["סויה"],
+    "almond": ["שקדים"],
+    "oat": ["שיבולת שועל", "שיבולת"],
+    "rice": ["אורז"],
+    "coconut": ["קוקוס"],
+}
+LEXICON_BASE_TYPES = ["soy_drink", "almond_drink", "oat_drink", "rice_drink", "plant_yogurt"]
 LEXICON_FLAVORS: dict[str, list[str]] = {
     "white": ["לבן", "לחם לבן", "קמח לבן", "סוכר לבן"],
     "whole_wheat": ["מלא", "חיטה מלאה", "מחיטה מלאה", "קמח מלא"],
@@ -191,6 +209,7 @@ LEXICON_FLAVORS: dict[str, list[str]] = {
     "natural": ["טבעי"],
     "strawberry": ["תות"],
     "vanilla": ["וניל"],
+    "coconut": ["בטעם קוקוס"],
     "spaghetti": ["ספגטי"],
     "penne": ["פנה"],
     "fusilli": ["פוזילי"],
@@ -1125,6 +1144,52 @@ ORPHANS: list[dict[str, Any]] = [
     ),
 ]
 
+# Base boundary (issue #102): one product type, two canonicals that differ only by base.
+BASE_SPECS: list[dict[str, Any]] = [
+    dict(
+        slug="soy-yogurt-400g",
+        tax="dairy.yogurt",
+        name="יוגורט סויה טבעי, 400 גרם",
+        pt="plant_yogurt",
+        bu="100g",
+        crit={"base": "soy"},
+        soft={"pack_size": 400, "unit": "g", "flavor": "natural"},
+        templates=[
+            "יוגורט סויה {v} {b} {s}",
+            "{b} יוגורט סויה {v} {s}",
+            "יוגורט סויה טבעי {b} {s}",
+        ],
+        brands=["אלפרו", "שטראוס", "וילי פוד", "שופרסל"],
+        sizes=[("400 גרם", 400, "g"), ("150 גרם", 150, "g")],
+        variants=[
+            ("", {}),
+            ("וניל", {"flavor": "vanilla"}),
+            ("בטעם קוקוס", {"flavor": "coconut"}),
+        ],  # fmt: skip
+        neg=["coconut-yogurt-400g", "yogurt-3pct-200g"],
+        n=14,
+    ),
+    dict(
+        slug="coconut-yogurt-400g",
+        tax="dairy.yogurt",
+        name="יוגורט קוקוס טבעי, 400 גרם",
+        pt="plant_yogurt",
+        bu="100g",
+        crit={"base": "coconut"},
+        soft={"pack_size": 400, "unit": "g", "flavor": "natural"},
+        templates=[
+            "יוגורט קוקוס {v} {b} {s}",
+            "{b} יוגורט קוקוס {v} {s}",
+            "יוגורט קוקוס טבעי {b} {s}",
+        ],
+        brands=["אלפרו", "שטראוס", "וילי פוד", "שופרסל"],
+        sizes=[("400 גרם", 400, "g"), ("150 גרם", 150, "g")],
+        variants=[("", {}), ("וניל", {"flavor": "vanilla"})],
+        neg=["soy-yogurt-400g", "yogurt-3pct-200g"],
+        n=12,
+    ),
+]
+
 
 # --- generation ---------------------------------------------------------------------------------
 
@@ -1169,8 +1234,9 @@ def label(truth: dict[str, Any], canon: dict[str, Any], barcode: str) -> tuple[s
 
 def build(seed: int = SEED) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     rng = random.Random(seed)
-    by_slug = {s["slug"]: s for s in SPECS}
-    for i, spec in enumerate(SPECS):
+    all_specs = [*SPECS, *BASE_SPECS]
+    by_slug = {s["slug"]: s for s in all_specs}
+    for i, spec in enumerate(all_specs):
         spec["soft"] = dict(spec["soft"])
         spec["soft"]["barcodes"] = [f"7290000{i:05d}0"]
     rows: list[dict[str, Any]] = []
@@ -1178,57 +1244,63 @@ def build(seed: int = SEED) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     seen_text: set[str] = set()
     item_no = 0
 
-    def new_barcode() -> str:
+    def new_barcode(rng: random.Random) -> str:
         while True:
             code = "729" + "".join(rng.choice("0123456789") for _ in range(10))
             if code not in used_barcodes:
                 used_barcodes.add(code)
                 return code
 
-    for spec in SPECS:
-        dept = spec["tax"].split(".")[0]
-        variants = spec.get("variants") or [("", {})]
-        made = 0
-        attempts = 0
-        exact_left = 2 if spec["sizes"][0][1] is not None else 0
-        while made < spec["n"] and attempts < spec["n"] * 40:
-            attempts += 1
-            tpl = rng.choice(spec["templates"])
-            brand = rng.choice(spec["brands"])
-            si = 0 if rng.random() < 0.65 else rng.randrange(len(spec["sizes"]))
-            vi = 0 if rng.random() < 0.75 else rng.randrange(len(variants))
-            if "{v}" not in tpl:
-                vi = 0  # the template cannot show the variant, so the truth is the default
-            size_text, amount, unit = spec["sizes"][si]
-            var_text, overrides = variants[vi]
-            text = _clean(tpl.format(b=brand, s=size_text, v=var_text))
-            if text in seen_text:
-                continue
-            seen_text.add(text)
-            truth: dict[str, Any] = {"product_type": spec["pt"], **spec["crit"]}
-            for key, value in spec["soft"].items():
-                if key not in {"pack_size", "unit", "barcodes"}:
-                    truth[key] = value
-            truth.update(overrides)
-            truth["pack"] = _qty_base(amount, unit)
-            if exact_left and si == 0 and vi == 0:
-                barcode = spec["soft"]["barcodes"][0]
-                exact_left -= 1
-            else:
-                barcode = new_barcode()
-            item_no += 1
-            key = f"gold-{item_no:05d}"
-            others = [s for s in SPECS if s["tax"].split(".")[0] == dept
-                      and s["slug"] != spec["slug"] and s["slug"] not in spec["neg"]]  # fmt: skip
-            compare = [spec["slug"], *spec["neg"]]
-            if others:
-                compare.append(rng.choice(others)["slug"])
-            for slug in compare:
-                lab, note = label(truth, by_slug[slug], barcode)
-                rows.append(dict(item_key=key, item_text=text, barcode=barcode,
-                                 is_weighed=bool(spec.get("weighed")), canonical_slug=slug,
-                                 label=lab, category=dept, note=note))  # fmt: skip
-            made += 1
+    def emit(specs: list[dict[str, Any]], pool: list[dict[str, Any]], rng: random.Random) -> None:
+        """Items of ``specs``, each paired with its canonical, its hard negatives and one
+        random canonical of the same department drawn from ``pool``."""
+        nonlocal item_no
+        for spec in specs:
+            dept = spec["tax"].split(".")[0]
+            variants = spec.get("variants") or [("", {})]
+            made = 0
+            attempts = 0
+            exact_left = 2 if spec["sizes"][0][1] is not None else 0
+            while made < spec["n"] and attempts < spec["n"] * 40:
+                attempts += 1
+                tpl = rng.choice(spec["templates"])
+                brand = rng.choice(spec["brands"])
+                si = 0 if rng.random() < 0.65 else rng.randrange(len(spec["sizes"]))
+                vi = 0 if rng.random() < 0.75 else rng.randrange(len(variants))
+                if "{v}" not in tpl:
+                    vi = 0  # the template cannot show the variant, so the truth is the default
+                size_text, amount, unit = spec["sizes"][si]
+                var_text, overrides = variants[vi]
+                text = _clean(tpl.format(b=brand, s=size_text, v=var_text))
+                if text in seen_text:
+                    continue
+                seen_text.add(text)
+                truth: dict[str, Any] = {"product_type": spec["pt"], **spec["crit"]}
+                for key, value in spec["soft"].items():
+                    if key not in {"pack_size", "unit", "barcodes"}:
+                        truth[key] = value
+                truth.update(overrides)
+                truth["pack"] = _qty_base(amount, unit)
+                if exact_left and si == 0 and vi == 0:
+                    barcode = spec["soft"]["barcodes"][0]
+                    exact_left -= 1
+                else:
+                    barcode = new_barcode(rng)
+                item_no += 1
+                key = f"gold-{item_no:05d}"
+                others = [s for s in pool if s["tax"].split(".")[0] == dept
+                          and s["slug"] != spec["slug"] and s["slug"] not in spec["neg"]]  # fmt: skip
+                compare = [spec["slug"], *spec["neg"]]
+                if others:
+                    compare.append(rng.choice(others)["slug"])
+                for slug in compare:
+                    lab, note = label(truth, by_slug[slug], barcode)
+                    rows.append(dict(item_key=key, item_text=text, barcode=barcode,
+                                     is_weighed=bool(spec.get("weighed")), canonical_slug=slug,
+                                     label=lab, category=dept, note=note))  # fmt: skip
+                made += 1
+
+    emit(SPECS, SPECS, rng)
 
     for orphan in ORPHANS:
         made = 0
@@ -1241,12 +1313,15 @@ def build(seed: int = SEED) -> tuple[dict[str, Any], list[dict[str, Any]]]:
             seen_text.add(text)
             item_no += 1
             key = f"gold-{item_no:05d}"
-            barcode = new_barcode()
+            barcode = new_barcode(rng)
             for slug in orphan["near"]:
                 rows.append(dict(item_key=key, item_text=text, barcode=barcode, is_weighed=False,
                                  canonical_slug=slug, label="no_match", category=orphan["cat"],
                                  note=f"orphan: {orphan['pt']} has no canonical"))  # fmt: skip
             made += 1
+
+    # Own random stream (issue #102), so the pairs above are the same with or without them.
+    emit(BASE_SPECS, all_specs, random.Random(seed + 102))
 
     catalog = {
         "synthetic": True,
@@ -1270,20 +1345,22 @@ def build(seed: int = SEED) -> tuple[dict[str, Any], list[dict[str, Any]]]:
                 "soft_attrs": {k: v for k, v in s["soft"].items() if k != "barcodes"},
                 "reference_barcodes": s["soft"]["barcodes"],
             }
-            for s in SPECS
+            for s in all_specs
         ],  # fmt: skip
         "lexicon": {
             "product_types": {
                 pt: {
                     "keywords": kws,
                     "taxonomy_id": next(
-                        (s["tax"] for s in SPECS if s["pt"] == pt), _orphan_tax(pt)
+                        (s["tax"] for s in all_specs if s["pt"] == pt), _orphan_tax(pt)
                     ),
                     **({"implied": LEXICON_IMPLIED[pt]} if pt in LEXICON_IMPLIED else {}),
                 }
                 for pt, kws in LEXICON_PT.items()
             },  # fmt: skip
             "flavors": LEXICON_FLAVORS,
+            "bases": LEXICON_BASES,
+            "base_types": LEXICON_BASE_TYPES,
         },
     }
     return catalog, rows
@@ -1313,7 +1390,8 @@ def main() -> None:
     for r in rows:
         labels[r["label"]] = labels.get(r["label"], 0) + 1
     items = len({r["item_key"] for r in rows})
-    print(f"{len(rows)} pairs, {items} items, {len(SPECS)} canonicals; labels {labels}")
+    canonicals = len(catalog["canonicals"])
+    print(f"{len(rows)} pairs, {items} items, {canonicals} canonicals; labels {labels}")
 
 
 if __name__ == "__main__":
