@@ -592,7 +592,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported";
+            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted";
             /**
              * Props
              * @description Allowlisted keys per event name, values are integers or members of a fixed set; anything else is rejected with 422 (no free text, no personal data). See docs/beta-plan.md.
@@ -656,6 +656,12 @@ export interface components {
             /** Canonical Id */
             canonical_id?: number | null;
             /**
+             * Checked
+             * @description Ticked off in the store (shared lists, #101)
+             * @default false
+             */
+            checked: boolean;
+            /**
              * Confirmed
              * @default true
              */
@@ -682,6 +688,12 @@ export interface components {
         ListItemIn: {
             /** Canonical Id */
             canonical_id?: number | null;
+            /**
+             * Checked
+             * @description Ticked off in the store (shared lists, #101)
+             * @default false
+             */
+            checked: boolean;
             /**
              * Confirmed
              * @default true
@@ -715,6 +727,11 @@ export interface components {
              * @enum {string}
              */
             role: "editor" | "viewer";
+            /**
+             * Share Id
+             * @description Id of the list_shares row (null for the owner); revoke a pending invite or remove a member with DELETE /me/lists/{list_id}/shares/{share_id}
+             */
+            share_id?: number | null;
             /**
              * User Id
              * @description null while the invite is pending
@@ -1502,8 +1519,21 @@ export interface components {
         SubstitutionFeedbackRequest: {
             /** Canonical Id */
             canonical_id: number;
+            /** Flex Level */
+            flex_level?: ("exact" | "any_brand" | "close") | null;
+            /** List Item Id */
+            list_item_id?: number | null;
+            /** Match Confidence */
+            match_confidence?: number | null;
             /** Original Item Id */
             original_item_id?: number | null;
+            /**
+             * Source
+             * @description Where the verdict came from: the substitution card, or the smart-cart swap (apply = accepted, undo = kept_original, dismiss = not_good)
+             * @default substitution_card
+             * @enum {string}
+             */
+            source: "substitution_card" | "swap";
             /** Substitute Item Id */
             substitute_item_id: number;
             /**

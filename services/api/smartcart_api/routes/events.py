@@ -96,6 +96,24 @@ EVENT_PROPS: dict[str, dict[str, Key]] = {
     "flex_changed": {"flex_level": _choices(*FLEX_LEVELS, required=True)},
     "split_viewed": {},
     "gap_reported": {},
+    # --- phase 2 surfaces (#101, #102). No barcodes, item ids or prices: counts and outcomes only.
+    # The camera opened on /scan. engine says which decoder was available.
+    "scan_started": {"engine": _choices("native", "zxing", "manual")},
+    # A scan ended. outcome is what the user saw; duration_ms runs from scan_started.
+    "scan_completed": {
+        "outcome": _choices("found", "not_found", "no_price", "cancelled", "error", required=True),
+        "duration_ms": Key(0, 600_000),
+        "engine": _choices("native", "zxing", "manual"),
+    },
+    # A price alert was created from product detail or the alerts screen.
+    "alert_created": {"flex_level": _choices(*FLEX_LEVELS), "source": _choices("product", "alerts")},
+    # Smart cart: a suggested swap was applied, undone, or dismissed (dismissal holds until prices change).
+    "swap_applied": {"flex_level": _choices(*FLEX_LEVELS), "saving_agorot": Key(0, 100_000)},
+    "swap_undone": {"flex_level": _choices(*FLEX_LEVELS)},
+    "swap_dismissed": {"flex_level": _choices(*FLEX_LEVELS)},
+    # Shared lists: an invite link was created; an invite was accepted.
+    "list_shared": {"role": _choices("editor", "viewer")},
+    "share_accepted": {"role": _choices("editor", "viewer")},
 }
 
 

@@ -172,12 +172,18 @@ describe("apply, undo and dismiss", () => {
           original_item_id: 100400,
           substitute_item_id: 100401,
           verdict: "accepted",
+          source: "swap",
+          flex_level: expect.any(String),
+          match_confidence: expect.anything(),
         },
         {
           canonical_id: 1002,
           original_item_id: 100200,
           substitute_item_id: 100201,
           verdict: "not_good",
+          source: "swap",
+          flex_level: expect.any(String),
+          match_confidence: expect.anything(),
         },
       ]),
     );

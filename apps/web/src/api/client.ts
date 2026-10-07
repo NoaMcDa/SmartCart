@@ -29,7 +29,10 @@ export type SavingBreakdown = Schemas["SavingBreakdown"];
 export type SearchResponse = Schemas["SearchResponse"];
 export type SearchHit = Schemas["SearchHit"];
 export type GapReportRequest = Schemas["GapReportRequest"];
-export type SubstitutionFeedbackRequest = Schemas["SubstitutionFeedbackRequest"];
+export type SubstitutionFeedbackRequest = Opt<
+  Schemas["SubstitutionFeedbackRequest"],
+  "source" | "list_item_id" | "flex_level" | "match_confidence"
+>;
 export type Ack = Schemas["Ack"];
 export type StoreRef = Schemas["StoreRef"];
 export type FlexLevel = NonNullable<BasketItem["flex_level"]>;
@@ -45,8 +48,13 @@ export type ShareInvite = Schemas["ShareInvite"];
 export type ShareRole = Schemas["ShareRequest"]["role"];
 export type ListMember = Schemas["ListMember"];
 export type ShoppingList = Schemas["ShoppingList"];
-export type ShoppingListInput = Schemas["ShoppingListIn"];
-export type ListItemInput = Opt<Schemas["ListItemIn"], "confirmed" | "flex_level" | "quantity">;
+export type ListItemInput = Opt<
+  Schemas["ListItemIn"],
+  "confirmed" | "flex_level" | "quantity" | "checked"
+>;
+export type ShoppingListInput = Omit<Schemas["ShoppingListIn"], "items"> & {
+  items: ListItemInput[];
+};
 export type BarcodeLookupResponse = Schemas["BarcodeLookupResponse"];
 export type StorePrice = Schemas["StorePrice"];
 export type SwapSuggestion = Schemas["SwapSuggestion"];
@@ -134,7 +142,9 @@ export async function reportGap(body: GapReportRequest): Promise<Ack> {
 }
 
 export async function substitutionFeedback(body: SubstitutionFeedbackRequest): Promise<Ack> {
-  return unwrap(await api.POST("/feedback/substitution", { body }));
+  return unwrap(
+    await api.POST("/feedback/substitution", { body: { source: "substitution_card", ...body } }),
+  );
 }
 
 export async function health() {
@@ -194,8 +204,15 @@ export async function addPushSubscription(body: PushSubscriptionInput): Promise<
   return unwrap(await api.POST("/me/push-subscriptions", { body }));
 }
 
+function listBody(body: ShoppingListInput): Schemas["ShoppingListIn"] {
+  return {
+    ...body,
+    items: body.items.map((it) => ({ checked: false, ...it })) as Schemas["ListItemIn"][],
+  };
+}
+
 export async function createList(body: ShoppingListInput): Promise<ShoppingList> {
-  return unwrap(await api.POST("/me/lists", { body }));
+  return unwrap(await api.POST("/me/lists", { body: listBody(body) }));
 }
 
 export async function getList(listId: number): Promise<ShoppingList> {
@@ -204,7 +221,10 @@ export async function getList(listId: number): Promise<ShoppingList> {
 
 export async function updateList(listId: number, body: ShoppingListInput): Promise<ShoppingList> {
   return unwrap(
-    await api.PUT("/me/lists/{list_id}", { params: { path: { list_id: listId } }, body }),
+    await api.PUT("/me/lists/{list_id}", {
+      params: { path: { list_id: listId } },
+      body: listBody(body),
+    }),
   );
 }
 

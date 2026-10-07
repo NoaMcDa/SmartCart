@@ -172,7 +172,8 @@ def test_invite_accept_members_and_revoke(client, db, people, monkeypatch) -> No
     assert db.execute("SELECT count(*) FROM list_shares WHERE invite_token = %s", (token,)).fetchone()[0] == 0
     pending = client.get(f"/me/lists/{list_id}/members", headers=h(owner)).json()
     assert pending[0]["is_owner"] and pending[1] == {
-        "user_id": None, "role": "editor", "accepted_at": None, "is_owner": False}
+        "user_id": None, "role": "editor", "accepted_at": None, "is_owner": False,
+        "share_id": pending[1]["share_id"]}
     # Not shared yet: the editor cannot see it.
     assert client.get(f"/me/lists/{list_id}/members", headers=h(editor)).status_code == 404
 

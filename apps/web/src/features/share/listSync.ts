@@ -8,9 +8,7 @@
  * rows, so nothing is lost; a delete removes only that item; an insert whose id is already known is
  * an update, so a reconnect that replays events cannot duplicate an item.
  */
-import type { FlexLevel, Schemas, ShoppingList, ShoppingListInput } from "@/api/client";
-
-type ListItemIn = Schemas["ListItemIn"];
+import type { FlexLevel, ListItemInput, ShoppingList, ShoppingListInput } from "@/api/client";
 
 export type SharedItem = {
   id: number;
@@ -109,7 +107,7 @@ export function changeFromPayload(payload: {
 
 /** The full list as a PUT body, for the polling fallback (the API replaces the item set). */
 export function serverBody(name: string, items: ReadonlyArray<SharedItem>): ShoppingListInput {
-  const rows: ListItemIn[] = items.map((i) => ({
+  const rows: ListItemInput[] = items.map((i) => ({
     canonical_id: i.canonicalId,
     input_text: i.name,
     quantity: i.quantity,

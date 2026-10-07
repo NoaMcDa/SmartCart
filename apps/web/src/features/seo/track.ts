@@ -45,7 +45,22 @@ export type EventProps = {
   flex_changed: { flex_level: FlexLevel };
   split_viewed: Record<string, never>;
   gap_reported: Record<string, never>;
+  /** Phase 2 surfaces (#101). Counts and outcomes only: no barcodes, item ids or prices. */
+  scan_started: { engine?: ScanEngine };
+  scan_completed: {
+    outcome: "found" | "not_found" | "no_price" | "cancelled" | "error";
+    duration_ms?: number;
+    engine?: ScanEngine;
+  };
+  alert_created: { flex_level?: FlexLevel; source?: "product" | "alerts" };
+  swap_applied: { flex_level?: FlexLevel; saving_agorot?: number };
+  swap_undone: { flex_level?: FlexLevel };
+  swap_dismissed: { flex_level?: FlexLevel };
+  list_shared: { role?: "editor" | "viewer" };
+  share_accepted: { role?: "editor" | "viewer" };
 };
+
+type ScanEngine = "native" | "zxing" | "manual";
 
 export type EventName = keyof EventProps;
 

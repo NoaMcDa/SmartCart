@@ -22,6 +22,9 @@ function signal(swap: SwapSuggestion, verdict: "accepted" | "not_good"): void {
     original_item_id: swap.from_item_id,
     substitute_item_id: swap.to_item_id,
     verdict,
+    source: "swap",
+    flex_level: swap.flex_level,
+    match_confidence: swap.confidence ?? null,
   }).catch(() => {
     // A lost signal changes nothing for the shopper.
   });

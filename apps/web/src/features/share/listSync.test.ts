@@ -141,6 +141,7 @@ describe("rows and Realtime payloads", () => {
           flex_level: "exact",
           input_text: "קוטג'",
           quantity: "1",
+          checked: false,
         },
         {
           id: 1,
@@ -150,6 +151,7 @@ describe("rows and Realtime payloads", () => {
           flex_level: "any_brand",
           input_text: "חלב",
           quantity: "2",
+          checked: false,
         },
       ],
     });

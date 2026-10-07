@@ -5,7 +5,7 @@
  * token is never stored, and access is enforced by the API and row-level security.
  */
 import type { ListItem } from "@/state/list";
-import type { Schemas, ShoppingListInput } from "@/api/client";
+import type { ListItemInput, ShoppingListInput } from "@/api/client";
 import { readJson, writeJson } from "@/state/storage";
 
 export const SHARED_LISTS_KEY = "sc-shared-lists-v1";
@@ -56,7 +56,7 @@ export function rememberJoined(list: { id: number; name: string }): void {
  * chosen behaviour is per-item level, set by whoever last edited the item).
  */
 export function localListToServer(name: string, items: ReadonlyArray<ListItem>): ShoppingListInput {
-  const rows: Schemas["ListItemIn"][] = items
+  const rows: ListItemInput[] = items
     .filter((it) => it.canonical && !it.notFound)
     .map((it) => ({
       canonical_id: it.canonical!.canonical_id,
