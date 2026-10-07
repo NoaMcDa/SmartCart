@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import type { PriceHistoryResponse } from "@/api/client";
 import { Price } from "@/components/ui/Price";
+import { Tag } from "@/components/ui/Tag";
 import { formatPrice } from "@/lib/format";
 import {
   findGaps,
@@ -10,6 +11,9 @@ import {
   inWindow,
   linear,
   money,
+  promoAt,
+  promoAudience,
+  promoConfidence,
   promoRanges,
   seriesOf,
   splitSegments,
@@ -64,8 +68,13 @@ export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHis
   const last = points[points.length - 1] ?? null;
   const axisName = metric === "unit" ? "מחיר ליחידה" : "מחיר מדף";
 
-  const describe = (p: SeriesPoint) =>
-    `${formatDay(p.t)}: ${formatPrice(p.value, 2)}${metric === "unit" ? ` ${unitLabel}` : ""}${p.promo ? `. מבצע: ${p.promo}` : ""}`;
+  const describe = (p: SeriesPoint) => {
+    const range = p.promo ? promoAt(promos, p.t) : null;
+    const promo = p.promo
+      ? `. מבצע: ${p.promo}${range ? ` (${promoAudience(range)}, ${promoConfidence(range)})` : ""}`
+      : "";
+    return `${formatDay(p.t)}: ${formatPrice(p.value, 2)}${metric === "unit" ? ` ${unitLabel}` : ""}${promo}`;
+  };
 
   if (points.length === 0) {
     return (
@@ -218,11 +227,12 @@ export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHis
       {promos.length > 0 ? (
         <ul className={styles.promoList} aria-label="תקופות מבצע">
           {promos.map((p) => (
-            <li key={p.from}>
+            <li key={p.from} data-testid="history-promo-row">
               <span dir="ltr">
                 {formatDay(p.from)}–{formatDay(p.to)}
               </span>
-              : {p.description}
+              : {p.description} {p.clubOnly ? <Tag variant="club">{promoAudience(p)}</Tag> : null}{" "}
+              <span className={styles.confidence}>{promoConfidence(p)}</span>
             </li>
           ))}
         </ul>

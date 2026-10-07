@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ApiError, shareList, type ShareInvite, type ShareRole } from "@/api/client";
+import { ApiError, revokeShare, shareList, type ShareInvite, type ShareRole } from "@/api/client";
 import { BottomSheet, Button, SegmentedControl } from "@/components/ui";
 import { IconCheck, IconInfo } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
@@ -34,8 +34,8 @@ export function shareError(err: unknown): string {
 /**
  * Share sheet (issue #34): pick what the invited person may do, create an invite link, copy it or
  * pass it to the phone's share menu. Members see only the list: never each other's location or
- * preferences. Revoking a link and removing a member are API routes that do not exist yet, so the
- * sheet does not offer them.
+ * preferences. The owner can cancel the link (`DELETE /me/lists/{id}/share/{token}`); removing a member is on the
+ * members list.
  */
 export function ShareSheet({
   open,
@@ -54,6 +54,7 @@ export function ShareSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [revoked, setRevoked] = useState(false);
   const linkRef = useRef<HTMLInputElement>(null);
   const needsSignIn = auth.configured && auth.status !== "loading" && auth.status !== "signed-in";
   const link =
@@ -63,9 +64,28 @@ export function ShareSheet({
     setBusy(true);
     setError(null);
     setCopied(false);
+    setRevoked(false);
     try {
       ensureApiAuth();
       setInvite(await shareList(listId, role));
+      onInvited?.();
+    } catch (err) {
+      setError(shareError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revoke() {
+    if (!invite) return;
+    setBusy(true);
+    setError(null);
+    try {
+      ensureApiAuth();
+      await revokeShare(listId, invite.token);
+      setInvite(null);
+      setCopied(false);
+      setRevoked(true);
       onInvited?.();
     } catch (err) {
       setError(shareError(err));
@@ -155,6 +175,9 @@ export function ShareSheet({
                       שיתוף בטלפון
                     </Button>
                   ) : null}
+                  <Button variant="ghost" onClick={() => void revoke()} disabled={busy}>
+                    ביטול הקישור
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -166,6 +189,12 @@ export function ShareSheet({
         )}
 
         <div role="status" aria-live="polite">
+          {revoked ? (
+            <p className={styles.ok} data-testid="invite-revoked">
+              <IconCheck size={15} /> הקישור בוטל. מי שקיבלה אותו לא תוכל להצטרף, ומי שכבר הצטרפה
+              איבדה גישה.
+            </p>
+          ) : null}
           {copied ? (
             <p className={styles.ok} data-testid="invite-copied">
               <IconCheck size={15} /> הקישור הועתק.

@@ -5,7 +5,7 @@
  * public key (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, inlined at build time), a service worker or the Push
  * API the app still works and alerts are listed on /alerts.
  */
-import { addPushSubscription } from "@/api/client";
+import { addPushSubscription, deletePushSubscription } from "@/api/client";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 
 export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
@@ -98,10 +98,18 @@ export async function enablePush(key: string = VAPID_PUBLIC_KEY): Promise<Enable
   }
 }
 
-/** Stops this device's push subscription. The server drops it on the next failed delivery. */
+/** Stops this device's push subscription, here and on the server. */
 export async function disablePush(): Promise<void> {
   const sub = await currentSubscription();
-  await sub?.unsubscribe().catch(() => false);
+  if (!sub) return;
+  const endpoint = sub.endpoint;
+  await sub.unsubscribe().catch(() => false);
+  try {
+    ensureApiAuth();
+    await deletePushSubscription(endpoint);
+  } catch {
+    // The server drops a dead endpoint on its next failed delivery anyway.
+  }
 }
 
 export const PUSH_MESSAGES: Record<Exclude<PushSupport, "supported"> | "denied" | "error", string> =

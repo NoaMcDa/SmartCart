@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState, type FormEvent } from "react";
-import { createList, search, type CanonicalRef, type ListMember } from "@/api/client";
+import {
+  createList,
+  removeMember,
+  search,
+  sharedWithMe,
+  type CanonicalRef,
+  type ListMember,
+  type ShoppingList,
+} from "@/api/client";
 import { Button, Card, FlexChip, Skeleton, Stepper } from "@/components/ui";
 import { IconClose, IconInfo } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
@@ -22,7 +30,16 @@ export function memberLabel(m: ListMember): string {
   return "חברה ברשימה";
 }
 
-function Members({ members }: { members: ListMember[] }) {
+function Members({
+  members,
+  canManage,
+  onRemove,
+}: {
+  members: ListMember[];
+  /** Only the owner can remove members. */
+  canManage: boolean;
+  onRemove: (userId: string) => void;
+}) {
   if (members.length === 0) return null;
   return (
     <Card as="section" aria-labelledby="members-heading">
@@ -37,6 +54,16 @@ function Members({ members }: { members: ListMember[] }) {
               {m.is_owner ? "בעלים" : ROLE_LABEL[m.role]}
               {m.user_id || m.is_owner ? null : " · עדיין לא הצטרפה"}
             </span>
+            {canManage && m.user_id && !m.is_owner ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onRemove(m.user_id as string)}
+                aria-label={`הסרת חברה מהרשימה (${ROLE_LABEL[m.role]})`}
+              >
+                הסרה מהרשימה
+              </Button>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -146,6 +173,7 @@ function ItemRow({
 function SharedListView({ listId }: { listId: number }) {
   const list = useSharedList(listId);
   const [sheet, setSheet] = useState(false);
+  const canManage = readRegistry().ownedListId === listId;
 
   if (list.status === "loading") {
     return (
@@ -221,7 +249,16 @@ function SharedListView({ listId }: { listId: number }) {
         <AddItem onAdd={(c) => void list.add(c)} />
       </Card>
 
-      <Members members={list.members} />
+      <Members
+        members={list.members}
+        canManage={canManage}
+        onRemove={(userId) => {
+          void removeMember(listId, userId).then(
+            () => void list.refreshMembers(),
+            () => void list.refreshMembers(),
+          );
+        }}
+      />
 
       <ShareSheet
         open={sheet}
@@ -230,6 +267,43 @@ function SharedListView({ listId }: { listId: number }) {
         onInvited={() => void list.refreshMembers()}
       />
     </>
+  );
+}
+
+/** Lists other people shared with me (`GET /me/shared-lists`), each opening its page. */
+function SharedWithMe() {
+  const [lists, setLists] = useState<ShoppingList[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    ensureApiAuth();
+    sharedWithMe().then(
+      (l) => {
+        if (!cancelled) setLists(l);
+      },
+      () => {
+        if (!cancelled) setLists([]);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  if (!lists || lists.length === 0) return null;
+  return (
+    <Card as="section" aria-labelledby="shared-with-me-heading" data-testid="shared-with-me">
+      <h2 id="shared-with-me-heading" className={styles.sectionTitle}>
+        רשימות ששיתפו איתך
+      </h2>
+      <ul className={styles.hits}>
+        {lists.map((l) => (
+          <li key={l.id}>
+            <Button href={`/lists/${l.id}/share`} variant="ghost" size="sm">
+              {l.name}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 
@@ -306,7 +380,10 @@ export function SharedListScreen({ listId }: { listId: number | "mine" }) {
   return (
     <div className={styles.page}>
       {listId === "mine" ? (
-        <MineGate />
+        <>
+          <MineGate />
+          <SharedWithMe />
+        </>
       ) : (
         <>
           <SharedListView listId={listId} />

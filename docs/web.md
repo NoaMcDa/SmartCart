@@ -548,6 +548,9 @@ is a toggle; 30 or 90 days; the store is "my store", "cheapest nearby" or the ch
   every number is an LTR island. Colors are tokens (line `--sc-accent-fg`, promo `--sc-warn-*`).
 - Promo windows are shaded bands; promo days carry a marker with a Hebrew tooltip (`<title>` on hover,
   and a status line below the chart that follows the pointer). A legend names each mark in words.
+  Each promo window is listed under the chart with its dates, `Tag variant="club"` ("מבצע מועדון · <name>")
+  when `club_only`, and the confidence ("ביטחון במבצע: 87%", or "לא נבדק" when the API has none, D10);
+  the tooltip repeats audience and confidence.
 - Days without data are gaps, never interpolated: the line is cut where two points are more than 3
   days apart (`MAX_JOIN_DAYS`; the mock samples every 3 days) and the hole is hatched. Leading and
   trailing holes count too. The chart says so in a sentence under it.
@@ -559,7 +562,9 @@ is a toggle; 30 or 90 days; the store is "my store", "cheapest nearby" or the ch
 
 - `AlertMe` on product detail: "התריעי לי מתחת ל-₪__" is a target unit price at one of the three
   levels, within the shopper's radius. Existing alerts for the product are listed with delete.
-  `/alerts` lists all of them with the product, price, level, radius, last fired time and delete.
+  `/alerts` lists all of them with the product, price, level, radius and last fired time, and lets the
+  shopper pause or resume (`PUT /me/alerts/{id}` with `active`), edit price and level in a sheet
+  (`EditAlertSheet`, the API re-arms an edited alert) and delete.
 - The API returns only the canonical id, so the device remembers the product name when the alert is
   created (`sc-alert-names-v1`); an unknown one reads "מוצר מס' <id>".
 - Signed out with Supabase configured, both screens ask for sign-in instead of failing; without
@@ -567,7 +572,8 @@ is a toggle; 30 or 90 days; the store is "my store", "cheapest nearby" or the ch
 - `push.ts`: feature-detected (service worker, Push API, Notification, the key). Needs
   `NEXT_PUBLIC_VAPID_PUBLIC_KEY` at build time. States: unsupported, iOS before "add to home screen",
   no key, denied (with how to allow it), on (with an off switch), off. Permission is requested only
-  after a tap, then the subscription goes to `POST /me/push-subscriptions`. None of these states
+  after a tap, then the subscription goes to `POST /me/push-subscriptions`; turning it off also calls
+  `DELETE /me/push-subscriptions?endpoint=`. None of these states
   breaks alerts; they stay listed on `/alerts`.
 - `public/sw.js`: `push` shows a notification from `{title, body, url, tag, product, store, price,
   updated_at}` (composed body: product, store, price, the price's time in Israel time, "המחיר הקובע
@@ -581,6 +587,11 @@ is a toggle; 30 or 90 days; the store is "my store", "cheapest nearby" or the ch
   to `/lists/<id>/share`. `ShareSheet` (role "עריכה" or "צפייה בלבד", invite link, copy with a
   select-and-copy fallback, `navigator.share` when present) opens from "הזמנת בני משפחה".
 - `/lists/accept/<token>`: joining is a tap, never automatic; an expired or revoked link says so.
+- The owner can cancel the link just created ("ביטול הקישור", `DELETE /me/lists/{id}/share/{token}`) and
+  remove a joined member ("הסרה מהרשימה", `DELETE /me/lists/{id}/members/{user_id}`; shown only on the
+  list this device shared). `/lists/mine/share` also lists the lists others shared with me
+  (`GET /me/shared-lists`). A pending invite cannot be revoked later because the API does not return
+  its token and the app never stores tokens.
 - `useSharedList`: signed in with Supabase, items come from `GET /me/lists/{id}` once and then from a
   Realtime subscription on `list_items` filtered to `list_id=eq.<id>`; edits go to `list_items`
   directly (RLS decides) and are applied optimistically, rolled back with a message on failure; the
@@ -645,10 +656,11 @@ smart cart dismiss, apply and undo at 390 and 1280 px.
 
 ### Requests to other workstreams
 
-- API: a club flag on `PromoWindow` (the chart cannot tag club-only promos yet); `PATCH
-  /me/alerts/{id}` for pause and edit; revoke an invite and remove a member; `updated_at` on
-  `list_items` and `ShoppingList.items`; a "checked" flag per item; scan events in `EventIn.name`; the
-  paid-tier limits as a documented error code.
+- API: `updated_at` on `list_items` and `ShoppingList.items`; a "checked" flag per item; scan events
+  in `EventIn.name`; the paid-tier limits as a documented error code; the invite token (or an id) on
+  pending `ListMember` rows so an owner can revoke them from the members list. The shared mock has no
+  handlers for `PUT /me/alerts/{id}`, the two share DELETEs, `DELETE /me/push-subscriptions` and
+  `GET /me/shared-lists` (the e2e stubs the alert PUT itself).
 - P2-D (list builder): a "שיתוף" link to `/lists/mine/share` next to the list's name.
 - Mock numbers: `/optimize/swaps` returns 5.00, 4.80 and 1.20, so `total_saving` is 11.00, not 10.90;
   `cheapest_nearby` is אושר עד and the substitute is at רמי לוי.

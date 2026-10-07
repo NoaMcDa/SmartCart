@@ -182,6 +182,10 @@
   font-size: 13px;
 }
 
+.confidence {
+  color: var(--sc-muted);
+}
+
 .empty,
 .state {
   font-size: 14px;

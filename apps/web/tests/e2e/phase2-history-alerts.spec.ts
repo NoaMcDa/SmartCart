@@ -140,6 +140,65 @@ test.describe("alerts", () => {
     await expect(page.getByTestId("alerts-empty")).toBeVisible();
   });
 
+  test("pause, resume and edit an alert (PUT /me/alerts/{id})", async ({ page }) => {
+    await mockApi(page);
+    // The shared mock has no PUT yet: answer it here, applying the body to the stored alert.
+    const puts: Array<Record<string, unknown>> = [];
+    await page.route(
+      (url) => url.port === "8000" && /^\/me\/alerts\/\d+$/.test(url.pathname),
+      async (route) => {
+        const req = route.request();
+        const cors = {
+          "access-control-allow-origin": "*",
+          "access-control-allow-headers": "*",
+          "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
+        };
+        if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+        if (req.method() !== "PUT") return route.fallback();
+        const body = req.postDataJSON() as Record<string, unknown>;
+        puts.push(body);
+        return route.fulfill({
+          status: 200,
+          headers: { ...cors, "content-type": "application/json" },
+          body: JSON.stringify({
+            id: 1,
+            last_fired_at: null,
+            created_at: "2026-10-07T00:00:00Z",
+            ...body,
+            threshold_unit_price: String(body.threshold_unit_price),
+          }),
+        });
+      },
+    );
+    await seedProfile(page);
+    await page.goto(PRODUCT);
+    const region = page.getByRole("region", { name: "התראה כשהמחיר יורד" });
+    await region.getByRole("textbox", { name: /התריעי לי מתחת ל-₪/ }).fill("0.55");
+    await region.getByRole("button", { name: "יצירת התראה" }).click();
+    await region.getByTestId("alert-created").waitFor();
+    await page.goto("/alerts");
+    const item = page.getByTestId("alert-item");
+
+    await item.getByRole("button", { name: /השהיית ההתראה/ }).click();
+    await expect(item).toContainText("מושהית");
+    expect(puts[0]).toMatchObject({ active: false, canonical_id: 1001 });
+    await item.getByRole("button", { name: /הפעלה מחדש/ }).click();
+    await expect(item).not.toContainText("מושהית");
+
+    await item.getByRole("button", { name: /עריכת ההתראה/ }).click();
+    const sheet = page.getByRole("dialog");
+    await sheet.getByRole("textbox").fill("0.45");
+    await sheet.getByRole("radio", { name: "מוצר מדויק" }).click();
+    await sheet.getByRole("button", { name: "שמירה" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(item).toContainText(/מתחת ל-₪\s0\.45/);
+    await expect(item).toContainText("מוצר מדויק");
+    expect(puts.at(-1)).toMatchObject({ threshold_unit_price: "0.45", flex_level: "exact" });
+    for (const button of await item.getByRole("button").all()) {
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+    }
+  });
+
   test("a denied notification permission is explained and nothing breaks", async ({ page }) => {
     await mockApi(page);
     await page.addInitScript(() => {

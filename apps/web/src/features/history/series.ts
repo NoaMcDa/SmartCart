@@ -16,7 +16,16 @@ export type Metric = "unit" | "shelf";
 export type SeriesPoint = { t: number; value: number; promo: string | null };
 export type Window = { start: number; end: number };
 export type Gap = { from: number; to: number; days: number };
-export type PromoRange = { from: number; to: number; description: string };
+export type PromoRange = {
+  from: number;
+  to: number;
+  description: string;
+  /** Only club members or card holders get it (the API's `club_only`). */
+  clubOnly: boolean;
+  clubName: string | null;
+  /** Parsing confidence 0..1, or null when the API does not know it. */
+  confidence: number | null;
+};
 
 /** Points with a usable value for `metric`, oldest first, one per instant. */
 export function seriesOf(res: PriceHistoryResponse, metric: Metric): SeriesPoint[] {
@@ -93,6 +102,9 @@ export function promoRanges(promos: PromoWindow[] | undefined, win: Window): Pro
       from: Math.max(from, win.start),
       to: Math.min(to, win.end),
       description: p.description,
+      clubOnly: p.club_only === true,
+      clubName: p.club_name ?? null,
+      confidence: typeof p.confidence === "number" ? p.confidence : null,
     });
   }
   return out.sort((a, b) => a.from - b.from);
@@ -155,4 +167,22 @@ export function summarize(
     ),
     gapDays: gaps.reduce((sum, g) => sum + g.days, 0),
   };
+}
+
+/** The promo window a point falls in, if any (for tooltips). */
+export function promoAt(promos: PromoRange[], t: number): PromoRange | null {
+  return promos.find((p) => t >= p.from - DAY_MS / 2 && t <= p.to + DAY_MS / 2) ?? null;
+}
+
+/** "מבצע מועדון · רמי לוי" or "מבצע לכולם". */
+export function promoAudience(p: Pick<PromoRange, "clubOnly" | "clubName">): string {
+  if (!p.clubOnly) return "מבצע לכולם";
+  return p.clubName ? `מבצע מועדון · ${p.clubName}` : "מבצע מועדון";
+}
+
+/** Confidence on a promo (D10): a percentage, or "לא נבדק" when the API has none. */
+export function promoConfidence(p: Pick<PromoRange, "confidence">): string {
+  return p.confidence === null
+    ? "ביטחון במבצע: לא נבדק"
+    : `ביטחון במבצע: ${Math.round(p.confidence * 100)}%`;
 }

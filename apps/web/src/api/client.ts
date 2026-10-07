@@ -38,7 +38,7 @@ export type PriceHistoryResponse = Schemas["PriceHistoryResponse"];
 export type PricePoint = Schemas["PricePoint"];
 export type PromoWindow = Schemas["PromoWindow"];
 export type PriceAlert = Schemas["PriceAlert"];
-export type PriceAlertInput = Opt<Schemas["PriceAlertIn"], "flex_level" | "radius_m">;
+export type PriceAlertInput = Opt<Schemas["PriceAlertIn"], "flex_level" | "radius_m" | "active">;
 export type PushSubscriptionInput = Schemas["PushSubscriptionIn"];
 export type ShareInvite = Schemas["ShareInvite"];
 export type ShareRole = Schemas["ShareRequest"]["role"];
@@ -175,6 +175,21 @@ export async function deleteAlert(alertId: number): Promise<void> {
   expectOk(await api.DELETE("/me/alerts/{alert_id}", { params: { path: { alert_id: alertId } } }));
 }
 
+/** `PUT /me/alerts/{id}`: edit the target, level or radius, or pause with `active: false`. */
+export async function updateAlert(alertId: number, body: PriceAlertInput): Promise<PriceAlert> {
+  return unwrap(
+    await api.PUT("/me/alerts/{alert_id}", {
+      params: { path: { alert_id: alertId } },
+      body: body as Schemas["PriceAlertIn"],
+    }),
+  );
+}
+
+/** `DELETE /me/push-subscriptions?endpoint=`: this device stops receiving alerts. */
+export async function deletePushSubscription(endpoint: string): Promise<void> {
+  expectOk(await api.DELETE("/me/push-subscriptions", { params: { query: { endpoint } } }));
+}
+
 export async function addPushSubscription(body: PushSubscriptionInput): Promise<Ack> {
   return unwrap(await api.POST("/me/push-subscriptions", { body }));
 }
@@ -253,4 +268,27 @@ export async function nearestStore(
       params: { query: { chain_id: chainId, lat: where.lat, lon: where.lon } },
     }),
   );
+}
+
+/** `DELETE /me/lists/{id}/share/{token}`: owner only; the invite is revoked and its member loses access. */
+export async function revokeShare(listId: number, token: string): Promise<void> {
+  expectOk(
+    await api.DELETE("/me/lists/{list_id}/share/{token}", {
+      params: { path: { list_id: listId, token } },
+    }),
+  );
+}
+
+/** `DELETE /me/lists/{id}/members/{user_id}`: owner only; the member loses access at once. */
+export async function removeMember(listId: number, memberId: string): Promise<void> {
+  expectOk(
+    await api.DELETE("/me/lists/{list_id}/members/{member_id}", {
+      params: { path: { list_id: listId, member_id: memberId } },
+    }),
+  );
+}
+
+/** `GET /me/shared-lists`: lists other people shared with me (accepted invites). */
+export async function sharedWithMe(): Promise<ShoppingList[]> {
+  return unwrap(await api.GET("/me/shared-lists"));
 }

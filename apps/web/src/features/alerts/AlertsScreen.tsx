@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { deleteAlert, listAlerts, type PriceAlert } from "@/api/client";
-import { Button, Card, FlexChip, Price, Skeleton, UpdatedAt } from "@/components/ui";
+import { deleteAlert, listAlerts, updateAlert, type PriceAlert } from "@/api/client";
+import { Button, Card, FlexChip, Price, Skeleton, Tag, UpdatedAt } from "@/components/ui";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { alertLabel } from "./alertNames";
 import { alertError } from "./AlertMe";
+import { alertBody, EditAlertSheet } from "./EditAlertSheet";
 import { PushPanel } from "./PushPanel";
 import styles from "./Alerts.module.css";
 
@@ -27,13 +28,14 @@ async function fetchAlerts(): Promise<State> {
 
 /**
  * /alerts (issue #23): every alert of the signed-in user, with the product, the target unit price,
- * the flexibility level and the radius, delete, and the browser push switch. Product names come
+ * the flexibility level and the radius, edit, pause, delete, and the browser push switch. Product names come
  * from what the device remembered when the alert was created.
  */
 export function AlertsScreen() {
   const auth = useAuth();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [notice, setNotice] = useState<string | null>(null);
+  const [editing, setEditing] = useState<PriceAlert | null>(null);
   const needsSignIn = auth.configured && auth.status !== "loading" && auth.status !== "signed-in";
   const waiting = auth.configured && auth.status === "loading";
 
@@ -68,6 +70,28 @@ export function AlertsScreen() {
       setNotice(alertError(err));
     }
   }
+
+  function replace(saved: PriceAlert) {
+    setState((s) =>
+      s.kind === "ready"
+        ? { kind: "ready", alerts: s.alerts.map((a) => (a.id === saved.id ? saved : a)) }
+        : s,
+    );
+  }
+
+  async function setActive(alert: PriceAlert, active: boolean) {
+    setNotice(null);
+    try {
+      ensureApiAuth();
+      replace(await updateAlert(alert.id, alertBody(alert, { active })));
+      const name = alertLabel(alert.canonical_id).name;
+      setNotice(active ? `ההתראה על ${name} פעילה שוב.` : `ההתראה על ${name} הושהתה.`);
+    } catch (err) {
+      setNotice(alertError(err));
+    }
+  }
+
+  const editingLabel = editing ? alertLabel(editing.canonical_id) : null;
 
   return (
     <div className={styles.page}>
@@ -147,7 +171,7 @@ export function AlertsScreen() {
                       <span>
                         עד <span dir="ltr">{Math.round(a.radius_m / 100) / 10}</span> ק&quot;מ
                       </span>
-                      {a.active ? null : <span>מושהית</span>}
+                      {a.active ? null : <Tag variant="unverified">מושהית</Tag>}
                     </span>
                     <span className={styles.alertMeta}>
                       {a.last_fired_at ? (
@@ -158,6 +182,22 @@ export function AlertsScreen() {
                     </span>
                   </div>
                   <div className={styles.alertActions}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void setActive(a, !a.active)}
+                      aria-label={`${a.active ? "השהיית" : "הפעלה מחדש של"} ההתראה על ${label.name}`}
+                    >
+                      {a.active ? "השהיה" : "הפעלה מחדש"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditing(a)}
+                      aria-label={`עריכת ההתראה על ${label.name}`}
+                    >
+                      עריכה
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -172,6 +212,21 @@ export function AlertsScreen() {
             );
           })}
         </ul>
+      ) : null}
+
+      {editing && editingLabel ? (
+        <EditAlertSheet
+          key={editing.id}
+          alert={editing}
+          name={editingLabel.name}
+          unitLabel={editingLabel.unitLabel}
+          onClose={() => setEditing(null)}
+          onSaved={(saved) => {
+            replace(saved);
+            setEditing(null);
+            setNotice(`ההתראה על ${editingLabel.name} עודכנה.`);
+          }}
+        />
       ) : null}
 
       <p className={styles.hint}>המחיר הקובע הוא בקופה. כל התראה כוללת את מועד עדכון המחיר.</p>
