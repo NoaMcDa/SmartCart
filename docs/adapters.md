@@ -159,6 +159,33 @@ Whether `DiscountedPrice` is per unit or per bundle, and the scale of `DiscountR
 yet verified. Club codes map 0 to all customers and 1/2/3 to מועדון לקוחות / כרטיס אשראי / אחר
 (regulation codes, unverified against real files). Any non-zero club id sets `club_only`.
 
+### Promo parse confidence (#12, #102)
+
+Every adapter records how sure it is that it read a promo's terms right: `PromoRecord.raw`
+(stored in `promos.raw`) gets `confidence`, a number in [0, 1], and `confidence_reasons`, the
+deductions that apply. It is computed once, in `RegulationAdapter._promo_record` through
+`promo_parse_confidence` (`adapters/_common.py`), so every chain module inherits it. The API shows
+it as `PricedItem.promo_confidence` on /compare and /optimize (`basket.promo_confidence` reads
+`promos.raw->>'confidence'`) and as `PromoWindow.confidence` on the price history.
+
+| Situation | Confidence | Reason recorded |
+|---|---|---|
+| reward type, quantity (`MinQty`) and value (`DiscountedPrice`, `DiscountRate` with `DiscountType` 2, or `AdditionalGiftCount`) all explicit, description consistent | 1.0 | none |
+| `MinQty` missing: the quantity (buy X) defaults to 1 | minus 0.2 | `min_qty_missing` |
+| `buy_x_get_y` known only from `IsGiftItem`: "get Y" defaults to 1 | minus 0.2 | `gift_count_inferred` |
+| no end date | minus 0.1 | `end_date_missing` |
+| the description contradicts the reward type: an `N+M` pattern on a promo that is not `buy_x_get_y`, or a percentage on one that is not `percent` | minus 0.3 | `description_disagrees` |
+| no explicit reward field at all (`reward_type = other`, never applied to a price) | 0.1 | `reward_unparsed` |
+
+Deductions add up (at most 0.8), so a parsed promo always scores above an unparsed one (lowest
+0.2). The reward is **never** inferred from the description text; the description only lowers the
+confidence when it disagrees with the explicit fields. The rubric, like the reward mapping above,
+is provisional until real files are checked: whether `MinQty` counts the gift item (does `MinQty`
+2 with one gift mean 1+1 or 2+1?) is one of the open questions, and the description cross-check
+does not compare numbers for that reason. The synthetic fixtures' four standard promos all score
+1.0 (`services/ingest/tests/test_promo_confidence.py`; end to end through the loader, the
+precompute and /compare in `services/api/tests/test_adapter_promo_confidence.py`).
+
 ## Schema versions (#57)
 
 The consumer authority is rolling out an improved reporting model through 2026 (**verified**,

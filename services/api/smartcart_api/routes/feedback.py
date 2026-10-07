@@ -3,10 +3,14 @@
 Both accept anonymous callers; with a valid Bearer token the user id is recorded. Neither stores
 a location.
 
-* ``POST /feedback/substitution`` records the verdict in ``substitution_feedback``. A
+* ``POST /feedback/substitution`` records the verdict through the catalog's write path,
+  ``smartcart_catalog.feedback.record_feedback``, with its context (``list_item_id``,
+  ``flex_level``, ``match_confidence``) and its ``source``: the substitution card, or the
+  smart-cart swap (apply = ``accepted``, undo = ``kept_original``, dismiss = ``not_good``). A
   ``not_good`` verdict also flags the (substitute item, canonical) mapping in ``item_canonical``
-  with ``needs_review``, which removes it from the next effective-price precompute until a human
-  reviews it.
+  with ``needs_review`` (unless a human already rejected it), which removes it from the next
+  effective-price precompute until a human reviews it. Swap verdicts count in the catalog's
+  ``rejection_rates`` like any other.
 * ``POST /feedback/gap`` records a shown-versus-actual price (or a missing item) in
   ``gap_reports`` for the data-quality review.
 """
@@ -21,6 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from smartcart_api import schemas
 from smartcart_api.auth import User, optional_user
 from smartcart_api.db import get_conn
+from smartcart_catalog.feedback import record_feedback
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
@@ -33,21 +38,25 @@ def substitution(
 ) -> schemas.Ack:
     try:
         with conn.transaction():  # a savepoint: a bad id must not abort the request transaction
-            fid = conn.execute(
-                "INSERT INTO substitution_feedback (user_id, canonical_id, original_item_id,"
-                " substitute_item_id, verdict) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-                (user.id if user else None, body.canonical_id, body.original_item_id,
-                 body.substitute_item_id, body.verdict),
-            ).fetchone()[0]
+            result = record_feedback(
+                conn,
+                user.id if user else None,
+                body.canonical_id,
+                body.original_item_id,
+                body.substitute_item_id,
+                body.verdict,
+                list_item_id=body.list_item_id,
+                flex_level=body.flex_level,
+                match_confidence=body.match_confidence,
+            )
+            if body.source != "substitution_card":  # the column's default
+                conn.execute(
+                    "UPDATE substitution_feedback SET source = %s WHERE id = %s",
+                    (body.source, result.feedback_id),
+                )
     except psycopg.errors.ForeignKeyViolation as exc:
         raise HTTPException(status_code=422, detail="unknown canonical or item") from exc
-    if body.verdict == "not_good":
-        conn.execute(
-            "UPDATE item_canonical SET needs_review = true"
-            " WHERE item_id = %s AND canonical_id = %s AND NOT needs_review",
-            (body.substitute_item_id, body.canonical_id),
-        )
-    return schemas.Ack(id=fid)
+    return schemas.Ack(id=result.feedback_id)
 
 
 @router.post("/gap", response_model=schemas.Ack)

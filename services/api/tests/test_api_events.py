@@ -86,6 +86,59 @@ def test_props_are_limited_to_allowlisted_keys_with_fixed_values(client, db, nam
     assert stored(db) == []
 
 
+PHASE2_EVENTS = [
+    ("scan_started", {"engine": "zxing"}),
+    ("scan_completed", {"outcome": "found", "duration_ms": 1800, "engine": "native"}),
+    ("alert_created", {"flex_level": "any_brand", "source": "product"}),
+    ("swap_applied", {"flex_level": "close", "saving_agorot": 450}),
+    ("swap_undone", {"flex_level": "any_brand"}),
+    ("swap_dismissed", {"flex_level": "exact"}),
+    ("list_shared", {"role": "editor"}),
+    ("share_accepted", {"role": "viewer"}),
+]
+
+
+def test_phase2_events_are_stored_with_their_props(client, db) -> None:
+    assert {n for n, _ in PHASE2_EVENTS} == {
+        "scan_started", "scan_completed", "alert_created", "swap_applied", "swap_undone",
+        "swap_dismissed", "list_shared", "share_accepted"}
+    r = post(client, *(ev(n, p) for n, p in PHASE2_EVENTS))
+    assert r.status_code == 200 and r.json()["accepted"] == len(PHASE2_EVENTS), r.text
+    assert [(n, p) for _, _, n, p in stored(db)] == PHASE2_EVENTS
+    # Every prop is optional except the scan outcome.
+    minimal = [ev(n) for n, _ in PHASE2_EVENTS if n != "scan_completed"]
+    minimal.append(ev("scan_completed", {"outcome": "cancelled"}))
+    assert post(client, *minimal).status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("name", "props", "reason"),
+    [
+        ("scan_started", {"engine": "camera2"}, "must be one of"),
+        ("scan_started", {"barcode": "7290000066318"}, "not allowed"),
+        ("scan_completed", {}, "required"),
+        ("scan_completed", {"outcome": "found", "duration_ms": 700_000}, "between 0 and 600000"),
+        ("scan_completed", {"outcome": "found", "item_id": 12}, "not allowed"),
+        ("alert_created", {"source": "email"}, "must be one of"),
+        ("alert_created", {"threshold": 5}, "not allowed"),
+        ("swap_applied", {"saving_agorot": -1}, "between 0 and 100000"),
+        ("swap_applied", {"saving_agorot": "4.50"}, "must be an integer"),
+        ("swap_applied", {"price": 450}, "not allowed"),
+        ("swap_undone", {"flex_level": "דומה"}, "must be one of"),
+        ("swap_undone", {"item_id": 3}, "not allowed"),
+        ("swap_dismissed", {"canonical_id": 7}, "not allowed"),
+        ("list_shared", {"role": "owner"}, "must be one of"),
+        ("list_shared", {"list_id": 4}, "not allowed"),
+        ("share_accepted", {"token": "abc"}, "not allowed"),
+    ],
+)
+def test_phase2_events_reject_disallowed_keys_and_values(client, db, name, props, reason) -> None:
+    r = post(client, ev(name, props))
+    assert r.status_code == 422, r.text
+    assert reason in str(r.json()["detail"])
+    assert stored(db) == []
+
+
 def test_free_text_cannot_get_in_through_any_event(client) -> None:
     """Every allowlisted key takes an integer range or a fixed set: no key accepts arbitrary text."""
     for name, keys in EVENT_PROPS.items():

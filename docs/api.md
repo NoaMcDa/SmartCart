@@ -28,6 +28,7 @@ uv run smartcart-api serve --reload        # http://localhost:8000/docs
 | `API_DB_USER_ROLE` | `smartcart_app` | role switched to for signed-in requests (RLS) |
 | `API_POOL_MIN` / `API_POOL_MAX` | 1 / 10 | psycopg pool size |
 | `API_WALK_TRANSIT_COST_PER_STORE` | 11.0 | flat ILS per store for `walk_transit` (estimate: two single bus fares) |
+| `API_QUERY_EMBEDDER` | `hash` | query embedder for vector search, the catalog's `hash` or `bge-m3` (must match the stored vectors, see [GET /search](#get-search)) |
 
 `smartcart-api` commands:
 
@@ -48,8 +49,8 @@ uv run smartcart-api serve --reload        # http://localhost:8000/docs
 | `POST /feedback/substitution` | optional | "not good" / kept original / accepted for a substitute |
 | `POST /feedback/gap` | optional | report-a-gap: shown versus actual price, or a missing item |
 | `GET /me/profile`, `PUT /me/profile` | required | the user's profile (home store, radius, clubs, travel, flex defaults) |
-| `GET /me/lists`, `POST /me/lists` | required | saved lists with their items |
-| `GET`, `PUT`, `DELETE /me/lists/{list_id}` | required | one list; PUT replaces name, recurrence and items |
+| `GET /me/lists`, `POST /me/lists` | required | saved lists with their items; GET also returns the lists shared with the user (`shared`, `role`) |
+| `GET`, `PUT`, `DELETE /me/lists/{list_id}` | required | one list (GET: owned or shared); PUT (owner only) replaces name, recurrence and items |
 
 Requests reject unknown fields (422). The basket routes take no user identity and store nothing.
 
@@ -62,7 +63,7 @@ Three retrievers over `canonical_products.display_name_he`, merged with reciproc
 |---|---|---|
 | `trigram` | pg_trgm `word_similarity` of `search_norm(query)` in `search_norm(name)`, threshold 0.3, GIN trigram index | typos ("חלבב", "רסק עגבנייות") |
 | `fts` | `to_tsvector('simple', search_norm(name))`, prefix terms, each word also without an attached ו/ה/ב/ל/מ/ש/כ | exact words ("והלחם" finds "לחם") |
-| `vector` | pgvector cosine on `canonical_products.embedding` and on `item_embeddings` of items mapped at exact/any_brand, HNSW, minimum 0.25 | meaning, once real embeddings are loaded |
+| `vector` | pgvector cosine on `canonical_products.embedding` and on `item_embeddings` of items mapped at exact/any_brand, HNSW, minimum 0.25; only vectors of the query embedder's model | meaning, once real embeddings are loaded |
 
 - Postgres has no Hebrew dictionary or stemmer. `simple` only lowercases, so inflection (plural,
   construct state) is left to trigram and vector retrieval. `search_norm()` folds final letters,
@@ -70,10 +71,17 @@ Three retrievers over `canonical_products.display_name_he`, merged with reciproc
 - pg_trgm and the text-search parser need a UTF-8 `LC_CTYPE` to see Hebrew letters as letters.
   Supabase and the CI image have one; the local throwaway test cluster runs the API tests in a
   sibling database created with `LC_CTYPE C.UTF-8` (`services/api/tests/conftest.py`).
-- The query embedder is a deterministic 1024-dimension character n-gram hash
-  (`smartcart_api/embedding.py`), a stand-in for BGE-M3 so the pipeline runs without a model. It
-  captures spelling, not meaning. When the catalog workstream loads BGE-M3 vectors, the query
-  embedder must switch to the same model (one line in `search.py`).
+- The query embedder is the catalog's (`smartcart_catalog.embed.get_embedder`, through
+  `smartcart_api/embedding.py`), chosen by `API_QUERY_EMBEDDER`: `hash` (default), the
+  deterministic 1024-dimension character n-gram `HashEmbedder` (`hash-ngram-2-3-4-v1`), a stand-in
+  for BGE-M3 that captures spelling, not meaning; or `bge-m3` (needs the catalog's `embed` extra in
+  the API's environment; the model loads on the first query). Vectors of two models are not
+  comparable, so the vector retriever only compares canonicals whose
+  `canonical_products.embedding_model`, and items whose `item_embeddings.model`, equal the query
+  embedder's `model_name`. A canonical with a NULL `embedding_model` is skipped (its model is
+  unknown); the catalog's `embed` job fills the column. When BGE-M3 vectors are loaded, set
+  `API_QUERY_EMBEDDER=bge-m3` in the same deploy, or vector search finds nothing (trigram and
+  full text keep working).
 - `score` is the RRF score (`sum 1/(60 + rank)`) divided by its maximum, in [0, 1].
   `matched_by` lists the retrievers that found the hit. `confidence` is the evidence:
   `0.85 x best similarity + 0.15 x share of retrievers that found it`.
@@ -201,10 +209,17 @@ one row per (canonical, store, flexibility level):
 
 ### Feedback
 
-- `/feedback/substitution`: inserts `substitution_feedback`; `not_good` also sets
-  `item_canonical.needs_review` on that (item, canonical), which takes it out of the next
-  precompute until reviewed.
-- `/feedback/gap`: inserts `gap_reports` (migration `20261007110000_gap_reports.sql`).
+- `/feedback/substitution`: written through the catalog's `record_feedback`
+  (`smartcart_catalog.feedback`), with `list_item_id`, `flex_level` and `match_confidence` when
+  given, and `source` (`substitution_feedback.source`): `substitution_card` (default) or `swap`,
+  the smart-cart swap, where apply = `accepted`, undo = `kept_original` and dismiss = `not_good`.
+  `not_good` (from either source) also sets `item_canonical.needs_review` on that (item,
+  canonical) unless a human already rejected it, which takes it out of the next precompute until
+  reviewed. Swap verdicts count in the catalog's `rejection_rates` and in
+  `beta_rejected_substitutions` like the card's.
+- `/feedback/gap`: inserts `gap_reports` (migration `20261007110000_gap_reports.sql`). The reports
+  feed data quality: `gap_report_pressure()` and a soft ingest warning (docs/ingestion.md,
+  "Soft warning: gap-report pressure") and the dashboard's "Reported gaps" panel.
 - Both accept anonymous callers and record the user id when a valid token is sent. No location.
 
 ## Auth and row-level security (#64)
@@ -265,10 +280,11 @@ defaults, so older clients keep working; `openapi.json` and `types.ts` are regen
 | `POST`, `DELETE /me/push-subscriptions` | required | web push subscription of this device, upsert by endpoint (#23) |
 | `POST /me/lists/{id}/share` | required, owner | create an invite link with a role (#34) |
 | `GET /me/lists/{id}/members` | required, owner or member | owner, invites and members (a member sees the owner and themselves) |
+| `DELETE /me/lists/{id}/shares/{share_id}` | required, owner | revoke a pending invite or remove a member by the share's id (204, else 404) |
 | `DELETE /me/lists/{id}/share/{token}` | required, owner | revoke an invite, and the membership it created |
 | `DELETE /me/lists/{id}/members/{user_id}` | required, owner | remove a member |
 | `POST /lists/accept/{token}` | required | join a shared list; returns the list |
-| `GET /me/shared-lists` | required | lists shared with the user |
+| `GET /me/shared-lists` | required | lists shared with the user (also part of `GET /me/lists`) |
 | `GET /items/barcode/{barcode}?lon=&lat=&radius_m=&store_id=&clubs=` | none | scanned product: price here, cheapest nearby, cheaper substitute (#39) |
 
 New environment variables (never commit real values):
@@ -365,6 +381,17 @@ when there is none. Returns a `StoreRef` with `distance_m`, `lat`, `lon`.
   (`list_shares.expires_at`). Single use: accepted by another user 409, revoked 404, expired 410.
 - Accepting runs on the service connection (a pending invite is invisible to the invitee under
   RLS), then the list is read back under RLS as the member.
+- Members list: every invite and membership row has `share_id` (`list_shares.id`, an identity
+  column; null for the owner's row). The owner revokes a pending invite, whose token only the
+  invitee has, or removes a member with `DELETE /me/lists/{id}/shares/{share_id}`; the path's
+  list must match, others get 404. The token and member-id routes stay.
+- `GET /me/lists` returns the user's own lists first, then the accepted shared lists, each group
+  newest first. `ShoppingList.shared` is true for a list someone else owns and `role` is `owner`,
+  `editor` or `viewer`. `GET /me/lists/{id}` reads a shared list too; PUT and DELETE stay
+  owner-only (404 for members). Pending invites show nothing.
+- `ListItem.checked` (`list_items.checked`, default false) is ticked off in the store. The API
+  persists it on create, replace and read; members tick items through PostgREST under the
+  unchanged `list_items` policies (owner and editors update, viewers cannot).
 - RLS (migration `20261008100100_shared_lists_rls.sql`): list items follow their list. The
   owner (`owns_list()`) and accepted members (`is_list_member()`) read; the owner and editors
   insert, update and delete; a new row must carry the writer's own `user_id`; viewers cannot
@@ -414,3 +441,21 @@ when there is none. Returns a `StoreRef` with `distance_m`, `lat`, `lon`.
 | File | What |
 |---|---|
 | `20261008100100_shared_lists_rls.sql` | `owns_list()`, list item policies by list (owner, editor, viewer), `list_shares.expires_at` |
+| `20261009100000_mvp_followups.sql` | `list_shares.id` (identity, unique), `list_items.checked`, `substitution_feedback.source`, `gap_report_pressure()` and the `quality_gap_reports_7d` view, `quality_warnings` |
+
+## Events: phase 2 surfaces (#101, #102)
+
+`POST /events` accepts eight more names (`EVENT_PROPS` in `routes/events.py`, the `EventName`
+enum in `schemas.py`). Like the others they carry counts and fixed values only: no barcode, item
+id, price, list id or token. Every prop is optional except `scan_completed.outcome`.
+
+| Event | Props |
+|---|---|
+| `scan_started` | `engine`: `native`, `zxing`, `manual` |
+| `scan_completed` | `outcome` (required): `found`, `not_found`, `no_price`, `cancelled`, `error`; `duration_ms` 0 to 600000; `engine` |
+| `alert_created` | `flex_level`; `source`: `product`, `alerts` |
+| `swap_applied` | `flex_level`; `saving_agorot` 0 to 100000 |
+| `swap_undone`, `swap_dismissed` | `flex_level` |
+| `list_shared`, `share_accepted` | `role`: `editor`, `viewer` |
+
+Tests: `test_api_events.py` stores each with its props and rejects other keys and values.

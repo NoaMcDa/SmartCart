@@ -290,6 +290,14 @@ class ShoppingList(_Model):
     items: list[ListItem]
     created_at: datetime
     updated_at: datetime
+    shared: bool = Field(
+        default=False, description="true when another user owns the list and shared it with you"
+    )
+    role: Literal["owner", "editor", "viewer"] = Field(
+        default="owner",
+        description="Your access: owner, or your role as a member (editors change items, viewers "
+        "only read)",
+    )
 
 
 class Health(_Model):

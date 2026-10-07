@@ -31,6 +31,11 @@ The dashboard never writes. Two layers back this up: it opens the connection rea
 server rejects any write on it), and a test runs every query inside a `READ ONLY` transaction.
 Neither replaces the role: the credentials themselves should not be able to write.
 
+The reported-gaps panel also needs `EXECUTE` on `gap_report_pressure(timestamptz, timestamptz)`
+and `SELECT` on `gap_reports` and `quality_warnings`; the migration grants them to
+`smartcart_readonly` when the role exists, so create the role before running it, or grant them by
+hand afterwards.
+
 Create the role as in `docs/infra-provisioning.md` section 3.1 (`create role smartcart_readonly
 login noinherit`, `grant usage on schema public`, default privileges `grant select on tables`).
 Tables created before the default privileges existed, and monthly `prices` partitions created
@@ -71,6 +76,24 @@ appears only once the loader records it in `file_tracking.path`.
 
 **Files per chain and status** and **Quarantined files per chain and gate.** Counts from
 `file_tracking` and `quarantine_events`. A file that fails two gates counts once under each.
+
+**Reported gaps (last 7 days)** (issue #16). Report-a-gap answers per store, from
+`gap_report_pressure()` (migration `20261009100000_mvp_followups.sql`; see
+`docs/ingestion.md`, "Soft warning: gap-report pressure"). Stores with the most confirmed price
+mismatches first.
+
+| Column | Meaning |
+|---|---|
+| chain, store_code, store_name | The reported store (chain name from `chains`). |
+| price_mismatches | Reports with both the shown and the shelf price, differing by at least one agora; once per reporter and product. |
+| reports | Every report in the 7 days. |
+| wrong_product, promo_wrong | Reports tagged with that reason in their note. |
+| reporters | Distinct signed-in reporters plus one per anonymous report. |
+| last_report_at | Newest report. |
+| warned | When ingestion last recorded a `gap_report_pressure` warning for the store (`quality_warnings`); blank when it never did. The store's files are loaded either way. |
+
+"Newest reports" (collapsed) lists the last 100 reports with store, product, shown and shelf
+price and the note. No user id or location is shown.
 
 **Look up a file by sha256.** Paste a full hash or a prefix of at least four hex characters to see
 the file in any status, with its gates. The lookup is also a link: add `?sha256=<hash>` to the
