@@ -1,0 +1,200 @@
+/* Shared form controls for onboarding and Profile. Tokens only, logical properties only. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.legend {
+  padding: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.hint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sc-muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.input {
+  inline-size: 100%;
+  min-block-size: var(--sc-touch);
+  padding-inline: var(--sc-space-3);
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-size: 16px;
+}
+
+.input::placeholder {
+  color: var(--sc-faint);
+}
+
+.row {
+  display: flex;
+  gap: var(--sc-space-3);
+  flex-wrap: wrap;
+}
+
+.row > * {
+  flex: 1 1 160px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+
+/* Range slider */
+.sliderHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+}
+
+.sliderValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--sc-accent-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider {
+  inline-size: 100%;
+  min-block-size: var(--sc-touch);
+  margin: 0;
+  background: transparent;
+  accent-color: var(--sc-accent);
+  cursor: pointer;
+}
+
+.sliderScale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--sc-muted);
+}
+
+/* Choice cards (chains, clubs) */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sc-space-2);
+}
+
+@media (width >= 480px) {
+  .cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (width >= 768px) {
+  .cards {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  min-block-size: 56px;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+
+.card[aria-checked="true"],
+.card[aria-pressed="true"] {
+  border-color: var(--sc-accent-fg);
+  background: var(--sc-accent-soft);
+  color: var(--sc-accent-fg);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: var(--sc-radius-small);
+  background: var(--sc-subtle);
+  color: var(--sc-muted);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.card[aria-checked="true"] .badge,
+.card[aria-pressed="true"] .badge {
+  background: var(--sc-accent);
+  color: var(--sc-on-accent);
+}
+
+.cardName {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.tick {
+  margin-inline-start: auto;
+  display: none;
+}
+
+.card[aria-checked="true"] .tick,
+.card[aria-pressed="true"] .tick {
+  display: inline-flex;
+}
+
+.status {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--sc-warn-fg);
+  background: var(--sc-warn-bg);
+  border-radius: var(--sc-radius-small);
+  padding: var(--sc-space-2) var(--sc-space-3);
+}

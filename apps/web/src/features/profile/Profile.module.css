@@ -1,0 +1,139 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.lead {
+  font-size: 14px;
+  color: var(--sc-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sc-space-4);
+}
+
+@media (width >= 1024px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (width >= 768px) {
+  .title {
+    font-size: 28px;
+  }
+}
+
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.hintBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn-fg);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-2) var(--sc-space-3);
+}
+
+.flexList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flexRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding-block: var(--sc-space-2);
+}
+
+.flexRow + .flexRow {
+  border-block-start: 1px solid var(--sc-divider);
+}
+
+.flexLabel {
+  flex: 1;
+  min-inline-size: 0;
+  font-size: 14px;
+}
+
+.changed {
+  color: var(--sc-accent-fg);
+  font-weight: 600;
+}
+
+.flexSelect {
+  inline-size: 150px;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.savingsTotal {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2) var(--sc-space-3);
+}
+
+.savingsList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.savingsList li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  padding-block: var(--sc-space-2);
+}
+
+.savingsList li + li {
+  border-block-start: 1px solid var(--sc-divider);
+}
+
+.muted {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2) var(--sc-space-3);
+}
