@@ -194,13 +194,18 @@ def load_gold(conn: psycopg.Connection, gold_dir: Path = DEFAULT_GOLD_DIR) -> di
             [(r["product_type"], r["critical_keys"], r["soft_keys"])
              for r in catalog["product_type_rules"]],
         )  # fmt: skip
+        # An existing canonical keeps its row; it only gains the gold reference barcodes when it
+        # has none (the exact rule reads canonical_products.reference_barcodes).
         cur.executemany(
-            "INSERT INTO canonical_products (taxonomy_id, slug, display_name_he, product_type,"
-            " base_unit, critical_attrs, soft_attrs) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-            " ON CONFLICT (slug) DO NOTHING",
+            "INSERT INTO canonical_products AS cp (taxonomy_id, slug, display_name_he,"
+            " product_type, base_unit, critical_attrs, soft_attrs, reference_barcodes)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+            " ON CONFLICT (slug) DO UPDATE SET reference_barcodes = EXCLUDED.reference_barcodes"
+            " WHERE cp.reference_barcodes = '{}' AND EXCLUDED.reference_barcodes <> '{}'",
             [(c["taxonomy_id"], c["slug"], c["display_name_he"], c["product_type"],
               c["base_unit"], json.dumps(c["critical_attrs"], ensure_ascii=False),
-              json.dumps(c["soft_attrs"], ensure_ascii=False))
+              json.dumps(c["soft_attrs"], ensure_ascii=False),
+              [str(b) for b in c.get("reference_barcodes") or []])
              for c in catalog["canonicals"]],
         )  # fmt: skip
         items: dict[str, tuple[str, str, bool]] = {}

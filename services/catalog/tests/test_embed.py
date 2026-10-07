@@ -101,3 +101,24 @@ def test_embed_jobs_are_idempotent_and_record_runs(db) -> None:
         "SELECT count(*) FROM match_runs WHERE kind = 'embed' AND finished_at IS NULL"
     ).fetchone()[0]
     assert unfinished == 0
+
+
+@pytest.mark.db
+@pytest.mark.pgvector
+def test_canonical_rows_record_their_embedding_model(db) -> None:
+    """canonical_products.embedding_model makes a model change visible on the row (#92)."""
+    ids = seed_catalog(db)
+    emb = HashEmbedder()
+    embed_canonicals(db, emb)
+    models = {r[0] for r in db.execute(
+        "SELECT embedding_model FROM canonical_products WHERE id = ANY(%s)", (list(ids.values()),)
+    ).fetchall()}  # fmt: skip
+    assert models == {emb.model_name}
+    # One row embedded by another model (or before the column existed) is redone, alone.
+    db.execute("UPDATE canonical_products SET embedding_model = NULL WHERE id = %s",
+               (ids["t-soy"],))  # fmt: skip
+    assert embed_canonicals(db, emb)["embedded"] == 1
+    db.execute("UPDATE canonical_products SET embedding_model = 'old-model' WHERE id = %s",
+               (ids["t-almond"],))  # fmt: skip
+    res = embed_canonicals(db, emb)
+    assert res["embedded"] == 1 and res["full"] is False

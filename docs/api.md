@@ -250,3 +250,167 @@ in either file. Change `schemas.py`, then run the script and commit both files.
 `20261007100100_user_tables_rls.sql` was also fixed so it applies on Supabase, where the `auth`
 schema belongs to `supabase_auth_admin` (it now creates the stand-in `auth.users` only when the
 table is absent).
+
+## Phase 2: account deletion, stores, clubs, history, shared lists, alerts, barcode (P2-A)
+
+Issues #90, #19, #28, #34, #23 and #39. The contract additions are optional fields with
+defaults, so older clients keep working; `openapi.json` and `types.ts` are regenerated.
+
+| Route | Auth | Purpose |
+|---|---|---|
+| `DELETE /me` | required | delete every row of the user and the auth user (#90) |
+| `GET /stores/nearest?chain_id=&lon=&lat=` | none | the nearest physical store of a chain, for "my chain" in onboarding (#90) |
+| `GET /history/{canonical_id}?store_id=&days=` | none | daily price series from change events, with promo windows (#28) |
+| `GET`, `POST /me/alerts`; `PUT`, `DELETE /me/alerts/{id}` | required | price-drop alerts; `active = false` pauses (#23) |
+| `POST`, `DELETE /me/push-subscriptions` | required | web push subscription of this device, upsert by endpoint (#23) |
+| `POST /me/lists/{id}/share` | required, owner | create an invite link with a role (#34) |
+| `GET /me/lists/{id}/members` | required, owner or member | owner, invites and members (a member sees the owner and themselves) |
+| `DELETE /me/lists/{id}/share/{token}` | required, owner | revoke an invite, and the membership it created |
+| `DELETE /me/lists/{id}/members/{user_id}` | required, owner | remove a member |
+| `POST /lists/accept/{token}` | required | join a shared list; returns the list |
+| `GET /me/shared-lists` | required | lists shared with the user |
+| `GET /items/barcode/{barcode}?lon=&lat=&radius_m=&store_id=&clubs=` | none | scanned product: price here, cheapest nearby, cheaper substitute (#39) |
+
+New environment variables (never commit real values):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | none | Supabase Admin API for `DELETE /me`; without them see [Account deletion](#account-deletion-delete-me) |
+| `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT` | none | web push keys (`smartcart_api/push.py`); without them alerts are recorded, not pushed |
+| `API_ALERTS_FREE_LIMIT` | 10 | alerts per user in the free tier (D12; the number is a placeholder, not a decision) |
+| `API_SHARE_INVITE_DAYS` | 7 | days an unaccepted invite link stays valid |
+| `API_FAMILY_SHARING` | on | paid-tier flag for creating invites (D12); `0` answers 403 |
+| `API_PUBLIC_WEB_URL` | first CORS origin | origin of the invite links |
+
+| Command | What it does |
+|---|---|
+| `smartcart-api alerts-run [--dry-run]` | evaluate alerts against `effective_prices`, send pushes, print metrics as JSON; run after `precompute` |
+
+### Club filtering (#19)
+
+The rule lives in `basket.club_member` and `basket.gate_club`, used by /compare, /optimize (and
+so the MILP, through `price_baskets`), the barcode lookup and the alerts job. A club-only promo
+(`promos.club_only`) applies only when:
+
+1. one of the request's `clubs` equals the promo's `club_name`, compared trimmed, with inner
+   whitespace collapsed and case-folded. Credit-card deals follow the same rule (the user marks
+   the card's name); or
+2. the promo's club is the chain's own customer club (`מועדון לקוחות`, the adapters' name for
+   regulation club code 1, or a name in `chains.club_names`) and the user marked the chain
+   itself: its name (what the web app sends), `מועדון <chain name>`, or a prefix of the chain's
+   name followed by a space.
+
+A restriction that could not be parsed (no club name, `אחר`, `club <n>`) never applies, for
+anyone: the safe default. The club codes are the adapters' provisional mapping, not verified
+against real files.
+
+The precompute keeps, next to the best row, `noclub` (the best price without any club deal)
+and `noclub.clubs` (each club's own best deal that beats `noclub`), so a member of club A gets
+A's deal even when club B's deal won the row. For a user who is not a member, the line is priced
+at the best of `noclub` and the deals of the clubs they did mark: `club_required` and `club_name`
+then describe that price (true only when the user's own club deal is applied), and
+`club_offer_name` / `club_offer_discount` report the deal they did not mark, as information. It
+never enters a total, a store ranking, an "add one more" suggestion or a saving (the D7 hero
+number). Tests: `test_clubs.py` (a basket whose cheapest store changes with membership, in
+/compare and /optimize, and the unparseable default).
+
+`PricedItem.promo_confidence` is `promos.raw->>'confidence'` when the adapter recorded one
+(0 to 1, or a percentage), else null. `StoreResult.lat` / `lon` come from `stores.geog`.
+
+### Account deletion, DELETE /me
+
+1. With `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`: `DELETE {SUPABASE_URL}/auth/v1/admin/users/{id}`
+   first, before the request transaction touches a row (every user table cascades from
+   `auth.users`, and holding row locks while Supabase cascades would block both). A failure
+   answers 502 and nothing is deleted; 404 counts as already deleted.
+2. Under RLS as the user: push subscriptions, alerts (deliveries cascade), shares they own,
+   lists (items and shares cascade), profile, preferences, substitution feedback.
+3. Service connection: their memberships in other lists and the items they added there;
+   `gap_reports.user_id` and `events.user_id` set to NULL (kept as anonymous statistics).
+4. Without the Admin API settings, the stand-in `auth.users` row is deleted (local, CI). On
+   hosted Supabase the log line `auth user not deleted` means the user must be removed by hand:
+   Supabase dashboard, Authentication, Users, delete. The hosted path has not been run against a
+   real project yet.
+
+### GET /stores/nearest
+
+PostGIS KNN (`ORDER BY geog <-> point`) over the chain's physical stores with a location; 404
+when there is none. Returns a `StoreRef` with `distance_m`, `lat`, `lon`.
+
+### GET /history/{canonical_id}
+
+- Item: with `store_id`, the item of that store's chain mapped `exact` when there is one, else
+  the store's best `any_brand` item in `effective_prices`; without `store_id`, the best
+  `any_brand` item over all stores, as its chain's base price. Fallback: the most confident
+  mapped item with prices. `item_id` and `display_name_he` say which.
+- Series: one point per day of the last `days` (default 90, 1 to 365), the price in force at the
+  end of the day with `current_price()` semantics: the store's latest event overrides the chain
+  base price, `store_id` on the point says which applied (null = chain base). Only loaded files
+  count. Days before the first known event are absent: a gap, not a flat line.
+- `unit_price` is the shelf unit price in the canonical's base unit (D6); promos are reported
+  separately: `promos` lists the promo windows (chain-wide, plus the store's with `store_id`)
+  overlapping the range, with `promo_type`, `club_only`, `club_name` and `confidence`; each
+  point's `promo_description` names the promo active that day (a club one is suffixed with its
+  club).
+- Plan: both event queries filter `item_id`, `store_id` and a `valid_from` range, so they prune
+  to the range's monthly partitions and use `prices_event_key`; the price in force at the start
+  is one backward index scan with `LIMIT 1`.
+- Measured locally on the test world: 90 days for one store in about 20 ms (one run, small
+  data; not measured on real data). The paid-tier history limit (D12) is not implemented yet.
+
+### Shared lists (#34)
+
+- Invite: `secrets.token_urlsafe(32)`; only its SHA-256 is stored in `list_shares.invite_token`.
+  Link `{API_PUBLIC_WEB_URL}/lists/accept/{token}`, valid `API_SHARE_INVITE_DAYS` days
+  (`list_shares.expires_at`). Single use: accepted by another user 409, revoked 404, expired 410.
+- Accepting runs on the service connection (a pending invite is invisible to the invitee under
+  RLS), then the list is read back under RLS as the member.
+- RLS (migration `20261008100100_shared_lists_rls.sql`): list items follow their list. The
+  owner (`owns_list()`) and accepted members (`is_list_member()`) read; the owner and editors
+  insert, update and delete; a new row must carry the writer's own `user_id`; viewers cannot
+  write; strangers see nothing. This replaces the phase 1 `list_items_own` policy, which let
+  anyone add rows to any list under their own user id and hid members' items from the owner.
+  Only the owner changes or deletes the list itself and manages `list_shares`; a member sees
+  their own share row only. Profiles and preferences stay owner-only, so members never see each
+  other's location or preferences (tested).
+- Members edit items through Supabase PostgREST and get changes through Realtime (the phase 2
+  migration adds `lists` and `list_items` to `supabase_realtime`); the conflict rule and offline
+  merge are the web workstream's.
+
+### Alerts and web push (#23)
+
+- An alert takes the profile's neighborhood (consent required, else 422) and is stored rounded
+  to 3 decimals. `PUT` re-arms it (`last_fired_at` reset) when the product, level or threshold
+  changes.
+- `alerts_job.evaluate_alerts(conn, sender)`: for each active alert, `effective_prices` rows of
+  its canonical at its flexibility level at physical stores within `radius_m` (PostGIS
+  `ST_DWithin`), gated by the user's profile clubs as above; fires on the lowest effective unit
+  price at or below the threshold. De-duplication: at most once per 24 hours, and never again for
+  the same item and store unless the price went lower. A firing inserts `alert_deliveries`
+  (`push`, or `log` without keys or subscriptions), sets `last_fired_at` and pushes to each
+  subscription; 404 or 410 deletes the subscription.
+- The push payload: product, store, price with `₪` and a non-breaking space, update time,
+  "המחיר הקובע הוא בקופה", deep link `/product/{canonical_id}`, tag `alert-{id}`.
+- The job reads every user's alerts, so it needs a connection that bypasses RLS (the Supabase
+  `postgres` or service role). Push delivery to real devices (Android Chrome, iOS 16.4+ PWA) is
+  not verified yet: it needs real VAPID keys.
+
+### GET /items/barcode/{barcode}
+
+- Lookup: `items.barcode` in any chain (also without leading zeros and padded to EAN-13), then
+  `item_canonical` at `exact` or `any_brand`, not `needs_review` or `human_rejected`. Unknown or
+  unmapped codes answer `found = false` (with the item's name when known), never a guess (D5).
+  A code in `canonical_products.reference_barcodes` resolves to that canonical without prices.
+- `here` and `cheapest_nearby` price the scanned product itself, live (precompute rules, club
+  rule with `clubs`), at `store_id` and at the physical stores in the radius.
+- `cheaper_substitute`: the lowest `any_brand` effective unit price nearby for another barcode,
+  only when it beats the scanned product's unit price (`here`, else `cheapest_nearby`); labeled
+  `is_substitute` with its mapping `confidence` and `tags` comparing its attributes with the
+  canonical's critical attributes and the scanned product's soft ones (brand, pack size).
+- The scan is logged (found, time to answer), never with the location.
+
+### Migration
+
+| File | What |
+|---|---|
+| `20261008100100_shared_lists_rls.sql` | `owns_list()`, list item policies by list (owner, editor, viewer), `list_shares.expires_at` |

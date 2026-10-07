@@ -21,10 +21,11 @@ from typing import Any, get_args
 import jsonschema
 from pydantic import ValidationError
 
-from smartcart_catalog.models import Attributes, ProductState
+from smartcart_catalog.models import Attributes, PlantBase, ProductState
 from smartcart_catalog.seed import Catalog
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+"""2: ``base`` and ``variety`` added (issue #92)."""
 
 FLAVORS: tuple[str, ...] = (
     "plain", "strawberry", "peach", "banana", "chocolate", "vanilla", "coffee", "lemon",
@@ -40,9 +41,10 @@ DIET_FLAGS: tuple[str, ...] = (
 )
 UNITS: tuple[str, ...] = ("g", "ml", "unit")
 STATES: tuple[str, ...] = get_args(ProductState)
+BASES: tuple[str, ...] = get_args(PlantBase)
 OUTPUT_KEYS: tuple[str, ...] = (
     "category_path", "product_type", "brand", "is_private_label", "fat_pct", "state", "flavor",
-    "kosher", "diet_flags", "pack_size", "unit", "confidence",
+    "kosher", "diet_flags", "pack_size", "unit", "base", "variety", "confidence",
 )
 
 
@@ -76,6 +78,8 @@ def build_schema(
             "diet_flags": {"type": "array", "items": {"type": "string", "enum": list(DIET_FLAGS)}},
             "pack_size": _nullable({"type": "number"}),
             "unit": _nullable({"type": "string", "enum": list(UNITS)}),
+            "base": _nullable({"type": "string", "enum": list(BASES)}),
+            "variety": _nullable({"type": "string"}),
             "confidence": {"type": "number"},
         },
     }
@@ -127,6 +131,8 @@ def validate_output(payload: Any, schema: dict[str, Any] | None = None) -> Attri
             diet_flags=tuple(payload["diet_flags"]),
             pack_size=_decimal(payload["pack_size"]),
             unit=payload["unit"],
+            base=payload["base"],
+            variety=(payload["variety"] or "").strip() or None,
             confidence=payload["confidence"],
             verified_keys=(),
         )
@@ -137,7 +143,7 @@ def validate_output(payload: Any, schema: dict[str, Any] | None = None) -> Attri
 
 # --- prompt ----------------------------------------------------------------------------------------
 
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2
 
 _INSTRUCTIONS = """\
 You extract structured attributes from one Israeli supermarket item at a time. The item comes \
@@ -163,6 +169,10 @@ for a national or imported brand, null if unsure.
 - kosher: the certification text exactly as written in the name (for example בד"ץ, כשר לפסח), \
 else null. Never infer kashrut. diet_flags: only flags written in the name.
 - pack_size and unit: the total pack size in g, ml or units; prefer the parsed size given.
+- base: for a plant-based drink or milk alternative only, what it is made from (soy, almond, \
+oat, rice, coconut); null for anything else.
+- variety: a named variety that is not a flavor, as a short English slug (barista, protein), \
+else null.
 - confidence: your probability, 0 to 1, that every non-null value is correct.
 """
 

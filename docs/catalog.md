@@ -103,6 +103,12 @@ ORDER BY rank;
 `data/canonicals.yaml` holds **245 canonical products** (`is_mvp: true`), inside the 150-300 range
 of the plan (the range is the research's plan, not a measured result). Each has a slug, Hebrew
 display name, taxonomy node, product type, base unit, critical and soft attributes, and a rank.
+A canonical may also list `reference_barcodes` (issue #92): the barcodes that are exactly this
+product. `seed` stores them in `canonical_products.reference_barcodes` (a text array with a GIN
+index) and the judge's exact rule reads them; they are no longer kept in `soft_attrs`. Validation
+requires 8 to 14 digits and no barcode on two canonicals. A file entry without the key leaves the
+stored barcodes untouched, so barcodes added later (from review or a barcode import) survive a
+re-seed. The shipped `canonicals.yaml` lists none yet: reference barcodes come from loaded data.
 
 ### Choosing the canonicals and the ranking (estimate)
 
@@ -141,9 +147,21 @@ The product type itself is always critical, so different types are never merged.
 | Flavor defines the product | fruit yogurt, desserts, jam, bisli, chips, chocolate, burekas, ice cream, soup powder | `flavor` | strawberry and peach yogurt |
 | Plain yogurt, cream cheese | yogurt, cream_cheese | `fat_pct`, `flavor` | plain yogurt 3% |
 | Type alone | bread, rice, pasta, oils, sauces, drinks, non-food | none beyond the type | soy, almond and oat drinks are separate types |
+| Base of a plant drink | (available; the gold set uses it) | `base` | soy vs almond drink under one type |
 
 Soft keys are `pack_size` and `brand` everywhere, plus `fat_pct` or `flavor` where they are not
-critical. Kosher and diet flags are **not** critical keys: the chain files do not carry them
+critical.
+
+**`base` and `variety`** (issue #92). `Attributes.base` is what a plant-based drink or milk
+alternative is made from (`soy`, `almond`, `oat`, `rice`, `coconut`); `Attributes.variety` is a
+named variety that is not a flavor (`barista`, `protein`). Both are attribute keys, so a product
+type rule may list them: `base` as a critical key vetoes soy against almond even inside one
+product type, `variety` as a soft key turns a barista drink into a "close" substitute. The shipped
+`product_type_rules.yaml` keeps soy, almond and oat drinks as separate product types (the type
+already vetoes the pair) and does not list `base` yet: making it critical means adding
+`base: soy` to those canonicals' `critical_attrs`, which changes the committed SEO snapshot
+(`apps/web/public/seo`), so it is left for the catalog owner. The synthetic gold set lists `base`
+as critical for its plant drinks, so the evaluation exercises the key end to end. Kosher and diet flags are **not** critical keys: the chain files do not carry them
 structurally, so extracted values are always unverified (`ALWAYS_UNVERIFIED`) and cannot gate a
 match. They are user preference filters (features.md) instead. This differs from the glossary in
 `docs/README.md`, which lists "kosher level" among critical attributes.
@@ -173,6 +191,12 @@ Israeli SKUs; nothing important is missing from tiers 1 and 2; the critical keys
 `normalize(item) -> NormalizedItem` for any `items` row (an `ItemRecord`, a dict row). Pure and
 cheap, so consumers call it directly; `smartcart-catalog normalize` runs it over the table and
 reports. `normalize_with_issues` also returns what was ambiguous.
+
+The returned item carries the row's source fields as well (issue #92): `chain_id`, `chain_name`
+(when the row has it), `manufacturer`, `barcode`, `raw_name`, and `issues` (the same list
+`normalize_with_issues` returns). Extractors and judges read everything about an item from the
+`NormalizedItem`; there is no side `context` map and no `barcode=` keyword any more. All of
+these fields are optional, so a bare `{"raw_name": ...}` still normalizes.
 
 1. **Clean the name.** Unify geresh and gershayim variants (`׳ ״ ’ ”` to `' "`), drop direction
    marks, expand abbreviations from the `ABBREVIATIONS` table, collapse whitespace. The table is
@@ -222,21 +246,25 @@ whose published unit price is missing or wrong.
 ## 4. Attribute extraction (step B)
 
 Per item, once: `{category_path, product_type, brand, is_private_label, fat_pct, state, flavor,
-kosher, diet_flags, pack_size, unit}` plus a confidence, stored in `item_attributes`.
+kosher, diet_flags, pack_size, unit, base, variety}` plus a confidence, stored in
+`item_attributes`. `base` and `variety` were added in schema version 2 (issue #92); rows
+extracted before simply lack them (unknown).
 
 **Schema** (`extract/schema.py`): strict JSON schema, `additionalProperties: false`, every key
 required, `null` for "not stated". `product_type` and `category_path` are enums built from the seed
-files, so the model cannot invent a type the judge has no rule for; `flavor` and `diet_flags` are
-closed vocabularies too. Output is validated with `jsonschema` and then the `Attributes` model.
+files, so the model cannot invent a type the judge has no rule for; `flavor`, `diet_flags` and
+`base` are closed vocabularies too. Output is validated with `jsonschema` and then the `Attributes` model.
 
-**Extractors** (both implement the `Extractor` protocol and also take a `context` map with chain,
-manufacturer and raw name):
+**Extractors** (both implement the `Extractor` protocol, `extract(items)`, and read the chain,
+manufacturer and raw name from each `NormalizedItem`):
 
 - `RuleExtractor` (`extract/rule.py`), the default (`EXTRACTOR=rule`): keyword tables from
   `product_type_rules.yaml` pick the product type (whole-word match, longest keyword wins, excludes
   veto), regexes read the fat percentage (not cocoa or juice percentages), keyword lists give state,
   flavor, kosher text and diet flags, a brand list and per-chain private-label lists give brand and
-  `is_private_label`. Types may imply a value (milk without "עמיד" is fresh; produce is fresh). The
+  `is_private_label`. For plant drink types it fills `base` from the name (סויה, שקדים,
+  שיבולת שועל, אורז, קוקוס) or from the type itself, and `variety` from בריסטה / חלבון. Types may
+  imply a value (milk without "עמיד" is fresh; produce is fresh). The
   private-label lists hold only the chains' own names for now (estimate); house-brand names must be
   collected from loaded data. Confidence is capped at 0.8.
 - `ClaudeExtractor` (`extract/claude.py`): Message Batches API with `claude-sonnet-5-5` (decision

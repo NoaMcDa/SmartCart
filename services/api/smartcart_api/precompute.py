@@ -34,7 +34,10 @@ scaled by effective price / shelf price.
 
 Club promos (``club_only``) can win; the row then has ``club_required``/``club_name`` and the
 best option without any club promo in ``noclub``, which ``/compare`` uses for users who did not
-mark that club. A club promo is never applied for them.
+mark that club. A club promo is never applied for them. ``noclub.clubs`` maps each club whose
+own best option beats ``noclub`` to that option (issue #19), so a member of club A gets club A's
+deal even when club B's deal won the row. Matching a user's clubs to a promo is
+``basket.club_member``.
 
 The job is idempotent: it upserts on the primary key and deletes rows of the processed chains
 that this run did not produce. A ``match_runs`` row (kind ``precompute``) records the counts.
@@ -98,6 +101,8 @@ class Option:
     def as_json(self) -> dict:
         return {
             "item_id": self.item_id,
+            "club_required": self.club_required,
+            "club_name": self.club_name,
             "shelf_price": str(self.shelf_price),
             "effective_price": str(self.effective_price),
             "effective_unit_price": str(self.effective_unit_price),
@@ -257,11 +262,15 @@ def item_options(
     item_ids: list[int],
     as_of: datetime,
     base_units: dict[int, str] | None = None,
+    per_club: dict[tuple[int, int], dict[str, Option]] | None = None,
 ) -> dict[tuple[int, int], tuple[Option, Option]]:
     """(store_id, item_id) -> (best option overall, best option without a club promo).
 
     ``base_units`` maps item_id to the base unit its unit price is expressed in (the canonical's);
     items whose unit cannot be converted are left out. Without it the item's own uom is kept.
+    When ``per_club`` is given it receives, per (store_id, item_id), the best option of each club
+    named by a club promo, when it beats the no-club option. Club promos without a club name are
+    left out: they never apply (issue #19).
     """
     if not store_ids or not item_ids:
         return {}
@@ -310,8 +319,30 @@ def item_options(
                 best = opt
             if not promo.club_only and opt.key() < best_noclub.key():
                 best_noclub = opt
+            if promo.club_only and promo.club_name and per_club is not None:
+                clubs = per_club.setdefault((p.store_id, p.item_id), {})
+                cur = clubs.get(promo.club_name)
+                if cur is None or opt.key() < cur.key():
+                    clubs[promo.club_name] = opt
         out[(p.store_id, p.item_id)] = (best, best_noclub)
+        if per_club is not None and (p.store_id, p.item_id) in per_club:
+            clubs = per_club[(p.store_id, p.item_id)]
+            for name in [n for n, o in clubs.items() if not o.key() < best_noclub.key()]:
+                del clubs[name]  # keep only clubs that beat what everybody pays
     return out
+
+
+def unit_price_in(
+    price: Decimal,
+    unit_price: Decimal | None,
+    uom: str | None,
+    quantity: Decimal | None,
+    unit: str | None,
+    base_unit: str | None,
+) -> tuple[Decimal, str] | None:
+    """The unit price of one price event in ``base_unit``, by the precompute's rules, or None."""
+    p = PricedItem(0, 0, price, unit_price, uom, False, datetime.now(UTC), quantity, unit)
+    return _unit_price(p, base_unit)
 
 
 def _unit_price(p: PricedItem, base_unit: str | None) -> tuple[Decimal, str] | None:
@@ -372,7 +403,7 @@ def _chain_rows(
         " FROM item_canonical AS ic"
         " JOIN items AS i ON i.id = ic.item_id"
         " JOIN canonical_products AS cp ON cp.id = ic.canonical_id"
-        " WHERE i.chain_id = %s AND NOT ic.needs_review",
+        " WHERE i.chain_id = %s AND NOT ic.needs_review AND NOT ic.human_rejected",
         (chain_id,),
     ).fetchall()
     store_ids = [
@@ -386,18 +417,24 @@ def _chain_rows(
     for item_id, _cid, _lvl, base in mappings:
         by_base[base].add(item_id)
     options: dict[tuple[str, int, int], tuple[Option, Option]] = {}
+    club_opts: dict[tuple[str, int, int], dict[str, Option]] = {}
     for base, items in by_base.items():
+        per_club: dict[tuple[int, int], dict[str, Option]] = {}
         got = item_options(
-            conn, chain_id, store_ids, sorted(items), as_of, {i: base for i in items}
+            conn, chain_id, store_ids, sorted(items), as_of, {i: base for i in items}, per_club
         )
         for (sid, iid), opts in got.items():
             options[(base, sid, iid)] = opts
+        for (sid, iid), clubs in per_club.items():
+            club_opts[(base, sid, iid)] = clubs
     by_item: dict[int, list[tuple[int, str, str]]] = defaultdict(list)
     for item_id, cid, lvl, base in mappings:
         by_item[item_id].append((cid, lvl, base))
 
     best: dict[tuple[int, int, str], tuple[Option, Option]] = {}
+    best_club: dict[tuple[int, int, str], dict[str, Option]] = defaultdict(dict)
     for (base, sid, iid), (opt, noclub) in options.items():
+        clubs = club_opts.get((base, sid, iid), {})
         for cid, lvl, cbase in by_item[iid]:
             if cbase != base:
                 continue
@@ -413,8 +450,22 @@ def _chain_rows(
                         opt if opt.key() < cur[0].key() else cur[0],
                         noclub if noclub.key() < cur[1].key() else cur[1],
                     )
+                for name, copt in clubs.items():
+                    have = best_club[key].get(name)
+                    if have is None or copt.key() < have.key():
+                        best_club[key][name] = copt
     rows = []
     for (cid, sid, level), (opt, noclub) in best.items():
+        noclub_js = None
+        if opt.club_required:
+            noclub_js = noclub.as_json()
+            alts = {  # every club whose deal beats the no-club option, the winner's included
+                name: o.as_json()
+                for name, o in sorted(best_club.get((cid, sid, level), {}).items())
+                if o.key() < noclub.key()
+            }
+            if alts:
+                noclub_js["clubs"] = alts
         rows.append(
             (
                 cid,
@@ -431,7 +482,7 @@ def _chain_rows(
                 opt.effective_price,
                 opt.promo_min_qty,
                 opt.is_estimated,
-                json.dumps(noclub.as_json()) if opt.club_required else None,
+                json.dumps(noclub_js) if noclub_js is not None else None,
             )
         )
     return rows, len(store_ids), len({iid for (_b, _s, iid) in options})

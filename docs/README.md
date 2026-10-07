@@ -13,6 +13,8 @@ discussions. Nothing has been built yet. Read in this order if you are new:
 8. [design/artboards/](design/artboards/): source of the UI design canvas.
 9. [adapters.md](adapters.md), [ingestion.md](ingestion.md), [dashboard.md](dashboard.md), [dev-setup.md](dev-setup.md), [infra-provisioning.md](infra-provisioning.md): phase 0 engineering docs.
 10. [catalog.md](catalog.md), [matching.md](matching.md), [api.md](api.md), [web.md](web.md), [seo.md](seo.md), [methodology.md](methodology.md), [beta-plan.md](beta-plan.md), [a11y-report.md](a11y-report.md), [phase-0-exit-report.md](phase-0-exit-report.md): phase 1 engineering docs.
+11. [optimizer.md](optimizer.md): the phase 2 cart optimizer (MILP and the heuristic it is compared with).
+12. [phase-2-status.md](phase-2-status.md): status of every phase 0, 1 and 2 issue, what is blocked, and the owner's runbook, in order.
 
 ## Facts versus estimates
 

@@ -22,7 +22,6 @@ from anthropic.types.messages import MessageBatchIndividualResponse
 from typer.testing import CliRunner
 
 from smartcart_catalog import cli
-from smartcart_catalog.extract.base import ItemContext
 from smartcart_catalog.extract.claude import ClaudeExtractor, estimate_usd
 from smartcart_catalog.extract.queue import cost_report, run_extraction
 from smartcart_catalog.models import Attributes, ExtractionError, NormalizedItem
@@ -83,12 +82,12 @@ def _extractor(catalog, entries=RESULTS, **kw) -> tuple[ClaudeExtractor, FakeBat
     return x, client.messages.batches
 
 
-def _items() -> tuple[list[NormalizedItem], dict[int, ItemContext]]:
-    items, ctx = [], {}
-    for n, entry in enumerate(RESULTS, start=101):
-        items.append(normalize({"raw_name": entry["raw_name"], "item_code": "7290000"}, item_id=n))
-        ctx[n] = ItemContext(chain_id="7290027600007", raw_name=entry["raw_name"])
-    return items, ctx
+def _items() -> list[NormalizedItem]:
+    return [
+        normalize({"raw_name": entry["raw_name"], "item_code": "7290000",
+                   "chain_id": "7290027600007"}, item_id=n)
+        for n, entry in enumerate(RESULTS, start=101)
+    ]  # fmt: skip
 
 
 # --- request ---------------------------------------------------------------------------------------
@@ -97,10 +96,10 @@ def _items() -> tuple[list[NormalizedItem], dict[int, ItemContext]]:
 def test_request_matches_recorded_shape(catalog) -> None:
     x, _ = _extractor(catalog)
     item = normalize({"raw_name": "חלב תנובה 3% בקרטון 1 ליטר", "quantity": 1, "unit": "ליטר",
-                      "item_code": "7290004131074"}, item_id=101)
-    req = x.build_request(item, ItemContext(
-        chain_id="7290027600007", chain_name="שופרסל", manufacturer="תנובה",
-        raw_name="חלב תנובה 3% בקרטון 1 ליטר", barcode="7290004131074"))
+                      "item_code": "7290004131074", "chain_id": "7290027600007",
+                      "chain_name": "שופרסל", "manufacturer": "תנובה",
+                      "barcode": "7290004131074"}, item_id=101)
+    req = x.build_request(item)
     schema = req["params"]["output_config"]["format"]["schema"]
     assert schema["additionalProperties"] is False
     assert "Product types" in req["params"]["system"][0]["text"]
@@ -124,8 +123,8 @@ def test_request_uses_batch_defaults(catalog) -> None:
 
 def test_extract_reads_results_by_custom_id_and_classifies_failures(catalog) -> None:
     x, batches = _extractor(catalog)
-    items, ctx = _items()
-    out = x.extract(items, context=ctx)
+    items = _items()
+    out = x.extract(items)
     assert len(out) == len(items)
     assert batches.retrieved == 2  # polled until "ended"
     for entry, result in zip(RESULTS, out, strict=True):
@@ -143,8 +142,8 @@ def test_extract_reads_results_by_custom_id_and_classifies_failures(catalog) -> 
 
 def test_usage_and_estimated_cost(catalog) -> None:
     x, _ = _extractor(catalog)
-    items, ctx = _items()
-    x.extract(items, context=ctx)
+    items = _items()
+    x.extract(items)
     usage = x.last_usage
     succeeded = [e["result"]["message"]["usage"] for e in RESULTS
                  if e.get("result", {}).get("type") == "succeeded"]

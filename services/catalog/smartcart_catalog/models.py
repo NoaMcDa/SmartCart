@@ -10,7 +10,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal, Protocol, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 FlexLevel = Literal["exact", "any_brand", "close"]
 """exact = that barcode only; any_brand = same canonical, critical attributes equal;
@@ -19,6 +19,8 @@ close = soft attributes may differ. See docs/decisions.md D4."""
 BaseUnit = Literal["100g", "100ml", "unit", "kg"]
 ProductState = Literal["fresh", "frozen", "chilled", "canned", "dry"]
 MatchSource = Literal["rule", "model", "human"]
+PlantBase = Literal["soy", "almond", "oat", "rice", "coconut"]
+"""What a plant-based drink (or other milk alternative) is made from (issue #92)."""
 AttributeKey = Literal[
     "category_path",
     "product_type",
@@ -31,6 +33,8 @@ AttributeKey = Literal[
     "diet_flags",
     "pack_size",
     "unit",
+    "base",
+    "variety",
 ]
 
 ALWAYS_UNVERIFIED: frozenset[str] = frozenset({"kosher", "diet_flags"})
@@ -55,6 +59,10 @@ class Attributes(_Frozen):
     diet_flags: tuple[str, ...] = ()
     pack_size: Decimal | None = None
     unit: str | None = None
+    base: PlantBase | None = None
+    """Plant-drink base (soy, almond, oat, rice, coconut); critical for the plant drink types."""
+    variety: str | None = None
+    """A named variety that is not a flavor (barista, protein, ...); a soft attribute."""
     verified_keys: tuple[str, ...] = ()
     """Keys a human confirmed. Everything else is unverified and shown as such."""
     confidence: float = Field(default=0.0, ge=0, le=1)
@@ -70,7 +78,11 @@ class ExtractionError(_Frozen):
 
 
 class NormalizedItem(_Frozen):
-    """Output of rule normalization (issue #20)."""
+    """Output of rule normalization (issue #20).
+
+    The source fields (``chain_id`` .. ``raw_name``) are copied from the ``items`` row so that
+    extractors and judges read everything about an item from the item itself (issue #92).
+    ``issues`` is what normalization found ambiguous or could not parse."""
 
     item_id: int
     clean_name: str
@@ -80,6 +92,12 @@ class NormalizedItem(_Frozen):
     total_quantity: Decimal | None = None
     base_unit: BaseUnit | None = None
     is_weighed: bool = False
+    chain_id: str | None = None
+    chain_name: str | None = None
+    manufacturer: str | None = None
+    barcode: str | None = None
+    raw_name: str | None = None
+    issues: tuple[str, ...] = ()
 
 
 class CanonicalProduct(_Frozen):
@@ -93,6 +111,18 @@ class CanonicalProduct(_Frozen):
     soft_attrs: dict[str, Any] = Field(default_factory=dict)
     is_mvp: bool = False
     rank: int | None = None
+    reference_barcodes: tuple[str, ...] = ()
+    """Barcodes that are this canonical exactly (``canonical_products.reference_barcodes``);
+    an item with one of them matches at ``exact`` (decision D4)."""
+
+    @field_validator("reference_barcodes", mode="before")
+    @classmethod
+    def _barcodes_as_text(cls, value: Any) -> Any:
+        if value is None:
+            return ()
+        if isinstance(value, str | int):
+            value = [value]
+        return tuple(str(v).strip() for v in value)
 
 
 class ProductTypeRule(_Frozen):

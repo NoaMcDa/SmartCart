@@ -183,7 +183,12 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Update Alert
+         * @description Edit or pause (``active = false``) an alert. Editing re-arms it (``last_fired_at`` reset)
+         *     when the threshold, level or product changes.
+         */
+        put: operations["update_alert_me_alerts__alert_id__put"];
         post?: never;
         /** Delete Alert */
         delete: operations["delete_alert_me_alerts__alert_id__delete"];
@@ -239,11 +244,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Members */
+        /**
+         * List Members
+         * @description The owner sees every invite and member; a member sees the owner and themselves.
+         */
         get: operations["list_members_me_lists__list_id__members_get"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/lists/{list_id}/members/{member_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Member
+         * @description Owner only: remove an accepted member.
+         */
+        delete: operations["remove_member_me_lists__list_id__members__member_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -261,6 +289,26 @@ export interface paths {
         /** Share List */
         post: operations["share_list_me_lists__list_id__share_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/lists/{list_id}/share/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Share
+         * @description Owner only: the invite is revoked, and its member (if accepted) loses access.
+         */
+        delete: operations["revoke_share_me_lists__list_id__share__token__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -295,6 +343,30 @@ export interface paths {
         put?: never;
         /** Add Push Subscription */
         post: operations["add_push_subscription_me_push_subscriptions_post"];
+        /**
+         * Delete Push Subscription
+         * @description Unsubscribe this device (the browser's push endpoint).
+         */
+        delete: operations["delete_push_subscription_me_push_subscriptions_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/shared-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Shared Lists
+         * @description Lists other users shared with the signed-in user (accepted invites).
+         */
+        get: operations["shared_lists_me_shared_lists_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -869,6 +941,12 @@ export interface components {
         };
         /** PriceAlertIn */
         PriceAlertIn: {
+            /**
+             * Active
+             * @description false pauses the alert
+             * @default true
+             */
+            active: boolean;
             /** Canonical Id */
             canonical_id: number;
             /**
@@ -891,11 +969,18 @@ export interface components {
             canonical_id: number;
             /** Days */
             days: number;
+            /** Display Name He */
+            display_name_he?: string | null;
             /**
              * Generated At
              * Format: date-time
              */
             generated_at: string;
+            /**
+             * Item Id
+             * @description The item whose price events make the series; null when none
+             */
+            item_id?: number | null;
             /** Points */
             points: components["schemas"]["PricePoint"][];
             /** Promos */
@@ -928,6 +1013,16 @@ export interface components {
             canonical_id: number;
             /** Club Name */
             club_name?: string | null;
+            /**
+             * Club Offer Discount
+             * @description What club_offer_name would save on this line, ILS; information only
+             */
+            club_offer_discount?: string | null;
+            /**
+             * Club Offer Name
+             * @description A club deal on this line for a club the user did not mark; information only, never in a total or saving
+             */
+            club_offer_name?: string | null;
             /**
              * Club Required
              * @default false
@@ -1141,10 +1236,27 @@ export interface components {
         };
         /** PromoWindow */
         PromoWindow: {
+            /** Club Name */
+            club_name?: string | null;
+            /**
+             * Club Only
+             * @description true when only club members (or card holders) get it
+             */
+            club_only?: boolean | null;
+            /**
+             * Confidence
+             * @description Promo parsing confidence; null when unknown
+             */
+            confidence?: number | null;
             /** Description */
             description: string;
             /** Ends At */
             ends_at?: string | null;
+            /**
+             * Promo Type
+             * @description reward_type: price, percent, buy_x_get_y, bundle, other
+             */
+            promo_type?: string | null;
             /** Starts At */
             starts_at?: string | null;
         };
@@ -1267,8 +1379,25 @@ export interface components {
         };
         /** StorePrice */
         StorePrice: {
+            /** Club Name */
+            club_name?: string | null;
+            /**
+             * Club Required
+             * @description true when the price is a club deal the user marked
+             */
+            club_required?: boolean | null;
+            /**
+             * Confidence
+             * @description Mapping confidence of a substitute
+             */
+            confidence?: number | null;
             /** Display Name He */
             display_name_he: string;
+            /**
+             * Is Substitute
+             * @description true: another product than the one scanned
+             */
+            is_substitute?: boolean | null;
             /** Item Id */
             item_id: number;
             /**
@@ -1276,9 +1405,16 @@ export interface components {
              * Format: date-time
              */
             price_valid_from: string;
+            /** Promo Description */
+            promo_description?: string | null;
             /** Shelf Price */
             shelf_price: string;
             store: components["schemas"]["StoreRef"];
+            /**
+             * Tags
+             * @description Why it is a substitute: attributes against the scanned product
+             */
+            tags?: components["schemas"]["AttributeTag"][] | null;
             /** Unit Price */
             unit_price: string;
             /** Uom */
@@ -1623,6 +1759,7 @@ export interface operations {
         parameters: {
             query?: {
                 store_id?: number | null;
+                /** @description Days back from today, 90 by default */
                 days?: number;
             };
             header?: never;
@@ -1660,6 +1797,8 @@ export interface operations {
                 lat: number;
                 radius_m?: number;
                 store_id?: number | null;
+                /** @description The user's clubs, as in /compare */
+                clubs?: string[] | null;
             };
             header?: never;
             path: {
@@ -1692,7 +1831,9 @@ export interface operations {
     accept_share_lists_accept__token__post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 token: string;
             };
@@ -1723,7 +1864,9 @@ export interface operations {
     delete_me_me_delete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1738,12 +1881,23 @@ export interface operations {
                     "application/json": components["schemas"]["Ack"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     list_alerts_me_alerts_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1758,12 +1912,23 @@ export interface operations {
                     "application/json": components["schemas"]["PriceAlert"][];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     create_alert_me_alerts_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1793,10 +1958,49 @@ export interface operations {
             };
         };
     };
+    update_alert_me_alerts__alert_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                alert_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceAlertIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceAlert"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_alert_me_alerts__alert_id__delete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 alert_id: number;
             };
@@ -1992,7 +2196,9 @@ export interface operations {
     list_members_me_lists__list_id__members_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 list_id: number;
             };
@@ -2020,10 +2226,44 @@ export interface operations {
             };
         };
     };
+    remove_member_me_lists__list_id__members__member_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: number;
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     share_list_me_lists__list_id__share_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 list_id: number;
             };
@@ -2043,6 +2283,38 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ShareInvite"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_share_me_lists__list_id__share__token__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: number;
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -2124,7 +2396,9 @@ export interface operations {
     add_push_subscription_me_push_subscriptions_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2141,6 +2415,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ack"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_push_subscription_me_push_subscriptions_delete: {
+        parameters: {
+            query: {
+                endpoint: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    shared_lists_me_shared_lists_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingList"][];
                 };
             };
             /** @description Validation Error */

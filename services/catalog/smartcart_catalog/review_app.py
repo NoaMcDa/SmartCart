@@ -14,12 +14,16 @@ All reads and writes are plain functions below, tested without Streamlit:
 
 * ``accept``  the mapping becomes ``source='human'``, ``needs_review=false``, with
   ``reviewed_by``/``reviewed_at``; the pair is added to ``gold_pairs`` with its level.
-* ``reject``  the mapping is deleted and a ``no_match`` gold pair records the human decision,
-  so the judge never re-creates it (``match.apply_decisions`` honors it).
+* ``reject``  the mapping is kept as a human decision with ``human_rejected=true`` ("not this
+  canonical", issue #92): the matching pipeline drops that canonical from the item's
+  candidates, so the judge never proposes it again. A ``no_match`` gold pair is recorded too,
+  for evaluation only. The row also gets ``needs_review=true`` and ``confidence=0``, so a reader
+  that only filters on ``needs_review`` still never serves it; readers filter
+  ``NOT human_rejected``.
 * ``remap``   reject the old canonical and accept the new one.
 
-The judge's reason is not stored on ``item_canonical`` (no column for it), so ``explain`` re-runs
-the rule judge for the item to show the candidates and the reasons.
+The queue shows the judge's own reason, stored in ``item_canonical.reason`` when the mapping
+was written; ``explain`` re-runs retrieval only to list the candidates a reviewer can re-map to.
 """
 
 from __future__ import annotations
@@ -37,6 +41,7 @@ FEEDBACK_SQL = (
     "(SELECT count(*) FROM substitution_feedback f WHERE f.substitute_item_id = ic.item_id"
     " AND f.canonical_id = ic.canonical_id AND f.verdict = 'not_good')"
 )
+REJECTED_REASON = "human: not this canonical"
 
 
 def review_queue(conn: psycopg.Connection, limit: int = 100) -> list[dict[str, Any]]:
@@ -44,12 +49,12 @@ def review_queue(conn: psycopg.Connection, limit: int = 100) -> list[dict[str, A
         f"""
         SELECT ic.item_id, ic.canonical_id, i.raw_name, i.chain_id, i.barcode, cp.slug,
                cp.display_name_he, cp.rank, ic.flex_level, ic.confidence, ic.source,
-               a.attrs, a.verified_keys, {FEEDBACK_SQL} AS feedback
+               a.attrs, a.verified_keys, {FEEDBACK_SQL} AS feedback, ic.reason
         FROM item_canonical ic
         JOIN items i ON i.id = ic.item_id
         JOIN canonical_products cp ON cp.id = ic.canonical_id
         LEFT JOIN item_attributes a ON a.item_id = ic.item_id
-        WHERE ic.needs_review
+        WHERE ic.needs_review AND NOT ic.human_rejected
         ORDER BY feedback DESC, cp.rank ASC NULLS LAST, ic.confidence DESC, ic.item_id
         LIMIT %s
         """,
@@ -57,12 +62,13 @@ def review_queue(conn: psycopg.Connection, limit: int = 100) -> list[dict[str, A
     ).fetchall()
     keys = ["item_id", "canonical_id", "item_name", "chain_id", "barcode", "canonical_slug",
             "canonical_name", "canonical_rank", "flex_level", "confidence", "source", "attrs",
-            "verified_keys", "feedback"]  # fmt: skip
+            "verified_keys", "feedback", "reason"]  # fmt: skip
     out = []
     for r in rows:
         d = dict(zip(keys, r, strict=True))
         d["confidence"] = float(d["confidence"])
         d["feedback_marker"] = d["feedback"] > 0
+        d["reason"] = d["reason"] or ""
         out.append(d)
     return out
 
@@ -75,13 +81,20 @@ def explain(
     k: int = 5,
     lexicon: Lexicon | None = None,
 ) -> dict[str, Any]:
-    """Re-run retrieval and the judge for one item: attributes, block, candidates, reasons."""
+    """Attributes, block and the current candidates of one item, for re-mapping.
+
+    ``stored_reason`` is the judge's reason as stored with each of the item's mappings
+    (``item_canonical.reason``); the per-candidate reasons come from re-running retrieval and
+    the rule judge now. Human-rejected canonicals are not offered as candidates."""
     judge = judge or RuleJudge()
     ctx = load_items(conn, [item_id], lexicon)[item_id]
     rules = load_rules(conn)
     res = match_item(conn, ctx, judge, rules, k=k)
+    stored = {cid: reason or "" for cid, reason in conn.execute(
+        "SELECT canonical_id, reason FROM item_canonical WHERE item_id = %s", (item_id,)
+    ).fetchall()}  # fmt: skip
     cands = []
-    assess = RuleJudge().assess_all(ctx.item, ctx.attrs, res.candidates, rules, ctx.barcode)
+    assess = RuleJudge().assess_all(ctx.item, ctx.attrs, res.candidates, rules)
     by_id = {a.canonical_id: a for a in assess}
     for c in res.candidates:
         a = by_id.get(c.canonical_id)
@@ -103,6 +116,8 @@ def explain(
         "block": res.block.describe(),
         "candidates": cands,
         "decision": res.decision.model_dump(mode="json"),
+        "stored_reason": stored,
+        "rejected": sorted(ctx.rejected),
     }
 
 
@@ -116,7 +131,7 @@ def bestseller_status(conn: psycopg.Connection, top: int = 300) -> list[dict[str
                count(ic.item_id) FILTER (WHERE ic.needs_review) AS pending
         FROM (SELECT * FROM canonical_products WHERE rank IS NOT NULL
               ORDER BY rank LIMIT %s) cp
-        LEFT JOIN item_canonical ic ON ic.canonical_id = cp.id
+        LEFT JOIN item_canonical ic ON ic.canonical_id = cp.id AND NOT ic.human_rejected
         GROUP BY cp.id, cp.slug, cp.display_name_he, cp.rank
         ORDER BY cp.rank
         """,
@@ -171,14 +186,18 @@ def accept(
     if level is None:
         raise ValueError("flex_level is required when there is no mapping to confirm")
     conn.execute(
-        "INSERT INTO item_canonical (item_id, canonical_id, flex_level, confidence, source,"
-        " needs_review, reviewed_by, reviewed_at)"
-        " VALUES (%s, %s, %s, 1, 'human', false, %s, now())"
+        "INSERT INTO item_canonical AS ic (item_id, canonical_id, flex_level, confidence, source,"
+        " needs_review, reviewed_by, reviewed_at, human_rejected, reason)"
+        " VALUES (%(item)s, %(canon)s, %(level)s, 1, 'human', false, %(who)s, now(), false,"
+        "  %(reason)s)"
         " ON CONFLICT (item_id, canonical_id) DO UPDATE SET flex_level = EXCLUDED.flex_level,"
-        " confidence = 1, source = 'human', needs_review = false,"
-        " reviewed_by = EXCLUDED.reviewed_by, reviewed_at = EXCLUDED.reviewed_at",
-        (item_id, canonical_id, level, reviewer),
-    )
+        " confidence = 1, source = 'human', needs_review = false, human_rejected = false,"
+        " reviewed_by = EXCLUDED.reviewed_by, reviewed_at = EXCLUDED.reviewed_at,"
+        " reason = CASE WHEN ic.source = 'human' THEN EXCLUDED.reason"
+        "   ELSE EXCLUDED.reason || coalesce(' | judge: ' || nullif(ic.reason, ''), '') END",
+        {"item": item_id, "canon": canonical_id, "level": level, "who": reviewer,
+         "reason": f"human: accepted by {reviewer}"},
+    )  # fmt: skip
     # The human decision replaces any other machine mapping of this item.
     conn.execute(
         "DELETE FROM item_canonical WHERE item_id = %s AND canonical_id <> %s"
@@ -189,13 +208,23 @@ def accept(
 
 
 def reject(conn: psycopg.Connection, item_id: int, canonical_id: int, reviewer: str) -> None:
-    """The item is not this canonical: drop the mapping and remember the human decision."""
+    """The item is not this canonical: keep the pair as a human rejection (``human_rejected``)
+    so the judge never proposes it again, and record a ``no_match`` gold pair (evaluation)."""
     if not reviewer.strip():
         raise ValueError("reviewer is required")
     conn.execute(
-        "DELETE FROM item_canonical WHERE item_id = %s AND canonical_id = %s",
-        (item_id, canonical_id),
-    )
+        "INSERT INTO item_canonical AS ic (item_id, canonical_id, flex_level, confidence, source,"
+        " needs_review, reviewed_by, reviewed_at, human_rejected, reason)"
+        " VALUES (%(item)s, %(canon)s, 'close', 0, 'human', true, %(who)s, now(), true,"
+        "  %(reason)s)"
+        " ON CONFLICT (item_id, canonical_id) DO UPDATE SET confidence = 0, source = 'human',"
+        " needs_review = true, human_rejected = true, reviewed_by = EXCLUDED.reviewed_by,"
+        " reviewed_at = EXCLUDED.reviewed_at,"
+        " reason = CASE WHEN ic.source = 'human' THEN EXCLUDED.reason"
+        "   ELSE EXCLUDED.reason || coalesce(' | judge: ' || nullif(ic.reason, ''), '') END",
+        {"item": item_id, "canon": canonical_id, "who": reviewer,
+         "reason": f"{REJECTED_REASON} ({reviewer})"},
+    )  # fmt: skip
     _record_gold(conn, item_id, canonical_id, "no_match", f"review: rejected by {reviewer}")
 
 
@@ -245,7 +274,7 @@ def main() -> None:  # pragma: no cover - UI glue, the functions above are teste
                     st.write(f"chain {row['chain_id']}, barcode {row['barcode'] or '-'}, "
                              f"block {info['block']}, attributes from {info['attributes_source']}")  # fmt: skip
                     st.json(info["attributes"])
-                    st.write("Judge:", info["decision"]["reason"])
+                    st.write("Judge:", row["reason"] or "(no reason stored)")
                     st.dataframe(info["candidates"], use_container_width=True)
                     key = f"{row['item_id']}-{row['canonical_id']}"
                     levels = ["exact", "any_brand", "close"]

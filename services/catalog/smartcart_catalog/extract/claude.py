@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
-from smartcart_catalog.extract.base import ContextMap, ItemContext, Result
+from smartcart_catalog.extract.base import Result
 from smartcart_catalog.extract.schema import (
     SchemaError,
     schema_for,
@@ -132,7 +132,6 @@ class ClaudeExtractor:
     catalog: Catalog | None = None
     sleep: Callable[[float], None] = time.sleep
     name: str = "claude"
-    uses_context: bool = True
     usage_log: list[BatchUsage] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -146,8 +145,7 @@ class ClaudeExtractor:
 
     # --- request ----------------------------------------------------------------------------------
 
-    def build_request(self, item: NormalizedItem, ctx: ItemContext | None) -> dict[str, Any]:
-        ctx = ctx or ItemContext()
+    def build_request(self, item: NormalizedItem) -> dict[str, Any]:
         return {
             "custom_id": custom_id(item.item_id),
             "params": {
@@ -168,9 +166,9 @@ class ClaudeExtractor:
                         "content": user_message(
                             item_id=item.item_id,
                             name=item.clean_name,
-                            raw_name=ctx.raw_name,
-                            manufacturer=ctx.manufacturer,
-                            chain=ctx.chain_name or ctx.chain_id,
+                            raw_name=item.raw_name,
+                            manufacturer=item.manufacturer,
+                            chain=item.chain_name or item.chain_id,
                             size=_size_text(item),
                         ),
                     }
@@ -180,9 +178,8 @@ class ClaudeExtractor:
 
     # --- batch lifecycle ---------------------------------------------------------------------------
 
-    def submit(self, items: list[NormalizedItem], context: ContextMap | None = None) -> str:
-        context = context or {}
-        requests = [self.build_request(i, context.get(i.item_id)) for i in items]
+    def submit(self, items: list[NormalizedItem]) -> str:
+        requests = [self.build_request(i) for i in items]
         batch = self.client.messages.batches.create(requests=requests)
         return batch.id
 
@@ -216,12 +213,10 @@ class ClaudeExtractor:
             for cid, i in wanted.items()
         ]
 
-    def extract(
-        self, items: list[NormalizedItem], *, context: ContextMap | None = None
-    ) -> list[Result]:
+    def extract(self, items: list[NormalizedItem]) -> list[Result]:
         if not items:
             return []
-        batch_id = self.submit(items, context)
+        batch_id = self.submit(items)
         self.wait(batch_id)
         return self.collect(batch_id, items)
 

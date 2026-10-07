@@ -5,6 +5,11 @@ outlines.
 
 ## Phase 0: Data foundation (4–6 weeks)
 
+**Status (2026-10-07).** Built and tested on synthetic fixtures: schema, eight chain adapters, ingestion
+with quality gates, dashboard, exit-report generator. Not done: provisioning, real files and the two-week
+window, so the go/no-go is NO-GO. Per-issue status and the owner's next steps are in
+[phase-2-status.md](phase-2-status.md).
+
 **Goal.** Nightly, trustworthy prices and promos for the 8–10 largest chains in Postgres, with quality
 gates and an internal dashboard. No user-facing product yet.
 
@@ -25,6 +30,12 @@ a barcode basket across all stores in a radius.
 phase 1 attribute extraction.
 
 ## Phase 1: MVP (8–10 weeks)
+
+**Status (2026-10-07).** The catalog, matching, API, web app, trust pages, SEO pages and beta
+instrumentation are built and tested (PR #93). Everything that touches prices or matching runs on synthetic
+data, and the 98% precision figure is measured on a synthetic gold set, so it is not evidence yet. Open:
+real data, the extraction pilot, BGE-M3, human review, deployment, the screen-reader pass and recruiting the
+beta. See [phase-2-status.md](phase-2-status.md).
 
 **Goal.** A Hebrew web app where a user pastes a shopping list, sets flexibility per item, and sees
 the cheapest nearby store plus a two-store split with travel cost.
@@ -52,6 +63,11 @@ no data selling.
 set. SEO pages indexed. Beta substitution rejection rate low enough that trust holds.
 
 ## Phase 2: Advanced savings (about 3 months)
+
+**Status (2026-10-07).** Started. `phase-2-base` has the shared contract (migration, API schemas, stub
+routes, mock handlers); the features themselves are separate workstreams and are not merged yet. The
+optimizer design is in [optimizer.md](optimizer.md). The native-app decision and catalog expansion need real
+users and real labels. See [phase-2-status.md](phase-2-status.md).
 
 MILP optimizer with cross-item promos and quantity rounding. Club filtering. Canonical-level price
 alerts ("any soy drink under X"). Price history (90 days with promo markers). Shared family lists in
