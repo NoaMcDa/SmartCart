@@ -1,0 +1,1159 @@
+# Product type rules (issue #15). Per product type, which attributes must be equal at the
+# "any brand" level (critical_keys) and which may differ at "close substitute" (soft_keys).
+# The product type itself is always critical: soy and almond drink are different types.
+# Keys are Attributes fields (services/catalog/smartcart_catalog/models.py).
+#
+# keywords / exclude / implied are read by the rule extractor only (extract/rule.py) and are not
+# stored in Postgres: a name containing a keyword and none of the excludes gets this
+# product_type (the longest keyword wins); `implied` attributes are filled when the type
+# itself implies them (milk without "עמיד" is fresh). They are an initial list (estimate) to be
+# tuned on loaded data.
+version: 1
+rules:
+- product_type: milk
+  critical_keys: [fat_pct, state]
+  soft_keys: [pack_size, brand]
+  keywords: [חלב]
+  exclude: [שוקו, אבקת, עמיד, לקטוז, סויה, שקדים, שיבולת, קוקוס, שוקולד, ממרח, עוגי, ופל, מרכך, סבון, קרם, בטעם, ריבת, קפה]
+  implied: {state: fresh}
+- product_type: milk_long_life
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [חלב עמיד, עמיד]
+  exclude: [שוקו, סויה, שקדים]
+- product_type: milk_lactose_free
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [ללא לקטוז, דל לקטוז]
+  exclude: [גבינ, יוגורט]
+- product_type: chocolate_milk
+  critical_keys: []
+  soft_keys: [pack_size, brand, fat_pct]
+  keywords: [שוקו, משקה חלב בטעם שוקולד]
+  exclude: [אבקת]
+- product_type: cottage_cheese
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [קוטג', קוטג]
+  exclude: []
+- product_type: white_cheese
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [גבינה לבנה, גבינת לבנה]
+  exclude: []
+- product_type: cream_cheese
+  critical_keys: [fat_pct, flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [גבינת שמנת, גבינה למריחה, ממרח גבינה]
+  exclude: []
+- product_type: yellow_cheese
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [גבינה צהובה, גבינת עמק, עמק, גאודה, אמנטל, גבינה חצי קשה]
+  exclude: [מגורדת, מגוררת]
+- product_type: grated_cheese
+  critical_keys: []
+  soft_keys: [pack_size, brand, fat_pct]
+  keywords: [גבינה מגורדת, מגורדת, מוצרלה מגורדת, מגוררת]
+  exclude: []
+- product_type: bulgarian_cheese
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [בולגרית]
+  exclude: []
+- product_type: safed_cheese
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [צפתית]
+  exclude: []
+- product_type: labane
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [לבנה]
+  exclude: [גבינה לבנה, גבינת לבנה]
+- product_type: yogurt
+  critical_keys: [fat_pct, flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [יוגורט]
+  exclude: [יווני, תות, אפרסק, פירות]
+  implied: {flavor: plain}
+- product_type: yogurt_fruit
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand, fat_pct]
+  keywords: [יוגורט תות, יוגורט אפרסק, יוגורט פירות, יוגורט בטעם]
+  exclude: [יווני]
+- product_type: greek_yogurt
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand, fat_pct]
+  keywords: [יוגורט יווני, יווני]
+  exclude: []
+- product_type: dairy_dessert
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [מעדן]
+  exclude: [קצפת]
+- product_type: pudding_with_cream
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [מעדן עם קצפת, מילקי]
+  exclude: []
+- product_type: sour_cream
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [שמנת חמוצה]
+  exclude: []
+- product_type: whipping_cream
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [שמנת מתוקה, שמנת להקצפה]
+  exclude: []
+- product_type: cooking_cream
+  critical_keys: [fat_pct]
+  soft_keys: [pack_size, brand]
+  keywords: [שמנת לבישול]
+  exclude: []
+- product_type: butter
+  critical_keys: []
+  soft_keys: [pack_size, brand, fat_pct]
+  keywords: [חמאה]
+  exclude: [חמאת בוטנים, בטעם חמאה, עוגיות]
+- product_type: margarine
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מרגרינה]
+  exclude: []
+- product_type: eggs_m
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ביצים M, ביצים גודל M]
+  exclude: [חופש]
+- product_type: eggs_l
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ביצים L, ביצים גודל L]
+  exclude: [חופש]
+- product_type: eggs_xl
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ביצים XL, ביצים גודל XL]
+  exclude: [חופש]
+- product_type: eggs_free_range_l
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ביצי חופש, ביצים חופש]
+  exclude: []
+- product_type: chicken_breast
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [חזה עוף]
+  exclude: [פרוס, שניצל, מצופה, נקניק, פסטרמה]
+- product_type: chicken_breast_sliced
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [שניצל עוף, חזה עוף פרוס, שניצל טרי]
+  exclude: [מצופה, קפוא]
+- product_type: chicken_thigh_boneless
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [פרגית, פרגיות, ירך עוף ללא עצם]
+  exclude: []
+- product_type: chicken_drumstick
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [שוקיים, שוק עוף]
+  exclude: []
+- product_type: chicken_leg
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [כרעיים, כרעי עוף]
+  exclude: []
+- product_type: chicken_whole
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [עוף שלם]
+  exclude: []
+- product_type: chicken_wings
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [כנפיים, כנפי עוף]
+  exclude: []
+- product_type: chicken_ground
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [עוף טחון, טחון עוף]
+  exclude: []
+- product_type: chicken_liver
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [כבד עוף, כבדי עוף]
+  exclude: [ממרח, פטה]
+- product_type: beef_ground
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [בקר טחון, טחון בקר, בשר טחון]
+  exclude: [המבורגר, קבב]
+- product_type: beef_shoulder
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [צלי כתף]
+  exclude: []
+- product_type: beef_goulash
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [גולאש, בשר לבישול]
+  exclude: []
+- product_type: beef_entrecote
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [אנטריקוט]
+  exclude: []
+- product_type: turkey_breast
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [חזה הודו]
+  exclude: [פסטרמה, פרוס, נקניק]
+- product_type: salmon_fillet
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [פילה סלמון, סלמון]
+  exclude: [מעושן]
+- product_type: hake_fillet
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [מרלוזה]
+  exclude: []
+- product_type: tilapia_fillet
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [אמנון, מושט]
+  exclude: []
+- product_type: nile_perch_fillet
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [נסיכת הנילוס]
+  exclude: []
+- product_type: sea_bream
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [דניס]
+  exclude: []
+- product_type: smoked_salmon
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סלמון מעושן]
+  exclude: []
+- product_type: hummus_salad
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [חומוס]
+  exclude: [גרגרי, יבש, שימורי, מבושל]
+  implied: {flavor: plain}
+- product_type: tahini_salad
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סלט טחינה, טחינה מוכנה]
+  exclude: []
+- product_type: matbucha
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מטבוחה]
+  exclude: []
+- product_type: eggplant_mayo_salad
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [חציל במיונז, חצילים במיונז, סלט חצילים]
+  exclude: []
+- product_type: turkey_breast_sliced
+  critical_keys: []
+  soft_keys: [pack_size, brand, flavor]
+  keywords: [פסטרמה, חזה הודו פרוס]
+  exclude: []
+- product_type: chicken_hot_dogs
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [נקניקיות]
+  exclude: [צמחי]
+- product_type: salami
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סלמי]
+  exclude: []
+- product_type: tomato
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [עגבניה, עגבניות]
+  exclude: [שרי, רסק, מרוסק, רוטב, מיובש, קטשופ]
+  implied: {state: fresh}
+- product_type: cherry_tomato
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [עגבניות שרי, שרי]
+  exclude: [רסק]
+  implied: {state: fresh}
+- product_type: cucumber
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [מלפפון, מלפפונים]
+  exclude: [חמוץ, חמוצים, כבוש]
+  implied: {state: fresh}
+- product_type: red_pepper
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [פלפל אדום]
+  exclude: [פפריקה, שחור, ממרח, קלוי]
+  implied: {state: fresh}
+- product_type: onion
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [בצל יבש, בצל]
+  exclude: [ירוק, אבקת, מרק, בטעם, מטוגן]
+  implied: {state: fresh}
+- product_type: potato
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [תפוחי אדמה, תפוח אדמה, תפו"א]
+  exclude: [צ'יפס, פירה, אבקת, קפוא]
+  implied: {state: fresh}
+- product_type: sweet_potato
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [בטטה]
+  exclude: [צ'יפס]
+  implied: {state: fresh}
+- product_type: carrot
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [גזר]
+  exclude: [מיץ, אפונה, קפוא]
+  implied: {state: fresh}
+- product_type: eggplant
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [חציל, חצילים]
+  exclude: [סלט, מיונז, קלוי]
+  implied: {state: fresh}
+- product_type: zucchini
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [קישוא, קישואים]
+  exclude: []
+  implied: {state: fresh}
+- product_type: lettuce
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [חסה]
+  exclude: []
+  implied: {state: fresh}
+- product_type: cabbage
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [כרוב לבן, כרוב]
+  exclude: [כרובית, סלט]
+  implied: {state: fresh}
+- product_type: cauliflower
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [כרובית]
+  exclude: []
+  implied: {state: fresh}
+- product_type: broccoli
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [ברוקולי]
+  exclude: []
+- product_type: garlic
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [שום]
+  exclude: [אבקת, מיובש, גרגרי, רוטב]
+  implied: {state: fresh}
+- product_type: mushrooms
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [פטריות, שמפיניון]
+  exclude: [שימורי, פרוסות בשימור]
+  implied: {state: fresh}
+- product_type: lemon
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [לימון, לימונים]
+  exclude: [מיץ, בטעם, לימונענע, סודה, תה]
+  implied: {state: fresh}
+- product_type: orange
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [תפוז, תפוזים]
+  exclude: [מיץ, בטעם, משקה]
+  implied: {state: fresh}
+- product_type: clementine
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [קלמנטינה, קלמנטינות, מנדרינה]
+  exclude: []
+  implied: {state: fresh}
+- product_type: banana
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [בננה, בננות]
+  exclude: [בטעם, יוגורט, מעדן]
+  implied: {state: fresh}
+- product_type: avocado
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [אבוקדו]
+  exclude: []
+  implied: {state: fresh}
+- product_type: mango
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [מנגו]
+  exclude: [מיץ, בטעם]
+  implied: {state: fresh}
+- product_type: apple_red
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [תפוח אדום, תפוחים אדומים, תפוח עץ אדום, פינק ליידי, סטרקינג]
+  exclude: [מיץ, חומץ]
+  implied: {state: fresh}
+- product_type: apple_green
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [תפוח ירוק, גרני סמית]
+  exclude: [מיץ]
+  implied: {state: fresh}
+- product_type: pear
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [אגס, אגסים]
+  exclude: []
+  implied: {state: fresh}
+- product_type: watermelon
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [אבטיח]
+  exclude: []
+  implied: {state: fresh}
+- product_type: melon
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [מלון]
+  exclude: []
+  implied: {state: fresh}
+- product_type: grapes
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [ענבים]
+  exclude: [מיץ, צימוקים]
+  implied: {state: fresh}
+- product_type: strawberries
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [תות שדה, תותים]
+  exclude: [יוגורט, ריבה, ריבת, בטעם]
+  implied: {state: fresh}
+- product_type: peach
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [אפרסק, אפרסקים]
+  exclude: [יוגורט, בטעם, שימורי]
+  implied: {state: fresh}
+- product_type: parsley
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [פטרוזיליה]
+  exclude: [מיובש]
+  implied: {state: fresh}
+- product_type: coriander
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [כוסברה]
+  exclude: [טחונה, זרעי]
+  implied: {state: fresh}
+- product_type: dill
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [שמיר]
+  exclude: [מיובש]
+  implied: {state: fresh}
+- product_type: green_onion
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [בצל ירוק]
+  exclude: []
+  implied: {state: fresh}
+- product_type: bread_standard
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [לחם אחיד]
+  exclude: []
+- product_type: bread_whole_wheat
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [לחם מחיטה מלאה, לחם חיטה מלאה, לחם מלא]
+  exclude: []
+- product_type: bread_rye
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [לחם שיפון]
+  exclude: []
+- product_type: bread_multigrain
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [לחם דגנים, לחם רב דגנים]
+  exclude: []
+- product_type: bread_spelt
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [לחם כוסמין]
+  exclude: []
+- product_type: challah
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [חלה, חלות]
+  exclude: [מצה]
+- product_type: pita
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פיתה, פיתות]
+  exclude: []
+- product_type: rolls
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [לחמניות, לחמנייה]
+  exclude: []
+- product_type: baguette
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [באגט]
+  exclude: []
+- product_type: rice_persian
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [אורז פרסי]
+  exclude: []
+- product_type: rice_basmati
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [אורז בסמטי, בסמטי]
+  exclude: []
+- product_type: rice_jasmine
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [אורז יסמין, יסמין]
+  exclude: []
+- product_type: rice_round
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [אורז עגול, אורז סושי]
+  exclude: []
+- product_type: rice_brown
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [אורז מלא]
+  exclude: []
+- product_type: pasta_spaghetti
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ספגטי]
+  exclude: []
+- product_type: pasta_penne
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פנה, פנטה]
+  exclude: []
+- product_type: pasta_fusilli
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פוזילי, בורגי]
+  exclude: []
+- product_type: ptitim
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פתיתים]
+  exclude: []
+- product_type: couscous
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קוסקוס]
+  exclude: []
+- product_type: egg_noodles
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [אטריות]
+  exclude: [אורז]
+- product_type: red_lentils
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [עדשים כתומות, עדשים אדומות]
+  exclude: []
+- product_type: bulgur
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [בורגול]
+  exclude: []
+- product_type: quinoa
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קינואה]
+  exclude: []
+- product_type: white_beans
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [שעועית לבנה]
+  exclude: []
+- product_type: flour_white
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קמח לבן, קמח חיטה]
+  exclude: [מלא, תופח]
+- product_type: flour_whole_wheat
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קמח מלא, קמח חיטה מלא]
+  exclude: []
+- product_type: sugar_white
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סוכר לבן, סוכר]
+  exclude: [חום, ללא סוכר, וניל, דל סוכר, סוכריות, תחליף]
+- product_type: sugar_brown
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סוכר חום]
+  exclude: []
+- product_type: baking_powder
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [אבקת אפייה]
+  exclude: []
+- product_type: vanilla_sugar
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סוכר וניל]
+  exclude: []
+- product_type: dry_yeast
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [שמרים יבשים, שמרים]
+  exclude: []
+- product_type: breadcrumbs
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פירורי לחם]
+  exclude: []
+- product_type: canola_oil
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [שמן קנולה]
+  exclude: []
+- product_type: olive_oil
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [שמן זית]
+  exclude: []
+- product_type: sunflower_oil
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [שמן חמניות]
+  exclude: []
+- product_type: soybean_oil
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [שמן סויה]
+  exclude: []
+- product_type: tahini_raw
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [טחינה גולמית, טחינה]
+  exclude: [סלט, מוכנה, חלבה]
+- product_type: chocolate_spread
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ממרח שוקולד, ממרח השחר]
+  exclude: []
+- product_type: peanut_butter
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [חמאת בוטנים]
+  exclude: []
+- product_type: honey
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [דבש]
+  exclude: [בטעם דבש, עוגת]
+- product_type: silan
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סילאן, דבש תמרים]
+  exclude: []
+- product_type: ketchup
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קטשופ]
+  exclude: []
+- product_type: mayonnaise
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מיונז]
+  exclude: [לייט, דל, סלט, חציל]
+- product_type: mayonnaise_light
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מיונז לייט, מיונז דל שומן]
+  exclude: []
+- product_type: mustard
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [חרדל]
+  exclude: []
+- product_type: soy_sauce
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [רוטב סויה]
+  exclude: []
+- product_type: vinegar
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [חומץ]
+  exclude: [סלט]
+- product_type: salt
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מלח]
+  exclude: [מלוח, מלוחים, דל מלח, ללא מלח]
+- product_type: black_pepper
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פלפל שחור]
+  exclude: []
+- product_type: sweet_paprika
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פפריקה]
+  exclude: []
+- product_type: cumin
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [כמון]
+  exclude: []
+- product_type: turmeric
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [כורכום]
+  exclude: []
+- product_type: cornflakes
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קורנפלקס]
+  exclude: [שוקולד, דבש]
+- product_type: rolled_oats
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [שיבולת שועל, קוואקר]
+  exclude: [משקה]
+- product_type: granola
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [גרנולה]
+  exclude: []
+- product_type: coffee_instant
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קפה נמס, נמס]
+  exclude: []
+- product_type: coffee_turkish
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קפה שחור, קפה טורקי, קפה טחון]
+  exclude: []
+- product_type: tea_black
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [תה]
+  exclude: [ירוק, קר, צמחים, תה ירוק]
+- product_type: soup_powder
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [אבקת מרק, מרק עוף]
+  exclude: []
+- product_type: jam
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [ריבה, ריבת]
+  exclude: []
+- product_type: tuna_in_oil
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [טונה בשמן]
+  exclude: [מים]
+- product_type: tuna_in_water
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [טונה במים]
+  exclude: []
+- product_type: sardines
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סרדינים]
+  exclude: []
+- product_type: sweet_corn
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [תירס]
+  exclude: [פופקורן, קמח, פתיתי]
+  implied: {state: canned}
+- product_type: chickpeas
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [גרגרי חומוס, חומוס יבש, חומוס גרגרים]
+  exclude: []
+- product_type: peas
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [אפונה]
+  exclude: [גזר]
+- product_type: pickled_cucumbers
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מלפפונים חמוצים, מלפפון חמוץ, מלפפונים כבושים]
+  exclude: []
+- product_type: olives_green
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [זיתים ירוקים]
+  exclude: []
+- product_type: olives_black
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [זיתים שחורים]
+  exclude: []
+- product_type: canned_mushrooms
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פטריות שימורים, פטריות פרוסות בשימור, שימורי פטריות]
+  exclude: []
+- product_type: tomato_paste
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [רסק עגבניות, רסק]
+  exclude: []
+- product_type: crushed_tomatoes
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [עגבניות מרוסקות, מרוסקות]
+  exclude: []
+- product_type: mixed_vegetables
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [תערובת ירקות, ירקות מוקפצים, מיקס ירקות]
+  exclude: []
+- product_type: green_beans
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [שעועית ירוקה]
+  exclude: []
+- product_type: spinach
+  critical_keys: [state]
+  soft_keys: [pack_size, brand]
+  keywords: [תרד]
+  exclude: []
+- product_type: french_fries
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [צ'יפס קפוא, צ'יפס לתנור, צ'יפס לטיגון]
+  exclude: []
+- product_type: breaded_schnitzel
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [שניצל מצופה, שניצלונים, שניצל תירס]
+  exclude: [טרי]
+- product_type: chicken_nuggets
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [נאגטס]
+  exclude: []
+- product_type: burekas
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [בורקס]
+  exclude: []
+- product_type: frozen_pizza
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פיצה]
+  exclude: []
+- product_type: beef_burger
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [המבורגר]
+  exclude: []
+- product_type: malawach
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מלוואח]
+  exclude: []
+- product_type: fish_fingers
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [אצבעות דגים]
+  exclude: []
+- product_type: ice_cream
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [גלידה]
+  exclude: []
+- product_type: mineral_water
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מים מינרליים, מי עדן, נביעות, מים]
+  exclude: [מוגז, סודה, בטעם, ורדים, מי פה, מגבונים, מים במים]
+- product_type: soda_water
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סודה, מים מוגזים]
+  exclude: []
+- product_type: flavored_water
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [מים בטעם, מים בטעמים]
+  exclude: []
+- product_type: cola
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קולה, קוקה קולה]
+  exclude: [זירו, דיאט, ללא סוכר]
+- product_type: cola_zero
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קולה זירו, קולה דיאט, קולה ללא סוכר]
+  exclude: []
+- product_type: lemon_lime_soda
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ספרייט, סבן אפ, לימון ליים]
+  exclude: []
+- product_type: orange_juice_chilled
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מיץ תפוזים טבעי, מיץ תפוזים סחוט, סחוט]
+  exclude: []
+- product_type: orange_juice
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מיץ תפוזים]
+  exclude: [סחוט, טבעי]
+- product_type: grape_juice
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מיץ ענבים]
+  exclude: []
+- product_type: raspberry_concentrate
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [תרכיז פטל, פטל]
+  exclude: []
+- product_type: soy_drink
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [משקה סויה, חלב סויה]
+  exclude: []
+- product_type: almond_drink
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [משקה שקדים, חלב שקדים]
+  exclude: []
+- product_type: oat_drink
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [משקה שיבולת, משקה שיבולת שועל, אוטלי]
+  exclude: []
+- product_type: peanut_puffs
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [במבה]
+  exclude: [נוגט, ממולא]
+- product_type: wheat_snack
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [ביסלי]
+  exclude: []
+- product_type: potato_chips
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [תפוצ'יפס, צ'יפס תפוחי אדמה]
+  exclude: []
+- product_type: pretzels
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [בייגלה, בייגלך]
+  exclude: []
+- product_type: sunflower_seeds
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [גרעינים, גרעיני חמניה]
+  exclude: []
+- product_type: chocolate_bar
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [שוקולד, שוקולד פרה]
+  exclude: [ממרח, מעדן, עוגיות, גלידה, ופל, דגני, קורנפלקס, חלב שוקולד, משקה]
+- product_type: wafers
+  critical_keys: [flavor]
+  soft_keys: [pack_size, brand]
+  keywords: [ופל, ופלים, וופל]
+  exclude: []
+- product_type: tea_biscuits
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פתי בר, ביסקוויט, ביסקוויטים]
+  exclude: []
+- product_type: halva
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [חלבה]
+  exclude: []
+- product_type: rice_cakes
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [פריכיות]
+  exclude: []
+- product_type: crackers
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [קרקר, קרקרים]
+  exclude: []
+- product_type: wet_wipes
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מגבונים]
+  exclude: [רצפה]
+- product_type: dish_soap
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [נוזל כלים, סבון כלים]
+  exclude: [מדיח]
+- product_type: dishwasher_tablets
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [טבליות למדיח, קפסולות למדיח, טבליות מדיח]
+  exclude: []
+- product_type: sponges
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ספוג, ספוגים]
+  exclude: []
+- product_type: laundry_gel
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ג'ל כביסה, ג'ל לכביסה, נוזל כביסה]
+  exclude: []
+- product_type: laundry_powder
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [אבקת כביסה]
+  exclude: []
+- product_type: fabric_softener
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מרכך כביסה]
+  exclude: []
+- product_type: bleach
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [אקונומיקה]
+  exclude: []
+- product_type: floor_cleaner
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [לניקוי רצפות, נוזל רצפות, רצפות]
+  exclude: [מגבונים]
+- product_type: cleaning_spray
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [תרסיס ניקוי, מסיר שומנים, ספריי ניקוי]
+  exclude: []
+- product_type: garbage_bags
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [שקיות אשפה, שקית אשפה, שקי אשפה]
+  exclude: []
+- product_type: toilet_paper
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [נייר טואלט]
+  exclude: []
+- product_type: paper_towels
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מגבות נייר, מגבת נייר]
+  exclude: []
+- product_type: facial_tissues
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ממחטות]
+  exclude: [לחות]
+- product_type: aluminum_foil
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [נייר כסף, נייר אלומיניום]
+  exclude: []
+- product_type: baking_paper
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [נייר אפייה]
+  exclude: []
+- product_type: cling_wrap
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [ניילון נצמד]
+  exclude: []
+- product_type: disposable_plates
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [צלחות חד פעמיות, צלחות חד-פעמיות]
+  exclude: []
+- product_type: disposable_cups
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [כוסות חד פעמיות, כוסות חד-פעמיות]
+  exclude: []
+- product_type: toothpaste
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [משחת שיניים]
+  exclude: []
+- product_type: shampoo
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [שמפו]
+  exclude: []
+- product_type: hand_soap
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סבון ידיים, סבון נוזלי]
+  exclude: [כלים]
+- product_type: body_wash
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [סבון רחצה, ג'ל רחצה, תחליב רחצה]
+  exclude: []
+- product_type: deodorant
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [דאודורנט]
+  exclude: []
+- product_type: matzah
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [מצה, מצות]
+  exclude: [קמח מצה]
+- product_type: lager_beer
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [בירה]
+  exclude: [שורש, ללא אלכוהול]
+- product_type: red_wine_dry
+  critical_keys: []
+  soft_keys: [pack_size, brand]
+  keywords: [יין אדום יבש, יין אדום]
+  exclude: [חומץ]
