@@ -3,6 +3,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from smartcart_api.db import get_conn
 from smartcart_api.export_openapi import DEFAULT
 from smartcart_api.main import app
 
@@ -16,7 +17,8 @@ def test_health() -> None:
 
 def test_routes_declared() -> None:
     paths = set(app.openapi()["paths"])
-    assert {"/parse-list", "/search", "/compare", "/optimize", "/feedback/substitution", "/feedback/gap"} <= paths
+    assert {"/parse-list", "/search", "/compare", "/optimize", "/feedback/substitution", "/feedback/gap",
+            "/me/profile", "/me/lists", "/me/lists/{list_id}"} <= paths
 
 
 def test_openapi_snapshot_is_current() -> None:
@@ -28,5 +30,19 @@ def test_openapi_snapshot_is_current() -> None:
 
 
 def test_validation_rejects_unknown_fields() -> None:
-    r = client.post("/compare", json={"items": [], "location": {"lon": 35, "lat": 32}, "x": 1})
+    app.dependency_overrides[get_conn] = lambda: None  # no database needed to reject a request
+    try:
+        r = client.post("/compare", json={"items": [], "location": {"lon": 35, "lat": 32}, "x": 1})
+    finally:
+        app.dependency_overrides.pop(get_conn, None)
     assert r.status_code == 422
+
+
+def test_generated_typescript_types_cover_the_basket_routes() -> None:
+    """apps/web/src/api/types.ts is generated from openapi.json by
+    services/api/scripts/gen_ts_client.sh (CI fails when it is stale)."""
+    types = DEFAULT.parent / "types.ts"
+    assert types.exists(), "run services/api/scripts/gen_ts_client.sh"
+    text = types.read_text(encoding="utf-8")
+    for path in ("/parse-list", "/search", "/compare", "/optimize"):
+        assert f'"{path}"' in text, path

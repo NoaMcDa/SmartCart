@@ -32,12 +32,14 @@ class CanonicalRef(_Model):
     display_name_he: str
     taxonomy_id: str
     base_unit: Literal["100g", "100ml", "unit", "kg"]
+    category_path_he: list[str] = Field(default_factory=list, description="Taxonomy names, root first")
 
 
 class ParsedRow(_Model):
     input_text: str
     canonical: CanonicalRef | None = None
     quantity: Decimal = Field(default=Decimal(1), gt=0)
+    unit: Literal["kg"] | None = Field(default=None, description='"kg" when the user gave a weight; quantity is then in kg')
     flex_level: FlexLevel = "any_brand"
     confidence: float = Field(ge=0, le=1)
     needs_confirmation: bool
@@ -55,8 +57,9 @@ class ParseListResponse(_Model):
 
 class SearchHit(_Model):
     canonical: CanonicalRef
-    score: float
+    score: float = Field(description="Reciprocal rank fusion score, normalized to [0, 1]")
     matched_by: list[Literal["trigram", "fts", "vector"]]
+    confidence: float | None = Field(default=None, ge=0, le=1, description="Evidence for this hit; the parser's thresholds use it")
 
 
 class SearchResponse(_Model):
@@ -105,6 +108,10 @@ class PricedItem(_Model):
     is_substitute: bool
     is_estimated: bool = Field(default=False, description="Weighed goods")
     promo_description: str | None = None
+    promo_min_qty: Decimal | None = Field(default=None, description="Quantity the promo needs (2 for 1+1)")
+    promo_applied: bool = Field(default=False, description="The requested quantity reaches the promo")
+    promo_add_qty: Decimal | None = Field(default=None, description="Add this many to complete the promo")
+    promo_add_saving: Decimal | None = Field(default=None, description="What completing the promo saves versus the shelf price")
     club_required: bool = False
     club_name: str | None = None
     price_valid_from: datetime
@@ -148,6 +155,7 @@ class TravelSettings(_Model):
 
 class OptimizeRequest(CompareRequest):
     max_stores: int = Field(default=2, ge=1, le=3)
+    candidate_stores: int = Field(default=10, ge=1, le=15, description="N nearest stores the subsets are drawn from")
     min_split_saving: Decimal = Field(default=Decimal(25), ge=0, description="A split is recommended only above this net saving")
     travel: TravelSettings = Field(default_factory=TravelSettings)
 
@@ -168,6 +176,7 @@ class Plan(_Model):
     kind: Literal["single", "split", "minimum_effort"]
     stores: list[StoreAssignment]
     total: Decimal
+    travel_cost: Decimal = Field(default=Decimal(0), description="Round-trip travel to this plan's stores, ILS")
     extra_minutes: int = 0
     breakdown: SavingBreakdown | None = Field(default=None, description="null when there is no home store to compare with")
     recommended: bool
@@ -205,6 +214,58 @@ class GapReportRequest(_Model):
 class Ack(_Model):
     ok: bool = True
     id: int | None = None
+
+
+# --- signed-in user (Supabase JWT, row-level security) -----------------------------------------
+
+class ProfileUpdate(_Model):
+    home_store_id: int | None = None
+    radius_m: int = Field(default=5000, ge=500, le=15000)
+    neighborhood_lat: float | None = Field(default=None, ge=-90, le=90, description="Stored rounded to 3 decimals (about 100 m)")
+    neighborhood_lon: float | None = Field(default=None, ge=-180, le=180)
+    travel_mode: TravelMode = "car"
+    cost_per_km: Decimal = Field(default=Decimal("1.2"), ge=0)
+    extra_stop_value: Decimal = Field(default=Decimal(25), ge=0, le=50)
+    max_stores: int = Field(default=2, ge=1, le=3)
+    clubs: list[str] = Field(default_factory=list)
+    diet_flags: list[str] = Field(default_factory=list)
+    kosher_level: str | None = None
+    flex_defaults: dict[str, FlexLevel] = Field(default_factory=dict)
+    theme: Literal["system", "light", "dark"] = "system"
+    consent_location: bool = Field(default=False, description="Required to store a neighborhood location")
+
+
+class Profile(ProfileUpdate):
+    user_id: str
+    exists: bool = Field(description="false when nothing is stored yet and these are the defaults")
+
+
+class ListItemIn(_Model):
+    canonical_id: int | None = None
+    input_text: str | None = Field(default=None, max_length=200)
+    quantity: Decimal = Field(default=Decimal(1), gt=0)
+    flex_level: FlexLevel = "any_brand"
+    confirmed: bool = True
+
+
+class ListItem(ListItemIn):
+    id: int
+    sort: int
+
+
+class ShoppingListIn(_Model):
+    name: str = Field(min_length=1, max_length=100)
+    is_recurring: bool = False
+    items: list[ListItemIn] = Field(default_factory=list, max_length=200)
+
+
+class ShoppingList(_Model):
+    id: int
+    name: str
+    is_recurring: bool
+    items: list[ListItem]
+    created_at: datetime
+    updated_at: datetime
 
 
 class Health(_Model):

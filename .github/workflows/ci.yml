@@ -71,6 +71,20 @@ jobs:
       - name: Test
         run: uv run pytest -q
 
+      # Issue #64: the row-level security tests run through the non-superuser role smartcart_app
+      # (SET LOCAL ROLE, migration 20261007110100_app_role.sql). They must never skip.
+      - name: RLS tests ran (none skipped)
+        run: |
+          uv run pytest -q -rs services/api/tests/test_rls_contract.py services/api/tests/test_me.py | tee rls.out
+          if grep -q "SKIPPED" rls.out; then echo "::error::RLS tests were skipped"; exit 1; fi
+
+      # Issue #67: openapi.json and the TypeScript types are generated; fail when stale.
+      - name: Generated API client is current
+        if: matrix.python-version == '3.12'
+        run: |
+          bash services/api/scripts/gen_ts_client.sh
+          git diff --exit-code -- apps/web/src/api/openapi.json apps/web/src/api/types.ts
+
       - name: Report failing tests as annotations
         if: failure()
         run: |

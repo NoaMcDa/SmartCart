@@ -126,6 +126,14 @@
             "title": "Canonical Id",
             "type": "integer"
           },
+          "category_path_he": {
+            "description": "Taxonomy names, root first",
+            "items": {
+              "type": "string"
+            },
+            "title": "Category Path He",
+            "type": "array"
+          },
           "display_name_he": {
             "title": "Display Name He",
             "type": "string"
@@ -356,6 +364,128 @@
         "title": "Health",
         "type": "object"
       },
+      "ListItem": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Id"
+          },
+          "confirmed": {
+            "default": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "flex_level": {
+            "default": "any_brand",
+            "enum": [
+              "exact",
+              "any_brand",
+              "close"
+            ],
+            "title": "Flex Level",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "input_text": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Text"
+          },
+          "quantity": {
+            "default": "1",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Quantity",
+            "type": "string"
+          },
+          "sort": {
+            "title": "Sort",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "sort"
+        ],
+        "title": "ListItem",
+        "type": "object"
+      },
+      "ListItemIn": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Id"
+          },
+          "confirmed": {
+            "default": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "flex_level": {
+            "default": "any_brand",
+            "enum": [
+              "exact",
+              "any_brand",
+              "close"
+            ],
+            "title": "Flex Level",
+            "type": "string"
+          },
+          "input_text": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Text"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "default": "1",
+            "title": "Quantity"
+          }
+        },
+        "title": "ListItemIn",
+        "type": "object"
+      },
       "Location": {
         "additionalProperties": false,
         "properties": {
@@ -389,6 +519,14 @@
       "OptimizeRequest": {
         "additionalProperties": false,
         "properties": {
+          "candidate_stores": {
+            "default": 10,
+            "description": "N nearest stores the subsets are drawn from",
+            "maximum": 15.0,
+            "minimum": 1.0,
+            "title": "Candidate Stores",
+            "type": "integer"
+          },
           "clubs": {
             "items": {
               "type": "string"
@@ -622,6 +760,19 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Quantity",
             "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "const": "kg",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "\"kg\" when the user gave a weight; quantity is then in kg",
+            "title": "Unit"
           }
         },
         "required": [
@@ -686,6 +837,13 @@
           "total": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total",
+            "type": "string"
+          },
+          "travel_cost": {
+            "default": "0",
+            "description": "Round-trip travel to this plan's stores, ILS",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Travel Cost",
             "type": "string"
           }
         },
@@ -777,6 +935,38 @@
             "title": "Price Valid From",
             "type": "string"
           },
+          "promo_add_qty": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Add this many to complete the promo",
+            "title": "Promo Add Qty"
+          },
+          "promo_add_saving": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What completing the promo saves versus the shelf price",
+            "title": "Promo Add Saving"
+          },
+          "promo_applied": {
+            "default": false,
+            "description": "The requested quantity reaches the promo",
+            "title": "Promo Applied",
+            "type": "boolean"
+          },
           "promo_description": {
             "anyOf": [
               {
@@ -787,6 +977,19 @@
               }
             ],
             "title": "Promo Description"
+          },
+          "promo_min_qty": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Quantity the promo needs (2 for 1+1)",
+            "title": "Promo Min Qty"
           },
           "quantity": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -823,6 +1026,304 @@
           "price_valid_from"
         ],
         "title": "PricedItem",
+        "type": "object"
+      },
+      "Profile": {
+        "additionalProperties": false,
+        "properties": {
+          "clubs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Clubs",
+            "type": "array"
+          },
+          "consent_location": {
+            "default": false,
+            "description": "Required to store a neighborhood location",
+            "title": "Consent Location",
+            "type": "boolean"
+          },
+          "cost_per_km": {
+            "default": "1.2",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cost Per Km",
+            "type": "string"
+          },
+          "diet_flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Diet Flags",
+            "type": "array"
+          },
+          "exists": {
+            "description": "false when nothing is stored yet and these are the defaults",
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "extra_stop_value": {
+            "default": "25",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Extra Stop Value",
+            "type": "string"
+          },
+          "flex_defaults": {
+            "additionalProperties": {
+              "enum": [
+                "exact",
+                "any_brand",
+                "close"
+              ],
+              "type": "string"
+            },
+            "title": "Flex Defaults",
+            "type": "object"
+          },
+          "home_store_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Store Id"
+          },
+          "kosher_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kosher Level"
+          },
+          "max_stores": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Max Stores",
+            "type": "integer"
+          },
+          "neighborhood_lat": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": -90.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stored rounded to 3 decimals (about 100 m)",
+            "title": "Neighborhood Lat"
+          },
+          "neighborhood_lon": {
+            "anyOf": [
+              {
+                "maximum": 180.0,
+                "minimum": -180.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neighborhood Lon"
+          },
+          "radius_m": {
+            "default": 5000,
+            "maximum": 15000.0,
+            "minimum": 500.0,
+            "title": "Radius M",
+            "type": "integer"
+          },
+          "theme": {
+            "default": "system",
+            "enum": [
+              "system",
+              "light",
+              "dark"
+            ],
+            "title": "Theme",
+            "type": "string"
+          },
+          "travel_mode": {
+            "default": "car",
+            "enum": [
+              "car",
+              "walk_transit",
+              "delivery"
+            ],
+            "title": "Travel Mode",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "exists"
+        ],
+        "title": "Profile",
+        "type": "object"
+      },
+      "ProfileUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "clubs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Clubs",
+            "type": "array"
+          },
+          "consent_location": {
+            "default": false,
+            "description": "Required to store a neighborhood location",
+            "title": "Consent Location",
+            "type": "boolean"
+          },
+          "cost_per_km": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "default": "1.2",
+            "title": "Cost Per Km"
+          },
+          "diet_flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Diet Flags",
+            "type": "array"
+          },
+          "extra_stop_value": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "default": "25",
+            "title": "Extra Stop Value"
+          },
+          "flex_defaults": {
+            "additionalProperties": {
+              "enum": [
+                "exact",
+                "any_brand",
+                "close"
+              ],
+              "type": "string"
+            },
+            "title": "Flex Defaults",
+            "type": "object"
+          },
+          "home_store_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Store Id"
+          },
+          "kosher_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kosher Level"
+          },
+          "max_stores": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Max Stores",
+            "type": "integer"
+          },
+          "neighborhood_lat": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": -90.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stored rounded to 3 decimals (about 100 m)",
+            "title": "Neighborhood Lat"
+          },
+          "neighborhood_lon": {
+            "anyOf": [
+              {
+                "maximum": 180.0,
+                "minimum": -180.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neighborhood Lon"
+          },
+          "radius_m": {
+            "default": 5000,
+            "maximum": 15000.0,
+            "minimum": 500.0,
+            "title": "Radius M",
+            "type": "integer"
+          },
+          "theme": {
+            "default": "system",
+            "enum": [
+              "system",
+              "light",
+              "dark"
+            ],
+            "title": "Theme",
+            "type": "string"
+          },
+          "travel_mode": {
+            "default": "car",
+            "enum": [
+              "car",
+              "walk_transit",
+              "delivery"
+            ],
+            "title": "Travel Mode",
+            "type": "string"
+          }
+        },
+        "title": "ProfileUpdate",
         "type": "object"
       },
       "SavingBreakdown": {
@@ -866,6 +1367,20 @@
           "canonical": {
             "$ref": "#/components/schemas/CanonicalRef"
           },
+          "confidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Evidence for this hit; the parser's thresholds use it",
+            "title": "Confidence"
+          },
           "matched_by": {
             "items": {
               "enum": [
@@ -879,6 +1394,7 @@
             "type": "array"
           },
           "score": {
+            "description": "Reciprocal rank fusion score, normalized to [0, 1]",
             "title": "Score",
             "type": "number"
           }
@@ -911,6 +1427,79 @@
           "hits"
         ],
         "title": "SearchResponse",
+        "type": "object"
+      },
+      "ShoppingList": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_recurring": {
+            "title": "Is Recurring",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "is_recurring",
+          "items",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ShoppingList",
+        "type": "object"
+      },
+      "ShoppingListIn": {
+        "additionalProperties": false,
+        "properties": {
+          "is_recurring": {
+            "default": false,
+            "title": "Is Recurring",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ListItemIn"
+            },
+            "maxItems": 200,
+            "title": "Items",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ShoppingListIn",
         "type": "object"
       },
       "StoreAssignment": {
@@ -1173,7 +1762,7 @@
   "info": {
     "description": "Semantic supermarket price comparison for Israel. Prices are from the chains' transparency files; המחיר הקובע הוא בקופה.",
     "title": "SmartCart API",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -1220,7 +1809,25 @@
     },
     "/feedback/gap": {
       "post": {
-        "operationId": "feedback_gap_feedback_gap_post",
+        "operationId": "gap_feedback_gap_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1253,7 +1860,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Feedback Gap",
+        "summary": "Gap",
         "tags": [
           "feedback"
         ]
@@ -1261,7 +1868,25 @@
     },
     "/feedback/substitution": {
       "post": {
-        "operationId": "feedback_substitution_feedback_substitution_post",
+        "operationId": "substitution_feedback_substitution_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1294,7 +1919,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Feedback Substitution",
+        "summary": "Substitution",
         "tags": [
           "feedback"
         ]
@@ -1318,6 +1943,396 @@
         "summary": "Health",
         "tags": [
           "meta"
+        ]
+      }
+    },
+    "/me/lists": {
+      "get": {
+        "operationId": "list_lists_me_lists_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ShoppingList"
+                  },
+                  "title": "Response List Lists Me Lists Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Lists",
+        "tags": [
+          "me"
+        ]
+      },
+      "post": {
+        "operationId": "create_list_me_lists_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShoppingListIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create List",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/me/lists/{list_id}": {
+      "delete": {
+        "operationId": "delete_list_me_lists__list_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete List",
+        "tags": [
+          "me"
+        ]
+      },
+      "get": {
+        "operationId": "get_list_me_lists__list_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get List",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "description": "Replace the list's name, recurrence and items.",
+        "operationId": "update_list_me_lists__list_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShoppingListIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update List",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/me/profile": {
+      "get": {
+        "operationId": "get_profile_me_profile_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Profile",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "put_profile_me_profile_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Profile",
+        "tags": [
+          "me"
         ]
       }
     },
@@ -1412,6 +2427,8 @@
             "name": "q",
             "required": true,
             "schema": {
+              "maxLength": 200,
+              "minLength": 1,
               "title": "Q",
               "type": "string"
             }
@@ -1422,6 +2439,8 @@
             "required": false,
             "schema": {
               "default": 10,
+              "maximum": 50,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
