@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record a batch of beta events */
+        post: operations["post_events_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/feedback/gap": {
         parameters: {
             query?: never;
@@ -283,6 +300,41 @@ export interface components {
              * @description Sorted: complete baskets first, then by total
              */
             stores: components["schemas"]["StoreResult"][];
+        };
+        /** EventIn */
+        EventIn: {
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported";
+            /**
+             * Props
+             * @description Allowlisted keys per event name, values are integers or members of a fixed set; anything else is rejected with 422 (no free text, no personal data). See docs/beta-plan.md.
+             */
+            props?: {
+                [key: string]: number | string;
+            };
+            /**
+             * Session Id
+             * @description Random id the browser keeps in localStorage; not derived from the person
+             */
+            session_id: string;
+        };
+        /** EventsAck */
+        EventsAck: {
+            /** Accepted */
+            accepted: number;
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /** EventsRequest */
+        EventsRequest: {
+            /** Events */
+            events: components["schemas"]["EventIn"][];
         };
         /** GapReportRequest */
         GapReportRequest: {
@@ -931,6 +983,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CompareResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_events_events_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventsAck"];
                 };
             };
             /** @description Validation Error */

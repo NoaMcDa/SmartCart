@@ -1,0 +1,1112 @@
+{
+  "generated_at": "2026-10-07T05:51:34Z",
+  "count": 75,
+  "page_count": 70,
+  "categories": [
+    {
+      "slug": "dairy",
+      "id": "dairy",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "מוצרי חלב וביצים",
+      "name_en": "Dairy and eggs",
+      "canonical_count": 37,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "meat",
+      "id": "meat",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "בשר ועוף",
+      "name_en": "Meat and poultry",
+      "canonical_count": 18,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "fish",
+      "id": "fish",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "דגים",
+      "name_en": "Fish",
+      "canonical_count": 7,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "deli",
+      "id": "deli",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "מעדנייה וסלטים",
+      "name_en": "Deli and chilled salads",
+      "canonical_count": 7,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "produce",
+      "id": "produce",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "פירות וירקות",
+      "name_en": "Fruit and vegetables",
+      "canonical_count": 34,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "bakery",
+      "id": "bakery",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "לחם ומאפים",
+      "name_en": "Bread and bakery",
+      "canonical_count": 9,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "pantry",
+      "id": "pantry",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "מזון יבש ובישול",
+      "name_en": "Pantry and dry goods",
+      "canonical_count": 49,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "canned",
+      "id": "canned",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "שימורים",
+      "name_en": "Canned and jarred",
+      "canonical_count": 12,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "frozen",
+      "id": "frozen",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "קפואים",
+      "name_en": "Frozen",
+      "canonical_count": 16,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "beverages",
+      "id": "beverages",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "משקאות",
+      "name_en": "Beverages",
+      "canonical_count": 16,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "snacks",
+      "id": "snacks",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "חטיפים ומתוקים",
+      "name_en": "Snacks and sweets",
+      "canonical_count": 13,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "baby",
+      "id": "baby",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "תינוקות",
+      "name_en": "Baby",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "cleaning",
+      "id": "cleaning",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "ניקיון ומוצרים לבית",
+      "name_en": "Cleaning and household",
+      "canonical_count": 10,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "paper",
+      "id": "paper",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "נייר וחד-פעמי",
+      "name_en": "Paper and disposables",
+      "canonical_count": 8,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "toiletries",
+      "id": "toiletries",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "טיפוח והיגיינה",
+      "name_en": "Toiletries and cosmetics",
+      "canonical_count": 5,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "health",
+      "id": "health",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "בריאות ופארם",
+      "name_en": "Health",
+      "canonical_count": 0,
+      "has_page": false,
+      "path": []
+    },
+    {
+      "slug": "pets",
+      "id": "pets",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "חיות מחמד",
+      "name_en": "Pets",
+      "canonical_count": 0,
+      "has_page": false,
+      "path": []
+    },
+    {
+      "slug": "holiday",
+      "id": "holiday",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "כשר לפסח ומוצרי חג",
+      "name_en": "Passover and holiday",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "alcohol",
+      "id": "alcohol",
+      "level": 1,
+      "parent_slug": null,
+      "name_he": "יין ואלכוהול",
+      "name_en": "Wine and alcohol",
+      "canonical_count": 2,
+      "has_page": true,
+      "path": []
+    },
+    {
+      "slug": "dairy-milk",
+      "id": "dairy.milk",
+      "level": 2,
+      "parent_slug": "dairy",
+      "name_he": "חלב ומשקאות חלב",
+      "name_en": "Milk and milk drinks",
+      "canonical_count": 6,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "dairy",
+          "name_he": "מוצרי חלב וביצים"
+        }
+      ]
+    },
+    {
+      "slug": "dairy-cheese",
+      "id": "dairy.cheese",
+      "level": 2,
+      "parent_slug": "dairy",
+      "name_he": "גבינות",
+      "name_en": "Cheese",
+      "canonical_count": 13,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "dairy",
+          "name_he": "מוצרי חלב וביצים"
+        }
+      ]
+    },
+    {
+      "slug": "dairy-yogurt",
+      "id": "dairy.yogurt",
+      "level": 2,
+      "parent_slug": "dairy",
+      "name_he": "יוגורט ומעדנים",
+      "name_en": "Yogurt and desserts",
+      "canonical_count": 8,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "dairy",
+          "name_he": "מוצרי חלב וביצים"
+        }
+      ]
+    },
+    {
+      "slug": "dairy-cream",
+      "id": "dairy.cream",
+      "level": 2,
+      "parent_slug": "dairy",
+      "name_he": "שמנת וחמאה",
+      "name_en": "Cream and butter",
+      "canonical_count": 6,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "dairy",
+          "name_he": "מוצרי חלב וביצים"
+        }
+      ]
+    },
+    {
+      "slug": "dairy-eggs",
+      "id": "dairy.eggs",
+      "level": 2,
+      "parent_slug": "dairy",
+      "name_he": "ביצים",
+      "name_en": "Eggs",
+      "canonical_count": 4,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "dairy",
+          "name_he": "מוצרי חלב וביצים"
+        }
+      ]
+    },
+    {
+      "slug": "meat-chicken",
+      "id": "meat.chicken",
+      "level": 2,
+      "parent_slug": "meat",
+      "name_he": "עוף",
+      "name_en": "Chicken",
+      "canonical_count": 12,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "meat",
+          "name_he": "בשר ועוף"
+        }
+      ]
+    },
+    {
+      "slug": "meat-beef",
+      "id": "meat.beef",
+      "level": 2,
+      "parent_slug": "meat",
+      "name_he": "בקר",
+      "name_en": "Beef",
+      "canonical_count": 5,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "meat",
+          "name_he": "בשר ועוף"
+        }
+      ]
+    },
+    {
+      "slug": "meat-turkey",
+      "id": "meat.turkey",
+      "level": 2,
+      "parent_slug": "meat",
+      "name_he": "הודו",
+      "name_en": "Turkey",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "meat",
+          "name_he": "בשר ועוף"
+        }
+      ]
+    },
+    {
+      "slug": "fish-fillets",
+      "id": "fish.fillets",
+      "level": 2,
+      "parent_slug": "fish",
+      "name_he": "פילה דגים",
+      "name_en": "Fish fillets",
+      "canonical_count": 5,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "fish",
+          "name_he": "דגים"
+        }
+      ]
+    },
+    {
+      "slug": "fish-whole",
+      "id": "fish.whole",
+      "level": 2,
+      "parent_slug": "fish",
+      "name_he": "דגים שלמים",
+      "name_en": "Whole fish",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "fish",
+          "name_he": "דגים"
+        }
+      ]
+    },
+    {
+      "slug": "fish-smoked",
+      "id": "fish.smoked",
+      "level": 2,
+      "parent_slug": "fish",
+      "name_he": "דגים מעושנים",
+      "name_en": "Smoked fish",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "fish",
+          "name_he": "דגים"
+        }
+      ]
+    },
+    {
+      "slug": "deli-salads",
+      "id": "deli.salads",
+      "level": 2,
+      "parent_slug": "deli",
+      "name_he": "סלטים",
+      "name_en": "Chilled salads",
+      "canonical_count": 4,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "deli",
+          "name_he": "מעדנייה וסלטים"
+        }
+      ]
+    },
+    {
+      "slug": "deli-cold_cuts",
+      "id": "deli.cold_cuts",
+      "level": 2,
+      "parent_slug": "deli",
+      "name_he": "נקניקים",
+      "name_en": "Cold cuts",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "deli",
+          "name_he": "מעדנייה וסלטים"
+        }
+      ]
+    },
+    {
+      "slug": "produce-vegetables",
+      "id": "produce.vegetables",
+      "level": 2,
+      "parent_slug": "produce",
+      "name_he": "ירקות",
+      "name_en": "Vegetables",
+      "canonical_count": 16,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "produce",
+          "name_he": "פירות וירקות"
+        }
+      ]
+    },
+    {
+      "slug": "produce-fruit",
+      "id": "produce.fruit",
+      "level": 2,
+      "parent_slug": "produce",
+      "name_he": "פירות",
+      "name_en": "Fruit",
+      "canonical_count": 14,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "produce",
+          "name_he": "פירות וירקות"
+        }
+      ]
+    },
+    {
+      "slug": "produce-herbs",
+      "id": "produce.herbs",
+      "level": 2,
+      "parent_slug": "produce",
+      "name_he": "עשבי תיבול",
+      "name_en": "Herbs",
+      "canonical_count": 4,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "produce",
+          "name_he": "פירות וירקות"
+        }
+      ]
+    },
+    {
+      "slug": "bakery-bread",
+      "id": "bakery.bread",
+      "level": 2,
+      "parent_slug": "bakery",
+      "name_he": "לחם",
+      "name_en": "Bread",
+      "canonical_count": 9,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "bakery",
+          "name_he": "לחם ומאפים"
+        }
+      ]
+    },
+    {
+      "slug": "pantry-rice",
+      "id": "pantry.rice",
+      "level": 2,
+      "parent_slug": "pantry",
+      "name_he": "אורז",
+      "name_en": "Rice",
+      "canonical_count": 5,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "pantry",
+          "name_he": "מזון יבש ובישול"
+        }
+      ]
+    },
+    {
+      "slug": "pantry-pasta",
+      "id": "pantry.pasta",
+      "level": 2,
+      "parent_slug": "pantry",
+      "name_he": "פסטה ודגנים",
+      "name_en": "Pasta and grains",
+      "canonical_count": 6,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "pantry",
+          "name_he": "מזון יבש ובישול"
+        }
+      ]
+    },
+    {
+      "slug": "pantry-legumes",
+      "id": "pantry.legumes",
+      "level": 2,
+      "parent_slug": "pantry",
+      "name_he": "קטניות ודגנים",
+      "name_en": "Legumes and grains",
+      "canonical_count": 5,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "pantry",
+          "name_he": "מזון יבש ובישול"
+        }
+      ]
+    },
+    {
+      "slug": "pantry-baking",
+      "id": "pantry.baking",
+      "level": 2,
+      "parent_slug": "pantry",
+      "name_he": "אפייה",
+      "name_en": "Baking",
+      "canonical_count": 8,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "pantry",
+          "name_he": "מזון יבש ובישול"
+        }
+      ]
+    },
+    {
+      "slug": "pantry-oils",
+      "id": "pantry.oils",
+      "level": 2,
+      "parent_slug": "pantry",
+      "name_he": "שמנים",
+      "name_en": "Oils",
+      "canonical_count": 4,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "pantry",
+          "name_he": "מזון יבש ובישול"
+        }
+      ]
+    },
+    {
+      "slug": "pantry-spreads",
+      "id": "pantry.spreads",
+      "level": 2,
+      "parent_slug": "pantry",
+      "name_he": "ממרחים",
+      "name_en": "Spreads",
+      "canonical_count": 6,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "pantry",
+          "name_he": "מזון יבש ובישול"
+        }
+      ]
+    },
+    {
+      "slug": "pantry-condiments",
+      "id": "pantry.condiments",
+      "level": 2,
+      "parent_slug": "pantry",
+      "name_he": "רטבים ותבלינים",
+      "name_en": "Sauces and condiments",
+      "canonical_count": 12,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "pantry",
+          "name_he": "מזון יבש ובישול"
+        }
+      ]
+    },
+    {
+      "slug": "pantry-breakfast",
+      "id": "pantry.breakfast",
+      "level": 2,
+      "parent_slug": "pantry",
+      "name_he": "דגני בוקר",
+      "name_en": "Breakfast cereals",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "pantry",
+          "name_he": "מזון יבש ובישול"
+        }
+      ]
+    },
+    {
+      "slug": "canned-fish",
+      "id": "canned.fish",
+      "level": 2,
+      "parent_slug": "canned",
+      "name_he": "שימורי דגים",
+      "name_en": "Canned fish",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "canned",
+          "name_he": "שימורים"
+        }
+      ]
+    },
+    {
+      "slug": "canned-vegetables",
+      "id": "canned.vegetables",
+      "level": 2,
+      "parent_slug": "canned",
+      "name_he": "שימורי ירקות",
+      "name_en": "Canned vegetables",
+      "canonical_count": 7,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "canned",
+          "name_he": "שימורים"
+        }
+      ]
+    },
+    {
+      "slug": "canned-tomatoes",
+      "id": "canned.tomatoes",
+      "level": 2,
+      "parent_slug": "canned",
+      "name_he": "מוצרי עגבניות",
+      "name_en": "Tomato products",
+      "canonical_count": 2,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "canned",
+          "name_he": "שימורים"
+        }
+      ]
+    },
+    {
+      "slug": "frozen-vegetables",
+      "id": "frozen.vegetables",
+      "level": 2,
+      "parent_slug": "frozen",
+      "name_he": "ירקות קפואים",
+      "name_en": "Frozen vegetables",
+      "canonical_count": 7,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "frozen",
+          "name_he": "קפואים"
+        }
+      ]
+    },
+    {
+      "slug": "frozen-ready",
+      "id": "frozen.ready",
+      "level": 2,
+      "parent_slug": "frozen",
+      "name_he": "מוכן לחימום",
+      "name_en": "Ready to heat",
+      "canonical_count": 8,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "frozen",
+          "name_he": "קפואים"
+        }
+      ]
+    },
+    {
+      "slug": "frozen-desserts",
+      "id": "frozen.desserts",
+      "level": 2,
+      "parent_slug": "frozen",
+      "name_he": "גלידות",
+      "name_en": "Ice cream",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "frozen",
+          "name_he": "קפואים"
+        }
+      ]
+    },
+    {
+      "slug": "beverages-water",
+      "id": "beverages.water",
+      "level": 2,
+      "parent_slug": "beverages",
+      "name_he": "מים",
+      "name_en": "Water",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "beverages",
+          "name_he": "משקאות"
+        }
+      ]
+    },
+    {
+      "slug": "beverages-soft_drinks",
+      "id": "beverages.soft_drinks",
+      "level": 2,
+      "parent_slug": "beverages",
+      "name_he": "משקאות קלים",
+      "name_en": "Soft drinks",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "beverages",
+          "name_he": "משקאות"
+        }
+      ]
+    },
+    {
+      "slug": "beverages-juice",
+      "id": "beverages.juice",
+      "level": 2,
+      "parent_slug": "beverages",
+      "name_he": "מיצים ותרכיזים",
+      "name_en": "Juice and concentrates",
+      "canonical_count": 4,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "beverages",
+          "name_he": "משקאות"
+        }
+      ]
+    },
+    {
+      "slug": "beverages-plant_drinks",
+      "id": "beverages.plant_drinks",
+      "level": 2,
+      "parent_slug": "beverages",
+      "name_he": "משקאות צמחיים",
+      "name_en": "Plant drinks",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "beverages",
+          "name_he": "משקאות"
+        }
+      ]
+    },
+    {
+      "slug": "beverages-hot",
+      "id": "beverages.hot",
+      "level": 2,
+      "parent_slug": "beverages",
+      "name_he": "קפה ותה",
+      "name_en": "Coffee and tea",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "beverages",
+          "name_he": "משקאות"
+        }
+      ]
+    },
+    {
+      "slug": "snacks-salty",
+      "id": "snacks.salty",
+      "level": 2,
+      "parent_slug": "snacks",
+      "name_he": "חטיפים מלוחים",
+      "name_en": "Salty snacks",
+      "canonical_count": 6,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "snacks",
+          "name_he": "חטיפים ומתוקים"
+        }
+      ]
+    },
+    {
+      "slug": "snacks-sweet",
+      "id": "snacks.sweet",
+      "level": 2,
+      "parent_slug": "snacks",
+      "name_he": "מתוקים",
+      "name_en": "Sweets",
+      "canonical_count": 5,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "snacks",
+          "name_he": "חטיפים ומתוקים"
+        }
+      ]
+    },
+    {
+      "slug": "snacks-crackers",
+      "id": "snacks.crackers",
+      "level": 2,
+      "parent_slug": "snacks",
+      "name_he": "פריכיות וקרקרים",
+      "name_en": "Rice cakes and crackers",
+      "canonical_count": 2,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "snacks",
+          "name_he": "חטיפים ומתוקים"
+        }
+      ]
+    },
+    {
+      "slug": "baby-hygiene",
+      "id": "baby.hygiene",
+      "level": 2,
+      "parent_slug": "baby",
+      "name_he": "היגיינת תינוק",
+      "name_en": "Baby hygiene",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "baby",
+          "name_he": "תינוקות"
+        }
+      ]
+    },
+    {
+      "slug": "cleaning-dishes",
+      "id": "cleaning.dishes",
+      "level": 2,
+      "parent_slug": "cleaning",
+      "name_he": "כלים",
+      "name_en": "Dishwashing",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית"
+        }
+      ]
+    },
+    {
+      "slug": "cleaning-laundry",
+      "id": "cleaning.laundry",
+      "level": 2,
+      "parent_slug": "cleaning",
+      "name_he": "כביסה",
+      "name_en": "Laundry",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית"
+        }
+      ]
+    },
+    {
+      "slug": "cleaning-surfaces",
+      "id": "cleaning.surfaces",
+      "level": 2,
+      "parent_slug": "cleaning",
+      "name_he": "ניקוי משטחים",
+      "name_en": "Surface cleaning",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית"
+        }
+      ]
+    },
+    {
+      "slug": "cleaning-bags",
+      "id": "cleaning.bags",
+      "level": 2,
+      "parent_slug": "cleaning",
+      "name_he": "שקיות",
+      "name_en": "Bags",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית"
+        }
+      ]
+    },
+    {
+      "slug": "paper-tissue",
+      "id": "paper.tissue",
+      "level": 2,
+      "parent_slug": "paper",
+      "name_he": "נייר",
+      "name_en": "Paper",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "paper",
+          "name_he": "נייר וחד-פעמי"
+        }
+      ]
+    },
+    {
+      "slug": "paper-kitchen",
+      "id": "paper.kitchen",
+      "level": 2,
+      "parent_slug": "paper",
+      "name_he": "עטיפה ואפייה",
+      "name_en": "Wrap and baking",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "paper",
+          "name_he": "נייר וחד-פעמי"
+        }
+      ]
+    },
+    {
+      "slug": "paper-disposables",
+      "id": "paper.disposables",
+      "level": 2,
+      "parent_slug": "paper",
+      "name_he": "חד-פעמי",
+      "name_en": "Disposables",
+      "canonical_count": 2,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "paper",
+          "name_he": "נייר וחד-פעמי"
+        }
+      ]
+    },
+    {
+      "slug": "toiletries-oral",
+      "id": "toiletries.oral",
+      "level": 2,
+      "parent_slug": "toiletries",
+      "name_he": "היגיינת הפה",
+      "name_en": "Oral care",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "toiletries",
+          "name_he": "טיפוח והיגיינה"
+        }
+      ]
+    },
+    {
+      "slug": "toiletries-hair",
+      "id": "toiletries.hair",
+      "level": 2,
+      "parent_slug": "toiletries",
+      "name_he": "שיער",
+      "name_en": "Hair",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "toiletries",
+          "name_he": "טיפוח והיגיינה"
+        }
+      ]
+    },
+    {
+      "slug": "toiletries-body",
+      "id": "toiletries.body",
+      "level": 2,
+      "parent_slug": "toiletries",
+      "name_he": "רחצה",
+      "name_en": "Bath and body",
+      "canonical_count": 3,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "toiletries",
+          "name_he": "טיפוח והיגיינה"
+        }
+      ]
+    },
+    {
+      "slug": "health-first_aid",
+      "id": "health.first_aid",
+      "level": 2,
+      "parent_slug": "health",
+      "name_he": "עזרה ראשונה",
+      "name_en": "First aid",
+      "canonical_count": 0,
+      "has_page": false,
+      "path": [
+        {
+          "slug": "health",
+          "name_he": "בריאות ופארם"
+        }
+      ]
+    },
+    {
+      "slug": "pets-cats",
+      "id": "pets.cats",
+      "level": 2,
+      "parent_slug": "pets",
+      "name_he": "חתולים",
+      "name_en": "Cats",
+      "canonical_count": 0,
+      "has_page": false,
+      "path": [
+        {
+          "slug": "pets",
+          "name_he": "חיות מחמד"
+        }
+      ]
+    },
+    {
+      "slug": "pets-dogs",
+      "id": "pets.dogs",
+      "level": 2,
+      "parent_slug": "pets",
+      "name_he": "כלבים",
+      "name_en": "Dogs",
+      "canonical_count": 0,
+      "has_page": false,
+      "path": [
+        {
+          "slug": "pets",
+          "name_he": "חיות מחמד"
+        }
+      ]
+    },
+    {
+      "slug": "holiday-passover",
+      "id": "holiday.passover",
+      "level": 2,
+      "parent_slug": "holiday",
+      "name_he": "פסח",
+      "name_en": "Passover",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "holiday",
+          "name_he": "כשר לפסח ומוצרי חג"
+        }
+      ]
+    },
+    {
+      "slug": "alcohol-beer",
+      "id": "alcohol.beer",
+      "level": 2,
+      "parent_slug": "alcohol",
+      "name_he": "בירה",
+      "name_en": "Beer",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "alcohol",
+          "name_he": "יין ואלכוהול"
+        }
+      ]
+    },
+    {
+      "slug": "alcohol-wine",
+      "id": "alcohol.wine",
+      "level": 2,
+      "parent_slug": "alcohol",
+      "name_he": "יין",
+      "name_en": "Wine",
+      "canonical_count": 1,
+      "has_page": true,
+      "path": [
+        {
+          "slug": "alcohol",
+          "name_he": "יין ואלכוהול"
+        }
+      ]
+    }
+  ]
+}

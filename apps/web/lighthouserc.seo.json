@@ -1,0 +1,33 @@
+{
+  "ci": {
+    "collect": {
+      "url": [
+        "http://localhost:3102/methodology",
+        "http://localhost:3102/c/dairy",
+        "http://localhost:3102/c/dairy-milk",
+        "http://localhost:3102/p/milk-fresh-3",
+        "http://localhost:3102/basket-index",
+        "http://localhost:3102/accessibility"
+      ],
+      "startServerCommand": "node node_modules/next/dist/bin/next start -p 3102",
+      "startServerReadyPattern": "Ready",
+      "numberOfRuns": 1,
+      "settings": {
+        "preset": "desktop",
+        "onlyCategories": ["accessibility", "best-practices", "seo"],
+        "chromeFlags": "--no-sandbox --headless=new"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:accessibility": ["error", { "minScore": 0.95 }],
+        "categories:best-practices": ["error", { "minScore": 0.9 }],
+        "categories:seo": ["error", { "minScore": 0.9 }]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci-seo"
+    }
+  }
+}

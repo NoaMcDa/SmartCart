@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
-import { AppShell } from "@/components/shell/AppShell";
+import { SeoShell } from "@/features/seo/SeoShell";
 
-/** W6 owns this route group: static SEO pages on the same domain (D8). W6 may swap the shell. */
+/**
+ * W6 owns this route group: static SEO pages on the same domain (D8). The shell is the app's own
+ * top bar and tabs plus a footer with the trust links (methodology, basket index, accessibility).
+ */
 export default function SeoLayout({ children }: { children: ReactNode }) {
-  return <AppShell>{children}</AppShell>;
+  return <SeoShell>{children}</SeoShell>;
 }

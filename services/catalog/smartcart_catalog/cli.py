@@ -33,7 +33,7 @@ from smartcart_catalog.settings import Settings, load_settings
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="SmartCart canonical catalog.")
 
-EXTENSIONS: tuple[str, ...] = ("smartcart_catalog.cli_matching",)
+EXTENSIONS: tuple[str, ...] = ("smartcart_catalog.cli_matching", "smartcart_catalog.cli_seo")
 
 
 class ExtractorName(StrEnum):
