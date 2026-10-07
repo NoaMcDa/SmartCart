@@ -1,7 +1,7 @@
 # SmartCart documentation index
 
 Everything here was produced in October 2026 from two research documents and a series of design
-discussions. Nothing has been built yet. Read in this order if you are new:
+discussions. Phases 0, 1 and 2 are built (see phase-2-status.md). Read in this order if you are new:
 
 1. [product-and-market.md](product-and-market.md): what the market looks like, what the product is, and why it can win.
 2. [decisions.md](decisions.md): the architecture decisions, each with the reasoning and the alternatives rejected.

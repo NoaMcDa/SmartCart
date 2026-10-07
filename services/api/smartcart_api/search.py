@@ -163,7 +163,8 @@ def _vector(conn: psycopg.Connection, q: str, k: int) -> Ranked:
         " via_items AS ("
         "   SELECT ic.canonical_id, max(n.s) AS s FROM near_items AS n"
         "   JOIN item_canonical AS ic ON ic.item_id = n.item_id"
-        "   WHERE ic.flex_level IN ('exact', 'any_brand') GROUP BY ic.canonical_id)"
+        "   WHERE ic.flex_level IN ('exact', 'any_brand') AND NOT ic.human_rejected"
+        "     AND NOT ic.needs_review GROUP BY ic.canonical_id)"
         " SELECT canonical_id, max(s) AS s FROM (SELECT * FROM direct UNION ALL"
         "   SELECT * FROM via_items) AS u"
         " WHERE s >= %(min)s GROUP BY canonical_id ORDER BY s DESC, canonical_id LIMIT %(k)s",
