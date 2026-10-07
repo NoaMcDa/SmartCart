@@ -594,7 +594,7 @@ than the viewport and Profile 69 px wider. Follow-up.
 (green at 90% and above, amber below), or `לא נבדק` when it is null or missing. Never a made-up
 number, never nothing. Used next to the promo on the line details (`BasketDetails`) and in the
 product detail table. The mock fixtures carry no `promo_confidence`, so `dev:mock` shows `לא נבדק`
-everywhere; the e2e test overrides one line to prove the score path.
+everywhere; the e2e test overrides one line to prove the score path. The API returns null until the chain adapters record a confidence, so "לא נבדק" is the normal state for now.
 
 ### Real map pins (UI half of #59)
 
