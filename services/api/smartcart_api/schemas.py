@@ -271,3 +271,40 @@ class ShoppingList(_Model):
 class Health(_Model):
     status: Literal["ok"]
     version: str
+
+
+# --- first-party events (closed beta, issue #40) ---------------------------------------------
+
+EventName = Literal[
+    "app_opened",
+    "page_viewed",
+    "list_pasted",
+    "results_shown",
+    "substitutions_shown",
+    "substitution_verdict",
+    "flex_changed",
+    "split_viewed",
+    "gap_reported",
+]
+
+
+class EventIn(_Model):
+    name: EventName
+    props: dict[str, int | str] = Field(
+        default_factory=dict,
+        description="Allowlisted keys per event name, values are integers or members of a fixed set; "
+        "anything else is rejected with 422 (no free text, no personal data). See docs/beta-plan.md.",
+    )
+    session_id: str = Field(
+        pattern=r"^[A-Za-z0-9_-]{8,64}$",
+        description="Random id the browser keeps in localStorage; not derived from the person",
+    )
+
+
+class EventsRequest(_Model):
+    events: list[EventIn] = Field(min_length=1, max_length=50)
+
+
+class EventsAck(_Model):
+    ok: bool = True
+    accepted: int

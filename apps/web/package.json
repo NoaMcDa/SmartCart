@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "a11y": "playwright test -c playwright.a11y.config.ts",
     "gen:api": "openapi-typescript src/api/openapi.json -o src/api/types.ts && prettier --write src/api/types.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"*.{ts,mjs}\" scripts",
     "fetch:fonts": "bash scripts/fetch-heebo.sh",
@@ -29,6 +30,7 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.56.1",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
@@ -37,6 +39,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
+    "axe-core": "4.13.0",
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.0",
     "jsdom": "29.1.1",

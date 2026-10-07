@@ -1,0 +1,7598 @@
+{
+  "generated_at": "2026-10-07T05:51:34Z",
+  "count": 245,
+  "page_count": 130,
+  "priced_count": 0,
+  "products": [
+    {
+      "slug": "milk-fresh-3",
+      "name_he": "חלב טרי 3%",
+      "taxonomy_id": "dairy.milk.fresh",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.milk",
+          "name_he": "חלב ומשקאות חלב",
+          "slug": "dairy-milk"
+        },
+        {
+          "id": "dairy.milk.fresh",
+          "name_he": "חלב טרי",
+          "slug": null
+        }
+      ],
+      "product_type": "milk",
+      "base_unit": "100ml",
+      "critical_attrs": {
+        "fat_pct": 3,
+        "state": "fresh"
+      },
+      "rank": 1,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "milk-fresh-1",
+      "name_he": "חלב טרי 1%",
+      "taxonomy_id": "dairy.milk.fresh",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.milk",
+          "name_he": "חלב ומשקאות חלב",
+          "slug": "dairy-milk"
+        },
+        {
+          "id": "dairy.milk.fresh",
+          "name_he": "חלב טרי",
+          "slug": null
+        }
+      ],
+      "product_type": "milk",
+      "base_unit": "100ml",
+      "critical_attrs": {
+        "fat_pct": 1,
+        "state": "fresh"
+      },
+      "rank": 2,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cottage-5",
+      "name_he": "קוטג' 5%",
+      "taxonomy_id": "dairy.cheese.cottage",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.cottage",
+          "name_he": "קוטג'",
+          "slug": null
+        }
+      ],
+      "product_type": "cottage_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 5
+      },
+      "rank": 3,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "white-cheese-5",
+      "name_he": "גבינה לבנה 5%",
+      "taxonomy_id": "dairy.cheese.white",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.white",
+          "name_he": "גבינה לבנה",
+          "slug": null
+        }
+      ],
+      "product_type": "white_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 5
+      },
+      "rank": 4,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "yellow-cheese-sliced-28",
+      "name_he": "גבינה צהובה פרוסה 28%",
+      "taxonomy_id": "dairy.cheese.yellow.sliced",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.yellow",
+          "name_he": "גבינה צהובה",
+          "slug": null
+        },
+        {
+          "id": "dairy.cheese.yellow.sliced",
+          "name_he": "גבינה צהובה פרוסה",
+          "slug": null
+        }
+      ],
+      "product_type": "yellow_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 28
+      },
+      "rank": 5,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "eggs-l",
+      "name_he": "ביצים L",
+      "taxonomy_id": "dairy.eggs.chicken",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.eggs",
+          "name_he": "ביצים",
+          "slug": "dairy-eggs"
+        },
+        {
+          "id": "dairy.eggs.chicken",
+          "name_he": "ביצי תרנגולת",
+          "slug": null
+        }
+      ],
+      "product_type": "eggs_l",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 6,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-breast-fresh",
+      "name_he": "חזה עוף טרי",
+      "taxonomy_id": "meat.chicken.breast",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.breast",
+          "name_he": "חזה עוף",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_breast",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 7,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-thigh-boneless-fresh",
+      "name_he": "פרגיות טריות",
+      "taxonomy_id": "meat.chicken.thigh",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.thigh",
+          "name_he": "פרגיות וירכיים",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_thigh_boneless",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 8,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "hummus-plain",
+      "name_he": "חומוס (סלט)",
+      "taxonomy_id": "deli.salads.hummus",
+      "path": [
+        {
+          "id": "deli",
+          "name_he": "מעדנייה וסלטים",
+          "slug": "deli"
+        },
+        {
+          "id": "deli.salads",
+          "name_he": "סלטים",
+          "slug": "deli-salads"
+        },
+        {
+          "id": "deli.salads.hummus",
+          "name_he": "חומוס",
+          "slug": null
+        }
+      ],
+      "product_type": "hummus_salad",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "plain"
+      },
+      "rank": 9,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "tomato",
+      "name_he": "עגבניות",
+      "taxonomy_id": "produce.vegetables.fruiting",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.fruiting",
+          "name_he": "עגבניות, מלפפונים ופלפלים",
+          "slug": null
+        }
+      ],
+      "product_type": "tomato",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 10,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cucumber",
+      "name_he": "מלפפונים",
+      "taxonomy_id": "produce.vegetables.fruiting",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.fruiting",
+          "name_he": "עגבניות, מלפפונים ופלפלים",
+          "slug": null
+        }
+      ],
+      "product_type": "cucumber",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 11,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "onion",
+      "name_he": "בצל יבש",
+      "taxonomy_id": "produce.vegetables.root",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.root",
+          "name_he": "ירקות שורש ובצלים",
+          "slug": null
+        }
+      ],
+      "product_type": "onion",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 12,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "potato",
+      "name_he": "תפוחי אדמה",
+      "taxonomy_id": "produce.vegetables.root",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.root",
+          "name_he": "ירקות שורש ובצלים",
+          "slug": null
+        }
+      ],
+      "product_type": "potato",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 13,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "banana",
+      "name_he": "בננות",
+      "taxonomy_id": "produce.fruit.tropical",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.tropical",
+          "name_he": "פירות טרופיים",
+          "slug": null
+        }
+      ],
+      "product_type": "banana",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 14,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bread-standard",
+      "name_he": "לחם אחיד",
+      "taxonomy_id": "bakery.bread.loaves",
+      "path": [
+        {
+          "id": "bakery",
+          "name_he": "לחם ומאפים",
+          "slug": "bakery"
+        },
+        {
+          "id": "bakery.bread",
+          "name_he": "לחם",
+          "slug": "bakery-bread"
+        },
+        {
+          "id": "bakery.bread.loaves",
+          "name_he": "כיכרות לחם",
+          "slug": null
+        }
+      ],
+      "product_type": "bread_standard",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 15,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "pita",
+      "name_he": "פיתות",
+      "taxonomy_id": "bakery.bread.flat",
+      "path": [
+        {
+          "id": "bakery",
+          "name_he": "לחם ומאפים",
+          "slug": "bakery"
+        },
+        {
+          "id": "bakery.bread",
+          "name_he": "לחם",
+          "slug": "bakery-bread"
+        },
+        {
+          "id": "bakery.bread.flat",
+          "name_he": "פיתות ולחמים שטוחים",
+          "slug": null
+        }
+      ],
+      "product_type": "pita",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 16,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "rice-persian",
+      "name_he": "אורז פרסי",
+      "taxonomy_id": "pantry.rice.white",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.rice",
+          "name_he": "אורז",
+          "slug": "pantry-rice"
+        },
+        {
+          "id": "pantry.rice.white",
+          "name_he": "אורז לבן",
+          "slug": null
+        }
+      ],
+      "product_type": "rice_persian",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 17,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "pasta-spaghetti",
+      "name_he": "ספגטי",
+      "taxonomy_id": "pantry.pasta.long",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.pasta",
+          "name_he": "פסטה ודגנים",
+          "slug": "pantry-pasta"
+        },
+        {
+          "id": "pantry.pasta.long",
+          "name_he": "פסטה ארוכה",
+          "slug": null
+        }
+      ],
+      "product_type": "pasta_spaghetti",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 18,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sugar-white",
+      "name_he": "סוכר לבן",
+      "taxonomy_id": "pantry.baking.sugar",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.baking",
+          "name_he": "אפייה",
+          "slug": "pantry-baking"
+        },
+        {
+          "id": "pantry.baking.sugar",
+          "name_he": "סוכר",
+          "slug": null
+        }
+      ],
+      "product_type": "sugar_white",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 19,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "canola-oil",
+      "name_he": "שמן קנולה",
+      "taxonomy_id": "pantry.oils.vegetable",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.oils",
+          "name_he": "שמנים",
+          "slug": "pantry-oils"
+        },
+        {
+          "id": "pantry.oils.vegetable",
+          "name_he": "שמן צמחי",
+          "slug": null
+        }
+      ],
+      "product_type": "canola_oil",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 20,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "tuna-in-oil",
+      "name_he": "טונה בשמן",
+      "taxonomy_id": "canned.fish.tuna",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.fish",
+          "name_he": "שימורי דגים",
+          "slug": "canned-fish"
+        },
+        {
+          "id": "canned.fish.tuna",
+          "name_he": "טונה",
+          "slug": null
+        }
+      ],
+      "product_type": "tuna_in_oil",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 21,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "mineral-water",
+      "name_he": "מים מינרליים",
+      "taxonomy_id": "beverages.water.still",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.water",
+          "name_he": "מים",
+          "slug": "beverages-water"
+        },
+        {
+          "id": "beverages.water.still",
+          "name_he": "מים מינרליים",
+          "slug": null
+        }
+      ],
+      "product_type": "mineral_water",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 22,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bamba",
+      "name_he": "חטיף בוטנים (במבה)",
+      "taxonomy_id": "snacks.salty.puffs",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.salty",
+          "name_he": "חטיפים מלוחים",
+          "slug": "snacks-salty"
+        },
+        {
+          "id": "snacks.salty.puffs",
+          "name_he": "במבה וביסלי",
+          "slug": null
+        }
+      ],
+      "product_type": "peanut_puffs",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 23,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "toilet-paper",
+      "name_he": "נייר טואלט",
+      "taxonomy_id": "paper.tissue.toilet",
+      "path": [
+        {
+          "id": "paper",
+          "name_he": "נייר וחד-פעמי",
+          "slug": "paper"
+        },
+        {
+          "id": "paper.tissue",
+          "name_he": "נייר",
+          "slug": "paper-tissue"
+        },
+        {
+          "id": "paper.tissue.toilet",
+          "name_he": "נייר טואלט",
+          "slug": null
+        }
+      ],
+      "product_type": "toilet_paper",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 24,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chocolate-milk",
+      "name_he": "שוקו",
+      "taxonomy_id": "dairy.milk.flavored",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.milk",
+          "name_he": "חלב ומשקאות חלב",
+          "slug": "dairy-milk"
+        },
+        {
+          "id": "dairy.milk.flavored",
+          "name_he": "משקאות חלב בטעמים",
+          "slug": null
+        }
+      ],
+      "product_type": "chocolate_milk",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 25,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cottage-3",
+      "name_he": "קוטג' 3%",
+      "taxonomy_id": "dairy.cheese.cottage",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.cottage",
+          "name_he": "קוטג'",
+          "slug": null
+        }
+      ],
+      "product_type": "cottage_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 3
+      },
+      "rank": 26,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "yogurt-plain-3",
+      "name_he": "יוגורט טבעי 3%",
+      "taxonomy_id": "dairy.yogurt.plain",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.yogurt",
+          "name_he": "יוגורט ומעדנים",
+          "slug": "dairy-yogurt"
+        },
+        {
+          "id": "dairy.yogurt.plain",
+          "name_he": "יוגורט טבעי",
+          "slug": null
+        }
+      ],
+      "product_type": "yogurt",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 3,
+        "flavor": "plain"
+      },
+      "rank": 27,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "pudding-chocolate-cream",
+      "name_he": "מעדן שוקולד עם קצפת",
+      "taxonomy_id": "dairy.yogurt.desserts",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.yogurt",
+          "name_he": "יוגורט ומעדנים",
+          "slug": "dairy-yogurt"
+        },
+        {
+          "id": "dairy.yogurt.desserts",
+          "name_he": "מעדני חלב",
+          "slug": null
+        }
+      ],
+      "product_type": "pudding_with_cream",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "chocolate"
+      },
+      "rank": 28,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sour-cream-15",
+      "name_he": "שמנת חמוצה 15%",
+      "taxonomy_id": "dairy.cream.sour",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cream",
+          "name_he": "שמנת וחמאה",
+          "slug": "dairy-cream"
+        },
+        {
+          "id": "dairy.cream.sour",
+          "name_he": "שמנת חמוצה",
+          "slug": null
+        }
+      ],
+      "product_type": "sour_cream",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 15
+      },
+      "rank": 29,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "whipping-cream-32",
+      "name_he": "שמנת מתוקה 32%",
+      "taxonomy_id": "dairy.cream.sweet",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cream",
+          "name_he": "שמנת וחמאה",
+          "slug": "dairy-cream"
+        },
+        {
+          "id": "dairy.cream.sweet",
+          "name_he": "שמנת מתוקה",
+          "slug": null
+        }
+      ],
+      "product_type": "whipping_cream",
+      "base_unit": "100ml",
+      "critical_attrs": {
+        "fat_pct": 32
+      },
+      "rank": 30,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "butter",
+      "name_he": "חמאה",
+      "taxonomy_id": "dairy.cream.butter",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cream",
+          "name_he": "שמנת וחמאה",
+          "slug": "dairy-cream"
+        },
+        {
+          "id": "dairy.cream.butter",
+          "name_he": "חמאה ומרגרינה",
+          "slug": null
+        }
+      ],
+      "product_type": "butter",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 31,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "eggs-m",
+      "name_he": "ביצים M",
+      "taxonomy_id": "dairy.eggs.chicken",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.eggs",
+          "name_he": "ביצים",
+          "slug": "dairy-eggs"
+        },
+        {
+          "id": "dairy.eggs.chicken",
+          "name_he": "ביצי תרנגולת",
+          "slug": null
+        }
+      ],
+      "product_type": "eggs_m",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 32,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-schnitzel-fresh",
+      "name_he": "שניצל עוף טרי (חזה פרוס)",
+      "taxonomy_id": "meat.chicken.breast",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.breast",
+          "name_he": "חזה עוף",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_breast_sliced",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 33,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-drumstick-fresh",
+      "name_he": "שוקיים עוף טריים",
+      "taxonomy_id": "meat.chicken.legs",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.legs",
+          "name_he": "שוקיים וכרעיים",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_drumstick",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 34,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "beef-ground-fresh",
+      "name_he": "בשר בקר טחון טרי",
+      "taxonomy_id": "meat.beef.ground",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.beef",
+          "name_he": "בקר",
+          "slug": "meat-beef"
+        },
+        {
+          "id": "meat.beef.ground",
+          "name_he": "בקר טחון",
+          "slug": null
+        }
+      ],
+      "product_type": "beef_ground",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 35,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "salmon-fillet-fresh",
+      "name_he": "פילה סלמון טרי",
+      "taxonomy_id": "fish.fillets.salmon",
+      "path": [
+        {
+          "id": "fish",
+          "name_he": "דגים",
+          "slug": "fish"
+        },
+        {
+          "id": "fish.fillets",
+          "name_he": "פילה דגים",
+          "slug": "fish-fillets"
+        },
+        {
+          "id": "fish.fillets.salmon",
+          "name_he": "פילה סלמון",
+          "slug": null
+        }
+      ],
+      "product_type": "salmon_fillet",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 36,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "turkey-pastrami",
+      "name_he": "פסטרמה הודו פרוסה",
+      "taxonomy_id": "deli.cold_cuts.sliced",
+      "path": [
+        {
+          "id": "deli",
+          "name_he": "מעדנייה וסלטים",
+          "slug": "deli"
+        },
+        {
+          "id": "deli.cold_cuts",
+          "name_he": "נקניקים",
+          "slug": "deli-cold_cuts"
+        },
+        {
+          "id": "deli.cold_cuts.sliced",
+          "name_he": "נקניק פרוס",
+          "slug": null
+        }
+      ],
+      "product_type": "turkey_breast_sliced",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 37,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-hot-dogs",
+      "name_he": "נקניקיות עוף",
+      "taxonomy_id": "deli.cold_cuts.sausages",
+      "path": [
+        {
+          "id": "deli",
+          "name_he": "מעדנייה וסלטים",
+          "slug": "deli"
+        },
+        {
+          "id": "deli.cold_cuts",
+          "name_he": "נקניקים",
+          "slug": "deli-cold_cuts"
+        },
+        {
+          "id": "deli.cold_cuts.sausages",
+          "name_he": "נקניקיות",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_hot_dogs",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 38,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cherry-tomato",
+      "name_he": "עגבניות שרי",
+      "taxonomy_id": "produce.vegetables.fruiting",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.fruiting",
+          "name_he": "עגבניות, מלפפונים ופלפלים",
+          "slug": null
+        }
+      ],
+      "product_type": "cherry_tomato",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 39,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "carrot",
+      "name_he": "גזר",
+      "taxonomy_id": "produce.vegetables.root",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.root",
+          "name_he": "ירקות שורש ובצלים",
+          "slug": null
+        }
+      ],
+      "product_type": "carrot",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 40,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "red-pepper",
+      "name_he": "פלפל אדום",
+      "taxonomy_id": "produce.vegetables.fruiting",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.fruiting",
+          "name_he": "עגבניות, מלפפונים ופלפלים",
+          "slug": null
+        }
+      ],
+      "product_type": "red_pepper",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 41,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "lemon",
+      "name_he": "לימונים",
+      "taxonomy_id": "produce.fruit.citrus",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.citrus",
+          "name_he": "הדרים",
+          "slug": null
+        }
+      ],
+      "product_type": "lemon",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 42,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "avocado",
+      "name_he": "אבוקדו",
+      "taxonomy_id": "produce.fruit.tropical",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.tropical",
+          "name_he": "פירות טרופיים",
+          "slug": null
+        }
+      ],
+      "product_type": "avocado",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 43,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "apple-red",
+      "name_he": "תפוחי עץ אדומים",
+      "taxonomy_id": "produce.fruit.pome",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.pome",
+          "name_he": "תפוחים ואגסים",
+          "slug": null
+        }
+      ],
+      "product_type": "apple_red",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 44,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "lettuce",
+      "name_he": "חסה",
+      "taxonomy_id": "produce.vegetables.leafy",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.leafy",
+          "name_he": "ירקות עלים וכרוביים",
+          "slug": null
+        }
+      ],
+      "product_type": "lettuce",
+      "base_unit": "unit",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 45,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "parsley",
+      "name_he": "פטרוזיליה",
+      "taxonomy_id": "produce.herbs.fresh",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.herbs",
+          "name_he": "עשבי תיבול",
+          "slug": "produce-herbs"
+        },
+        {
+          "id": "produce.herbs.fresh",
+          "name_he": "עשבי תיבול טריים",
+          "slug": null
+        }
+      ],
+      "product_type": "parsley",
+      "base_unit": "unit",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 46,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bread-whole-wheat",
+      "name_he": "לחם מחיטה מלאה",
+      "taxonomy_id": "bakery.bread.loaves",
+      "path": [
+        {
+          "id": "bakery",
+          "name_he": "לחם ומאפים",
+          "slug": "bakery"
+        },
+        {
+          "id": "bakery.bread",
+          "name_he": "לחם",
+          "slug": "bakery-bread"
+        },
+        {
+          "id": "bakery.bread.loaves",
+          "name_he": "כיכרות לחם",
+          "slug": null
+        }
+      ],
+      "product_type": "bread_whole_wheat",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 47,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "challah",
+      "name_he": "חלה",
+      "taxonomy_id": "bakery.bread.challah",
+      "path": [
+        {
+          "id": "bakery",
+          "name_he": "לחם ומאפים",
+          "slug": "bakery"
+        },
+        {
+          "id": "bakery.bread",
+          "name_he": "לחם",
+          "slug": "bakery-bread"
+        },
+        {
+          "id": "bakery.bread.challah",
+          "name_he": "חלות",
+          "slug": null
+        }
+      ],
+      "product_type": "challah",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 48,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "rice-basmati",
+      "name_he": "אורז בסמטי",
+      "taxonomy_id": "pantry.rice.white",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.rice",
+          "name_he": "אורז",
+          "slug": "pantry-rice"
+        },
+        {
+          "id": "pantry.rice.white",
+          "name_he": "אורז לבן",
+          "slug": null
+        }
+      ],
+      "product_type": "rice_basmati",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 49,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "pasta-penne",
+      "name_he": "פסטה פנה",
+      "taxonomy_id": "pantry.pasta.short",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.pasta",
+          "name_he": "פסטה ודגנים",
+          "slug": "pantry-pasta"
+        },
+        {
+          "id": "pantry.pasta.short",
+          "name_he": "פסטה קצרה",
+          "slug": null
+        }
+      ],
+      "product_type": "pasta_penne",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 50,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "ptitim",
+      "name_he": "פתיתים אפויים",
+      "taxonomy_id": "pantry.pasta.israeli",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.pasta",
+          "name_he": "פסטה ודגנים",
+          "slug": "pantry-pasta"
+        },
+        {
+          "id": "pantry.pasta.israeli",
+          "name_he": "פתיתים, קוסקוס ואטריות",
+          "slug": null
+        }
+      ],
+      "product_type": "ptitim",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 51,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "flour-white",
+      "name_he": "קמח לבן",
+      "taxonomy_id": "pantry.baking.flour",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.baking",
+          "name_he": "אפייה",
+          "slug": "pantry-baking"
+        },
+        {
+          "id": "pantry.baking.flour",
+          "name_he": "קמח",
+          "slug": null
+        }
+      ],
+      "product_type": "flour_white",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 52,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "olive-oil",
+      "name_he": "שמן זית כתית מעולה",
+      "taxonomy_id": "pantry.oils.olive",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.oils",
+          "name_he": "שמנים",
+          "slug": "pantry-oils"
+        },
+        {
+          "id": "pantry.oils.olive",
+          "name_he": "שמן זית",
+          "slug": null
+        }
+      ],
+      "product_type": "olive_oil",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 53,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "tahini-raw",
+      "name_he": "טחינה גולמית",
+      "taxonomy_id": "pantry.spreads.tahini",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.spreads",
+          "name_he": "ממרחים",
+          "slug": "pantry-spreads"
+        },
+        {
+          "id": "pantry.spreads.tahini",
+          "name_he": "טחינה",
+          "slug": null
+        }
+      ],
+      "product_type": "tahini_raw",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 54,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chocolate-spread",
+      "name_he": "ממרח שוקולד",
+      "taxonomy_id": "pantry.spreads.sweet",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.spreads",
+          "name_he": "ממרחים",
+          "slug": "pantry-spreads"
+        },
+        {
+          "id": "pantry.spreads.sweet",
+          "name_he": "ממרחים מתוקים",
+          "slug": null
+        }
+      ],
+      "product_type": "chocolate_spread",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 55,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "ketchup",
+      "name_he": "קטשופ",
+      "taxonomy_id": "pantry.condiments.sauces",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.sauces",
+          "name_he": "רטבים",
+          "slug": null
+        }
+      ],
+      "product_type": "ketchup",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 56,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "mayonnaise",
+      "name_he": "מיונז",
+      "taxonomy_id": "pantry.condiments.sauces",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.sauces",
+          "name_he": "רטבים",
+          "slug": null
+        }
+      ],
+      "product_type": "mayonnaise",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 57,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "salt",
+      "name_he": "מלח",
+      "taxonomy_id": "pantry.condiments.spices",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.spices",
+          "name_he": "תבלינים",
+          "slug": null
+        }
+      ],
+      "product_type": "salt",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 58,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cornflakes",
+      "name_he": "קורנפלקס",
+      "taxonomy_id": "pantry.breakfast.cereal",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.breakfast",
+          "name_he": "דגני בוקר",
+          "slug": "pantry-breakfast"
+        },
+        {
+          "id": "pantry.breakfast.cereal",
+          "name_he": "דגני בוקר",
+          "slug": null
+        }
+      ],
+      "product_type": "cornflakes",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 59,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "soup-powder-chicken",
+      "name_he": "אבקת מרק עוף",
+      "taxonomy_id": "pantry.condiments.soup",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.soup",
+          "name_he": "אבקות מרק",
+          "slug": null
+        }
+      ],
+      "product_type": "soup_powder",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "chicken"
+      },
+      "rank": 60,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sweet-corn-canned",
+      "name_he": "תירס מתוק בשימורים",
+      "taxonomy_id": "canned.vegetables.legumes",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.vegetables",
+          "name_he": "שימורי ירקות",
+          "slug": "canned-vegetables"
+        },
+        {
+          "id": "canned.vegetables.legumes",
+          "name_he": "שימורי קטניות ותירס",
+          "slug": null
+        }
+      ],
+      "product_type": "sweet_corn",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "canned"
+      },
+      "rank": 61,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "pickled-cucumbers",
+      "name_he": "מלפפונים חמוצים",
+      "taxonomy_id": "canned.vegetables.pickles",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.vegetables",
+          "name_he": "שימורי ירקות",
+          "slug": "canned-vegetables"
+        },
+        {
+          "id": "canned.vegetables.pickles",
+          "name_he": "חמוצים וזיתים",
+          "slug": null
+        }
+      ],
+      "product_type": "pickled_cucumbers",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 62,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "tomato-paste",
+      "name_he": "רסק עגבניות",
+      "taxonomy_id": "canned.tomatoes.paste",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.tomatoes",
+          "name_he": "מוצרי עגבניות",
+          "slug": "canned-tomatoes"
+        },
+        {
+          "id": "canned.tomatoes.paste",
+          "name_he": "רסק ועגבניות מרוסקות",
+          "slug": null
+        }
+      ],
+      "product_type": "tomato_paste",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 63,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "breaded-schnitzel",
+      "name_he": "שניצל עוף מצופה קפוא",
+      "taxonomy_id": "frozen.ready.chicken",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.ready",
+          "name_he": "מוכן לחימום",
+          "slug": "frozen-ready"
+        },
+        {
+          "id": "frozen.ready.chicken",
+          "name_he": "מוצרי עוף קפואים",
+          "slug": null
+        }
+      ],
+      "product_type": "breaded_schnitzel",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 64,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cola",
+      "name_he": "קולה",
+      "taxonomy_id": "beverages.soft_drinks.cola",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.soft_drinks",
+          "name_he": "משקאות קלים",
+          "slug": "beverages-soft_drinks"
+        },
+        {
+          "id": "beverages.soft_drinks.cola",
+          "name_he": "קולה",
+          "slug": null
+        }
+      ],
+      "product_type": "cola",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 65,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "coffee-instant",
+      "name_he": "קפה נמס",
+      "taxonomy_id": "beverages.hot.coffee",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.hot",
+          "name_he": "קפה ותה",
+          "slug": "beverages-hot"
+        },
+        {
+          "id": "beverages.hot.coffee",
+          "name_he": "קפה",
+          "slug": null
+        }
+      ],
+      "product_type": "coffee_instant",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 66,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "coffee-turkish",
+      "name_he": "קפה שחור טחון",
+      "taxonomy_id": "beverages.hot.coffee",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.hot",
+          "name_he": "קפה ותה",
+          "slug": "beverages-hot"
+        },
+        {
+          "id": "beverages.hot.coffee",
+          "name_he": "קפה",
+          "slug": null
+        }
+      ],
+      "product_type": "coffee_turkish",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 67,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "tea-black",
+      "name_he": "תה שחור בשקיקים",
+      "taxonomy_id": "beverages.hot.tea",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.hot",
+          "name_he": "קפה ותה",
+          "slug": "beverages-hot"
+        },
+        {
+          "id": "beverages.hot.tea",
+          "name_he": "תה",
+          "slug": null
+        }
+      ],
+      "product_type": "tea_black",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 68,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bisli-grill",
+      "name_he": "ביסלי גריל",
+      "taxonomy_id": "snacks.salty.puffs",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.salty",
+          "name_he": "חטיפים מלוחים",
+          "slug": "snacks-salty"
+        },
+        {
+          "id": "snacks.salty.puffs",
+          "name_he": "במבה וביסלי",
+          "slug": null
+        }
+      ],
+      "product_type": "wheat_snack",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "grill"
+      },
+      "rank": 69,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "potato-chips-salted",
+      "name_he": "צ'יפס תפוחי אדמה בטעם מלח",
+      "taxonomy_id": "snacks.salty.chips",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.salty",
+          "name_he": "חטיפים מלוחים",
+          "slug": "snacks-salty"
+        },
+        {
+          "id": "snacks.salty.chips",
+          "name_he": "צ'יפס ובייגלה",
+          "slug": null
+        }
+      ],
+      "product_type": "potato_chips",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "salted"
+      },
+      "rank": 70,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chocolate-milk-bar",
+      "name_he": "שוקולד חלב",
+      "taxonomy_id": "snacks.sweet.chocolate",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.sweet",
+          "name_he": "מתוקים",
+          "slug": "snacks-sweet"
+        },
+        {
+          "id": "snacks.sweet.chocolate",
+          "name_he": "שוקולד",
+          "slug": null
+        }
+      ],
+      "product_type": "chocolate_bar",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "milk"
+      },
+      "rank": 71,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "tea-biscuits",
+      "name_he": "ביסקוויטים (פתי בר)",
+      "taxonomy_id": "snacks.sweet.biscuits",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.sweet",
+          "name_he": "מתוקים",
+          "slug": "snacks-sweet"
+        },
+        {
+          "id": "snacks.sweet.biscuits",
+          "name_he": "ביסקוויטים וופלים",
+          "slug": null
+        }
+      ],
+      "product_type": "tea_biscuits",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 72,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "dish-soap",
+      "name_he": "נוזל כלים",
+      "taxonomy_id": "cleaning.dishes.liquid",
+      "path": [
+        {
+          "id": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית",
+          "slug": "cleaning"
+        },
+        {
+          "id": "cleaning.dishes",
+          "name_he": "כלים",
+          "slug": "cleaning-dishes"
+        },
+        {
+          "id": "cleaning.dishes.liquid",
+          "name_he": "נוזל כלים",
+          "slug": null
+        }
+      ],
+      "product_type": "dish_soap",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 73,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "laundry-gel",
+      "name_he": "ג'ל כביסה",
+      "taxonomy_id": "cleaning.laundry.detergent",
+      "path": [
+        {
+          "id": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית",
+          "slug": "cleaning"
+        },
+        {
+          "id": "cleaning.laundry",
+          "name_he": "כביסה",
+          "slug": "cleaning-laundry"
+        },
+        {
+          "id": "cleaning.laundry.detergent",
+          "name_he": "חומרי כביסה",
+          "slug": null
+        }
+      ],
+      "product_type": "laundry_gel",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 74,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "fabric-softener",
+      "name_he": "מרכך כביסה",
+      "taxonomy_id": "cleaning.laundry.softener",
+      "path": [
+        {
+          "id": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית",
+          "slug": "cleaning"
+        },
+        {
+          "id": "cleaning.laundry",
+          "name_he": "כביסה",
+          "slug": "cleaning-laundry"
+        },
+        {
+          "id": "cleaning.laundry.softener",
+          "name_he": "מרכך כביסה",
+          "slug": null
+        }
+      ],
+      "product_type": "fabric_softener",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 75,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bleach",
+      "name_he": "אקונומיקה",
+      "taxonomy_id": "cleaning.surfaces.bleach",
+      "path": [
+        {
+          "id": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית",
+          "slug": "cleaning"
+        },
+        {
+          "id": "cleaning.surfaces",
+          "name_he": "ניקוי משטחים",
+          "slug": "cleaning-surfaces"
+        },
+        {
+          "id": "cleaning.surfaces.bleach",
+          "name_he": "אקונומיקה",
+          "slug": null
+        }
+      ],
+      "product_type": "bleach",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 76,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "garbage-bags",
+      "name_he": "שקיות אשפה",
+      "taxonomy_id": "cleaning.bags.garbage",
+      "path": [
+        {
+          "id": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית",
+          "slug": "cleaning"
+        },
+        {
+          "id": "cleaning.bags",
+          "name_he": "שקיות",
+          "slug": "cleaning-bags"
+        },
+        {
+          "id": "cleaning.bags.garbage",
+          "name_he": "שקיות אשפה",
+          "slug": null
+        }
+      ],
+      "product_type": "garbage_bags",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 77,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "paper-towels",
+      "name_he": "מגבות נייר",
+      "taxonomy_id": "paper.tissue.towels",
+      "path": [
+        {
+          "id": "paper",
+          "name_he": "נייר וחד-פעמי",
+          "slug": "paper"
+        },
+        {
+          "id": "paper.tissue",
+          "name_he": "נייר",
+          "slug": "paper-tissue"
+        },
+        {
+          "id": "paper.tissue.towels",
+          "name_he": "מגבות נייר",
+          "slug": null
+        }
+      ],
+      "product_type": "paper_towels",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 78,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "milk-long-life-3",
+      "name_he": "חלב עמיד 3%",
+      "taxonomy_id": "dairy.milk.long_life",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.milk",
+          "name_he": "חלב ומשקאות חלב",
+          "slug": "dairy-milk"
+        },
+        {
+          "id": "dairy.milk.long_life",
+          "name_he": "חלב עמיד",
+          "slug": null
+        }
+      ],
+      "product_type": "milk_long_life",
+      "base_unit": "100ml",
+      "critical_attrs": {
+        "fat_pct": 3
+      },
+      "rank": 79,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "milk-lactose-free-2",
+      "name_he": "חלב ללא לקטוז 2%",
+      "taxonomy_id": "dairy.milk.lactose_free",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.milk",
+          "name_he": "חלב ומשקאות חלב",
+          "slug": "dairy-milk"
+        },
+        {
+          "id": "dairy.milk.lactose_free",
+          "name_he": "חלב ללא לקטוז",
+          "slug": null
+        }
+      ],
+      "product_type": "milk_lactose_free",
+      "base_unit": "100ml",
+      "critical_attrs": {
+        "fat_pct": 2
+      },
+      "rank": 80,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "white-cheese-9",
+      "name_he": "גבינה לבנה 9%",
+      "taxonomy_id": "dairy.cheese.white",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.white",
+          "name_he": "גבינה לבנה",
+          "slug": null
+        }
+      ],
+      "product_type": "white_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 9
+      },
+      "rank": 81,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cream-cheese-30-plain",
+      "name_he": "גבינת שמנת 30% טבעית",
+      "taxonomy_id": "dairy.cheese.cream",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.cream",
+          "name_he": "גבינת שמנת וממרחים",
+          "slug": null
+        }
+      ],
+      "product_type": "cream_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 30,
+        "flavor": "plain"
+      },
+      "rank": 82,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "yellow-cheese-sliced-9",
+      "name_he": "גבינה צהובה פרוסה 9%",
+      "taxonomy_id": "dairy.cheese.yellow.sliced",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.yellow",
+          "name_he": "גבינה צהובה",
+          "slug": null
+        },
+        {
+          "id": "dairy.cheese.yellow.sliced",
+          "name_he": "גבינה צהובה פרוסה",
+          "slug": null
+        }
+      ],
+      "product_type": "yellow_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 9
+      },
+      "rank": 83,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "grated-mozzarella",
+      "name_he": "גבינה מגורדת (מוצרלה)",
+      "taxonomy_id": "dairy.cheese.yellow.grated",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.yellow",
+          "name_he": "גבינה צהובה",
+          "slug": null
+        },
+        {
+          "id": "dairy.cheese.yellow.grated",
+          "name_he": "גבינה מגורדת",
+          "slug": null
+        }
+      ],
+      "product_type": "grated_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 84,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bulgarian-cheese-5",
+      "name_he": "גבינה בולגרית 5%",
+      "taxonomy_id": "dairy.cheese.brined",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.brined",
+          "name_he": "גבינות מלוחות",
+          "slug": null
+        }
+      ],
+      "product_type": "bulgarian_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 5
+      },
+      "rank": 85,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "labane-5",
+      "name_he": "לבנה 5%",
+      "taxonomy_id": "dairy.cheese.labane",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.labane",
+          "name_he": "לבנה",
+          "slug": null
+        }
+      ],
+      "product_type": "labane",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 5
+      },
+      "rank": 86,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "yogurt-plain-1-5",
+      "name_he": "יוגורט טבעי 1.5%",
+      "taxonomy_id": "dairy.yogurt.plain",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.yogurt",
+          "name_he": "יוגורט ומעדנים",
+          "slug": "dairy-yogurt"
+        },
+        {
+          "id": "dairy.yogurt.plain",
+          "name_he": "יוגורט טבעי",
+          "slug": null
+        }
+      ],
+      "product_type": "yogurt",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 1.5,
+        "flavor": "plain"
+      },
+      "rank": 87,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "yogurt-strawberry",
+      "name_he": "יוגורט תות",
+      "taxonomy_id": "dairy.yogurt.fruit",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.yogurt",
+          "name_he": "יוגורט ומעדנים",
+          "slug": "dairy-yogurt"
+        },
+        {
+          "id": "dairy.yogurt.fruit",
+          "name_he": "יוגורט פירות",
+          "slug": null
+        }
+      ],
+      "product_type": "yogurt_fruit",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "strawberry"
+      },
+      "rank": 88,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "greek-yogurt-plain",
+      "name_he": "יוגורט יווני טבעי",
+      "taxonomy_id": "dairy.yogurt.greek",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.yogurt",
+          "name_he": "יוגורט ומעדנים",
+          "slug": "dairy-yogurt"
+        },
+        {
+          "id": "dairy.yogurt.greek",
+          "name_he": "יוגורט יווני",
+          "slug": null
+        }
+      ],
+      "product_type": "greek_yogurt",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "plain"
+      },
+      "rank": 89,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cooking-cream-10",
+      "name_he": "שמנת לבישול 10%",
+      "taxonomy_id": "dairy.cream.cooking",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cream",
+          "name_he": "שמנת וחמאה",
+          "slug": "dairy-cream"
+        },
+        {
+          "id": "dairy.cream.cooking",
+          "name_he": "שמנת לבישול",
+          "slug": null
+        }
+      ],
+      "product_type": "cooking_cream",
+      "base_unit": "100ml",
+      "critical_attrs": {
+        "fat_pct": 10
+      },
+      "rank": 90,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "eggs-xl",
+      "name_he": "ביצים XL",
+      "taxonomy_id": "dairy.eggs.chicken",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.eggs",
+          "name_he": "ביצים",
+          "slug": "dairy-eggs"
+        },
+        {
+          "id": "dairy.eggs.chicken",
+          "name_he": "ביצי תרנגולת",
+          "slug": null
+        }
+      ],
+      "product_type": "eggs_xl",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 91,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-breast-frozen",
+      "name_he": "חזה עוף קפוא",
+      "taxonomy_id": "meat.chicken.breast",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.breast",
+          "name_he": "חזה עוף",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_breast",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 92,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-leg-fresh",
+      "name_he": "כרעיים עוף טריים",
+      "taxonomy_id": "meat.chicken.legs",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.legs",
+          "name_he": "שוקיים וכרעיים",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_leg",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 93,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-whole-fresh",
+      "name_he": "עוף שלם טרי",
+      "taxonomy_id": "meat.chicken.whole",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.whole",
+          "name_he": "עוף שלם",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_whole",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 94,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "beef-ground-frozen",
+      "name_he": "בשר בקר טחון קפוא",
+      "taxonomy_id": "meat.beef.ground",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.beef",
+          "name_he": "בקר",
+          "slug": "meat-beef"
+        },
+        {
+          "id": "meat.beef.ground",
+          "name_he": "בקר טחון",
+          "slug": null
+        }
+      ],
+      "product_type": "beef_ground",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 95,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "salmon-fillet-frozen",
+      "name_he": "פילה סלמון קפוא",
+      "taxonomy_id": "fish.fillets.salmon",
+      "path": [
+        {
+          "id": "fish",
+          "name_he": "דגים",
+          "slug": "fish"
+        },
+        {
+          "id": "fish.fillets",
+          "name_he": "פילה דגים",
+          "slug": "fish-fillets"
+        },
+        {
+          "id": "fish.fillets.salmon",
+          "name_he": "פילה סלמון",
+          "slug": null
+        }
+      ],
+      "product_type": "salmon_fillet",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 96,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "hake-fillet-frozen",
+      "name_he": "פילה מרלוזה קפוא",
+      "taxonomy_id": "fish.fillets.white",
+      "path": [
+        {
+          "id": "fish",
+          "name_he": "דגים",
+          "slug": "fish"
+        },
+        {
+          "id": "fish.fillets",
+          "name_he": "פילה דגים",
+          "slug": "fish-fillets"
+        },
+        {
+          "id": "fish.fillets.white",
+          "name_he": "פילה דג לבן",
+          "slug": null
+        }
+      ],
+      "product_type": "hake_fillet",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 97,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "tahini-salad",
+      "name_he": "סלט טחינה",
+      "taxonomy_id": "deli.salads.tahini",
+      "path": [
+        {
+          "id": "deli",
+          "name_he": "מעדנייה וסלטים",
+          "slug": "deli"
+        },
+        {
+          "id": "deli.salads",
+          "name_he": "סלטים",
+          "slug": "deli-salads"
+        },
+        {
+          "id": "deli.salads.tahini",
+          "name_he": "סלט טחינה",
+          "slug": null
+        }
+      ],
+      "product_type": "tahini_salad",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 98,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "matbucha",
+      "name_he": "מטבוחה",
+      "taxonomy_id": "deli.salads.vegetable",
+      "path": [
+        {
+          "id": "deli",
+          "name_he": "מעדנייה וסלטים",
+          "slug": "deli"
+        },
+        {
+          "id": "deli.salads",
+          "name_he": "סלטים",
+          "slug": "deli-salads"
+        },
+        {
+          "id": "deli.salads.vegetable",
+          "name_he": "סלטי ירקות מבושלים",
+          "slug": null
+        }
+      ],
+      "product_type": "matbucha",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 99,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sweet-potato",
+      "name_he": "בטטה",
+      "taxonomy_id": "produce.vegetables.root",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.root",
+          "name_he": "ירקות שורש ובצלים",
+          "slug": null
+        }
+      ],
+      "product_type": "sweet_potato",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 100,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "eggplant",
+      "name_he": "חצילים",
+      "taxonomy_id": "produce.vegetables.fruiting",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.fruiting",
+          "name_he": "עגבניות, מלפפונים ופלפלים",
+          "slug": null
+        }
+      ],
+      "product_type": "eggplant",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 101,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "zucchini",
+      "name_he": "קישואים",
+      "taxonomy_id": "produce.vegetables.fruiting",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.fruiting",
+          "name_he": "עגבניות, מלפפונים ופלפלים",
+          "slug": null
+        }
+      ],
+      "product_type": "zucchini",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 102,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "garlic",
+      "name_he": "שום",
+      "taxonomy_id": "produce.vegetables.root",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.root",
+          "name_he": "ירקות שורש ובצלים",
+          "slug": null
+        }
+      ],
+      "product_type": "garlic",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 103,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "apple-green",
+      "name_he": "תפוחי עץ ירוקים",
+      "taxonomy_id": "produce.fruit.pome",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.pome",
+          "name_he": "תפוחים ואגסים",
+          "slug": null
+        }
+      ],
+      "product_type": "apple_green",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 104,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "orange",
+      "name_he": "תפוזים",
+      "taxonomy_id": "produce.fruit.citrus",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.citrus",
+          "name_he": "הדרים",
+          "slug": null
+        }
+      ],
+      "product_type": "orange",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 105,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "clementine",
+      "name_he": "קלמנטינות",
+      "taxonomy_id": "produce.fruit.citrus",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.citrus",
+          "name_he": "הדרים",
+          "slug": null
+        }
+      ],
+      "product_type": "clementine",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 106,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "watermelon",
+      "name_he": "אבטיח",
+      "taxonomy_id": "produce.fruit.melons",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.melons",
+          "name_he": "אבטיח ומלון",
+          "slug": null
+        }
+      ],
+      "product_type": "watermelon",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 107,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "mushrooms-fresh",
+      "name_he": "פטריות שמפיניון טריות",
+      "taxonomy_id": "produce.vegetables.mushrooms",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.mushrooms",
+          "name_he": "פטריות",
+          "slug": null
+        }
+      ],
+      "product_type": "mushrooms",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 108,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "coriander",
+      "name_he": "כוסברה",
+      "taxonomy_id": "produce.herbs.fresh",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.herbs",
+          "name_he": "עשבי תיבול",
+          "slug": "produce-herbs"
+        },
+        {
+          "id": "produce.herbs.fresh",
+          "name_he": "עשבי תיבול טריים",
+          "slug": null
+        }
+      ],
+      "product_type": "coriander",
+      "base_unit": "unit",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 109,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bread-rye",
+      "name_he": "לחם שיפון",
+      "taxonomy_id": "bakery.bread.loaves",
+      "path": [
+        {
+          "id": "bakery",
+          "name_he": "לחם ומאפים",
+          "slug": "bakery"
+        },
+        {
+          "id": "bakery.bread",
+          "name_he": "לחם",
+          "slug": "bakery-bread"
+        },
+        {
+          "id": "bakery.bread.loaves",
+          "name_he": "כיכרות לחם",
+          "slug": null
+        }
+      ],
+      "product_type": "bread_rye",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 110,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bread-multigrain",
+      "name_he": "לחם דגנים",
+      "taxonomy_id": "bakery.bread.loaves",
+      "path": [
+        {
+          "id": "bakery",
+          "name_he": "לחם ומאפים",
+          "slug": "bakery"
+        },
+        {
+          "id": "bakery.bread",
+          "name_he": "לחם",
+          "slug": "bakery-bread"
+        },
+        {
+          "id": "bakery.bread.loaves",
+          "name_he": "כיכרות לחם",
+          "slug": null
+        }
+      ],
+      "product_type": "bread_multigrain",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 111,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "rolls",
+      "name_he": "לחמניות",
+      "taxonomy_id": "bakery.bread.rolls",
+      "path": [
+        {
+          "id": "bakery",
+          "name_he": "לחם ומאפים",
+          "slug": "bakery"
+        },
+        {
+          "id": "bakery.bread",
+          "name_he": "לחם",
+          "slug": "bakery-bread"
+        },
+        {
+          "id": "bakery.bread.rolls",
+          "name_he": "לחמניות ובאגטים",
+          "slug": null
+        }
+      ],
+      "product_type": "rolls",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 112,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "pasta-fusilli",
+      "name_he": "פסטה פוזילי",
+      "taxonomy_id": "pantry.pasta.short",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.pasta",
+          "name_he": "פסטה ודגנים",
+          "slug": "pantry-pasta"
+        },
+        {
+          "id": "pantry.pasta.short",
+          "name_he": "פסטה קצרה",
+          "slug": null
+        }
+      ],
+      "product_type": "pasta_fusilli",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 113,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "couscous",
+      "name_he": "קוסקוס",
+      "taxonomy_id": "pantry.pasta.israeli",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.pasta",
+          "name_he": "פסטה ודגנים",
+          "slug": "pantry-pasta"
+        },
+        {
+          "id": "pantry.pasta.israeli",
+          "name_he": "פתיתים, קוסקוס ואטריות",
+          "slug": null
+        }
+      ],
+      "product_type": "couscous",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 114,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "egg-noodles",
+      "name_he": "אטריות ביצים",
+      "taxonomy_id": "pantry.pasta.israeli",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.pasta",
+          "name_he": "פסטה ודגנים",
+          "slug": "pantry-pasta"
+        },
+        {
+          "id": "pantry.pasta.israeli",
+          "name_he": "פתיתים, קוסקוס ואטריות",
+          "slug": null
+        }
+      ],
+      "product_type": "egg_noodles",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 115,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "red-lentils",
+      "name_he": "עדשים כתומות",
+      "taxonomy_id": "pantry.legumes.dry",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.legumes",
+          "name_he": "קטניות ודגנים",
+          "slug": "pantry-legumes"
+        },
+        {
+          "id": "pantry.legumes.dry",
+          "name_he": "קטניות יבשות",
+          "slug": null
+        }
+      ],
+      "product_type": "red_lentils",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 116,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "quinoa",
+      "name_he": "קינואה",
+      "taxonomy_id": "pantry.legumes.grains",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.legumes",
+          "name_he": "קטניות ודגנים",
+          "slug": "pantry-legumes"
+        },
+        {
+          "id": "pantry.legumes.grains",
+          "name_he": "דגנים",
+          "slug": null
+        }
+      ],
+      "product_type": "quinoa",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 117,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "breadcrumbs",
+      "name_he": "פירורי לחם",
+      "taxonomy_id": "pantry.baking.aids",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.baking",
+          "name_he": "אפייה",
+          "slug": "pantry-baking"
+        },
+        {
+          "id": "pantry.baking.aids",
+          "name_he": "חומרי אפייה",
+          "slug": null
+        }
+      ],
+      "product_type": "breadcrumbs",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 118,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sunflower-oil",
+      "name_he": "שמן חמניות",
+      "taxonomy_id": "pantry.oils.vegetable",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.oils",
+          "name_he": "שמנים",
+          "slug": "pantry-oils"
+        },
+        {
+          "id": "pantry.oils.vegetable",
+          "name_he": "שמן צמחי",
+          "slug": null
+        }
+      ],
+      "product_type": "sunflower_oil",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 119,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "peanut-butter",
+      "name_he": "חמאת בוטנים",
+      "taxonomy_id": "pantry.spreads.sweet",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.spreads",
+          "name_he": "ממרחים",
+          "slug": "pantry-spreads"
+        },
+        {
+          "id": "pantry.spreads.sweet",
+          "name_he": "ממרחים מתוקים",
+          "slug": null
+        }
+      ],
+      "product_type": "peanut_butter",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 120,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "honey",
+      "name_he": "דבש",
+      "taxonomy_id": "pantry.spreads.sweet",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.spreads",
+          "name_he": "ממרחים",
+          "slug": "pantry-spreads"
+        },
+        {
+          "id": "pantry.spreads.sweet",
+          "name_he": "ממרחים מתוקים",
+          "slug": null
+        }
+      ],
+      "product_type": "honey",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 121,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "soy-sauce",
+      "name_he": "רוטב סויה",
+      "taxonomy_id": "pantry.condiments.sauces",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.sauces",
+          "name_he": "רטבים",
+          "slug": null
+        }
+      ],
+      "product_type": "soy_sauce",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 122,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "black-pepper",
+      "name_he": "פלפל שחור",
+      "taxonomy_id": "pantry.condiments.spices",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.spices",
+          "name_he": "תבלינים",
+          "slug": null
+        }
+      ],
+      "product_type": "black_pepper",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 123,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sweet-paprika",
+      "name_he": "פפריקה מתוקה",
+      "taxonomy_id": "pantry.condiments.spices",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.spices",
+          "name_he": "תבלינים",
+          "slug": null
+        }
+      ],
+      "product_type": "sweet_paprika",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 124,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "rolled-oats",
+      "name_he": "שיבולת שועל",
+      "taxonomy_id": "pantry.breakfast.cereal",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.breakfast",
+          "name_he": "דגני בוקר",
+          "slug": "pantry-breakfast"
+        },
+        {
+          "id": "pantry.breakfast.cereal",
+          "name_he": "דגני בוקר",
+          "slug": null
+        }
+      ],
+      "product_type": "rolled_oats",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 125,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "granola",
+      "name_he": "גרנולה",
+      "taxonomy_id": "pantry.breakfast.cereal",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.breakfast",
+          "name_he": "דגני בוקר",
+          "slug": "pantry-breakfast"
+        },
+        {
+          "id": "pantry.breakfast.cereal",
+          "name_he": "דגני בוקר",
+          "slug": null
+        }
+      ],
+      "product_type": "granola",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 126,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "jam-strawberry",
+      "name_he": "ריבת תות",
+      "taxonomy_id": "pantry.spreads.sweet",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.spreads",
+          "name_he": "ממרחים",
+          "slug": "pantry-spreads"
+        },
+        {
+          "id": "pantry.spreads.sweet",
+          "name_he": "ממרחים מתוקים",
+          "slug": null
+        }
+      ],
+      "product_type": "jam",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "strawberry"
+      },
+      "rank": 127,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chickpeas-dry",
+      "name_he": "גרגרי חומוס יבשים",
+      "taxonomy_id": "pantry.legumes.dry",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.legumes",
+          "name_he": "קטניות ודגנים",
+          "slug": "pantry-legumes"
+        },
+        {
+          "id": "pantry.legumes.dry",
+          "name_he": "קטניות יבשות",
+          "slug": null
+        }
+      ],
+      "product_type": "chickpeas",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "dry"
+      },
+      "rank": 128,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "tuna-in-water",
+      "name_he": "טונה במים",
+      "taxonomy_id": "canned.fish.tuna",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.fish",
+          "name_he": "שימורי דגים",
+          "slug": "canned-fish"
+        },
+        {
+          "id": "canned.fish.tuna",
+          "name_he": "טונה",
+          "slug": null
+        }
+      ],
+      "product_type": "tuna_in_water",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 129,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chickpeas-canned",
+      "name_he": "גרגרי חומוס בשימורים",
+      "taxonomy_id": "canned.vegetables.legumes",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.vegetables",
+          "name_he": "שימורי ירקות",
+          "slug": "canned-vegetables"
+        },
+        {
+          "id": "canned.vegetables.legumes",
+          "name_he": "שימורי קטניות ותירס",
+          "slug": null
+        }
+      ],
+      "product_type": "chickpeas",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "canned"
+      },
+      "rank": 130,
+      "has_page": true,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "olives-green",
+      "name_he": "זיתים ירוקים",
+      "taxonomy_id": "canned.vegetables.pickles",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.vegetables",
+          "name_he": "שימורי ירקות",
+          "slug": "canned-vegetables"
+        },
+        {
+          "id": "canned.vegetables.pickles",
+          "name_he": "חמוצים וזיתים",
+          "slug": null
+        }
+      ],
+      "product_type": "olives_green",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 131,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "crushed-tomatoes",
+      "name_he": "עגבניות מרוסקות",
+      "taxonomy_id": "canned.tomatoes.paste",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.tomatoes",
+          "name_he": "מוצרי עגבניות",
+          "slug": "canned-tomatoes"
+        },
+        {
+          "id": "canned.tomatoes.paste",
+          "name_he": "רסק ועגבניות מרוסקות",
+          "slug": null
+        }
+      ],
+      "product_type": "crushed_tomatoes",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 132,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "peas-frozen",
+      "name_he": "אפונה קפואה",
+      "taxonomy_id": "frozen.vegetables.single",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.vegetables",
+          "name_he": "ירקות קפואים",
+          "slug": "frozen-vegetables"
+        },
+        {
+          "id": "frozen.vegetables.single",
+          "name_he": "ירק קפוא",
+          "slug": null
+        }
+      ],
+      "product_type": "peas",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 133,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "french-fries-frozen",
+      "name_he": "צ'יפס קפוא",
+      "taxonomy_id": "frozen.vegetables.potato",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.vegetables",
+          "name_he": "ירקות קפואים",
+          "slug": "frozen-vegetables"
+        },
+        {
+          "id": "frozen.vegetables.potato",
+          "name_he": "צ'יפס ומוצרי תפוחי אדמה",
+          "slug": null
+        }
+      ],
+      "product_type": "french_fries",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 134,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-nuggets",
+      "name_he": "נאגטס עוף",
+      "taxonomy_id": "frozen.ready.chicken",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.ready",
+          "name_he": "מוכן לחימום",
+          "slug": "frozen-ready"
+        },
+        {
+          "id": "frozen.ready.chicken",
+          "name_he": "מוצרי עוף קפואים",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_nuggets",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 135,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "burekas-cheese",
+      "name_he": "בורקס גבינה קפוא",
+      "taxonomy_id": "frozen.ready.dough",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.ready",
+          "name_he": "מוכן לחימום",
+          "slug": "frozen-ready"
+        },
+        {
+          "id": "frozen.ready.dough",
+          "name_he": "בצקים ומאפים קפואים",
+          "slug": null
+        }
+      ],
+      "product_type": "burekas",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "cheese"
+      },
+      "rank": 136,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "soda-water",
+      "name_he": "מים מוגזים (סודה)",
+      "taxonomy_id": "beverages.water.sparkling",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.water",
+          "name_he": "מים",
+          "slug": "beverages-water"
+        },
+        {
+          "id": "beverages.water.sparkling",
+          "name_he": "מים מוגזים וטעמים",
+          "slug": null
+        }
+      ],
+      "product_type": "soda_water",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 137,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cola-zero",
+      "name_he": "קולה זירו",
+      "taxonomy_id": "beverages.soft_drinks.cola",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.soft_drinks",
+          "name_he": "משקאות קלים",
+          "slug": "beverages-soft_drinks"
+        },
+        {
+          "id": "beverages.soft_drinks.cola",
+          "name_he": "קולה",
+          "slug": null
+        }
+      ],
+      "product_type": "cola_zero",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 138,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "orange-juice-chilled",
+      "name_he": "מיץ תפוזים טבעי (מקורר)",
+      "taxonomy_id": "beverages.juice.chilled",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.juice",
+          "name_he": "מיצים ותרכיזים",
+          "slug": "beverages-juice"
+        },
+        {
+          "id": "beverages.juice.chilled",
+          "name_he": "מיץ מקורר",
+          "slug": null
+        }
+      ],
+      "product_type": "orange_juice_chilled",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 139,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "raspberry-concentrate",
+      "name_he": "תרכיז פטל",
+      "taxonomy_id": "beverages.juice.concentrate",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.juice",
+          "name_he": "מיצים ותרכיזים",
+          "slug": "beverages-juice"
+        },
+        {
+          "id": "beverages.juice.concentrate",
+          "name_he": "תרכיזים",
+          "slug": null
+        }
+      ],
+      "product_type": "raspberry_concentrate",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 140,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "soy-drink",
+      "name_he": "משקה סויה",
+      "taxonomy_id": "beverages.plant_drinks.soy",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.plant_drinks",
+          "name_he": "משקאות צמחיים",
+          "slug": "beverages-plant_drinks"
+        },
+        {
+          "id": "beverages.plant_drinks.soy",
+          "name_he": "משקה סויה",
+          "slug": null
+        }
+      ],
+      "product_type": "soy_drink",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 141,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "almond-drink",
+      "name_he": "משקה שקדים",
+      "taxonomy_id": "beverages.plant_drinks.almond",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.plant_drinks",
+          "name_he": "משקאות צמחיים",
+          "slug": "beverages-plant_drinks"
+        },
+        {
+          "id": "beverages.plant_drinks.almond",
+          "name_he": "משקה שקדים",
+          "slug": null
+        }
+      ],
+      "product_type": "almond_drink",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 142,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "oat-drink",
+      "name_he": "משקה שיבולת שועל",
+      "taxonomy_id": "beverages.plant_drinks.oat",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.plant_drinks",
+          "name_he": "משקאות צמחיים",
+          "slug": "beverages-plant_drinks"
+        },
+        {
+          "id": "beverages.plant_drinks.oat",
+          "name_he": "משקה שיבולת שועל",
+          "slug": null
+        }
+      ],
+      "product_type": "oat_drink",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 143,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "pretzels",
+      "name_he": "בייגלה",
+      "taxonomy_id": "snacks.salty.chips",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.salty",
+          "name_he": "חטיפים מלוחים",
+          "slug": "snacks-salty"
+        },
+        {
+          "id": "snacks.salty.chips",
+          "name_he": "צ'יפס ובייגלה",
+          "slug": null
+        }
+      ],
+      "product_type": "pretzels",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 144,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chocolate-dark-bar",
+      "name_he": "שוקולד מריר",
+      "taxonomy_id": "snacks.sweet.chocolate",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.sweet",
+          "name_he": "מתוקים",
+          "slug": "snacks-sweet"
+        },
+        {
+          "id": "snacks.sweet.chocolate",
+          "name_he": "שוקולד",
+          "slug": null
+        }
+      ],
+      "product_type": "chocolate_bar",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "dark"
+      },
+      "rank": 145,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "wafers-chocolate",
+      "name_he": "ופלים בטעם שוקולד",
+      "taxonomy_id": "snacks.sweet.biscuits",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.sweet",
+          "name_he": "מתוקים",
+          "slug": "snacks-sweet"
+        },
+        {
+          "id": "snacks.sweet.biscuits",
+          "name_he": "ביסקוויטים וופלים",
+          "slug": null
+        }
+      ],
+      "product_type": "wafers",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "chocolate"
+      },
+      "rank": 146,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "rice-cakes",
+      "name_he": "פריכיות אורז",
+      "taxonomy_id": "snacks.crackers.all",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.crackers",
+          "name_he": "פריכיות וקרקרים",
+          "slug": "snacks-crackers"
+        },
+        {
+          "id": "snacks.crackers.all",
+          "name_he": "פריכיות וקרקרים",
+          "slug": null
+        }
+      ],
+      "product_type": "rice_cakes",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 147,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "wet-wipes",
+      "name_he": "מגבונים לחים",
+      "taxonomy_id": "baby.hygiene.wipes",
+      "path": [
+        {
+          "id": "baby",
+          "name_he": "תינוקות",
+          "slug": "baby"
+        },
+        {
+          "id": "baby.hygiene",
+          "name_he": "היגיינת תינוק",
+          "slug": "baby-hygiene"
+        },
+        {
+          "id": "baby.hygiene.wipes",
+          "name_he": "מגבונים",
+          "slug": null
+        }
+      ],
+      "product_type": "wet_wipes",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 148,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "dishwasher-tablets",
+      "name_he": "טבליות למדיח כלים",
+      "taxonomy_id": "cleaning.dishes.dishwasher",
+      "path": [
+        {
+          "id": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית",
+          "slug": "cleaning"
+        },
+        {
+          "id": "cleaning.dishes",
+          "name_he": "כלים",
+          "slug": "cleaning-dishes"
+        },
+        {
+          "id": "cleaning.dishes.dishwasher",
+          "name_he": "מדיח כלים",
+          "slug": null
+        }
+      ],
+      "product_type": "dishwasher_tablets",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 149,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sponges",
+      "name_he": "ספוגי כלים",
+      "taxonomy_id": "cleaning.dishes.sponges",
+      "path": [
+        {
+          "id": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית",
+          "slug": "cleaning"
+        },
+        {
+          "id": "cleaning.dishes",
+          "name_he": "כלים",
+          "slug": "cleaning-dishes"
+        },
+        {
+          "id": "cleaning.dishes.sponges",
+          "name_he": "ספוגים",
+          "slug": null
+        }
+      ],
+      "product_type": "sponges",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 150,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "floor-cleaner",
+      "name_he": "נוזל לניקוי רצפות",
+      "taxonomy_id": "cleaning.surfaces.floor",
+      "path": [
+        {
+          "id": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית",
+          "slug": "cleaning"
+        },
+        {
+          "id": "cleaning.surfaces",
+          "name_he": "ניקוי משטחים",
+          "slug": "cleaning-surfaces"
+        },
+        {
+          "id": "cleaning.surfaces.floor",
+          "name_he": "ניקוי רצפות",
+          "slug": null
+        }
+      ],
+      "product_type": "floor_cleaner",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 151,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "aluminum-foil",
+      "name_he": "נייר כסף",
+      "taxonomy_id": "paper.kitchen.foil",
+      "path": [
+        {
+          "id": "paper",
+          "name_he": "נייר וחד-פעמי",
+          "slug": "paper"
+        },
+        {
+          "id": "paper.kitchen",
+          "name_he": "עטיפה ואפייה",
+          "slug": "paper-kitchen"
+        },
+        {
+          "id": "paper.kitchen.foil",
+          "name_he": "נייר כסף",
+          "slug": null
+        }
+      ],
+      "product_type": "aluminum_foil",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 152,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "toothpaste",
+      "name_he": "משחת שיניים",
+      "taxonomy_id": "toiletries.oral.toothpaste",
+      "path": [
+        {
+          "id": "toiletries",
+          "name_he": "טיפוח והיגיינה",
+          "slug": "toiletries"
+        },
+        {
+          "id": "toiletries.oral",
+          "name_he": "היגיינת הפה",
+          "slug": "toiletries-oral"
+        },
+        {
+          "id": "toiletries.oral.toothpaste",
+          "name_he": "משחת שיניים",
+          "slug": null
+        }
+      ],
+      "product_type": "toothpaste",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 153,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "shampoo",
+      "name_he": "שמפו",
+      "taxonomy_id": "toiletries.hair.shampoo",
+      "path": [
+        {
+          "id": "toiletries",
+          "name_he": "טיפוח והיגיינה",
+          "slug": "toiletries"
+        },
+        {
+          "id": "toiletries.hair",
+          "name_he": "שיער",
+          "slug": "toiletries-hair"
+        },
+        {
+          "id": "toiletries.hair.shampoo",
+          "name_he": "שמפו",
+          "slug": null
+        }
+      ],
+      "product_type": "shampoo",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 154,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "hand-soap",
+      "name_he": "סבון ידיים נוזלי",
+      "taxonomy_id": "toiletries.body.soap",
+      "path": [
+        {
+          "id": "toiletries",
+          "name_he": "טיפוח והיגיינה",
+          "slug": "toiletries"
+        },
+        {
+          "id": "toiletries.body",
+          "name_he": "רחצה",
+          "slug": "toiletries-body"
+        },
+        {
+          "id": "toiletries.body.soap",
+          "name_he": "סבון",
+          "slug": null
+        }
+      ],
+      "product_type": "hand_soap",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 155,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "milk-long-life-1",
+      "name_he": "חלב עמיד 1%",
+      "taxonomy_id": "dairy.milk.long_life",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.milk",
+          "name_he": "חלב ומשקאות חלב",
+          "slug": "dairy-milk"
+        },
+        {
+          "id": "dairy.milk.long_life",
+          "name_he": "חלב עמיד",
+          "slug": null
+        }
+      ],
+      "product_type": "milk_long_life",
+      "base_unit": "100ml",
+      "critical_attrs": {
+        "fat_pct": 1
+      },
+      "rank": 156,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "white-cheese-3",
+      "name_he": "גבינה לבנה 3%",
+      "taxonomy_id": "dairy.cheese.white",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.white",
+          "name_he": "גבינה לבנה",
+          "slug": null
+        }
+      ],
+      "product_type": "white_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 3
+      },
+      "rank": 157,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bulgarian-cheese-24",
+      "name_he": "גבינה בולגרית 24%",
+      "taxonomy_id": "dairy.cheese.brined",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.brined",
+          "name_he": "גבינות מלוחות",
+          "slug": null
+        }
+      ],
+      "product_type": "bulgarian_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 24
+      },
+      "rank": 158,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "safed-cheese-5",
+      "name_he": "גבינה צפתית 5%",
+      "taxonomy_id": "dairy.cheese.brined",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cheese",
+          "name_he": "גבינות",
+          "slug": "dairy-cheese"
+        },
+        {
+          "id": "dairy.cheese.brined",
+          "name_he": "גבינות מלוחות",
+          "slug": null
+        }
+      ],
+      "product_type": "safed_cheese",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "fat_pct": 5
+      },
+      "rank": 159,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "yogurt-peach",
+      "name_he": "יוגורט אפרסק",
+      "taxonomy_id": "dairy.yogurt.fruit",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.yogurt",
+          "name_he": "יוגורט ומעדנים",
+          "slug": "dairy-yogurt"
+        },
+        {
+          "id": "dairy.yogurt.fruit",
+          "name_he": "יוגורט פירות",
+          "slug": null
+        }
+      ],
+      "product_type": "yogurt_fruit",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "peach"
+      },
+      "rank": 160,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "dessert-chocolate",
+      "name_he": "מעדן חלב שוקולד",
+      "taxonomy_id": "dairy.yogurt.desserts",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.yogurt",
+          "name_he": "יוגורט ומעדנים",
+          "slug": "dairy-yogurt"
+        },
+        {
+          "id": "dairy.yogurt.desserts",
+          "name_he": "מעדני חלב",
+          "slug": null
+        }
+      ],
+      "product_type": "dairy_dessert",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "chocolate"
+      },
+      "rank": 161,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "whipping-cream-38",
+      "name_he": "שמנת מתוקה 38%",
+      "taxonomy_id": "dairy.cream.sweet",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cream",
+          "name_he": "שמנת וחמאה",
+          "slug": "dairy-cream"
+        },
+        {
+          "id": "dairy.cream.sweet",
+          "name_he": "שמנת מתוקה",
+          "slug": null
+        }
+      ],
+      "product_type": "whipping_cream",
+      "base_unit": "100ml",
+      "critical_attrs": {
+        "fat_pct": 38
+      },
+      "rank": 162,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "eggs-free-range-l",
+      "name_he": "ביצי חופש L",
+      "taxonomy_id": "dairy.eggs.chicken",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.eggs",
+          "name_he": "ביצים",
+          "slug": "dairy-eggs"
+        },
+        {
+          "id": "dairy.eggs.chicken",
+          "name_he": "ביצי תרנגולת",
+          "slug": null
+        }
+      ],
+      "product_type": "eggs_free_range_l",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 163,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-thigh-boneless-frozen",
+      "name_he": "פרגיות קפואות",
+      "taxonomy_id": "meat.chicken.thigh",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.thigh",
+          "name_he": "פרגיות וירכיים",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_thigh_boneless",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 164,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-whole-frozen",
+      "name_he": "עוף שלם קפוא",
+      "taxonomy_id": "meat.chicken.whole",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.whole",
+          "name_he": "עוף שלם",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_whole",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 165,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-wings-fresh",
+      "name_he": "כנפיים עוף טריות",
+      "taxonomy_id": "meat.chicken.wings",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.wings",
+          "name_he": "כנפיים",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_wings",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 166,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-ground-fresh",
+      "name_he": "עוף טחון טרי",
+      "taxonomy_id": "meat.chicken.ground",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.ground",
+          "name_he": "עוף טחון",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_ground",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 167,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "chicken-liver-frozen",
+      "name_he": "כבד עוף קפוא",
+      "taxonomy_id": "meat.chicken.offal",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.chicken",
+          "name_he": "עוף",
+          "slug": "meat-chicken"
+        },
+        {
+          "id": "meat.chicken.offal",
+          "name_he": "כבד ופנימיים",
+          "slug": null
+        }
+      ],
+      "product_type": "chicken_liver",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 168,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "beef-shoulder-fresh",
+      "name_he": "צלי כתף בקר טרי",
+      "taxonomy_id": "meat.beef.cuts",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.beef",
+          "name_he": "בקר",
+          "slug": "meat-beef"
+        },
+        {
+          "id": "meat.beef.cuts",
+          "name_he": "נתחי בקר",
+          "slug": null
+        }
+      ],
+      "product_type": "beef_shoulder",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 169,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "beef-goulash-fresh",
+      "name_he": "בשר בקר לגולאש טרי",
+      "taxonomy_id": "meat.beef.cuts",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.beef",
+          "name_he": "בקר",
+          "slug": "meat-beef"
+        },
+        {
+          "id": "meat.beef.cuts",
+          "name_he": "נתחי בקר",
+          "slug": null
+        }
+      ],
+      "product_type": "beef_goulash",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 170,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "turkey-breast-fresh",
+      "name_he": "חזה הודו טרי",
+      "taxonomy_id": "meat.turkey.breast",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.turkey",
+          "name_he": "הודו",
+          "slug": "meat-turkey"
+        },
+        {
+          "id": "meat.turkey.breast",
+          "name_he": "חזה הודו",
+          "slug": null
+        }
+      ],
+      "product_type": "turkey_breast",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 171,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "tilapia-fillet-frozen",
+      "name_he": "פילה אמנון קפוא",
+      "taxonomy_id": "fish.fillets.white",
+      "path": [
+        {
+          "id": "fish",
+          "name_he": "דגים",
+          "slug": "fish"
+        },
+        {
+          "id": "fish.fillets",
+          "name_he": "פילה דגים",
+          "slug": "fish-fillets"
+        },
+        {
+          "id": "fish.fillets.white",
+          "name_he": "פילה דג לבן",
+          "slug": null
+        }
+      ],
+      "product_type": "tilapia_fillet",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 172,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sea-bream-fresh",
+      "name_he": "דניס שלם טרי",
+      "taxonomy_id": "fish.whole.sea_bream",
+      "path": [
+        {
+          "id": "fish",
+          "name_he": "דגים",
+          "slug": "fish"
+        },
+        {
+          "id": "fish.whole",
+          "name_he": "דגים שלמים",
+          "slug": "fish-whole"
+        },
+        {
+          "id": "fish.whole.sea_bream",
+          "name_he": "דניס",
+          "slug": null
+        }
+      ],
+      "product_type": "sea_bream",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 173,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "smoked-salmon-sliced",
+      "name_he": "סלמון מעושן פרוס",
+      "taxonomy_id": "fish.smoked.salmon",
+      "path": [
+        {
+          "id": "fish",
+          "name_he": "דגים",
+          "slug": "fish"
+        },
+        {
+          "id": "fish.smoked",
+          "name_he": "דגים מעושנים",
+          "slug": "fish-smoked"
+        },
+        {
+          "id": "fish.smoked.salmon",
+          "name_he": "סלמון מעושן",
+          "slug": null
+        }
+      ],
+      "product_type": "smoked_salmon",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 174,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "eggplant-mayo-salad",
+      "name_he": "סלט חצילים במיונז",
+      "taxonomy_id": "deli.salads.vegetable",
+      "path": [
+        {
+          "id": "deli",
+          "name_he": "מעדנייה וסלטים",
+          "slug": "deli"
+        },
+        {
+          "id": "deli.salads",
+          "name_he": "סלטים",
+          "slug": "deli-salads"
+        },
+        {
+          "id": "deli.salads.vegetable",
+          "name_he": "סלטי ירקות מבושלים",
+          "slug": null
+        }
+      ],
+      "product_type": "eggplant_mayo_salad",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 175,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cabbage",
+      "name_he": "כרוב לבן",
+      "taxonomy_id": "produce.vegetables.leafy",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.leafy",
+          "name_he": "ירקות עלים וכרוביים",
+          "slug": null
+        }
+      ],
+      "product_type": "cabbage",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 176,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cauliflower",
+      "name_he": "כרובית",
+      "taxonomy_id": "produce.vegetables.leafy",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.leafy",
+          "name_he": "ירקות עלים וכרוביים",
+          "slug": null
+        }
+      ],
+      "product_type": "cauliflower",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 177,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "broccoli-fresh",
+      "name_he": "ברוקולי טרי",
+      "taxonomy_id": "produce.vegetables.leafy",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.vegetables",
+          "name_he": "ירקות",
+          "slug": "produce-vegetables"
+        },
+        {
+          "id": "produce.vegetables.leafy",
+          "name_he": "ירקות עלים וכרוביים",
+          "slug": null
+        }
+      ],
+      "product_type": "broccoli",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 178,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "pear",
+      "name_he": "אגסים",
+      "taxonomy_id": "produce.fruit.pome",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.pome",
+          "name_he": "תפוחים ואגסים",
+          "slug": null
+        }
+      ],
+      "product_type": "pear",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 179,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "grapes",
+      "name_he": "ענבים",
+      "taxonomy_id": "produce.fruit.berries",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.berries",
+          "name_he": "ענבים ופירות יער",
+          "slug": null
+        }
+      ],
+      "product_type": "grapes",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 180,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "melon",
+      "name_he": "מלון",
+      "taxonomy_id": "produce.fruit.melons",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.melons",
+          "name_he": "אבטיח ומלון",
+          "slug": null
+        }
+      ],
+      "product_type": "melon",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 181,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "strawberries-fresh",
+      "name_he": "תותים טריים",
+      "taxonomy_id": "produce.fruit.berries",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.berries",
+          "name_he": "ענבים ופירות יער",
+          "slug": null
+        }
+      ],
+      "product_type": "strawberries",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 182,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "dill",
+      "name_he": "שמיר",
+      "taxonomy_id": "produce.herbs.fresh",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.herbs",
+          "name_he": "עשבי תיבול",
+          "slug": "produce-herbs"
+        },
+        {
+          "id": "produce.herbs.fresh",
+          "name_he": "עשבי תיבול טריים",
+          "slug": null
+        }
+      ],
+      "product_type": "dill",
+      "base_unit": "unit",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 183,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "green-onion",
+      "name_he": "בצל ירוק",
+      "taxonomy_id": "produce.herbs.fresh",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.herbs",
+          "name_he": "עשבי תיבול",
+          "slug": "produce-herbs"
+        },
+        {
+          "id": "produce.herbs.fresh",
+          "name_he": "עשבי תיבול טריים",
+          "slug": null
+        }
+      ],
+      "product_type": "green_onion",
+      "base_unit": "unit",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 184,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bread-spelt",
+      "name_he": "לחם כוסמין",
+      "taxonomy_id": "bakery.bread.loaves",
+      "path": [
+        {
+          "id": "bakery",
+          "name_he": "לחם ומאפים",
+          "slug": "bakery"
+        },
+        {
+          "id": "bakery.bread",
+          "name_he": "לחם",
+          "slug": "bakery-bread"
+        },
+        {
+          "id": "bakery.bread.loaves",
+          "name_he": "כיכרות לחם",
+          "slug": null
+        }
+      ],
+      "product_type": "bread_spelt",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 185,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "baguette",
+      "name_he": "באגט",
+      "taxonomy_id": "bakery.bread.rolls",
+      "path": [
+        {
+          "id": "bakery",
+          "name_he": "לחם ומאפים",
+          "slug": "bakery"
+        },
+        {
+          "id": "bakery.bread",
+          "name_he": "לחם",
+          "slug": "bakery-bread"
+        },
+        {
+          "id": "bakery.bread.rolls",
+          "name_he": "לחמניות ובאגטים",
+          "slug": null
+        }
+      ],
+      "product_type": "baguette",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 186,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "rice-jasmine",
+      "name_he": "אורז יסמין",
+      "taxonomy_id": "pantry.rice.white",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.rice",
+          "name_he": "אורז",
+          "slug": "pantry-rice"
+        },
+        {
+          "id": "pantry.rice.white",
+          "name_he": "אורז לבן",
+          "slug": null
+        }
+      ],
+      "product_type": "rice_jasmine",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 187,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "rice-round",
+      "name_he": "אורז עגול",
+      "taxonomy_id": "pantry.rice.white",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.rice",
+          "name_he": "אורז",
+          "slug": "pantry-rice"
+        },
+        {
+          "id": "pantry.rice.white",
+          "name_he": "אורז לבן",
+          "slug": null
+        }
+      ],
+      "product_type": "rice_round",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 188,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "rice-brown",
+      "name_he": "אורז מלא",
+      "taxonomy_id": "pantry.rice.brown",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.rice",
+          "name_he": "אורז",
+          "slug": "pantry-rice"
+        },
+        {
+          "id": "pantry.rice.brown",
+          "name_he": "אורז מלא",
+          "slug": null
+        }
+      ],
+      "product_type": "rice_brown",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 189,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "white-beans",
+      "name_he": "שעועית לבנה יבשה",
+      "taxonomy_id": "pantry.legumes.dry",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.legumes",
+          "name_he": "קטניות ודגנים",
+          "slug": "pantry-legumes"
+        },
+        {
+          "id": "pantry.legumes.dry",
+          "name_he": "קטניות יבשות",
+          "slug": null
+        }
+      ],
+      "product_type": "white_beans",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 190,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bulgur",
+      "name_he": "בורגול",
+      "taxonomy_id": "pantry.legumes.grains",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.legumes",
+          "name_he": "קטניות ודגנים",
+          "slug": "pantry-legumes"
+        },
+        {
+          "id": "pantry.legumes.grains",
+          "name_he": "דגנים",
+          "slug": null
+        }
+      ],
+      "product_type": "bulgur",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 191,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "flour-whole-wheat",
+      "name_he": "קמח מלא",
+      "taxonomy_id": "pantry.baking.flour",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.baking",
+          "name_he": "אפייה",
+          "slug": "pantry-baking"
+        },
+        {
+          "id": "pantry.baking.flour",
+          "name_he": "קמח",
+          "slug": null
+        }
+      ],
+      "product_type": "flour_whole_wheat",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 192,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sugar-brown",
+      "name_he": "סוכר חום",
+      "taxonomy_id": "pantry.baking.sugar",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.baking",
+          "name_he": "אפייה",
+          "slug": "pantry-baking"
+        },
+        {
+          "id": "pantry.baking.sugar",
+          "name_he": "סוכר",
+          "slug": null
+        }
+      ],
+      "product_type": "sugar_brown",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 193,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "baking-powder",
+      "name_he": "אבקת אפייה",
+      "taxonomy_id": "pantry.baking.aids",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.baking",
+          "name_he": "אפייה",
+          "slug": "pantry-baking"
+        },
+        {
+          "id": "pantry.baking.aids",
+          "name_he": "חומרי אפייה",
+          "slug": null
+        }
+      ],
+      "product_type": "baking_powder",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 194,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "vanilla-sugar",
+      "name_he": "סוכר וניל",
+      "taxonomy_id": "pantry.baking.aids",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.baking",
+          "name_he": "אפייה",
+          "slug": "pantry-baking"
+        },
+        {
+          "id": "pantry.baking.aids",
+          "name_he": "חומרי אפייה",
+          "slug": null
+        }
+      ],
+      "product_type": "vanilla_sugar",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 195,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "dry-yeast",
+      "name_he": "שמרים יבשים",
+      "taxonomy_id": "pantry.baking.aids",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.baking",
+          "name_he": "אפייה",
+          "slug": "pantry-baking"
+        },
+        {
+          "id": "pantry.baking.aids",
+          "name_he": "חומרי אפייה",
+          "slug": null
+        }
+      ],
+      "product_type": "dry_yeast",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 196,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "soybean-oil",
+      "name_he": "שמן סויה",
+      "taxonomy_id": "pantry.oils.vegetable",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.oils",
+          "name_he": "שמנים",
+          "slug": "pantry-oils"
+        },
+        {
+          "id": "pantry.oils.vegetable",
+          "name_he": "שמן צמחי",
+          "slug": null
+        }
+      ],
+      "product_type": "soybean_oil",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 197,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "silan",
+      "name_he": "סילאן",
+      "taxonomy_id": "pantry.spreads.sweet",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.spreads",
+          "name_he": "ממרחים",
+          "slug": "pantry-spreads"
+        },
+        {
+          "id": "pantry.spreads.sweet",
+          "name_he": "ממרחים מתוקים",
+          "slug": null
+        }
+      ],
+      "product_type": "silan",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 198,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "mayonnaise-light",
+      "name_he": "מיונז לייט",
+      "taxonomy_id": "pantry.condiments.sauces",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.sauces",
+          "name_he": "רטבים",
+          "slug": null
+        }
+      ],
+      "product_type": "mayonnaise_light",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 199,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "mustard",
+      "name_he": "חרדל",
+      "taxonomy_id": "pantry.condiments.sauces",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.sauces",
+          "name_he": "רטבים",
+          "slug": null
+        }
+      ],
+      "product_type": "mustard",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 200,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "vinegar",
+      "name_he": "חומץ",
+      "taxonomy_id": "pantry.condiments.sauces",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.sauces",
+          "name_he": "רטבים",
+          "slug": null
+        }
+      ],
+      "product_type": "vinegar",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 201,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cumin",
+      "name_he": "כמון",
+      "taxonomy_id": "pantry.condiments.spices",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.spices",
+          "name_he": "תבלינים",
+          "slug": null
+        }
+      ],
+      "product_type": "cumin",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 202,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "turmeric",
+      "name_he": "כורכום",
+      "taxonomy_id": "pantry.condiments.spices",
+      "path": [
+        {
+          "id": "pantry",
+          "name_he": "מזון יבש ובישול",
+          "slug": "pantry"
+        },
+        {
+          "id": "pantry.condiments",
+          "name_he": "רטבים ותבלינים",
+          "slug": "pantry-condiments"
+        },
+        {
+          "id": "pantry.condiments.spices",
+          "name_he": "תבלינים",
+          "slug": null
+        }
+      ],
+      "product_type": "turmeric",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 203,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "olives-black",
+      "name_he": "זיתים שחורים",
+      "taxonomy_id": "canned.vegetables.pickles",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.vegetables",
+          "name_he": "שימורי ירקות",
+          "slug": "canned-vegetables"
+        },
+        {
+          "id": "canned.vegetables.pickles",
+          "name_he": "חמוצים וזיתים",
+          "slug": null
+        }
+      ],
+      "product_type": "olives_black",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 204,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "mushrooms-canned",
+      "name_he": "פטריות בשימורים",
+      "taxonomy_id": "canned.vegetables.other",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.vegetables",
+          "name_he": "שימורי ירקות",
+          "slug": "canned-vegetables"
+        },
+        {
+          "id": "canned.vegetables.other",
+          "name_he": "שימורי ירקות אחרים",
+          "slug": null
+        }
+      ],
+      "product_type": "canned_mushrooms",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 205,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "mixed-vegetables-frozen",
+      "name_he": "תערובת ירקות קפואה",
+      "taxonomy_id": "frozen.vegetables.single",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.vegetables",
+          "name_he": "ירקות קפואים",
+          "slug": "frozen-vegetables"
+        },
+        {
+          "id": "frozen.vegetables.single",
+          "name_he": "ירק קפוא",
+          "slug": null
+        }
+      ],
+      "product_type": "mixed_vegetables",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 206,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "green-beans-frozen",
+      "name_he": "שעועית ירוקה קפואה",
+      "taxonomy_id": "frozen.vegetables.single",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.vegetables",
+          "name_he": "ירקות קפואים",
+          "slug": "frozen-vegetables"
+        },
+        {
+          "id": "frozen.vegetables.single",
+          "name_he": "ירק קפוא",
+          "slug": null
+        }
+      ],
+      "product_type": "green_beans",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 207,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "broccoli-frozen",
+      "name_he": "ברוקולי קפוא",
+      "taxonomy_id": "frozen.vegetables.single",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.vegetables",
+          "name_he": "ירקות קפואים",
+          "slug": "frozen-vegetables"
+        },
+        {
+          "id": "frozen.vegetables.single",
+          "name_he": "ירק קפוא",
+          "slug": null
+        }
+      ],
+      "product_type": "broccoli",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 208,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "burekas-potato",
+      "name_he": "בורקס תפוחי אדמה קפוא",
+      "taxonomy_id": "frozen.ready.dough",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.ready",
+          "name_he": "מוכן לחימום",
+          "slug": "frozen-ready"
+        },
+        {
+          "id": "frozen.ready.dough",
+          "name_he": "בצקים ומאפים קפואים",
+          "slug": null
+        }
+      ],
+      "product_type": "burekas",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "potato"
+      },
+      "rank": 209,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "malawach",
+      "name_he": "מלוואח קפוא",
+      "taxonomy_id": "frozen.ready.dough",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.ready",
+          "name_he": "מוכן לחימום",
+          "slug": "frozen-ready"
+        },
+        {
+          "id": "frozen.ready.dough",
+          "name_he": "בצקים ומאפים קפואים",
+          "slug": null
+        }
+      ],
+      "product_type": "malawach",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 210,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "frozen-pizza",
+      "name_he": "פיצה קפואה",
+      "taxonomy_id": "frozen.ready.other",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.ready",
+          "name_he": "מוכן לחימום",
+          "slug": "frozen-ready"
+        },
+        {
+          "id": "frozen.ready.other",
+          "name_he": "מוכן אחר",
+          "slug": null
+        }
+      ],
+      "product_type": "frozen_pizza",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 211,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "beef-burger-frozen",
+      "name_he": "המבורגר בקר קפוא",
+      "taxonomy_id": "frozen.ready.other",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.ready",
+          "name_he": "מוכן לחימום",
+          "slug": "frozen-ready"
+        },
+        {
+          "id": "frozen.ready.other",
+          "name_he": "מוכן אחר",
+          "slug": null
+        }
+      ],
+      "product_type": "beef_burger",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 212,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "ice-cream-vanilla",
+      "name_he": "גלידה וניל",
+      "taxonomy_id": "frozen.desserts.ice_cream",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.desserts",
+          "name_he": "גלידות",
+          "slug": "frozen-desserts"
+        },
+        {
+          "id": "frozen.desserts.ice_cream",
+          "name_he": "גלידה",
+          "slug": null
+        }
+      ],
+      "product_type": "ice_cream",
+      "base_unit": "100ml",
+      "critical_attrs": {
+        "flavor": "vanilla"
+      },
+      "rank": 213,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "lemon-lime-soda",
+      "name_he": "משקה מוגז לימון-ליים",
+      "taxonomy_id": "beverages.soft_drinks.other",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.soft_drinks",
+          "name_he": "משקאות קלים",
+          "slug": "beverages-soft_drinks"
+        },
+        {
+          "id": "beverages.soft_drinks.other",
+          "name_he": "משקאות מוגזים אחרים",
+          "slug": null
+        }
+      ],
+      "product_type": "lemon_lime_soda",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 214,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "orange-juice",
+      "name_he": "מיץ תפוזים (מדף)",
+      "taxonomy_id": "beverages.juice.shelf",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.juice",
+          "name_he": "מיצים ותרכיזים",
+          "slug": "beverages-juice"
+        },
+        {
+          "id": "beverages.juice.shelf",
+          "name_he": "מיץ ונקטר",
+          "slug": null
+        }
+      ],
+      "product_type": "orange_juice",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 215,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "grape-juice",
+      "name_he": "מיץ ענבים",
+      "taxonomy_id": "beverages.juice.shelf",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.juice",
+          "name_he": "מיצים ותרכיזים",
+          "slug": "beverages-juice"
+        },
+        {
+          "id": "beverages.juice.shelf",
+          "name_he": "מיץ ונקטר",
+          "slug": null
+        }
+      ],
+      "product_type": "grape_juice",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 216,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "bisli-onion",
+      "name_he": "ביסלי בצל",
+      "taxonomy_id": "snacks.salty.puffs",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.salty",
+          "name_he": "חטיפים מלוחים",
+          "slug": "snacks-salty"
+        },
+        {
+          "id": "snacks.salty.puffs",
+          "name_he": "במבה וביסלי",
+          "slug": null
+        }
+      ],
+      "product_type": "wheat_snack",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "onion"
+      },
+      "rank": 217,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sunflower-seeds",
+      "name_he": "גרעינים",
+      "taxonomy_id": "snacks.salty.seeds",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.salty",
+          "name_he": "חטיפים מלוחים",
+          "slug": "snacks-salty"
+        },
+        {
+          "id": "snacks.salty.seeds",
+          "name_he": "גרעינים ואגוזים",
+          "slug": null
+        }
+      ],
+      "product_type": "sunflower_seeds",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 218,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "halva",
+      "name_he": "חלבה",
+      "taxonomy_id": "snacks.sweet.halva",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.sweet",
+          "name_he": "מתוקים",
+          "slug": "snacks-sweet"
+        },
+        {
+          "id": "snacks.sweet.halva",
+          "name_he": "חלבה",
+          "slug": null
+        }
+      ],
+      "product_type": "halva",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 219,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "crackers",
+      "name_he": "קרקרים",
+      "taxonomy_id": "snacks.crackers.all",
+      "path": [
+        {
+          "id": "snacks",
+          "name_he": "חטיפים ומתוקים",
+          "slug": "snacks"
+        },
+        {
+          "id": "snacks.crackers",
+          "name_he": "פריכיות וקרקרים",
+          "slug": "snacks-crackers"
+        },
+        {
+          "id": "snacks.crackers.all",
+          "name_he": "פריכיות וקרקרים",
+          "slug": null
+        }
+      ],
+      "product_type": "crackers",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 220,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "laundry-powder",
+      "name_he": "אבקת כביסה",
+      "taxonomy_id": "cleaning.laundry.detergent",
+      "path": [
+        {
+          "id": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית",
+          "slug": "cleaning"
+        },
+        {
+          "id": "cleaning.laundry",
+          "name_he": "כביסה",
+          "slug": "cleaning-laundry"
+        },
+        {
+          "id": "cleaning.laundry.detergent",
+          "name_he": "חומרי כביסה",
+          "slug": null
+        }
+      ],
+      "product_type": "laundry_powder",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 221,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cleaning-spray",
+      "name_he": "תרסיס ניקוי כללי",
+      "taxonomy_id": "cleaning.surfaces.spray",
+      "path": [
+        {
+          "id": "cleaning",
+          "name_he": "ניקיון ומוצרים לבית",
+          "slug": "cleaning"
+        },
+        {
+          "id": "cleaning.surfaces",
+          "name_he": "ניקוי משטחים",
+          "slug": "cleaning-surfaces"
+        },
+        {
+          "id": "cleaning.surfaces.spray",
+          "name_he": "תרסיסי ניקוי",
+          "slug": null
+        }
+      ],
+      "product_type": "cleaning_spray",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 222,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "facial-tissues",
+      "name_he": "ממחטות נייר",
+      "taxonomy_id": "paper.tissue.facial",
+      "path": [
+        {
+          "id": "paper",
+          "name_he": "נייר וחד-פעמי",
+          "slug": "paper"
+        },
+        {
+          "id": "paper.tissue",
+          "name_he": "נייר",
+          "slug": "paper-tissue"
+        },
+        {
+          "id": "paper.tissue.facial",
+          "name_he": "ממחטות",
+          "slug": null
+        }
+      ],
+      "product_type": "facial_tissues",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 223,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "baking-paper",
+      "name_he": "נייר אפייה",
+      "taxonomy_id": "paper.kitchen.baking",
+      "path": [
+        {
+          "id": "paper",
+          "name_he": "נייר וחד-פעמי",
+          "slug": "paper"
+        },
+        {
+          "id": "paper.kitchen",
+          "name_he": "עטיפה ואפייה",
+          "slug": "paper-kitchen"
+        },
+        {
+          "id": "paper.kitchen.baking",
+          "name_he": "נייר אפייה",
+          "slug": null
+        }
+      ],
+      "product_type": "baking_paper",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 224,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "cling-wrap",
+      "name_he": "ניילון נצמד",
+      "taxonomy_id": "paper.kitchen.wrap",
+      "path": [
+        {
+          "id": "paper",
+          "name_he": "נייר וחד-פעמי",
+          "slug": "paper"
+        },
+        {
+          "id": "paper.kitchen",
+          "name_he": "עטיפה ואפייה",
+          "slug": "paper-kitchen"
+        },
+        {
+          "id": "paper.kitchen.wrap",
+          "name_he": "ניילון נצמד",
+          "slug": null
+        }
+      ],
+      "product_type": "cling_wrap",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 225,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "disposable-plates",
+      "name_he": "צלחות חד-פעמיות",
+      "taxonomy_id": "paper.disposables.tableware",
+      "path": [
+        {
+          "id": "paper",
+          "name_he": "נייר וחד-פעמי",
+          "slug": "paper"
+        },
+        {
+          "id": "paper.disposables",
+          "name_he": "חד-פעמי",
+          "slug": "paper-disposables"
+        },
+        {
+          "id": "paper.disposables.tableware",
+          "name_he": "כלים חד-פעמיים",
+          "slug": null
+        }
+      ],
+      "product_type": "disposable_plates",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 226,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "disposable-cups",
+      "name_he": "כוסות חד-פעמיות",
+      "taxonomy_id": "paper.disposables.tableware",
+      "path": [
+        {
+          "id": "paper",
+          "name_he": "נייר וחד-פעמי",
+          "slug": "paper"
+        },
+        {
+          "id": "paper.disposables",
+          "name_he": "חד-פעמי",
+          "slug": "paper-disposables"
+        },
+        {
+          "id": "paper.disposables.tableware",
+          "name_he": "כלים חד-פעמיים",
+          "slug": null
+        }
+      ],
+      "product_type": "disposable_cups",
+      "base_unit": "unit",
+      "critical_attrs": {},
+      "rank": 227,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "body-wash",
+      "name_he": "סבון רחצה",
+      "taxonomy_id": "toiletries.body.soap",
+      "path": [
+        {
+          "id": "toiletries",
+          "name_he": "טיפוח והיגיינה",
+          "slug": "toiletries"
+        },
+        {
+          "id": "toiletries.body",
+          "name_he": "רחצה",
+          "slug": "toiletries-body"
+        },
+        {
+          "id": "toiletries.body.soap",
+          "name_he": "סבון",
+          "slug": null
+        }
+      ],
+      "product_type": "body_wash",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 228,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "matzah",
+      "name_he": "מצות",
+      "taxonomy_id": "holiday.passover.matzah",
+      "path": [
+        {
+          "id": "holiday",
+          "name_he": "כשר לפסח ומוצרי חג",
+          "slug": "holiday"
+        },
+        {
+          "id": "holiday.passover",
+          "name_he": "פסח",
+          "slug": "holiday-passover"
+        },
+        {
+          "id": "holiday.passover.matzah",
+          "name_he": "מצות",
+          "slug": null
+        }
+      ],
+      "product_type": "matzah",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 229,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "lager-beer",
+      "name_he": "בירה לאגר",
+      "taxonomy_id": "alcohol.beer.lager",
+      "path": [
+        {
+          "id": "alcohol",
+          "name_he": "יין ואלכוהול",
+          "slug": "alcohol"
+        },
+        {
+          "id": "alcohol.beer",
+          "name_he": "בירה",
+          "slug": "alcohol-beer"
+        },
+        {
+          "id": "alcohol.beer.lager",
+          "name_he": "בירה לאגר",
+          "slug": null
+        }
+      ],
+      "product_type": "lager_beer",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 230,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "dessert-vanilla",
+      "name_he": "מעדן חלב וניל",
+      "taxonomy_id": "dairy.yogurt.desserts",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.yogurt",
+          "name_he": "יוגורט ומעדנים",
+          "slug": "dairy-yogurt"
+        },
+        {
+          "id": "dairy.yogurt.desserts",
+          "name_he": "מעדני חלב",
+          "slug": null
+        }
+      ],
+      "product_type": "dairy_dessert",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "flavor": "vanilla"
+      },
+      "rank": 231,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "margarine",
+      "name_he": "מרגרינה",
+      "taxonomy_id": "dairy.cream.butter",
+      "path": [
+        {
+          "id": "dairy",
+          "name_he": "מוצרי חלב וביצים",
+          "slug": "dairy"
+        },
+        {
+          "id": "dairy.cream",
+          "name_he": "שמנת וחמאה",
+          "slug": "dairy-cream"
+        },
+        {
+          "id": "dairy.cream.butter",
+          "name_he": "חמאה ומרגרינה",
+          "slug": null
+        }
+      ],
+      "product_type": "margarine",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 232,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "beef-entrecote-fresh",
+      "name_he": "אנטריקוט בקר טרי",
+      "taxonomy_id": "meat.beef.cuts",
+      "path": [
+        {
+          "id": "meat",
+          "name_he": "בשר ועוף",
+          "slug": "meat"
+        },
+        {
+          "id": "meat.beef",
+          "name_he": "בקר",
+          "slug": "meat-beef"
+        },
+        {
+          "id": "meat.beef.cuts",
+          "name_he": "נתחי בקר",
+          "slug": null
+        }
+      ],
+      "product_type": "beef_entrecote",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 233,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "nile-perch-fillet-frozen",
+      "name_he": "פילה נסיכת הנילוס קפוא",
+      "taxonomy_id": "fish.fillets.white",
+      "path": [
+        {
+          "id": "fish",
+          "name_he": "דגים",
+          "slug": "fish"
+        },
+        {
+          "id": "fish.fillets",
+          "name_he": "פילה דגים",
+          "slug": "fish-fillets"
+        },
+        {
+          "id": "fish.fillets.white",
+          "name_he": "פילה דג לבן",
+          "slug": null
+        }
+      ],
+      "product_type": "nile_perch_fillet",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 234,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "salami",
+      "name_he": "נקניק סלמי",
+      "taxonomy_id": "deli.cold_cuts.sliced",
+      "path": [
+        {
+          "id": "deli",
+          "name_he": "מעדנייה וסלטים",
+          "slug": "deli"
+        },
+        {
+          "id": "deli.cold_cuts",
+          "name_he": "נקניקים",
+          "slug": "deli-cold_cuts"
+        },
+        {
+          "id": "deli.cold_cuts.sliced",
+          "name_he": "נקניק פרוס",
+          "slug": null
+        }
+      ],
+      "product_type": "salami",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 235,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "peach",
+      "name_he": "אפרסקים",
+      "taxonomy_id": "produce.fruit.stone",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.stone",
+          "name_he": "פירות גלעין",
+          "slug": null
+        }
+      ],
+      "product_type": "peach",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 236,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "mango",
+      "name_he": "מנגו",
+      "taxonomy_id": "produce.fruit.tropical",
+      "path": [
+        {
+          "id": "produce",
+          "name_he": "פירות וירקות",
+          "slug": "produce"
+        },
+        {
+          "id": "produce.fruit",
+          "name_he": "פירות",
+          "slug": "produce-fruit"
+        },
+        {
+          "id": "produce.fruit.tropical",
+          "name_he": "פירות טרופיים",
+          "slug": null
+        }
+      ],
+      "product_type": "mango",
+      "base_unit": "kg",
+      "critical_attrs": {
+        "state": "fresh"
+      },
+      "rank": 237,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sardines",
+      "name_he": "סרדינים בשמן",
+      "taxonomy_id": "canned.fish.other",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.fish",
+          "name_he": "שימורי דגים",
+          "slug": "canned-fish"
+        },
+        {
+          "id": "canned.fish.other",
+          "name_he": "שימורי דגים אחרים",
+          "slug": null
+        }
+      ],
+      "product_type": "sardines",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 238,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "peas-canned",
+      "name_he": "אפונה בשימורים",
+      "taxonomy_id": "canned.vegetables.legumes",
+      "path": [
+        {
+          "id": "canned",
+          "name_he": "שימורים",
+          "slug": "canned"
+        },
+        {
+          "id": "canned.vegetables",
+          "name_he": "שימורי ירקות",
+          "slug": "canned-vegetables"
+        },
+        {
+          "id": "canned.vegetables.legumes",
+          "name_he": "שימורי קטניות ותירס",
+          "slug": null
+        }
+      ],
+      "product_type": "peas",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "canned"
+      },
+      "rank": 239,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "spinach-frozen",
+      "name_he": "תרד קפוא",
+      "taxonomy_id": "frozen.vegetables.single",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.vegetables",
+          "name_he": "ירקות קפואים",
+          "slug": "frozen-vegetables"
+        },
+        {
+          "id": "frozen.vegetables.single",
+          "name_he": "ירק קפוא",
+          "slug": null
+        }
+      ],
+      "product_type": "spinach",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 240,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "sweet-corn-frozen",
+      "name_he": "תירס קפוא",
+      "taxonomy_id": "frozen.vegetables.single",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.vegetables",
+          "name_he": "ירקות קפואים",
+          "slug": "frozen-vegetables"
+        },
+        {
+          "id": "frozen.vegetables.single",
+          "name_he": "ירק קפוא",
+          "slug": null
+        }
+      ],
+      "product_type": "sweet_corn",
+      "base_unit": "100g",
+      "critical_attrs": {
+        "state": "frozen"
+      },
+      "rank": 241,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "fish-fingers",
+      "name_he": "אצבעות דגים",
+      "taxonomy_id": "frozen.ready.other",
+      "path": [
+        {
+          "id": "frozen",
+          "name_he": "קפואים",
+          "slug": "frozen"
+        },
+        {
+          "id": "frozen.ready",
+          "name_he": "מוכן לחימום",
+          "slug": "frozen-ready"
+        },
+        {
+          "id": "frozen.ready.other",
+          "name_he": "מוכן אחר",
+          "slug": null
+        }
+      ],
+      "product_type": "fish_fingers",
+      "base_unit": "100g",
+      "critical_attrs": {},
+      "rank": 242,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "flavored-water-lemon",
+      "name_he": "מים בטעם לימון",
+      "taxonomy_id": "beverages.water.sparkling",
+      "path": [
+        {
+          "id": "beverages",
+          "name_he": "משקאות",
+          "slug": "beverages"
+        },
+        {
+          "id": "beverages.water",
+          "name_he": "מים",
+          "slug": "beverages-water"
+        },
+        {
+          "id": "beverages.water.sparkling",
+          "name_he": "מים מוגזים וטעמים",
+          "slug": null
+        }
+      ],
+      "product_type": "flavored_water",
+      "base_unit": "100ml",
+      "critical_attrs": {
+        "flavor": "lemon"
+      },
+      "rank": 243,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "deodorant",
+      "name_he": "דאודורנט",
+      "taxonomy_id": "toiletries.body.deodorant",
+      "path": [
+        {
+          "id": "toiletries",
+          "name_he": "טיפוח והיגיינה",
+          "slug": "toiletries"
+        },
+        {
+          "id": "toiletries.body",
+          "name_he": "רחצה",
+          "slug": "toiletries-body"
+        },
+        {
+          "id": "toiletries.body.deodorant",
+          "name_he": "דאודורנט",
+          "slug": null
+        }
+      ],
+      "product_type": "deodorant",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 244,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    },
+    {
+      "slug": "red-wine-dry",
+      "name_he": "יין אדום יבש",
+      "taxonomy_id": "alcohol.wine.red",
+      "path": [
+        {
+          "id": "alcohol",
+          "name_he": "יין ואלכוהול",
+          "slug": "alcohol"
+        },
+        {
+          "id": "alcohol.wine",
+          "name_he": "יין",
+          "slug": "alcohol-wine"
+        },
+        {
+          "id": "alcohol.wine.red",
+          "name_he": "יין אדום",
+          "slug": null
+        }
+      ],
+      "product_type": "red_wine_dry",
+      "base_unit": "100ml",
+      "critical_attrs": {},
+      "rank": 245,
+      "has_page": false,
+      "no_prices_yet": true,
+      "prices": null,
+      "price_valid_from": null
+    }
+  ]
+}

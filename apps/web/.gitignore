@@ -8,3 +8,5 @@ test-results/
 blob-report/
 .lighthouseci/
 coverage/
+.lighthouseci-seo/
+playwright-report-a11y/

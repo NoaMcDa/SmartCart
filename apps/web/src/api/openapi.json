@@ -253,6 +253,91 @@
         "title": "CompareResponse",
         "type": "object"
       },
+      "EventIn": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "enum": [
+              "app_opened",
+              "page_viewed",
+              "list_pasted",
+              "results_shown",
+              "substitutions_shown",
+              "substitution_verdict",
+              "flex_changed",
+              "split_viewed",
+              "gap_reported"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "props": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Allowlisted keys per event name, values are integers or members of a fixed set; anything else is rejected with 422 (no free text, no personal data). See docs/beta-plan.md.",
+            "title": "Props",
+            "type": "object"
+          },
+          "session_id": {
+            "description": "Random id the browser keeps in localStorage; not derived from the person",
+            "pattern": "^[A-Za-z0-9_-]{8,64}$",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "session_id"
+        ],
+        "title": "EventIn",
+        "type": "object"
+      },
+      "EventsAck": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "title": "EventsAck",
+        "type": "object"
+      },
+      "EventsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventIn"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "title": "EventsRequest",
+        "type": "object"
+      },
       "GapReportRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1804,6 +1889,65 @@
         "summary": "Compare",
         "tags": [
           "basket"
+        ]
+      }
+    },
+    "/events": {
+      "post": {
+        "operationId": "post_events_events_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record a batch of beta events",
+        "tags": [
+          "events"
         ]
       }
     },

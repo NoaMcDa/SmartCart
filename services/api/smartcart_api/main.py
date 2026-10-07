@@ -8,6 +8,7 @@
 | ``POST /optimize`` | routes/optimize.py |
 | ``POST /feedback/substitution``, ``POST /feedback/gap`` | routes/feedback.py |
 | ``GET/PUT /me/profile``, ``/me/lists`` CRUD (Supabase JWT, RLS) | routes/me.py |
+| ``POST /events`` first-party beta events (allowlisted, rate limited) | routes/events.py |
 
 See docs/api.md.
 """
@@ -22,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from smartcart_api import schemas
 from smartcart_api.db import close_pool
-from smartcart_api.routes import compare, feedback, me, optimize, search
+from smartcart_api.routes import compare, events, feedback, me, optimize, search
 from smartcart_api.settings import API_VERSION, get_settings
 
 VERSION = API_VERSION
@@ -59,6 +60,7 @@ app.include_router(compare.router)
 app.include_router(optimize.router)
 app.include_router(feedback.router)
 app.include_router(me.router)
+app.include_router(events.router)
 
 
 def run() -> None:
