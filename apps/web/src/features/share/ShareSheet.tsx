@@ -6,6 +6,7 @@ import { BottomSheet, Button, SegmentedControl } from "@/components/ui";
 import { IconCheck, IconInfo } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { reportListShared } from "@/features/consent/betaEvents";
 import controls from "@/features/profile/controls/controls.module.css";
 import styles from "./Share.module.css";
 
@@ -37,7 +38,18 @@ export function shareError(err: unknown): string {
  * preferences. The owner can cancel the link (`DELETE /me/lists/{id}/share/{token}`); removing a member is on the
  * members list.
  */
-export function ShareSheet({
+export function ShareSheet(props: {
+  open: boolean;
+  onClose: () => void;
+  listId: number;
+  onInvited?: () => void;
+}) {
+  // Mounted only while open, so a link made in one visit is not shown in the next: it may have
+  // been cancelled from the members list in between.
+  return props.open ? <ShareSheetContent {...props} /> : null;
+}
+
+function ShareSheetContent({
   open,
   onClose,
   listId,
@@ -67,7 +79,9 @@ export function ShareSheet({
     setRevoked(false);
     try {
       ensureApiAuth();
-      setInvite(await shareList(listId, role));
+      const created = await shareList(listId, role);
+      setInvite(created);
+      reportListShared(created.role);
       onInvited?.();
     } catch (err) {
       setError(shareError(err));

@@ -1,0 +1,134 @@
+/**
+ * Hebrew labels for what the API sends as codes: attribute tags (`AttributeTag.key` and `value`)
+ * and units (`uom`, a pack-size unit inside a tag value). The mock API already sends Hebrew; the
+ * real API sends `pack_size`, `unit`, `base`, `100g`, `kg`, so every screen that shows a tag or a
+ * unit goes through here. Anything not in a table is passed through unchanged, never guessed.
+ */
+import type { AttributeTag } from "@/api/client";
+
+const KEY_LABELS: Record<string, string> = {
+  product_type: "סוג מוצר",
+  pack_size: "גודל אריזה",
+  unit: "יחידה",
+  brand: "מותג",
+  fat_pct: "אחוז שומן",
+  base: "בסיס",
+  kosher: "כשרות",
+  state: "מצב",
+  flavor: "טעם",
+};
+
+/** Plant-milk bases and the like (`base` tag values). */
+const BASE_VALUES: Record<string, string> = {
+  soy: "סויה",
+  almond: "שקדים",
+  oat: "שיבולת שועל",
+  rice: "אורז",
+  coconut: "קוקוס",
+};
+
+const STATE_VALUES: Record<string, string> = {
+  fresh: "טרי",
+  frozen: "קפוא",
+  dried: "מיובש",
+  canned: "משומר",
+};
+
+/** The unit codes of `uom` and of pack sizes, in Hebrew (the abbreviations the shelf uses). */
+const UNITS: Record<string, string> = {
+  g: "ג׳",
+  ml: "מ״ל",
+  unit: "יח׳",
+  kg: "ק״ג",
+  l: "ל׳",
+};
+
+const UNIT_PATTERN = /(^|\s)(kg|ml|unit|g|l)$/i;
+
+/** "g" -> "ג׳"; a code the table does not know, or text that is already Hebrew, is unchanged. */
+export function unitName(unit: string): string {
+  return UNITS[unit.trim().toLowerCase()] ?? unit;
+}
+
+/**
+ * A price unit (`uom`): "100g" -> "100 ג׳", "100ml" -> "100 מ״ל", "unit" -> "יח׳", "kg" -> "ק״ג".
+ * A uom that is already Hebrew ("100 מ"ל") comes back as it was.
+ */
+export function uomText(uom: string): string {
+  const m = /^(\d+(?:\.\d+)?)\s*(kg|ml|unit|g|l)$/i.exec(uom.trim());
+  if (m) return `${m[1]} ${unitName(m[2]!)}`;
+  return unitName(uom);
+}
+
+/** "for 100 g": "ל-100 ג׳", "ליח׳", "לק״ג". */
+export function perUnitLabel(uom: string): string {
+  const text = uomText(uom);
+  return /^\d/.test(text) ? `ל-${text}` : `ל${text}`;
+}
+
+export function attributeLabel(key: string): string {
+  return KEY_LABELS[key] ?? key;
+}
+
+/** The value of a tag, in Hebrew: a unit code at the end ("1000 g"), a base, a state, a fat percentage. */
+export function attributeValue(key: string, value: string | null | undefined): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  const v = value.trim();
+  switch (key) {
+    case "base":
+      return BASE_VALUES[v.toLowerCase()] ?? v;
+    case "state":
+      return STATE_VALUES[v.toLowerCase()] ?? v;
+    case "unit":
+      return unitName(v);
+    case "pack_size":
+      return v.replace(
+        UNIT_PATTERN,
+        (_all, space: string, unit: string) => `${space}${unitName(unit)}`,
+      );
+    case "fat_pct":
+      return /^\d+(\.\d+)?$/.test(v) ? `${v}%` : v;
+    default:
+      return v;
+  }
+}
+
+const SEVERITY: Record<AttributeTag["status"], number> = { matched: 0, unverified: 1, differs: 2 };
+
+/**
+ * A `unit` tag that comes with a `pack_size` tag is part of the pack size ("1000" and "g" are
+ * "1000 ג׳"), not a chip of its own. The folded tag takes the worse of the two statuses: a unit
+ * that differs makes the pack size differ. A `unit` tag alone stays a tag.
+ */
+export function foldTags(tags: ReadonlyArray<AttributeTag>): AttributeTag[] {
+  const pack = tags.find((t) => t.key === "pack_size");
+  const unit = tags.find((t) => t.key === "unit");
+  if (!pack || !unit) return [...tags];
+  const packValue = pack.value ?? "";
+  const unitValue = unit.value ?? "";
+  // A pack size that already ends in its unit ("1000 g") has nothing to add.
+  const hasUnit = UNIT_PATTERN.test(packValue.trim());
+  const value = [packValue, hasUnit ? "" : unitValue].filter(Boolean).join(" ") || null;
+  const status = SEVERITY[unit.status] > SEVERITY[pack.status] ? unit.status : pack.status;
+  return tags.filter((t) => t !== unit).map((t) => (t === pack ? { ...pack, value, status } : t));
+}
+
+/**
+ * The text of one chip: the label and value in Hebrew, with "לא מאומת" on an unverified one.
+ * `plainDiffers` is for the substitution card, whose differing tags with a free-text key (the mock
+ * and older data: key "מותג", value "יטבתה במקום תנובה") show the value alone; a tag with a known
+ * code key is always labeled, because "1000 ג׳" alone says nothing.
+ */
+export function attributeTagText(
+  tag: AttributeTag,
+  options: { plainDiffers?: boolean } = {},
+): string {
+  const label = attributeLabel(tag.key);
+  const value = attributeValue(tag.key, tag.value);
+  if (tag.status === "unverified") return `${label}${value ? ` ${value}` : ""} · לא מאומת`;
+  if (tag.status === "differs") {
+    if (options.plainDiffers && !(tag.key in KEY_LABELS)) return value ?? label;
+    return value ? `${label}: ${value}` : label;
+  }
+  return value ? `${label}, ${value}` : label;
+}

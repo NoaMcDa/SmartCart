@@ -1,4 +1,5 @@
 import type { CompareResponse, PricedItem, StoreResult } from "@/api/client";
+import { perUnitLabel } from "@/lib/attributes";
 
 export type Variant = {
   /** Chain item name, the variant's identity. */
@@ -22,7 +23,7 @@ export type StoreRow = {
 };
 
 export function unitLabel(uom: string): string {
-  return /^\d/.test(uom) ? `ל-${uom}` : `ל${uom}`;
+  return perUnitLabel(uom);
 }
 
 /** The canonical's lines in a compare result, one per store, cheapest effective price first. */

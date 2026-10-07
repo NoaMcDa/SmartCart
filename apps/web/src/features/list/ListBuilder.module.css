@@ -6,14 +6,23 @@
   padding-block-end: 96px;
 }
 
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px var(--sc-space-3);
+  margin-block-start: -6px;
+}
+
 .subline {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
+  min-width: 0;
   font-size: 13px;
   color: var(--sc-muted);
-  margin-block-start: -6px;
 }
 
 .layout {
@@ -46,6 +55,25 @@
 
 .inputBox:focus-within {
   border-color: var(--sc-accent-fg);
+}
+
+/*
+ * 200% zoom on a phone leaves 195 px: the textarea, the mic, the clipboard and the add button no
+ * longer fit in one row, so the textarea takes the first row and the buttons wrap below it, with
+ * the add button filling the last row.
+ */
+@media (max-width: 260px) {
+  .inputBox {
+    flex-wrap: wrap;
+  }
+
+  .inputBox > .input {
+    flex-basis: 100%;
+  }
+
+  .inputBox > :last-child {
+    flex: 1 1 auto;
+  }
 }
 
 .input {
@@ -173,6 +201,17 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+
+/* At 195 px (200% zoom) the name takes a row of its own, with the stepper and remove below it. */
+@media (max-width: 260px) {
+  .rowLine {
+    flex-wrap: wrap;
+  }
+
+  .rowLine > .rowMain {
+    flex-basis: 100%;
+  }
 }
 
 .rowMain {

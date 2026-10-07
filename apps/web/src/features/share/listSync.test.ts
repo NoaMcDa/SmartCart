@@ -16,6 +16,7 @@ const item = (over: Partial<SharedItem> & { id: number }): SharedItem => ({
   quantity: 1,
   flexLevel: "any_brand",
   confirmed: true,
+  checked: false,
   sort: over.id,
   updatedAt: null,
   ...over,
@@ -166,6 +167,7 @@ describe("rows and Realtime payloads", () => {
           quantity: 2,
           flex_level: "any_brand",
           confirmed: true,
+          checked: false,
         },
         {
           canonical_id: 1002,
@@ -173,6 +175,7 @@ describe("rows and Realtime payloads", () => {
           quantity: 1,
           flex_level: "exact",
           confirmed: true,
+          checked: false,
         },
       ],
     });

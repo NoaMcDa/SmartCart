@@ -13,14 +13,15 @@ conformance claim.** The public statement (`/accessibility`) says the same.
 
 | Check | Where | Result |
 |---|---|---|
-| axe-core, tags `wcag2a` and `wcag2aa`, every route in `tests/e2e/routes.ts` (20 routes) at 390 px and 1280 px, light and dark: **serious or critical violation fails** | `tests/a11y/axe.spec.ts` (80 tests) | no violation |
+| axe-core, tags `wcag2a` and `wcag2aa`, every route in `tests/e2e/routes.ts` (22 routes) at 390 px and 1280 px, light and dark: **serious or critical violation fails** | `tests/a11y/axe.spec.ts` (88 tests) | no violation |
 | The harness itself fails on a real violation (low-contrast text) | `tests/a11y/keyboard.spec.ts` | proven |
 | Core flow states, not only first paint: list with nine items, flexibility sheet open, results, basket details open, substitution card; both widths, both themes | `tests/a11y/core-flow.spec.ts` | no violation |
 | Core flow by keyboard only: paste, open and dismiss the flexibility sheet (focus goes in, stays in, returns to the opener), compare, open a substitution | `tests/a11y/core-flow.spec.ts` | completes |
 | Skip link is the first stop and works; every Tab stop has a visible focus indicator (SEO pages) | `tests/a11y/keyboard.spec.ts` | pass |
 | Controls on SEO pages (list rows, breadcrumbs, buttons, footer and nav links) are at least 44 px tall at 390 px | `tests/a11y/keyboard.spec.ts` | pass |
 | Reflow: no horizontal scroll at 320 px on every route (WCAG 1.4.10, a 2.1 criterion, stricter than 2.0) | `tests/a11y/keyboard.spec.ts` | pass |
-| 200% zoom on a phone (195 CSS px): SEO page content and footer stay inside the viewport (data tables scroll inside their own wrapper) | `tests/a11y/keyboard.spec.ts` | pass, with the open finding below |
+| 200% zoom on a phone (195 CSS px): SEO page content and footer stay inside the viewport (data tables scroll inside their own wrapper) | `tests/a11y/keyboard.spec.ts` | pass |
+| 200% zoom on a phone (195 CSS px), **every route** in `routes.ts` (22) and the states behind a tap: no element outside the viewport, `scrollWidth` of the document and the body at most 195 | `tests/a11y/zoom-195.spec.ts` (27 tests) | pass, results below |
 | Contrast of every token pair in `ux-design.md` is at least 4.5:1 for text in both themes | `src/styles/tokens.test.ts` (unit) | pass |
 | Structural axe rules on the SEO components (jsdom, contrast excluded) | `src/features/seo/*.test.tsx` | no violation |
 | Lighthouse accessibility, best practices and SEO on the six SEO page types | `lighthouserc.seo.json`, CI | 100 each (local run) |
@@ -33,16 +34,33 @@ do not fail the run.
 
 ## Open findings
 
-1. **Shell top bar overflows at 195 px** (200% zoom on a 390 px phone): the actions group (theme switch and
-   profile) is 7 px wider than the viewport. It is in `src/components/shell/TopBar` (W4a/W4b), not touched
-   here. The suite checks content and footer only at that width until it is fixed; then widen the
-   check to `scrollWidth`.
+1. ~~Shell top bar overflows at 195 px~~ Fixed in #91 (`top-bar-zoom.spec.ts`). The 195 px check now covers
+   every route and the main states, see "200% zoom at 195 px" below.
 2. **Split view has no keyboard or non-drag path yet.** `/split` is a placeholder (W5). Issue #26 requires a
    non-drag way to move an item between stores. Not met; to verify when W5 delivers.
 3. **Text-only scaling** (OS or browser font size without zoom) is not automated: the app sets sizes in
    px, so a larger default font size changes little. Check by hand on a phone with the system font at
    200%. Zoom (above) is the automated proxy.
 4. **Reduced motion** and **forced colors / high contrast** modes are not tested.
+
+## 200% zoom at 195 px (issue #101)
+
+Measured by `tests/a11y/zoom-195.spec.ts` on the production build (Chromium, viewport 195 x 844). Before the
+fixes, four routes overflowed; after them none does, and none of the states behind a tap does either.
+
+| Route or state | Before | Cause | Fix | After |
+|---|---|---|---|---|
+| `/` list builder | 208 px wide | the input row (textarea, mic, clipboard, add button) did not fit in one row | below 260 px the row wraps: textarea first, buttons below, the add button filling the last row | fits |
+| `/` with nine items | an item row overflowed | name, stepper and remove button in one row | below 260 px the name takes its own row | fits |
+| `/profile` | 264 px wide | `SegmentedControl` options were `nowrap` (travel mode, kosher level, theme) | options wrap their text (`white-space: normal`, `flex: 1 1 auto`) | fits |
+| `/product/1001` | 280 px wide | the same `SegmentedControl` (flexibility levels in the alert form) | same fix | fits |
+| `/design-system` | 216 px wide | the card's price row did not wrap | `.spread` wraps | fits |
+| results with the smart cart | the plan's distance label overflowed | `planTop` did not wrap | wraps | fits |
+| substitution card | the "התחליף" tag and the two action buttons overflowed | two columns of about 70 px, and a row of two buttons | below 260 px the columns stack, the buttons wrap | fits |
+| every other route (18 of 22) | fits | | | fits |
+| shared list with a pending invite and a checked item, the share sheet, onboarding steps, flexibility sheet, scan result card | not measured before | | | fits |
+
+All fixes use logical properties and media queries on width only; at 390 px nothing moved.
 
 ## What remains manual
 

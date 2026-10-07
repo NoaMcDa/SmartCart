@@ -7,6 +7,7 @@ import { Button, Card } from "@/components/ui";
 import { IconInfo } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { reportShareAccepted } from "@/features/consent/betaEvents";
 import { rememberJoined } from "./sharedLists";
 import styles from "./Share.module.css";
 
@@ -40,6 +41,7 @@ export function AcceptInvite({ token }: { token: string }) {
       ensureApiAuth();
       const list = await acceptShare(token);
       rememberJoined({ id: list.id, name: list.name });
+      reportShareAccepted();
       router.push(`/lists/${list.id}/share`);
     } catch (err) {
       setError(acceptError(err));

@@ -75,6 +75,66 @@ export function reportGapReported(): void {
   trackEvent("gap_reported");
 }
 
+// ---------------------------------------------------------------------------------------------
+// Phase 2 surfaces (#101): scan, alerts, smart cart, shared lists. Counts and outcomes only; a
+// barcode, an item id, a name or a price never goes into an event.
+
+export type ScanEngine = "native" | "zxing" | "manual";
+export type ScanOutcome = "found" | "not_found" | "no_price" | "cancelled" | "error";
+
+/** A scan began: the camera decoder that is available, or manual entry. */
+export function reportScanStarted(engine?: ScanEngine): void {
+  trackEvent("scan_started", engine ? { engine } : {});
+}
+
+/** A scan ended with what the shopper saw, and how long it took from `scan_started`. */
+export function reportScanCompleted(info: {
+  outcome: ScanOutcome;
+  durationMs?: number;
+  engine?: ScanEngine;
+}): void {
+  trackEvent("scan_completed", {
+    outcome: info.outcome,
+    ...(info.durationMs !== undefined
+      ? { duration_ms: clampInt(info.durationMs, MAX_DURATION_MS) }
+      : {}),
+    ...(info.engine ? { engine: info.engine } : {}),
+  });
+}
+
+/** A price alert was created from product detail or the alerts screen. */
+export function reportAlertCreated(level: FlexLevel | null, source: "product" | "alerts"): void {
+  trackEvent("alert_created", { source, ...(level ? { flex_level: level } : {}) });
+}
+
+const MAX_SAVING_AGOROT = 100_000;
+
+/** `savingIls` is in shekels; the event carries whole agorot, capped at the API's range. */
+export function reportSwapApplied(level: FlexLevel | null, savingIls: number): void {
+  trackEvent("swap_applied", {
+    ...(level ? { flex_level: level } : {}),
+    saving_agorot: clampInt(savingIls * 100, MAX_SAVING_AGOROT),
+  });
+}
+
+export function reportSwapUndone(level: FlexLevel | null): void {
+  trackEvent("swap_undone", level ? { flex_level: level } : {});
+}
+
+export function reportSwapDismissed(level: FlexLevel | null): void {
+  trackEvent("swap_dismissed", level ? { flex_level: level } : {});
+}
+
+/** An invite link was created for a shared list. */
+export function reportListShared(role: "editor" | "viewer"): void {
+  trackEvent("list_shared", { role });
+}
+
+/** The person joined a shared list from an invite link. The joiner is not told the role. */
+export function reportShareAccepted(): void {
+  trackEvent("share_accepted");
+}
+
 /** Test hook: forget the paste clock. */
 export function resetBetaEventsForTests(): void {
   pastedAt = null;

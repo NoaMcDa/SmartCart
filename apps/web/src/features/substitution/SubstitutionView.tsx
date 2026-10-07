@@ -23,6 +23,7 @@ import {
   type PlanKind,
   type SubstitutionContext,
 } from "@/state/comparison";
+import { attributeTagText, foldTags, perUnitLabel } from "@/lib/attributes";
 import { MethodologyLink } from "@/features/seo/components";
 import { basketItems, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
@@ -30,11 +31,7 @@ import { acceptSubstitute, keepOriginal, rejectSubstitute } from "./actions";
 import styles from "./Substitution.module.css";
 
 export function tagText(tag: AttributeTag): string {
-  if (tag.status === "unverified") {
-    return `${tag.key}${tag.value ? ` ${tag.value}` : ""} · לא מאומת`;
-  }
-  if (tag.status === "differs") return tag.value ?? tag.key;
-  return tag.value ? `${tag.key}, ${tag.value}` : tag.key;
+  return attributeTagText(tag, { plainDiffers: true });
 }
 
 const TAG_ORDER: Record<AttributeTag["status"], number> = { matched: 0, unverified: 1, differs: 2 };
@@ -62,7 +59,7 @@ export function SubstitutionCard({
   const { item, store, original, index, count } = ctx;
   const originalName = original?.item.display_name_he ?? fallbackOriginalName ?? "המוצר המקורי";
   const saving = substitutionSaving(ctx);
-  const tags = [...(item.tags ?? [])].sort((a, b) => TAG_ORDER[a.status] - TAG_ORDER[b.status]);
+  const tags = foldTags(item.tags ?? []).sort((a, b) => TAG_ORDER[a.status] - TAG_ORDER[b.status]);
   const conf = percent(item.confidence);
   const isLast = index + 1 >= count;
 
@@ -89,8 +86,8 @@ export function SubstitutionCard({
                 fractionDigits={2}
               />
               <div className={styles.unit}>
-                <Price amount={original.item.effective_unit_price} fractionDigits={2} /> ל-
-                {original.item.uom}
+                <Price amount={original.item.effective_unit_price} fractionDigits={2} />{" "}
+                {perUnitLabel(original.item.uom)}
               </div>
               <div className={styles.where}>בסופר שלך, {original.store.store_name}</div>
             </>
@@ -114,7 +111,7 @@ export function SubstitutionCard({
             fractionDigits={2}
           />
           <div className={styles.unit}>
-            <Price amount={item.effective_unit_price} fractionDigits={2} /> ל-{item.uom}
+            <Price amount={item.effective_unit_price} fractionDigits={2} /> {perUnitLabel(item.uom)}
           </div>
           <div className={styles.where}>{store.store_name}</div>
         </div>
@@ -151,6 +148,9 @@ export function SubstitutionCard({
             </>
           ) : null}{" "}
           · <UpdatedAt iso={item.price_valid_from} prefix="מחיר עודכן" />
+        </p>
+        <p className={styles.source} data-testid="sub-disclaimer">
+          המחיר הקובע הוא בקופה.
         </p>
         <p className={styles.methodology} data-testid="sub-methodology">
           <MethodologyLink>איך אנחנו מחליטים מה תחליף מתאים</MethodologyLink>

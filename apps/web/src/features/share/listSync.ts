@@ -18,6 +18,8 @@ export type SharedItem = {
   quantity: number;
   flexLevel: FlexLevel;
   confirmed: boolean;
+  /** Ticked off in the store; every member sees it. */
+  checked: boolean;
   sort: number;
   /** Epoch ms of the row's `updated_at`, when the server sent one. */
   updatedAt: number | null;
@@ -30,6 +32,7 @@ export type RawRow = {
   quantity?: number | string | null;
   flex_level?: string | null;
   confirmed?: boolean | null;
+  checked?: boolean | null;
   sort?: number | null;
   updated_at?: string | null;
 };
@@ -50,6 +53,7 @@ export function itemFromRow(row: RawRow): SharedItem | null {
     quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
     flexLevel: LEVELS.has(row.flex_level ?? "") ? (row.flex_level as FlexLevel) : "any_brand",
     confirmed: row.confirmed !== false,
+    checked: row.checked === true,
     sort: typeof row.sort === "number" ? row.sort : 0,
     updatedAt: Number.isFinite(updated) ? updated : null,
   };
@@ -113,6 +117,7 @@ export function serverBody(name: string, items: ReadonlyArray<SharedItem>): Shop
     quantity: i.quantity,
     flex_level: i.flexLevel,
     confirmed: i.confirmed,
+    checked: i.checked,
   }));
   return { name, is_recurring: false, items: rows };
 }

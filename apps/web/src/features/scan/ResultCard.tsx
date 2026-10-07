@@ -9,6 +9,7 @@ import { formatDistance } from "@/lib/format";
 import controls from "@/features/profile/controls/controls.module.css";
 import { addCanonicalToList } from "./addToList";
 import styles from "./Scan.module.css";
+import { perUnitLabel } from "@/lib/attributes";
 
 const cents = (n: number) => Math.round(n * 100) / 100;
 
@@ -49,7 +50,7 @@ function PriceLine({
         {price.store.distance_m != null ? ` · ${formatDistance(price.store.distance_m)}` : ""}
       </p>
       <p className={styles.lineMeta}>
-        <Price amount={price.unit_price} fractionDigits={2} /> ל-{price.uom}
+        <Price amount={price.unit_price} fractionDigits={2} /> {perUnitLabel(price.uom)}
         {note ? <> · {note}</> : null}
       </p>
       {children}
@@ -150,7 +151,8 @@ export function ResultCard({ result, store }: ResultCardProps) {
             {subSaving !== null && here ? (
               <p className={styles.good}>
                 <IconCheck size={14} /> זול ב-
-                <Price amount={subSaving} tone="good" fractionDigits={2} /> ל-{here.uom} מהמחיר כאן
+                <Price amount={subSaving} tone="good" fractionDigits={2} /> {perUnitLabel(here.uom)}{" "}
+                מהמחיר כאן
               </p>
             ) : null}
           </PriceLine>

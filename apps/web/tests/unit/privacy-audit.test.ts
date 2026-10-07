@@ -38,9 +38,7 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const sourceFiles = walk(join(ROOT, "src")).filter(
   (f) =>
-    /\.(ts|tsx|css|js|mjs)$/.test(f) &&
-    !/\.test\.(ts|tsx)$/.test(f) &&
-    !f.endsWith("api/types.ts"),
+    /\.(ts|tsx|css|js|mjs)$/.test(f) && !/\.test\.(ts|tsx)$/.test(f) && !f.endsWith("api/types.ts"),
 );
 
 describe("privacy audit: no third-party ad or tracking SDKs", () => {
@@ -49,7 +47,10 @@ describe("privacy audit: no third-party ad or tracking SDKs", () => {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
-    const names = [...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})];
+    const names = [
+      ...Object.keys(pkg.dependencies ?? {}),
+      ...Object.keys(pkg.devDependencies ?? {}),
+    ];
     expect(names.length).toBeGreaterThan(5);
     expect(names.filter((n) => BANNED_PACKAGES.test(n))).toEqual([]);
   });
@@ -79,7 +80,10 @@ describe("privacy audit: no third-party ad or tracking SDKs", () => {
   });
 
   it("the privacy policy page exists and states the no-sale commitment", () => {
-    const page = readFileSync(join(ROOT, "src/app/(secondary)/privacy/page.tsx"), "utf8").replace(/\s+/g, " ");
+    const page = readFileSync(join(ROOT, "src/app/(secondary)/privacy/page.tsx"), "utf8").replace(
+      /\s+/g,
+      " ",
+    );
     expect(page).toContain("לא מוכרים");
     expect(page).toContain("OpenStreetMap");
     expect(page).toContain("מחקי את הנתונים שלי");

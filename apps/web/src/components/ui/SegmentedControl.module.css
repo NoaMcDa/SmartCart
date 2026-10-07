@@ -7,7 +7,8 @@
 }
 
 .option {
-  flex: 1;
+  flex: 1 1 auto;
+  min-inline-size: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -21,7 +22,9 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--sc-muted);
-  white-space: nowrap;
+  /* Wraps instead of overflowing at 195 px (200% zoom on a phone). */
+  white-space: normal;
+  text-align: center;
   cursor: pointer;
 }
 
