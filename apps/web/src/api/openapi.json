@@ -1166,6 +1166,12 @@
       "PriceAlertIn": {
         "additionalProperties": false,
         "properties": {
+          "active": {
+            "default": true,
+            "description": "false pauses the alert",
+            "title": "Active",
+            "type": "boolean"
+          },
           "canonical_id": {
             "title": "Canonical Id",
             "type": "integer"
@@ -1219,10 +1225,33 @@
             "title": "Days",
             "type": "integer"
           },
+          "display_name_he": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name He"
+          },
           "generated_at": {
             "format": "date-time",
             "title": "Generated At",
             "type": "string"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The item whose price events make the series; null when none",
+            "title": "Item Id"
           },
           "points": {
             "items": {
@@ -1333,6 +1362,31 @@
               }
             ],
             "title": "Club Name"
+          },
+          "club_offer_discount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What club_offer_name would save on this line, ILS; information only",
+            "title": "Club Offer Discount"
+          },
+          "club_offer_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A club deal on this line for a club the user did not mark; information only, never in a total or saving",
+            "title": "Club Offer Name"
           },
           "club_required": {
             "default": false,
@@ -1842,6 +1896,43 @@
       "PromoWindow": {
         "additionalProperties": false,
         "properties": {
+          "club_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Club Name"
+          },
+          "club_only": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "true when only club members (or card holders) get it",
+            "title": "Club Only"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Promo parsing confidence; null when unknown",
+            "title": "Confidence"
+          },
           "description": {
             "title": "Description",
             "type": "string"
@@ -1857,6 +1948,18 @@
               }
             ],
             "title": "Ends At"
+          },
+          "promo_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "reward_type: price, percent, buy_x_get_y, bundle, other",
+            "title": "Promo Type"
           },
           "starts_at": {
             "anyOf": [
@@ -2164,9 +2267,56 @@
       "StorePrice": {
         "additionalProperties": false,
         "properties": {
+          "club_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Club Name"
+          },
+          "club_required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "true when the price is a club deal the user marked",
+            "title": "Club Required"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mapping confidence of a substitute",
+            "title": "Confidence"
+          },
           "display_name_he": {
             "title": "Display Name He",
             "type": "string"
+          },
+          "is_substitute": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "true: another product than the one scanned",
+            "title": "Is Substitute"
           },
           "item_id": {
             "title": "Item Id",
@@ -2177,6 +2327,17 @@
             "title": "Price Valid From",
             "type": "string"
           },
+          "promo_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo Description"
+          },
           "shelf_price": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Shelf Price",
@@ -2184,6 +2345,21 @@
           },
           "store": {
             "$ref": "#/components/schemas/StoreRef"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AttributeTag"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it is a substitute: attributes against the scanned product",
+            "title": "Tags"
           },
           "unit_price": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -2933,11 +3109,15 @@
             }
           },
           {
+            "description": "Days back from today, 90 by default",
             "in": "query",
             "name": "days",
             "required": false,
             "schema": {
               "default": 90,
+              "description": "Days back from today, 90 by default",
+              "maximum": 365,
+              "minimum": 1,
               "title": "Days",
               "type": "integer"
             }
@@ -2989,6 +3169,8 @@
             "name": "lon",
             "required": true,
             "schema": {
+              "maximum": 180,
+              "minimum": -180,
               "title": "Lon",
               "type": "number"
             }
@@ -2998,6 +3180,8 @@
             "name": "lat",
             "required": true,
             "schema": {
+              "maximum": 90,
+              "minimum": -90,
               "title": "Lat",
               "type": "number"
             }
@@ -3008,6 +3192,8 @@
             "required": false,
             "schema": {
               "default": 5000,
+              "maximum": 15000,
+              "minimum": 500,
               "title": "Radius M",
               "type": "integer"
             }
@@ -3026,6 +3212,27 @@
                 }
               ],
               "title": "Store Id"
+            }
+          },
+          {
+            "description": "The user's clubs, as in /compare",
+            "in": "query",
+            "name": "clubs",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The user's clubs, as in /compare",
+              "title": "Clubs"
             }
           }
         ],
@@ -3069,6 +3276,22 @@
               "title": "Token",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -3102,6 +3325,24 @@
     "/me": {
       "delete": {
         "operationId": "delete_me_me_delete",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -3112,6 +3353,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Delete Me",
@@ -3123,6 +3374,24 @@
     "/me/alerts": {
       "get": {
         "operationId": "list_alerts_me_alerts_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -3137,6 +3406,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "List Alerts",
@@ -3146,6 +3425,24 @@
       },
       "post": {
         "operationId": "create_alert_me_alerts_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -3196,6 +3493,22 @@
               "title": "Alert Id",
               "type": "integer"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -3214,6 +3527,73 @@
           }
         },
         "summary": "Delete Alert",
+        "tags": [
+          "alerts"
+        ]
+      },
+      "put": {
+        "description": "Edit or pause (``active = false``) an alert. Editing re-arms it (``last_fired_at`` reset)\nwhen the threshold, level or product changes.",
+        "operationId": "update_alert_me_alerts__alert_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "title": "Alert Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PriceAlertIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceAlert"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Alert",
         "tags": [
           "alerts"
         ]
@@ -3505,6 +3885,7 @@
     },
     "/me/lists/{list_id}/members": {
       "get": {
+        "description": "The owner sees every invite and member; a member sees the owner and themselves.",
         "operationId": "list_members_me_lists__list_id__members_get",
         "parameters": [
           {
@@ -3514,6 +3895,22 @@
             "schema": {
               "title": "List Id",
               "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -3549,6 +3946,68 @@
         ]
       }
     },
+    "/me/lists/{list_id}/members/{member_id}": {
+      "delete": {
+        "description": "Owner only: remove an accepted member.",
+        "operationId": "remove_member_me_lists__list_id__members__member_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "member_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Member Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Member",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
     "/me/lists/{list_id}/share": {
       "post": {
         "operationId": "share_list_me_lists__list_id__share_post",
@@ -3560,6 +4019,22 @@
             "schema": {
               "title": "List Id",
               "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -3596,6 +4071,67 @@
           }
         },
         "summary": "Share List",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/me/lists/{list_id}/share/{token}": {
+      "delete": {
+        "description": "Owner only: the invite is revoked, and its member (if accepted) loses access.",
+        "operationId": "revoke_share_me_lists__list_id__share__token__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Share",
         "tags": [
           "shares"
         ]
@@ -3708,8 +4244,77 @@
       }
     },
     "/me/push-subscriptions": {
+      "delete": {
+        "description": "Unsubscribe this device (the browser's push endpoint).",
+        "operationId": "delete_push_subscription_me_push_subscriptions_delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "endpoint",
+            "required": true,
+            "schema": {
+              "maxLength": 2000,
+              "title": "Endpoint",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Push Subscription",
+        "tags": [
+          "alerts"
+        ]
+      },
       "post": {
         "operationId": "add_push_subscription_me_push_subscriptions_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -3745,6 +4350,60 @@
         "summary": "Add Push Subscription",
         "tags": [
           "alerts"
+        ]
+      }
+    },
+    "/me/shared-lists": {
+      "get": {
+        "description": "Lists other users shared with the signed-in user (accepted invites).",
+        "operationId": "shared_lists_me_shared_lists_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ShoppingList"
+                  },
+                  "title": "Response Shared Lists Me Shared Lists Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Shared Lists",
+        "tags": [
+          "shares"
         ]
       }
     },
@@ -3956,6 +4615,8 @@
             "name": "lon",
             "required": true,
             "schema": {
+              "maximum": 180,
+              "minimum": -180,
               "title": "Lon",
               "type": "number"
             }
@@ -3965,6 +4626,8 @@
             "name": "lat",
             "required": true,
             "schema": {
+              "maximum": 90,
+              "minimum": -90,
               "title": "Lat",
               "type": "number"
             }
