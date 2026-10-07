@@ -4,12 +4,20 @@
 -- minimal stand-in is created only when absent (never replaced), which keeps one schema everywhere
 -- and lets RLS tests run anywhere by setting request.jwt.claim.sub.
 
-CREATE SCHEMA IF NOT EXISTS auth;
-CREATE TABLE IF NOT EXISTS auth.users (
-  id          uuid PRIMARY KEY,
-  email       text,
-  created_at  timestamptz NOT NULL DEFAULT now()
-);
+-- Guarded with to_regclass rather than IF NOT EXISTS: on Supabase (and the supabase/postgres
+-- image CI uses) the auth schema belongs to supabase_auth_admin, and CREATE ... IF NOT EXISTS
+-- still checks the CREATE privilege on that schema before noticing the table exists.
+DO $$
+BEGIN
+  IF to_regclass('auth.users') IS NULL THEN
+    CREATE SCHEMA IF NOT EXISTS auth;
+    CREATE TABLE auth.users (
+      id          uuid PRIMARY KEY,
+      email       text,
+      created_at  timestamptz NOT NULL DEFAULT now()
+    );
+  END IF;
+END $$;
 DO $$
 BEGIN
   IF NOT EXISTS (

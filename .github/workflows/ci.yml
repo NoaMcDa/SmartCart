@@ -74,4 +74,4 @@ jobs:
       - name: Report failing tests as annotations
         if: failure()
         run: |
-          uv run pytest -q --lf -rfE --tb=line 2>&1 | grep -E "^(FAILED|ERROR)|^/.*:[0-9]+: |^E " | head -60 | sed 's/^/::error::/' || true
+          uv run pytest -q --lf -rfE --tb=line 2>&1 | grep -E "(FAILED|ERROR) |Error|^E " | sort | uniq -c | sort -rn | head -40 | sed 's/^/::error::/' || true
