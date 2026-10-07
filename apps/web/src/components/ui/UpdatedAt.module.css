@@ -1,0 +1,8 @@
+.updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--sc-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}

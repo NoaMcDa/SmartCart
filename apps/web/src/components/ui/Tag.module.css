@@ -31,3 +31,13 @@
   color: var(--sc-bad-fg);
   box-shadow: inset 0 0 0 1.5px var(--sc-border);
 }
+
+.substitute {
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn-fg);
+}
+
+.club {
+  background: var(--sc-accent-soft);
+  color: var(--sc-accent-fg);
+}
