@@ -16,3 +16,13 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# uv
+.venv/
+uv.lock
+
+# Claude Code agent worktrees
+.claude/worktrees/
+
+# upstream il_supermarket_* writes a log file on import
+logging.log

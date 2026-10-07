@@ -1,0 +1,53 @@
+{
+  "chain_id": "7290103152017",
+  "files": {
+    "Stores7290103152017-202610060100.xml": {
+      "kind": "stores",
+      "schema": "v1",
+      "counts": {
+        "stores": 3
+      },
+      "online": [],
+      "checks": {
+        "stores[1].name": "אושר עד בני ברק",
+        "stores[1].store_code": "3"
+      }
+    },
+    "PriceFull7290103152017-012-202610060300.gz": {
+      "kind": "price_full",
+      "schema": "v1",
+      "counts": {
+        "items": 6,
+        "prices": 6
+      },
+      "checks": {
+        "prices[0].price": "6.82",
+        "prices[3].price": "12.60",
+        "items[3].is_weighed": "True"
+      }
+    },
+    "PromoFull7290103152017-012-202610060300.gz": {
+      "kind": "promo_full",
+      "schema": "v1",
+      "counts": {
+        "promos": 2
+      },
+      "checks": {
+        "promos[0].reward_type": "bundle",
+        "promos[1].reward_type": "buy_x_get_y"
+      }
+    },
+    "PromoFull7290103152017-021-202610060300.gz": {
+      "kind": "promo_full",
+      "schema": "v1",
+      "counts": {
+        "promos": 0
+      },
+      "checks": {}
+    },
+    "PriceFull7290103152017-021-202610060300.gz": {
+      "kind": "price_full",
+      "error": "AdapterError"
+    }
+  }
+}

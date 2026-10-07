@@ -4,8 +4,9 @@ Semantic supermarket price comparison for Israel. The user pastes a shopping lis
 flexibility level per item, and gets the cheapest nearby store plus a two-store split that accounts for
 travel cost. The differentiator is matching depth and trust, not being another barcode comparer.
 
-The code base is at the pre-code stage. What exists is research, decisions, a roadmap, and a UI design.
-Read this file first, then `docs/README.md` for the index.
+Phase 0 (data foundation) is implemented in `services/ingest`, `services/dashboard` and `supabase/`;
+see `docs/ingestion.md`, `docs/adapters.md`, `docs/dashboard.md` and `docs/dev-setup.md`. Infrastructure is
+not provisioned yet (`docs/infra-provisioning.md`). Read this file first, then `docs/README.md`.
 
 ## Key decisions (do not re-litigate without reading `docs/decisions.md`)
 
@@ -34,7 +35,7 @@ Read this file first, then `docs/README.md` for the index.
 | Web app | Next.js PWA (SvelteKit acceptable), Tailwind or CSS variables, Heebo font |
 | SEO pages | Static pages generated from the catalog (Python/Jinja or Next.js static), same domain |
 | API | FastAPI (Python 3.12+), OpenAPI 3.1 |
-| Managed backend | Supabase: Postgres 16, PostGIS, pgvector, Auth, Realtime, RLS |
+| Managed backend | Supabase: Postgres 17 (CI image `supabase/postgres:17.x`; Supabase ships 15 and 17, not 16), PostGIS, pgvector, Auth, Realtime, RLS |
 | Ingestion | Python workers on an Israeli-IP VPS, wrapping `israeli-supermarket-scarpers` and `il-supermarket-parser` |
 | Catalog ML | Rule normalization, LLM attribute extraction (batch, once per new item), BGE-M3 embeddings, cross-encoder or LLM judge, Streamlit/Label Studio review UI |
 | Optimizer | Phase 1 heuristic (subsets of nearest stores), phase 2 MILP with OR-Tools CP-SAT or HiGHS |

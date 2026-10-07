@@ -1,0 +1,1 @@
+"""SmartCart ingestion service."""

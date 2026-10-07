@@ -1,0 +1,47 @@
+{
+  "chain_id": "7290700100008",
+  "files": {
+    "Stores7290700100008-000-000-20261006-010000.xml.gz": {
+      "kind": "stores",
+      "schema": "v1",
+      "counts": {
+        "stores": 3
+      },
+      "online": [
+        "299"
+      ],
+      "checks": {
+        "stores[0].store_code": "207",
+        "stores[0].name": "חצי חינם חולון"
+      }
+    },
+    "PriceFull7290700100008-000-207-20261006-030000.xml.gz": {
+      "kind": "price_full",
+      "schema": "v1",
+      "counts": {
+        "items": 8,
+        "prices": 8
+      },
+      "checks": {
+        "prices[0].store_code": "207",
+        "prices[0].price": "6.62",
+        "prices[3].price": "12.40"
+      }
+    },
+    "PromoFull7290700100008-000-207-20261006-030000.xml.gz": {
+      "kind": "promo_full",
+      "schema": "v1",
+      "counts": {
+        "promos": 4
+      },
+      "checks": {
+        "promos[0].club_only": "True",
+        "promos[1].reward_type": "buy_x_get_y"
+      }
+    },
+    "PriceFull7290700100008-000-201-20261006-030000.xml.gz": {
+      "kind": "price_full",
+      "error": "AdapterError"
+    }
+  }
+}

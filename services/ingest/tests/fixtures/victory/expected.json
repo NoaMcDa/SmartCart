@@ -1,0 +1,65 @@
+{
+  "chain_id": "7290696200003",
+  "files": {
+    "Stores7290696200003-000-202610060100.xml.gz": {
+      "kind": "stores",
+      "schema": "v1",
+      "counts": {
+        "stores": 4
+      },
+      "online": [
+        "45"
+      ],
+      "checks": {
+        "stores[0].name": "ויקטורי באר יעקב",
+        "stores[0].city": "באר יעקב",
+        "stores[2].address": "None"
+      }
+    },
+    "PriceFull7290696200003-001-202610060300.xml.gz": {
+      "kind": "price_full",
+      "schema": "v1",
+      "counts": {
+        "items": 8,
+        "prices": 8
+      },
+      "checks": {
+        "prices[0].price": "7.42",
+        "items[0].raw_name": "חלב תנובה 3% בקרטון 1 ליטר",
+        "items[0].manufacturer": "תנובה",
+        "items[3].is_weighed": "True",
+        "prices[1].unit_of_measure": "100 גרם",
+        "prices[0].observed_at": "2026-10-05 22:10:00+03:00"
+      }
+    },
+    "PromoFull7290696200003-001-202610060300.xml.gz": {
+      "kind": "promo_full",
+      "schema": "v1",
+      "counts": {
+        "promos": 3
+      },
+      "checks": {
+        "promos[0].promo_id": "55001",
+        "promos[0].item_codes": "['7290000066318', '7290107932158']",
+        "promos[0].reward_type": "bundle",
+        "promos[0].club_only": "True",
+        "promos[1].reward_type": "buy_x_get_y",
+        "promos[2].reward_type": "price",
+        "promos[2].reward_value": "6.90",
+        "promos[2].ends_at": "2026-10-10 23:59:00+03:00"
+      }
+    },
+    "PriceFull7290696200003-007-202610060300.xml.gz": {
+      "kind": "price_full",
+      "schema": "v1",
+      "counts": {
+        "items": 4,
+        "prices": 4
+      },
+      "checks": {
+        "prices[0].store_code": "7",
+        "prices[0].price": "7.12"
+      }
+    }
+  }
+}

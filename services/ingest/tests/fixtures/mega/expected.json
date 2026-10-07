@@ -1,0 +1,45 @@
+{
+  "chain_id": "7290055700007",
+  "files": {
+    "Stores7290055700007-000-202610060100.gz": {
+      "kind": "stores",
+      "schema": "v1",
+      "counts": {
+        "stores": 3
+      },
+      "online": [
+        "5000"
+      ],
+      "checks": {
+        "stores[0].store_code": "2960",
+        "stores[2].name": "קרפור מרכז ליקוט"
+      }
+    },
+    "PriceFull7290055700007-2960-202610060300.gz": {
+      "kind": "price_full",
+      "schema": "v1",
+      "counts": {
+        "items": 8,
+        "prices": 8
+      },
+      "checks": {
+        "prices[0].store_code": "2960",
+        "prices[0].price": "7.52"
+      }
+    },
+    "PromoFull7290055700007-2960-202610060300.gz": {
+      "kind": "promo_full",
+      "schema": "v1",
+      "counts": {
+        "promos": 4
+      },
+      "checks": {
+        "promos[0].reward_type": "bundle"
+      }
+    },
+    "PriceFull7290055700007-3012-202610060300.gz": {
+      "kind": "price_full",
+      "error": "AdapterError"
+    }
+  }
+}
