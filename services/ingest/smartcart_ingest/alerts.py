@@ -11,6 +11,7 @@ Alerts fire on:
 * ``quarantine``      a file failed a quality gate
 * ``load_failure``    the database load failed and was rolled back
 * ``portal_failure``  a portal kept failing after the backoff cap
+* ``quality_warning`` a soft quality warning (``quality.warnings``); the file is still loaded
 
 A webhook that fails is logged and never interrupts ingestion.
 """
@@ -26,7 +27,12 @@ from typing import Any, Literal, Protocol
 import structlog
 
 AlertKind = Literal[
-    "parse_failure", "unknown_schema", "quarantine", "load_failure", "portal_failure"
+    "parse_failure",
+    "unknown_schema",
+    "quarantine",
+    "load_failure",
+    "portal_failure",
+    "quality_warning",
 ]
 
 log = structlog.get_logger("smartcart_ingest.alerts")

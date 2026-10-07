@@ -35,7 +35,7 @@ from smartcart_ingest.alerts import Alerter
 from smartcart_ingest.download import Fetcher, PortalError, download, order_for_processing
 from smartcart_ingest.models import FileKind, ParsedFile, RawFile
 from smartcart_ingest.rawstore import RawStore
-from smartcart_ingest.settings import Settings
+from smartcart_ingest.settings import Settings, Thresholds
 
 ISRAEL = ZoneInfo("Asia/Jerusalem")
 log = structlog.get_logger("smartcart_ingest.scheduler")
@@ -376,6 +376,20 @@ class Scheduler:
             log.info("same failure as before, not alerting again", file_id=f.id)
         return "failed"
 
+    def _soft_warnings(self, parsed: ParsedFile, thresholds: Thresholds, file_id: int) -> None:
+        """Record and alert the soft quality warnings; they never stop the load."""
+        raw = parsed.raw
+        found = quality.warnings(self.conn, parsed, thresholds, now=self.now())
+        for w in quality.record_warnings(self.conn, raw.chain_id, file_id, found, now=self.now()):
+            self.alert(
+                raw.chain_id,
+                "quality_warning",
+                f"{w.warning}: {raw.kind} file {raw.path} (store {raw.store_code}): {w.detail}",
+                file_id=file_id,
+                store_code=w.store_code,
+                warning=w.warning,
+            )
+
     def process(
         self,
         f: tracking.TrackedFile,
@@ -440,6 +454,7 @@ class Scheduler:
             )
             return "quarantined"
 
+        self._soft_warnings(parsed, thresholds, f.id)
         try:
             loader.load(self.conn, parsed, adapter)
         except loader.LoadError as exc:

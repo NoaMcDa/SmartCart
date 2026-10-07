@@ -21,11 +21,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 @dataclass(frozen=True)
 class Thresholds:
-    """Quality-gate thresholds for one chain (issue #42)."""
+    """Quality-gate thresholds for one chain (issue #42), plus the soft warnings' (issue #16)."""
 
     stale_file_max_age_hours: float
     price_jump_factor: float
     item_count_drop_ratio: float
+    gap_report_pressure_min: int = 3
+    """Confirmed price mismatches reported for a store in 7 days before a warning; 0 disables."""
 
 
 class Settings(BaseSettings):
@@ -50,6 +52,8 @@ class Settings(BaseSettings):
     price_jump_factor: float = Field(default=3, gt=1)
     item_count_drop_ratio: float = Field(default=0.5, ge=0, le=1)
     quality_overrides: dict[str, dict[str, float]] = Field(default_factory=dict)
+    # soft warning, never quarantines (issue #16); the default is a placeholder, not a decision
+    gap_report_pressure_min: int = Field(default=3, ge=0)
 
     # --- scheduler and portal backoff (issue #49) ------------------------------------------------
     delta_interval_minutes: dict[str, int] = Field(default_factory=dict)
@@ -78,7 +82,12 @@ class Settings(BaseSettings):
     @field_validator("quality_overrides")
     @classmethod
     def _known_threshold_names(cls, value: dict[str, dict[str, float]]) -> dict:
-        allowed = {"stale_file_max_age_hours", "price_jump_factor", "item_count_drop_ratio"}
+        allowed = {
+            "stale_file_max_age_hours",
+            "price_jump_factor",
+            "item_count_drop_ratio",
+            "gap_report_pressure_min",
+        }
         for chain_id, overrides in value.items():
             unknown = set(overrides) - allowed
             if unknown:
@@ -91,9 +100,15 @@ class Settings(BaseSettings):
             "stale_file_max_age_hours": self.stale_file_max_age_hours,
             "price_jump_factor": self.price_jump_factor,
             "item_count_drop_ratio": self.item_count_drop_ratio,
+            "gap_report_pressure_min": self.gap_report_pressure_min,
         }
         base.update(self.quality_overrides.get(chain_id, {}))
-        return Thresholds(**{k: float(v) for k, v in base.items()})
+        return Thresholds(
+            stale_file_max_age_hours=float(base["stale_file_max_age_hours"]),
+            price_jump_factor=float(base["price_jump_factor"]),
+            item_count_drop_ratio=float(base["item_count_drop_ratio"]),
+            gap_report_pressure_min=int(base["gap_report_pressure_min"]),
+        )
 
 
 def load_settings(**overrides: object) -> Settings:

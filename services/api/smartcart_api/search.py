@@ -8,7 +8,7 @@ Three retrievers, each returning up to ``per_retriever`` canonicals with a simil
   without its attached one-letter Hebrew prefix. Similarity = the share of query words found.
 * ``vector``: pgvector cosine similarity between the query embedding and the canonical's
   embedding, or the embeddings of items mapped to it at ``exact``/``any_brand``, above
-  ``VECTOR_MIN``.
+  ``VECTOR_MIN``. Only vectors of the query embedder's model are compared (see ``_vector``).
 
 Ranking is reciprocal rank fusion: ``rrf = sum(1 / (RRF_K + rank))`` over the retrievers that
 found the canonical. ``score`` is that sum divided by its maximum (rank 1 in every enabled
@@ -34,7 +34,7 @@ from typing import Literal
 
 import psycopg
 
-from smartcart_api.embedding import HashEmbedder, normalize_text, to_pgvector
+from smartcart_api.embedding import normalize_text, query_embedder, to_pgvector
 
 Retriever = Literal["trigram", "fts", "vector"]
 ALL_RETRIEVERS: tuple[Retriever, ...] = ("trigram", "fts", "vector")
@@ -45,7 +45,6 @@ VECTOR_MIN = 0.25
 PER_RETRIEVER = 20
 HEBREW_PREFIXES = "והבלמשכ"
 
-_embedder = HashEmbedder()
 _TOKEN = re.compile(r"[\w%.]+", re.UNICODE)
 
 
@@ -150,16 +149,27 @@ def _fts(conn: psycopg.Connection, q: str, k: int) -> Ranked:
 
 
 def _vector(conn: psycopg.Connection, q: str, k: int) -> Ranked:
-    vec = to_pgvector(_embedder.embed_one(q))
+    """Cosine similarity, only against vectors made by the query embedder's model.
+
+    Vectors from two models live in different spaces, so comparing them is noise. The query is
+    embedded with the catalog's embedder (``smartcart_api.embedding.query_embedder``), and only
+    canonicals whose ``embedding_model`` and items whose ``item_embeddings.model`` equal its
+    ``model_name`` are compared. A canonical with a NULL ``embedding_model`` is skipped: its
+    model is unknown; the catalog's ``embed`` job fills the column (it re-embeds such rows).
+    """
+    embedder = query_embedder()
+    vec = to_pgvector(embedder.embed_one(q))
     rows = conn.execute(
         "WITH qv AS (SELECT %(v)s::vector AS v),"
         " direct AS ("
         "   SELECT c.id AS canonical_id, 1 - (c.embedding <=> qv.v) AS s"
         "   FROM canonical_products AS c, qv WHERE c.embedding IS NOT NULL"
+        "     AND c.embedding_model = %(model)s"
         "   ORDER BY c.embedding <=> qv.v LIMIT %(k)s),"
         " near_items AS ("
         "   SELECT e.item_id, 1 - (e.embedding <=> qv.v) AS s"
-        "   FROM item_embeddings AS e, qv ORDER BY e.embedding <=> qv.v LIMIT %(k4)s),"
+        "   FROM item_embeddings AS e, qv WHERE e.model = %(model)s"
+        "   ORDER BY e.embedding <=> qv.v LIMIT %(k4)s),"
         " via_items AS ("
         "   SELECT ic.canonical_id, max(n.s) AS s FROM near_items AS n"
         "   JOIN item_canonical AS ic ON ic.item_id = n.item_id"
@@ -168,7 +178,7 @@ def _vector(conn: psycopg.Connection, q: str, k: int) -> Ranked:
         " SELECT canonical_id, max(s) AS s FROM (SELECT * FROM direct UNION ALL"
         "   SELECT * FROM via_items) AS u"
         " WHERE s >= %(min)s GROUP BY canonical_id ORDER BY s DESC, canonical_id LIMIT %(k)s",
-        {"v": vec, "k": k, "k4": k * 4, "min": VECTOR_MIN},
+        {"v": vec, "k": k, "k4": k * 4, "min": VECTOR_MIN, "model": embedder.model_name},
     ).fetchall()
     return [(r[0], float(r[1]), float(r[1])) for r in rows]
 

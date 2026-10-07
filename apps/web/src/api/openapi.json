@@ -2228,6 +2228,23 @@
             "title": "Name",
             "type": "string"
           },
+          "role": {
+            "default": "owner",
+            "description": "Your access: owner, or your role as a member (editors change items, viewers only read)",
+            "enum": [
+              "owner",
+              "editor",
+              "viewer"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "shared": {
+            "default": false,
+            "description": "true when another user owns the list and shared it with you",
+            "title": "Shared",
+            "type": "boolean"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -3683,6 +3700,7 @@
     },
     "/me/lists": {
       "get": {
+        "description": "The user's own lists, then the lists other users shared with them (accepted invites),\ntold apart by ``shared`` and ``role``.",
         "operationId": "list_lists_me_lists_get",
         "parameters": [
           {
@@ -3842,6 +3860,7 @@
         ]
       },
       "get": {
+        "description": "An owned list, or one shared with the user (``shared``, ``role``). Only the owner may\nPUT or DELETE it; editors change items through PostgREST (RLS).",
         "operationId": "get_list_me_lists__list_id__get",
         "parameters": [
           {
@@ -4214,6 +4233,67 @@
           }
         },
         "summary": "Revoke Share",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/me/lists/{list_id}/shares/{share_id}": {
+      "delete": {
+        "description": "Owner only: revoke a pending invite or remove a member by the share's id (the ``share_id``\nof ``GET /me/lists/{list_id}/members``). The member, if any, loses access at once.",
+        "operationId": "delete_share_me_lists__list_id__shares__share_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "share_id",
+            "required": true,
+            "schema": {
+              "title": "Share Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Share",
         "tags": [
           "shares"
         ]

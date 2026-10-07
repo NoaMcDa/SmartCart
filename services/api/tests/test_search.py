@@ -92,6 +92,35 @@ def test_meaning_only_query_comes_from_the_vector_retriever(db, catalog: World) 
 
 @pytest.mark.db
 @pytest.mark.pgvector
+def test_vector_retriever_compares_only_vectors_of_the_query_model(db, world: World) -> None:
+    from smartcart_api.embedding import query_embedder
+    from smartcart_catalog.embed import HashEmbedder
+
+    # The query embedder is the catalog's: the fixtures' vectors are what `embed` writes.
+    assert query_embedder().model_name == HashEmbedder().model_name == "hash-ngram-2-3-4-v1"
+    cream = world.canon["cream"]
+    assert db.execute("SELECT embedding_model FROM canonical_products WHERE id = %s",
+                      (cream,)).fetchone()[0] == query_embedder().model_name
+    assert [h.canonical_id for h in hybrid_search(db, "קצפת", retrievers=("vector",))][:1] == [cream]
+    # A NULL model is unknown: skipped until the catalog's embed job records it.
+    db.execute("UPDATE canonical_products SET embedding_model = NULL WHERE id = %s", (cream,))
+    assert cream not in [h.canonical_id for h in hybrid_search(db, "קצפת", retrievers=("vector",))]
+    # Labeled as another model (a BGE-M3 vector, say): never compared with a hash query vector.
+    db.execute("UPDATE canonical_products SET embedding_model = 'BAAI/bge-m3' WHERE id = %s", (cream,))
+    assert cream not in [h.canonical_id for h in hybrid_search(db, "קצפת", retrievers=("vector",))]
+
+    # Item embeddings: "רסק עגבניות אסם" reaches paste through its item's vector. Relabel every
+    # canonical as another model so only the item path is left.
+    db.execute("UPDATE canonical_products SET embedding_model = 'BAAI/bge-m3'")
+    paste = world.canon["paste"]
+    via_items = [h.canonical_id for h in hybrid_search(db, "רסק עגבניות אסם", retrievers=("vector",))]
+    assert paste in via_items
+    db.execute("UPDATE item_embeddings SET model = 'BAAI/bge-m3'")
+    assert hybrid_search(db, "רסק עגבניות אסם", retrievers=("vector",)) == []
+
+
+@pytest.mark.db
+@pytest.mark.pgvector
 def test_each_retriever_can_be_disabled_and_contributes(db, catalog: World) -> None:
     for only in ("trigram", "fts", "vector"):
         hits = hybrid_search(db, "רסק עגבניות", retrievers=(only,))

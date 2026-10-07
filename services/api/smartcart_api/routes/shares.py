@@ -16,11 +16,14 @@ Flow:
    20261008100100_shared_lists_rls.sql): owners and accepted members read the list and its
    items; owners and editors write items; viewers cannot write; strangers see nothing. Members
    edit items through Supabase PostgREST and receive changes through Realtime; the API offers
-   the read side (``GET /me/shared-lists``).
+   the read side (``GET /me/lists``, which includes accepted shared lists with ``shared`` and the
+   member's ``role``, and ``GET /me/shared-lists``, the shared ones only).
 4. The owner lists members (``GET /me/lists/{list_id}/members``; a member sees the owner and
-   themselves only), revokes an invite or a membership by token
-   (``DELETE /me/lists/{list_id}/share/{token}``) or removes a member by user id
-   (``DELETE /me/lists/{list_id}/members/{member_id}``). Access ends with the transaction.
+   themselves only; every invite and membership row carries its ``share_id``), revokes a
+   pending invite or removes a member by that id (``DELETE /me/lists/{list_id}/shares/{share_id}``),
+   revokes an invite or a membership by token (``DELETE /me/lists/{list_id}/share/{token}``) or
+   removes a member by user id (``DELETE /me/lists/{list_id}/members/{member_id}``). Access ends
+   with the transaction.
 
 Family sharing is a paid-tier feature (D12): ``API_FAMILY_SHARING`` (default on) gates invite
 creation; when off, creating an invite answers 403. Members never see each other's profile,
@@ -38,11 +41,11 @@ from typing import Annotated
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Response
-from psycopg.rows import dict_row
 
 from smartcart_api import schemas
 from smartcart_api.auth import User, current_user, user_conn
 from smartcart_api.db import get_conn
+from smartcart_api.lists import load_lists
 from smartcart_api.routes.me_delete import as_user
 from smartcart_api.settings import get_settings
 
@@ -79,26 +82,6 @@ def _owned(conn: psycopg.Connection, user: User, list_id: int) -> bool:
     ).fetchone() is not None
 
 
-def load_shared_lists(conn: psycopg.Connection, list_ids: list[int]) -> list[schemas.ShoppingList]:
-    """Lists and their items by id, as visible under the current RLS context."""
-    with conn.cursor(row_factory=dict_row) as cur:
-        lists = cur.execute(
-            "SELECT id, name, is_recurring, created_at, updated_at FROM lists WHERE id = ANY(%s)"
-            " ORDER BY updated_at DESC, id",
-            (list_ids,),
-        ).fetchall()
-        items = cur.execute(
-            "SELECT id, list_id, canonical_id, input_text, quantity, flex_level, confirmed, sort"
-            " FROM list_items WHERE list_id = ANY(%s) ORDER BY list_id, sort, id",
-            ([lst["id"] for lst in lists],),
-        ).fetchall()
-    by_list: dict[int, list[schemas.ListItem]] = {}
-    for it in items:
-        lid = it.pop("list_id")
-        by_list.setdefault(lid, []).append(schemas.ListItem(**it))
-    return [schemas.ShoppingList(**lst, items=by_list.get(lst["id"], [])) for lst in lists]
-
-
 @router.post("/me/lists/{list_id}/share", response_model=schemas.ShareInvite, status_code=201)
 def share_list(list_id: int, body: schemas.ShareRequest, uc: UserConn) -> schemas.ShareInvite:
     user, conn = uc
@@ -126,16 +109,31 @@ def list_members(list_id: int, uc: UserConn) -> list[schemas.ListMember]:
     if owner is None:  # RLS: neither the owner nor a member
         raise HTTPException(status_code=404, detail="list not found")
     out = [schemas.ListMember(user_id=str(owner[0]), role="editor", accepted_at=owner[1], is_owner=True)]
-    for member_id, role, accepted_at in conn.execute(
-        "SELECT member_id, role, accepted_at FROM list_shares WHERE list_id = %s"
+    for share_id, member_id, role, accepted_at in conn.execute(
+        "SELECT id, member_id, role, accepted_at FROM list_shares WHERE list_id = %s"
         " AND (member_id IS NOT NULL OR expires_at IS NULL OR expires_at > now())"
-        " ORDER BY accepted_at NULLS LAST, created_at",
+        " ORDER BY accepted_at NULLS LAST, created_at, id",
         (list_id,),
     ).fetchall():
         out.append(schemas.ListMember(
             user_id=str(member_id) if member_id else None, role=role, accepted_at=accepted_at,
+            share_id=share_id,
         ))
     return out
+
+
+@router.delete("/me/lists/{list_id}/shares/{share_id}", status_code=204)
+def delete_share(list_id: int, share_id: int, uc: UserConn) -> Response:
+    """Owner only: revoke a pending invite or remove a member by the share's id (the ``share_id``
+    of ``GET /me/lists/{list_id}/members``). The member, if any, loses access at once."""
+    user, conn = uc
+    deleted = conn.execute(
+        "DELETE FROM list_shares WHERE list_id = %s AND id = %s AND owner_id = %s",
+        (list_id, share_id, user.id),
+    ).rowcount
+    if not deleted:
+        raise HTTPException(status_code=404, detail="share not found")
+    return Response(status_code=204)
 
 
 @router.delete("/me/lists/{list_id}/share/{token}", status_code=204)
@@ -175,7 +173,7 @@ def shared_lists(uc: UserConn) -> list[schemas.ShoppingList]:
             (user.id,),
         ).fetchall()
     ]
-    return load_shared_lists(conn, ids)
+    return load_lists(conn, user, ids, owned=False)
 
 
 @router.post("/lists/accept/{token}", response_model=schemas.ShoppingList)
@@ -205,7 +203,7 @@ def accept_share(
                 (user.id, token_hash(token)),
             )
     with as_user(conn, user):
-        found = load_shared_lists(conn, [list_id])
+        found = load_lists(conn, user, [list_id])
     if not found:
         raise HTTPException(status_code=404, detail="list not found")
     return found[0]
