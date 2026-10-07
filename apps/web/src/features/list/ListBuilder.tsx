@@ -8,6 +8,7 @@ import {
   IconClipboard,
   IconInfo,
   IconMic,
+  IconShare,
   Skeleton,
   UpdatedAt,
 } from "@/components/ui";
@@ -116,15 +117,27 @@ export function ListBuilder() {
 
   return (
     <div className={styles.page}>
-      <p className={styles.subline} data-testid="list-subline">
-        <span dir="ltr">{recognized}</span> פריטים
-        {newestPrice ? (
-          <>
-            {" · "}
-            <UpdatedAt iso={newestPrice} prefix="מחירים עודכנו" />
-          </>
-        ) : null}
-      </p>
+      <div className={styles.head}>
+        <p className={styles.subline} data-testid="list-subline">
+          <span dir="ltr">{recognized}</span> פריטים
+          {newestPrice ? (
+            <>
+              {" · "}
+              <UpdatedAt iso={newestPrice} prefix="מחירים עודכנו" />
+            </>
+          ) : null}
+        </p>
+        {/* /lists/mine/share opens this device's shared list when there is one, else offers to create it. */}
+        <Button
+          href="/lists/mine/share"
+          variant="outline"
+          size="sm"
+          iconStart={<IconShare size={16} />}
+          data-testid="share-entry"
+        >
+          שיתוף
+        </Button>
+      </div>
 
       <div className={styles.layout}>
         <section className={styles.listColumn} aria-label="הרשימה">

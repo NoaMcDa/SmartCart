@@ -1,20 +1,20 @@
 {
-  "generated_at": "2026-10-07T05:50:15Z",
+  "generated_at": "2026-10-07T21:02:31Z",
   "available": true,
-  "run_id": 7,
-  "measured_at": "2026-10-07T05:50:15Z",
+  "run_id": 3,
+  "measured_at": "2026-10-07T21:02:31Z",
   "precision": {
     "exact": 1.0,
     "any_brand": 1.0,
     "close": 1.0
   },
   "sample": {
-    "exact": 100,
-    "any_brand": 530,
-    "close": 609
+    "exact": 104,
+    "any_brand": 546,
+    "close": 634
   },
-  "gold_items": 831,
-  "gold_pairs": 2419,
+  "gold_items": 857,
+  "gold_pairs": 2523,
   "synthetic": true,
   "judge": "rule-v1",
   "target_any_brand": 0.98

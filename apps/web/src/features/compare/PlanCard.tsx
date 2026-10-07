@@ -188,6 +188,13 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
           </span>
         ) : null}
 
+        {plan.kind === "split" ? (
+          <Link href="/split" className={styles.subsLink} data-testid="split-link">
+            <IconRefresh size={14} />
+            פירוט הפיצול בין הסופרים
+          </Link>
+        ) : null}
+
         {missing.length ? (
           <button
             type="button"

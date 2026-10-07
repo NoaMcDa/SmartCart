@@ -52,17 +52,31 @@ def _lines(output: str) -> list[dict]:
     return [json.loads(line) for line in output.splitlines() if line.startswith("{")]
 
 
+def _full_and_delta_times() -> tuple[datetime, datetime]:
+    """A PriceFull time and a later Price (delta) time on the same Israel calendar day.
+
+    A delta loads only after that day's full file, so the two must not straddle midnight: between
+    00:30 and 02:00 Israel time "now - 2 h" would fall on the previous day and the delta would be
+    held, which made this test fail in CI at that hour.
+    """
+    delta_at = _now() - timedelta(minutes=30)
+    full_at = delta_at - timedelta(minutes=90)
+    if full_at.date() != delta_at.date():
+        full_at = min(delta_at.replace(hour=0, minute=1, second=0), delta_at - timedelta(seconds=1))
+    return full_at, delta_at
+
+
 def test_run_full_then_delta_then_status(wired, db) -> None:
-    now = _now()
+    full_at, delta_at = _full_and_delta_times()
     wired.add(
         "price_full",
-        encode(items=[item("A")], prices=[price("A", "1", "5.00", at=now - timedelta(hours=2))]),
-        at=now - timedelta(hours=2),
+        encode(items=[item("A")], prices=[price("A", "1", "5.00", at=full_at)]),
+        at=full_at,
     )
     wired.add(
         "price",
-        encode(items=[item("A")], prices=[price("A", "1", "4.00", at=now - timedelta(minutes=30))]),
-        at=now - timedelta(minutes=30),
+        encode(items=[item("A")], prices=[price("A", "1", "4.00", at=delta_at)]),
+        at=delta_at,
     )
     result = runner.invoke(cli.app, ["run", "--mode", "full", "--chain", "fake"])
     assert result.exit_code == 0, result.output

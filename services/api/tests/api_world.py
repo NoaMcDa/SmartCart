@@ -15,12 +15,12 @@ import jwt
 import psycopg
 from psycopg.types.json import Jsonb
 
-from smartcart_api.embedding import HashEmbedder, to_pgvector
+from smartcart_api.embedding import query_embedder, to_pgvector
 
 JWT_SECRET = "test-secret-at-least-32-bytes-long-for-hs256"
 ORIGIN = (34.7800, 32.0800)  # lon, lat
 KM_LAT = 1 / 111.0  # degrees of latitude per km (close enough for tests)
-EMB = HashEmbedder()
+EMB = query_embedder()  # the catalog's hash embedder: the same vectors `embed` would write
 D = Decimal
 
 
@@ -196,10 +196,10 @@ def seed_catalog(db: psycopg.Connection, w: World) -> None:
         emb_text = "קצפת" if key == "cream" else name
         w.canon[key] = db.execute(
             "INSERT INTO canonical_products (taxonomy_id, slug, display_name_he, product_type,"
-            " base_unit, critical_attrs, soft_attrs, embedding, is_mvp, rank)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector, true, %s) RETURNING id",
+            " base_unit, critical_attrs, soft_attrs, embedding, embedding_model, is_mvp, rank)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector, %s, true, %s) RETURNING id",
             (tax, f"t-{key}", name, pt, base, Jsonb(crit), Jsonb(soft),
-             to_pgvector(EMB.embed_one(emb_text)), rank),
+             to_pgvector(EMB.embed_one(emb_text)), EMB.model_name, rank),
         ).fetchone()[0]
 
 

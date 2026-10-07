@@ -168,6 +168,10 @@ class Extractor(Protocol):
 @runtime_checkable
 class Embedder(Protocol):
     model_name: str
+    """Stable name of the vector space: ``embed`` writes it to
+    ``canonical_products.embedding_model`` and ``item_embeddings.model``, and every reader that
+    compares a query vector with stored vectors filters on it (``hash-ngram-2-3-4-v1`` for the
+    default ``HashEmbedder``, ``BAAI/bge-m3`` for BGE-M3)."""
     dim: int
 
     def embed(self, texts: list[str]) -> list[list[float]]: ...

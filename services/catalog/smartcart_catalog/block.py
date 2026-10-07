@@ -3,7 +3,9 @@
 Block first, then search: an item is only ever compared with canonicals whose ``taxonomy_id`` is
 inside the item's block prefix and whose ``base_unit`` equals the item's base unit. Within the
 block, candidates are ranked by cosine distance (``<=>``) on ``canonical_products.embedding``,
-which carries an HNSW index (``vector_cosine_ops``).
+which carries an HNSW index (``vector_cosine_ops``). Only canonicals embedded with the item's
+own model are compared (``canonical_products.embedding_model = item_embeddings.model``): two
+models' vectors live in different spaces, so a half-finished re-embed never mixes them.
 
 ``top_k`` is one SQL statement. Two notes on the HNSW index:
 
@@ -115,6 +117,7 @@ CROSS JOIN LATERAL (
   SELECT cp.*, cp.embedding <=> e.embedding AS distance
   FROM canonical_products cp
   WHERE cp.embedding IS NOT NULL
+    AND cp.embedding_model = e.model
     AND (%(base_unit)s::text IS NULL OR cp.base_unit = %(base_unit)s::text)
     AND (%(prefix)s::text IS NULL OR cp.taxonomy_id = %(prefix)s::text
          OR cp.taxonomy_id LIKE %(like)s::text)

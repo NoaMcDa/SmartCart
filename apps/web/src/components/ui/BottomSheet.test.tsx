@@ -31,6 +31,19 @@ function Harness() {
 }
 
 describe("BottomSheet", () => {
+  it("closes on Escape pressed right after opening, before focus has moved into the dialog", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const opener = screen.getByRole("button", { name: "פתיחה" });
+    await user.click(opener);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // Focus moves in on the next animation frame; until then it is still on the opener.
+    expect(opener).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
   it("is a labelled modal dialog that takes focus", async () => {
     const user = userEvent.setup();
     render(<Harness />);

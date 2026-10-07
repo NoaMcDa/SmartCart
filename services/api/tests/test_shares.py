@@ -170,9 +170,13 @@ def test_invite_accept_members_and_revoke(client, db, people, monkeypatch) -> No
     assert invite["url"] == f"https://smartcart.example/lists/accept/{token}"
     # Only the hash is stored.
     assert db.execute("SELECT count(*) FROM list_shares WHERE invite_token = %s", (token,)).fetchone()[0] == 0
+    share_id = db.execute("SELECT id FROM list_shares WHERE invite_token = %s",
+                          (token_hash(token),)).fetchone()[0]
     pending = client.get(f"/me/lists/{list_id}/members", headers=h(owner)).json()
-    assert pending[0]["is_owner"] and pending[1] == {
-        "user_id": None, "role": "editor", "accepted_at": None, "is_owner": False}
+    assert pending[0]["is_owner"] and pending[0]["share_id"] is None
+    assert pending[1] == {
+        "user_id": None, "role": "editor", "accepted_at": None, "is_owner": False,
+        "share_id": share_id}
     # Not shared yet: the editor cannot see it.
     assert client.get(f"/me/lists/{list_id}/members", headers=h(editor)).status_code == 404
 
@@ -185,7 +189,8 @@ def test_invite_accept_members_and_revoke(client, db, people, monkeypatch) -> No
     assert [s["id"] for s in shared] == [list_id]
     assert client.get("/me/shared-lists", headers=h(stranger)).json() == []
     members = client.get(f"/me/lists/{list_id}/members", headers=h(editor)).json()
-    assert [(m["user_id"], m["is_owner"]) for m in members] == [(str(owner), True), (str(editor), False)]
+    assert [(m["user_id"], m["is_owner"], m["share_id"]) for m in members] == [
+        (str(owner), True, None), (str(editor), False, share_id)]
     # Only the owner revokes; then the editor loses access at once.
     assert client.delete(f"/me/lists/{list_id}/share/{token}", headers=h(editor)).status_code == 404
     assert client.delete(f"/me/lists/{list_id}/share/{token}", headers=h(owner)).status_code == 204
@@ -219,3 +224,100 @@ def test_sharing_flag_gates_invites(client, people, monkeypatch) -> None:
     list_id = make_list(client, people["owner"])
     monkeypatch.setenv("API_FAMILY_SHARING", "0")
     assert client.post(f"/me/lists/{list_id}/share", headers=h(people["owner"]), json={}).status_code == 403
+
+
+def test_revoke_a_pending_invite_and_remove_a_member_by_share_id(client, db, people) -> None:
+    owner, editor, viewer, stranger = (people[k] for k in ("owner", "editor", "viewer", "stranger"))
+    list_id = make_list(client, owner)
+    other_list = make_list(client, stranger)
+    pending_token = client.post(f"/me/lists/{list_id}/share", headers=h(owner),
+                                json={"role": "editor"}).json()["token"]
+    member_token = client.post(f"/me/lists/{list_id}/share", headers=h(owner),
+                               json={"role": "viewer"}).json()["token"]
+    assert client.post(f"/lists/accept/{member_token}", headers=h(viewer)).status_code == 200
+    members = client.get(f"/me/lists/{list_id}/members", headers=h(owner)).json()
+    ids = {m["user_id"]: m["share_id"] for m in members if not m["is_owner"]}
+    want = dict(db.execute(
+        "SELECT invite_token, id FROM list_shares WHERE list_id = %s", (list_id,)).fetchall())
+    assert ids == {None: want[token_hash(pending_token)], str(viewer): want[token_hash(member_token)]}
+    pending_id, member_id = ids[None], ids[str(viewer)]
+
+    # Owner only, and only within the list named in the path.
+    for who in (editor, viewer, stranger):
+        assert client.delete(f"/me/lists/{list_id}/shares/{pending_id}", headers=h(who)).status_code == 404
+    assert client.delete(f"/me/lists/{other_list}/shares/{pending_id}", headers=h(stranger)).status_code == 404
+    assert client.delete(f"/me/lists/{list_id}/shares/999999999", headers=h(owner)).status_code == 404
+    assert client.delete(f"/me/lists/{list_id}/shares/{pending_id}").status_code == 401
+
+    # The pending invite: revoked, and its link no longer works.
+    assert client.delete(f"/me/lists/{list_id}/shares/{pending_id}", headers=h(owner)).status_code == 204
+    assert client.delete(f"/me/lists/{list_id}/shares/{pending_id}", headers=h(owner)).status_code == 404
+    assert client.post(f"/lists/accept/{pending_token}", headers=h(editor)).status_code == 404
+    # The member: removed, access ends at once.
+    assert [s["id"] for s in client.get("/me/shared-lists", headers=h(viewer)).json()] == [list_id]
+    assert client.delete(f"/me/lists/{list_id}/shares/{member_id}", headers=h(owner)).status_code == 204
+    assert client.get("/me/shared-lists", headers=h(viewer)).json() == []
+    assert client.get(f"/me/lists/{list_id}", headers=h(viewer)).status_code == 404
+    members = client.get(f"/me/lists/{list_id}/members", headers=h(owner)).json()
+    assert [m["is_owner"] for m in members] == [True]
+
+
+def test_me_lists_includes_accepted_shared_lists(client, people) -> None:
+    owner, editor, viewer, stranger = (people[k] for k in ("owner", "editor", "viewer", "stranger"))
+    family = make_list(client, owner)
+    mine = make_list(client, editor)
+    for who, role in ((editor, "editor"), (viewer, "viewer")):
+        token = client.post(f"/me/lists/{family}/share", headers=h(owner),
+                            json={"role": role}).json()["token"]
+        assert client.post(f"/lists/accept/{token}", headers=h(who)).status_code == 200
+    # A pending invite shows the list to nobody else.
+    client.post(f"/me/lists/{family}/share", headers=h(owner), json={"role": "editor"})
+
+    def summary(who):
+        return [(x["id"], x["shared"], x["role"], [i["input_text"] for i in x["items"]])
+                for x in client.get("/me/lists", headers=h(who)).json()]
+
+    assert summary(owner) == [(family, False, "owner", ["חלב"])]
+    # Owned lists first, then the shared ones.
+    assert summary(editor) == [(mine, False, "owner", ["חלב"]), (family, True, "editor", ["חלב"])]
+    assert summary(viewer) == [(family, True, "viewer", ["חלב"])]
+    assert summary(stranger) == []
+    # One shared list by id; a member cannot replace or delete it (owner only).
+    got = client.get(f"/me/lists/{family}", headers=h(viewer)).json()
+    assert (got["shared"], got["role"]) == (True, "viewer")
+    assert client.put(f"/me/lists/{family}", headers=h(editor), json={"name": "x"}).status_code == 404
+    assert client.delete(f"/me/lists/{family}", headers=h(editor)).status_code == 404
+    # /me/shared-lists keeps working: the shared ones only, with the same fields.
+    shared = client.get("/me/shared-lists", headers=h(editor)).json()
+    assert [(x["id"], x["shared"], x["role"]) for x in shared] == [(family, True, "editor")]
+    assert client.get("/me/shared-lists", headers=h(owner)).json() == []
+
+
+def test_checked_flag_round_trips_and_editors_may_tick_items(client, db, people) -> None:
+    owner, editor, viewer = people["owner"], people["editor"], people["viewer"]
+    body = {"name": "בית", "items": [{"input_text": "חלב", "checked": True}, {"input_text": "לחם"}]}
+    r = client.post("/me/lists", headers=h(owner), json=body)
+    assert r.status_code == 201, r.text
+    list_id = r.json()["id"]
+    assert [(i["input_text"], i["checked"]) for i in r.json()["items"]] == [("חלב", True), ("לחם", False)]
+    body["items"] = [{"input_text": "חלב", "checked": False}, {"input_text": "לחם", "checked": True}]
+    r = client.put(f"/me/lists/{list_id}", headers=h(owner), json=body)
+    assert [(i["input_text"], i["checked"]) for i in r.json()["items"]] == [("חלב", False), ("לחם", True)]
+    got = client.get(f"/me/lists/{list_id}", headers=h(owner)).json()
+    assert [i["checked"] for i in got["items"]] == [False, True]
+    assert db.execute("SELECT count(*) FROM list_items WHERE list_id = %s AND checked",
+                      (list_id,)).fetchone()[0] == 1
+    for who, role in ((editor, "editor"), (viewer, "viewer")):
+        token = client.post(f"/me/lists/{list_id}/share", headers=h(owner),
+                            json={"role": role}).json()["token"]
+        assert client.post(f"/lists/accept/{token}", headers=h(who)).status_code == 200
+    # Row-level security, as PostgREST runs it: an editor ticks an item, a viewer cannot.
+    as_user(db, editor)
+    assert db.execute("UPDATE list_items SET checked = true WHERE list_id = %s AND NOT checked",
+                      (list_id,)).rowcount == 1
+    as_user(db, viewer)
+    assert db.execute("UPDATE list_items SET checked = false WHERE list_id = %s",
+                      (list_id,)).rowcount == 0
+    as_owner(db)
+    got = client.get(f"/me/lists/{list_id}", headers=h(viewer)).json()
+    assert [i["checked"] for i in got["items"]] == [True, True]

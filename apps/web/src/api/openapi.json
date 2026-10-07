@@ -349,7 +349,15 @@
               "substitution_verdict",
               "flex_changed",
               "split_viewed",
-              "gap_reported"
+              "gap_reported",
+              "scan_started",
+              "scan_completed",
+              "alert_created",
+              "swap_applied",
+              "swap_undone",
+              "swap_dismissed",
+              "list_shared",
+              "share_accepted"
             ],
             "title": "Name",
             "type": "string"
@@ -546,6 +554,12 @@
             ],
             "title": "Canonical Id"
           },
+          "checked": {
+            "default": false,
+            "description": "Ticked off in the store (shared lists, #101)",
+            "title": "Checked",
+            "type": "boolean"
+          },
           "confirmed": {
             "default": true,
             "title": "Confirmed",
@@ -608,6 +622,12 @@
               }
             ],
             "title": "Canonical Id"
+          },
+          "checked": {
+            "default": false,
+            "description": "Ticked off in the store (shared lists, #101)",
+            "title": "Checked",
+            "type": "boolean"
           },
           "confirmed": {
             "default": true,
@@ -681,6 +701,18 @@
             ],
             "title": "Role",
             "type": "string"
+          },
+          "share_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Id of the list_shares row (null for the owner); revoke a pending invite or remove a member with DELETE /me/lists/{list_id}/shares/{share_id}",
+            "title": "Share Id"
           },
           "user_id": {
             "anyOf": [
@@ -2196,6 +2228,23 @@
             "title": "Name",
             "type": "string"
           },
+          "role": {
+            "default": "owner",
+            "description": "Your access: owner, or your role as a member (editors change items, viewers only read)",
+            "enum": [
+              "owner",
+              "editor",
+              "viewer"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "shared": {
+            "default": false,
+            "description": "true when another user owns the list and shared it with you",
+            "title": "Shared",
+            "type": "boolean"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -2602,6 +2651,46 @@
             "title": "Canonical Id",
             "type": "integer"
           },
+          "flex_level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "exact",
+                  "any_brand",
+                  "close"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flex Level"
+          },
+          "list_item_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "List Item Id"
+          },
+          "match_confidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Confidence"
+          },
           "original_item_id": {
             "anyOf": [
               {
@@ -2612,6 +2701,16 @@
               }
             ],
             "title": "Original Item Id"
+          },
+          "source": {
+            "default": "substitution_card",
+            "description": "Where the verdict came from: the substitution card, or the smart-cart swap (apply = accepted, undo = kept_original, dismiss = not_good)",
+            "enum": [
+              "substitution_card",
+              "swap"
+            ],
+            "title": "Source",
+            "type": "string"
           },
           "substitute_item_id": {
             "title": "Substitute Item Id",
@@ -3601,6 +3700,7 @@
     },
     "/me/lists": {
       "get": {
+        "description": "The user's own lists, then the lists other users shared with them (accepted invites),\ntold apart by ``shared`` and ``role``.",
         "operationId": "list_lists_me_lists_get",
         "parameters": [
           {
@@ -3760,6 +3860,7 @@
         ]
       },
       "get": {
+        "description": "An owned list, or one shared with the user (``shared``, ``role``). Only the owner may\nPUT or DELETE it; editors change items through PostgREST (RLS).",
         "operationId": "get_list_me_lists__list_id__get",
         "parameters": [
           {
@@ -4132,6 +4233,67 @@
           }
         },
         "summary": "Revoke Share",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/me/lists/{list_id}/shares/{share_id}": {
+      "delete": {
+        "description": "Owner only: revoke a pending invite or remove a member by the share's id (the ``share_id``\nof ``GET /me/lists/{list_id}/members``). The member, if any, loses access at once.",
+        "operationId": "delete_share_me_lists__list_id__shares__share_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "share_id",
+            "required": true,
+            "schema": {
+              "title": "Share Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Share",
         "tags": [
           "shares"
         ]

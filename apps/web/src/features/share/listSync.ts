@@ -8,9 +8,7 @@
  * rows, so nothing is lost; a delete removes only that item; an insert whose id is already known is
  * an update, so a reconnect that replays events cannot duplicate an item.
  */
-import type { FlexLevel, Schemas, ShoppingList, ShoppingListInput } from "@/api/client";
-
-type ListItemIn = Schemas["ListItemIn"];
+import type { FlexLevel, ListItemInput, ShoppingList, ShoppingListInput } from "@/api/client";
 
 export type SharedItem = {
   id: number;
@@ -20,6 +18,8 @@ export type SharedItem = {
   quantity: number;
   flexLevel: FlexLevel;
   confirmed: boolean;
+  /** Ticked off in the store; every member sees it. */
+  checked: boolean;
   sort: number;
   /** Epoch ms of the row's `updated_at`, when the server sent one. */
   updatedAt: number | null;
@@ -32,6 +32,7 @@ export type RawRow = {
   quantity?: number | string | null;
   flex_level?: string | null;
   confirmed?: boolean | null;
+  checked?: boolean | null;
   sort?: number | null;
   updated_at?: string | null;
 };
@@ -52,6 +53,7 @@ export function itemFromRow(row: RawRow): SharedItem | null {
     quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
     flexLevel: LEVELS.has(row.flex_level ?? "") ? (row.flex_level as FlexLevel) : "any_brand",
     confirmed: row.confirmed !== false,
+    checked: row.checked === true,
     sort: typeof row.sort === "number" ? row.sort : 0,
     updatedAt: Number.isFinite(updated) ? updated : null,
   };
@@ -109,12 +111,13 @@ export function changeFromPayload(payload: {
 
 /** The full list as a PUT body, for the polling fallback (the API replaces the item set). */
 export function serverBody(name: string, items: ReadonlyArray<SharedItem>): ShoppingListInput {
-  const rows: ListItemIn[] = items.map((i) => ({
+  const rows: ListItemInput[] = items.map((i) => ({
     canonical_id: i.canonicalId,
     input_text: i.name,
     quantity: i.quantity,
     flex_level: i.flexLevel,
     confirmed: i.confirmed,
+    checked: i.checked,
   }));
   return { name, is_recurring: false, items: rows };
 }

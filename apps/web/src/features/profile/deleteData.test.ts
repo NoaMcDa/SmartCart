@@ -33,7 +33,15 @@ async function seedAccount() {
       body: {
         name,
         is_recurring: false,
-        items: [{ canonical_id: 1001, quantity: 2, confirmed: true, flex_level: "any_brand" }],
+        items: [
+          {
+            canonical_id: 1001,
+            quantity: 2,
+            confirmed: true,
+            flex_level: "any_brand",
+            checked: false,
+          },
+        ],
       },
     });
     expect(res.response.status).toBe(201);

@@ -35,6 +35,13 @@ from smartcart_catalog.models import Embedder
 DIM = 1024
 """Dimension of ``canonical_products.embedding`` and ``item_embeddings.embedding``."""
 
+HASH_MODEL_NAME = "hash-ngram-2-3-4-v1"
+"""``HashEmbedder().model_name``: the value ``embed`` writes to ``embedding_model`` and
+``item_embeddings.model`` with the default hash embedder. Readers that compare a query vector
+with stored vectors filter on it (issue #102), so it must not change without a re-embed."""
+BGE_M3_MODEL_NAME = "BAAI/bge-m3"
+"""``BgeM3Embedder().model_name`` by default (overridable with ``$EMBEDDING_MODEL``)."""
+
 
 def _bucket(feature: str, dim: int) -> tuple[int, float]:
     digest = hashlib.blake2b(feature.encode("utf-8"), digest_size=8).digest()
@@ -48,6 +55,7 @@ class HashEmbedder:
     def __init__(self, dim: int = DIM, ngram_sizes: Sequence[int] = (2, 3, 4)) -> None:
         self.dim = dim
         self.ngram_sizes = tuple(ngram_sizes)
+        # The default sizes give HASH_MODEL_NAME; other sizes are another model.
         self.model_name = f"hash-ngram-{'-'.join(map(str, self.ngram_sizes))}-v1"
 
     def _features(self, text: str) -> Iterable[tuple[str, float]]:
@@ -81,7 +89,7 @@ class BgeM3Embedder:
     """BGE-M3 dense embeddings (1024 dimensions) via sentence-transformers, loaded lazily."""
 
     def __init__(
-        self, model_name: str = "BAAI/bge-m3", batch_size: int = 32, device: str | None = None
+        self, model_name: str = BGE_M3_MODEL_NAME, batch_size: int = 32, device: str | None = None
     ) -> None:
         self.model_name = model_name
         self.dim = DIM
@@ -124,7 +132,7 @@ def get_embedder(name: str, model_name: str | None = None) -> Embedder:
     if key == "hash":
         return HashEmbedder()
     if key in {"bge-m3", "bge_m3", "bgem3"}:
-        return BgeM3Embedder(model_name or "BAAI/bge-m3")
+        return BgeM3Embedder(model_name or BGE_M3_MODEL_NAME)
     raise ValueError(f"unknown embedder {name!r}: expected 'hash' or 'bge-m3'")
 
 

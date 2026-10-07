@@ -138,7 +138,7 @@ def daily_series(
 @router.get("/{canonical_id}", response_model=schemas.PriceHistoryResponse)
 def price_history(
     canonical_id: int,
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
     store_id: int | None = None,
     days: Annotated[int, Query(ge=1, le=365, description="Days back from today, 90 by default")] = 90,
 ) -> schemas.PriceHistoryResponse:

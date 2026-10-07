@@ -798,3 +798,60 @@ promo confidence), `api/client.test.ts` (`deleteMe`, `nearestStore`), `tests/uni
 E2E: `tests/e2e/followups.spec.ts`. A11y: `tests/a11y/top-bar-zoom.spec.ts`. Not testable in CI:
 the consent sheet in a real beta build (needs `NEXT_PUBLIC_BETA_EVENTS=1` at build time) and a real
 Supabase sign-in followed by `DELETE /me`.
+
+## MVP completion (workstream M-C, issue #101)
+
+What this round changed in `apps/web`, by deliverable. Nothing here reads real data; every number in
+the tests is a mock value.
+
+| # | Change | Where |
+|---|---|---|
+| 1 | **Share entry point.** A visible "שיתוף" link (44 px, share icon) in the list builder's header row opens `/lists/mine/share`, which opens this device's shared list when one exists and otherwise offers to create it. `list_shared` is sent when an invite is created, `share_accepted` when the accept page's join succeeds. The share sheet is mounted only while open, so a link from an earlier visit (possibly revoked from the members list) is never shown again | `features/list/ListBuilder.tsx`, `features/share/ShareSheet.tsx`, `AcceptInvite.tsx` |
+| 2 | **Smart cart undo and dismiss.** Apply stores what undo needs (`origin`: canonical, from and to item, level, confidence) next to the row snapshots. Undo restores the rows, sends `/feedback/substitution` with `verdict: "kept_original"`, `source: "swap"` and the swap's `flex_level` and `match_confidence`, and reports `swap_undone`. Dismiss hides the suggestion until its saving moves by at least ₪1 and 25% (`isMaterialChange`), is stored in `sc-swaps-v1`, sends `not_good` and `swap_dismissed`. Apply sends `accepted` and `swap_applied` with `saving_agorot`. Applying clears an earlier dismissal; re-dismissing replaces the baseline saving; both lists are capped (200 dismissals, 20 applied). An undo is offered only while one of its rows is still on the list. The "ההחלפה בוטלה" note lives in memory (`useUndoneName`), because undoing reloads the results and rebuilds the card | `features/swaps/*`, `features/compare/SmartCartCard.tsx` |
+| 3 | **195 px (200% zoom).** The list builder's input row wraps (textarea, then the buttons, the add button filling the last row) and its item rows put the name on a row of its own; `SegmentedControl` options wrap their text instead of overflowing (this was the Profile and product-page overflow); the results plan header, the substitution card (original and substitute stack) and its action buttons wrap; the `/design-system` card rows wrap. Logical properties only. `tests/a11y/zoom-195.spec.ts` asserts every route in `routes.ts` and the states behind a tap | CSS modules above, `tests/a11y/zoom-195.spec.ts` |
+| 4 | **Home store from the chain.** Picking "הסופר שלי" calls `GET /stores/nearest` (`nearestStore`) with the chain's API id (`Chain.apiId`, the GS1 prefix) and the profile's neighborhood-level location (the default city without one), and stores the id as `homeStoreId` (`adoptNearestHomeStore`), which `mirrorToShopper` sends as `home_store_id`. The results page also runs `useResolveHomeStore`: a chain with no store is looked up once per chain, and the stores of the result on screen fill it in as a fallback (`adoptHomeStore`), so the first results page already shows the net saving "לעומת <your store>". The mock `/stores/nearest` has one store per chain with a compare fixture (101 to 105) and answers 404 for any other chain, like the API | `features/profile/profileState.ts`, `chains.ts`, `controls/ChainControls.tsx`, `mocks/handlers.phase2.ts` |
+| 5 | **Revoke a pending invite, remove a member.** Pending invites (a `share_id` and no user) show "ביטול ההזמנה" and call `DELETE /me/lists/{list_id}/shares/{share_id}` (`revokeShareById`); joined members show "הסרה מהרשימה" (through the same route when the member has a `share_id`, else `DELETE .../members/{user_id}`). Both are optimistic: the row leaves at once, comes back in the same place with a message when the call fails, and the member poll is paused while a call is in flight. The MSW handlers return `share_id`, delete by it, and turn an accepted invite into a member | `features/share/useSharedList.ts`, `SharedListScreen.tsx`, `api/client.ts` |
+| 6 | **Checked items and offline edits on shared lists.** A checkbox per item (a native input in a 44 px label, the name struck through when checked), saved through the list item's `checked` field (the PUT body in polling mode, `update({checked})` on `list_items` in realtime mode) and shown to other members by the poll or the Realtime payload. An edit that fails for lack of a connection stays on screen and is queued in `sc-shared-queue-v1` (quantity, checked, remove, add; coalesced per item); "ממתין לסנכרון (N)" is shown until the queue is empty. The queue is sent when the browser fires `online`, when a poll tick or a Realtime reconnect succeeds, and on the next visit; polling mode reads the fresh list, lays the edits on it and PUTs it whole, realtime mode writes each edit. A refusal from the server (not a lost connection) still rolls the edit back | `features/share/offlineQueue.ts`, `useSharedList.ts` |
+| 7 | **Scan and alert events.** `/scan` sends `scan_started` (engine: `native`, `zxing` or `manual`) and `scan_completed` (outcome `found`, `not_found`, `no_price`, `cancelled` or `error`, `duration_ms`, engine). A started event is always sent before a completed one; leaving the screen or stopping the camera mid-scan is `cancelled`. `alert_created` (`source: "product"`, the level) is sent when an alert is created on product detail. Payloads never carry a barcode, an item id or a price | `features/scan/ScanScreen.tsx`, `features/alerts/AlertMe.tsx`, `features/consent/betaEvents.ts` |
+| 8 | **Coordinator follow-ups.** The results page links the split card to `/split` and every line of the basket details to `/product/<canonical_id>?name=`; the substitution card carries "המחיר הקובע הוא בקופה."; tags and units are written in Hebrew (`src/lib/attributes.ts`: `unit`, `pack_size`, `base` with soy, almond, oat, rice and coconut, `fat_pct`, `state`, `flavor`; `g`, `ml`, `unit`, `kg` become ג׳, מ״ל, יח׳, ק״ג; `100g` becomes "ל-100 ג׳"), and a `unit` tag that accompanies `pack_size` is folded into it ("1000 ג׳"). `BottomSheet` closes on Escape from anywhere: focus moves into the dialog one animation frame after it opens, and an Escape pressed before that went to the opener and was lost (the cause of the CI failure of "flexibility sheet › preselects, cancels, saves and remembers") | see the files named |
+
+### New localStorage keys
+
+| Key | Holds |
+|---|---|
+| `sc-swaps-v1` (existing, extended) | dismissed swaps with the saving at dismissal, applied swaps with row snapshots and `origin` |
+| `sc-shared-queue-v1` | per shared list, the edits waiting for a connection (item id, quantity, checked, and the name of an item added offline). No location, profile or price |
+
+### Events fired (all through `trackEvent`, so none without the beta flag, consent and a real API)
+
+| Event | When | Properties |
+|---|---|---|
+| `scan_started` | camera decoder is up, or a manual search starts (also before an early `error` or `cancelled`) | `engine` when known |
+| `scan_completed` | the attempt ended | `outcome`, `duration_ms`, `engine` |
+| `alert_created` | an alert was created | `source: "product"`, `flex_level` |
+| `swap_applied` | a swap was applied | `flex_level`, `saving_agorot` |
+| `swap_undone` | an applied swap was undone | `flex_level` |
+| `swap_dismissed` | a suggestion was dismissed | `flex_level` |
+| `list_shared` | an invite link was created | `role` |
+| `share_accepted` | a join from an invite link worked | none (the joiner is not told the role) |
+
+### Contract notes for the merge
+
+- `revokeShareById` types `DELETE /me/lists/{list_id}/shares/{share_id}` locally (`RevokeSharePaths` in
+  `api/client.ts`) because the route is not in the generated `types.ts` of this branch. Once it is,
+  the local type can go; behaviour does not change.
+- Realtime mode writes `list_items.checked`; the column and its Realtime publication are `supabase/`'s.
+- `/stores/nearest` is called with the GS1 chain ids in `chains.ts`; the real API answers 404 for a
+  chain with no physical store, and the profile then keeps the chain without a store.
+
+### Tests (this section)
+
+Unit: `swaps/swaps.test.ts` (apply, undo with `kept_original`, dismiss persistence, caps, old
+entries), `share/offlineQueue.test.ts` (coalescing, replay, storage, network-failure detection),
+`share/sharedChecklist.test.tsx` (checkbox, offline, reload, realtime), `share/shareManage.test.tsx`
+(revoke, remove, rollback, stale link), `scan/scanEvents.test.tsx` and `consent/phase2Events.test.tsx`
+(payloads), `profile/homeStore.test.tsx`, `lib/attributes.test.ts`, `ui/BottomSheet.test.tsx` (early
+Escape), `SubstitutionView.test.tsx` and `ResultsView.test.tsx` (disclaimer, Hebrew tags, links).
+E2E: `phase2-share-swaps.spec.ts` (share entry, revoke, checkbox across two devices, offline queue,
+swap undo after a reload), `secondary-onboarding-profile.spec.ts` (home store to results),
+`core-compare.spec.ts` and `core-substitution.spec.ts`. A11y: `tests/a11y/zoom-195.spec.ts`.

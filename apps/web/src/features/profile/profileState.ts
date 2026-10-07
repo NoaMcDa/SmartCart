@@ -7,9 +7,10 @@
  * value is stored, and `sanitizeProfile` rounds again on every read and write, so exact device
  * coordinates are never persisted.
  */
-import { useSyncExternalStore } from "react";
-import { saveShopperProfile } from "@/state/shopper";
-import { resolveHomeStoreId } from "./chains";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { nearestStore } from "@/api/client";
+import { readShopper, saveShopperProfile } from "@/state/shopper";
+import { chainById, resolveHomeStoreId } from "./chains";
 import { STORAGE_KEYS, notifyStorageChange, subscribeStorage } from "./storage";
 
 export type TravelMode = "car" | "walk_transit" | "delivery";
@@ -255,18 +256,57 @@ export function resetProfileCache(): void {
 // Home store resolution
 
 /**
- * Call with the stores of any compare result: when the user picked a home chain but no store id is
+ * Picking "הסופר שלי" gives a chain; the optimizer needs a store. This asks `GET /stores/nearest`
+ * for the chain's nearest physical store to the profile's neighborhood-level location (the default
+ * city when none is set) and stores its id as `homeStoreId`, which `mirrorToShopper` passes on as
+ * `home_store_id`, so "versus your store" is measured against it (D7). Resolves to the store id, or
+ * null when the pick changed while the request ran, or the lookup failed (the chain has no
+ * physical store, or no connection): the profile is left as it was and `adoptHomeStore` fills the
+ * store in from the next compare result.
+ */
+export async function adoptNearestHomeStore(chainId: string): Promise<number | null> {
+  const chain = chainById(chainId);
+  if (!chain) return null;
+  const { lat, lon } = readShopper();
+  try {
+    const store = await nearestStore(chain.apiId, lat, lon);
+    const current = getProfile();
+    if (current.homeChainId !== chainId || current.homeStoreId !== null) return null;
+    updateProfile({ homeStoreId: store.store_id });
+    return store.store_id;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keeps "הסופר שלי" a store while a screen that needs it is open: a chain without a store (the
+ * lookup failed or the network was down when it was picked, or the profile came from another
+ * device) is looked up once per chain, and the stores of a result on screen fill it in as a
+ * fallback. The results page uses it, so its first view already measures the saving against the
+ * shopper's own store instead of asking "מה הסופר שלך?".
+ */
+export function useResolveHomeStore(stores?: ReadonlyArray<StoreLike>): void {
+  const { homeChainId, homeStoreId } = useProfile();
+  const tried = useRef<string | null>(null);
+  useEffect(() => {
+    if (!homeChainId || homeStoreId !== null || tried.current === homeChainId) return;
+    tried.current = homeChainId;
+    void adoptNearestHomeStore(homeChainId);
+  }, [homeChainId, homeStoreId]);
+  useEffect(() => {
+    if (stores && stores.length > 0) adoptHomeStore(stores);
+  }, [stores]);
+}
+
+/**
+ * Fallback for `adoptNearestHomeStore`. Call with the stores of any compare result: when the user picked a home chain but no store id is
  * known yet, stores the nearest store of that chain, so the next request carries `home_store_id`
  * and the API can compute the net saving (D7). Returns true when it changed the profile.
  */
-export function adoptHomeStore(
-  stores: ReadonlyArray<{
-    store_id: number;
-    chain_id: string;
-    chain_name: string;
-    distance_m: number;
-  }>,
-): boolean {
+type StoreLike = { store_id: number; chain_id: string; chain_name: string; distance_m: number };
+
+export function adoptHomeStore(stores: ReadonlyArray<StoreLike>): boolean {
   const current = getProfile();
   if (!current.homeChainId || current.homeStoreId !== null) return false;
   const id = resolveHomeStoreId(current.homeChainId, stores);

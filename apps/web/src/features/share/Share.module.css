@@ -27,6 +27,18 @@
   color: var(--sc-muted);
 }
 
+.pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn-fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .note {
   display: flex;
   align-items: flex-start;
@@ -85,6 +97,30 @@
 
 .item + .item {
   border-block-start: 1px solid var(--sc-divider);
+}
+
+/* A 44 px target around the native checkbox; a checked item is also struck through. */
+.check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  inline-size: var(--sc-touch);
+  block-size: var(--sc-touch);
+  cursor: pointer;
+}
+
+.check input {
+  inline-size: 24px;
+  block-size: 24px;
+  margin: 0;
+  accent-color: var(--sc-accent);
+  cursor: pointer;
+}
+
+.item[data-checked="true"] .itemName {
+  text-decoration: line-through;
+  color: var(--sc-muted);
 }
 
 .itemMain {

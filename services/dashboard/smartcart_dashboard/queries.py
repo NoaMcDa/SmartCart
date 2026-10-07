@@ -235,6 +235,61 @@ def quarantine_counts(conn: psycopg.Connection) -> list[Row]:
 
 
 # --------------------------------------------------------------------------------------------
+# Reported gaps (issue #16)
+# --------------------------------------------------------------------------------------------
+
+GAP_DAYS = 7
+
+
+def reported_gaps(
+    conn: psycopg.Connection, now: datetime | None = None, days: int = GAP_DAYS
+) -> list[Row]:
+    """Report-a-gap per store over the last ``days`` days, from ``gap_report_pressure()``
+    (migration 20261009100000_mvp_followups.sql), with the chain name and the latest soft
+    ``gap_report_pressure`` warning ingestion recorded for the store. Stores with the most
+    confirmed price mismatches first. Empty when the function does not exist yet."""
+    now = _utc(now)
+    if not conn.execute("SELECT to_regproc('gap_report_pressure') IS NOT NULL").fetchone()[0]:
+        return []
+    return _fetch(
+        conn,
+        "SELECT g.chain_id, c.name AS chain_name, g.store_code, g.store_name, g.reports,"
+        "  g.price_mismatches, g.wrong_product, g.promo_wrong, g.reporters, g.last_report_at,"
+        "  w.created_at AS last_warning_at"
+        " FROM gap_report_pressure(%(since)s, %(until)s) AS g"
+        " LEFT JOIN chains AS c ON c.id = g.chain_id"
+        " LEFT JOIN LATERAL ("
+        "   SELECT q.created_at FROM quality_warnings AS q"
+        "   WHERE q.chain_id = g.chain_id AND q.store_code = g.store_code"
+        "     AND q.warning = 'gap_report_pressure'"
+        "   ORDER BY q.created_at DESC LIMIT 1) AS w ON true"
+        " ORDER BY g.price_mismatches DESC, g.reports DESC, g.chain_id, g.store_code",
+        {"since": now - timedelta(days=days), "until": now},
+    )
+
+
+def recent_gap_reports(
+    conn: psycopg.Connection, now: datetime | None = None, days: int = GAP_DAYS, limit: int = 100
+) -> list[Row]:
+    """The newest gap reports of the last ``days`` days, without the reporter (no user id, no
+    location is shown)."""
+    now = _utc(now)
+    return _fetch(
+        conn,
+        "SELECT g.created_at, s.chain_id, s.store_code, s.name AS store_name,"
+        "  coalesce(i.raw_name, cp.display_name_he) AS product, g.shown_price, g.actual_price,"
+        "  g.note"
+        " FROM gap_reports AS g"
+        " JOIN stores AS s ON s.id = g.store_id"
+        " LEFT JOIN items AS i ON i.id = g.item_id"
+        " LEFT JOIN canonical_products AS cp ON cp.id = g.canonical_id"
+        " WHERE g.created_at >= %(since)s AND g.created_at < %(until)s"
+        " ORDER BY g.created_at DESC, g.id DESC LIMIT %(limit)s",
+        {"since": now - timedelta(days=days), "until": now, "limit": limit},
+    )
+
+
+# --------------------------------------------------------------------------------------------
 # The chain table
 # --------------------------------------------------------------------------------------------
 

@@ -80,6 +80,27 @@ describe("comparison results", () => {
     }
   });
 
+  it("links the split card to /split and every priced line to its product page", () => {
+    renderResults();
+    expect(within(screen.getByTestId("plan-split")).getByTestId("split-link")).toHaveAttribute(
+      "href",
+      "/split",
+    );
+    expect(within(screen.getByTestId("plan-single")).queryByTestId("split-link")).toBeNull();
+    const links = screen.getAllByTestId("line-product-link");
+    expect(links.length).toBeGreaterThan(5);
+    for (const link of links) {
+      expect(link.getAttribute("href")).toMatch(/^\/product\/\d+\?name=/);
+    }
+    // The page's name is the list's name for the product when the list has one.
+    const res = optimizeFixture();
+    const line = res.single!.stores[0]!.store.items.find((i) => i.canonical_id === 1002);
+    if (line) {
+      const href = links.find((l) => l.getAttribute("href")?.startsWith("/product/1002?"));
+      expect(href?.getAttribute("href")).toContain(encodeURIComponent("קוטג' 5%, 250 ג'"));
+    }
+  });
+
   it("shows the checkout disclaimer and a report-a-gap control", () => {
     renderResults();
     expect(screen.getByTestId("disclaimer")).toHaveTextContent("המחיר הקובע הוא בקופה.");

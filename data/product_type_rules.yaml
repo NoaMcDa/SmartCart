@@ -1,6 +1,9 @@
 # Product type rules (issue #15). Per product type, which attributes must be equal at the
 # "any brand" level (critical_keys) and which may differ at "close substitute" (soft_keys).
-# The product type itself is always critical: soy and almond drink are different types.
+# The product type itself is always critical: soy and almond drink are different types. Plant
+# drinks also list `base` (soy, almond, oat) as a critical key (issue #102): a drink whose type
+# was guessed wrong, or a rice or coconut drink with no type of its own, is still vetoed by its
+# base. Dairy types exclude the plant words so a soy yogurt is never typed as a dairy yogurt.
 # Keys are Attributes fields (services/catalog/smartcart_catalog/models.py).
 #
 # keywords / exclude / implied are read by the rule extractor only (extract/rule.py) and are not
@@ -14,18 +17,18 @@ rules:
   critical_keys: [fat_pct, state]
   soft_keys: [pack_size, brand]
   keywords: [חלב]
-  exclude: [שוקו, אבקת, עמיד, לקטוז, סויה, שקדים, שיבולת, קוקוס, שוקולד, ממרח, עוגי, ופל, מרכך, סבון, קרם, בטעם, ריבת, קפה]
+  exclude: [שוקו, אבקת, עמיד, לקטוז, סויה, שקדים, שיבולת, קוקוס, אורז, שוקולד, ממרח, עוגי, ופל, מרכך, סבון, קרם, בטעם, ריבת, קפה]
   implied: {state: fresh}
 - product_type: milk_long_life
   critical_keys: [fat_pct]
   soft_keys: [pack_size, brand]
   keywords: [חלב עמיד, עמיד]
-  exclude: [שוקו, סויה, שקדים]
+  exclude: [שוקו, סויה, שקדים, שיבולת, קוקוס, אורז]
 - product_type: milk_lactose_free
   critical_keys: [fat_pct]
   soft_keys: [pack_size, brand]
   keywords: [ללא לקטוז, דל לקטוז]
-  exclude: [גבינ, יוגורט]
+  exclude: [גבינ, יוגורט, סויה, שקדים, שיבולת, קוקוס, אורז, אוטלי]
 - product_type: chocolate_milk
   critical_keys: []
   soft_keys: [pack_size, brand, fat_pct]
@@ -75,13 +78,13 @@ rules:
   critical_keys: [fat_pct, flavor]
   soft_keys: [pack_size, brand]
   keywords: [יוגורט]
-  exclude: [יווני, תות, אפרסק, פירות]
+  exclude: [יווני, תות, אפרסק, פירות, סויה, שקדים, שיבולת, טבעוני, יוגורט קוקוס]
   implied: {flavor: plain}
 - product_type: yogurt_fruit
   critical_keys: [flavor]
   soft_keys: [pack_size, brand, fat_pct]
   keywords: [יוגורט תות, יוגורט אפרסק, יוגורט פירות, יוגורט בטעם]
-  exclude: [יווני]
+  exclude: [יווני, סויה, שקדים, שיבולת, טבעוני, יוגורט קוקוס]
 - product_type: greek_yogurt
   critical_keys: [flavor]
   soft_keys: [pack_size, brand, fat_pct]
@@ -953,20 +956,23 @@ rules:
   keywords: [תרכיז פטל, פטל]
   exclude: []
 - product_type: soy_drink
-  critical_keys: []
+  critical_keys: [base]
   soft_keys: [pack_size, brand]
-  keywords: [משקה סויה, חלב סויה]
+  keywords: [משקה סויה, חלב סויה, משקה סוייה, חלב סוייה]
   exclude: []
+  implied: {base: soy}
 - product_type: almond_drink
-  critical_keys: []
+  critical_keys: [base]
   soft_keys: [pack_size, brand]
   keywords: [משקה שקדים, חלב שקדים]
   exclude: []
+  implied: {base: almond}
 - product_type: oat_drink
-  critical_keys: []
+  critical_keys: [base]
   soft_keys: [pack_size, brand]
-  keywords: [משקה שיבולת, משקה שיבולת שועל, אוטלי]
+  keywords: [משקה שיבולת, משקה שיבולת שועל, חלב שיבולת, חלב שיבולת שועל, אוטלי]
   exclude: []
+  implied: {base: oat}
 - product_type: peanut_puffs
   critical_keys: []
   soft_keys: [pack_size, brand]

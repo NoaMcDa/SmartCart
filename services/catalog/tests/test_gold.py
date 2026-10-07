@@ -56,6 +56,22 @@ def test_hard_negatives_are_present() -> None:
     assert has("cottage-5pct-250g", "close", "pack size 500 vs 250")  # 250 g vs 500 g
     assert has("cola-1.5l", "no_match", "cola_zero vs cola")
     assert any(r["note"].startswith("orphan") for r in rows)
+    # same product type, only the base differs (issue #102): only the base key can veto these
+    assert has("coconut-yogurt-400g", "no_match", "base soy vs coconut")
+    assert has("soy-yogurt-400g", "no_match", "base coconut vs soy")
+
+
+def test_pairs_crossing_a_base_boundary_are_never_positive() -> None:
+    """A soy item is never "any brand" (or close) for an almond, oat or coconut canonical."""
+    catalog, rows = _files()
+    base_of = {c["slug"]: c["critical_attrs"].get("base") for c in catalog["canonicals"]}
+    # an item's base is the base of the canonical it is a positive for
+    item_base = {r["item_key"]: base_of[r["canonical_slug"]] for r in rows
+                 if r["label"] in {"exact", "any_brand", "close"}}  # fmt: skip
+    crossing = [r for r in rows if base_of.get(r["canonical_slug"]) and item_base.get(r["item_key"])
+                and item_base[r["item_key"]] != base_of[r["canonical_slug"]]]  # fmt: skip
+    assert len(crossing) >= 100
+    assert {r["label"] for r in crossing} == {"no_match"}
 
 
 def test_catalog_is_consistent() -> None:

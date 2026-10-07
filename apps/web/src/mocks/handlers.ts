@@ -318,9 +318,12 @@ function toShoppingList(id: number, body: ShoppingListIn): ShoppingList {
       flex_level: item.flex_level ?? "any_brand",
       input_text: item.input_text ?? null,
       quantity: String(item.quantity ?? "1"),
+      checked: item.checked ?? false,
     })),
     created_at: now,
     updated_at: now,
+    shared: false,
+    role: "owner",
   };
 }
 

@@ -89,7 +89,7 @@ def current_user(
 
 def user_conn(
     user: Annotated[User, Depends(current_user)],
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> Iterator[tuple[User, psycopg.Connection]]:
     """A connection on which row-level security applies as ``user``."""
     role = get_settings().db_user_role

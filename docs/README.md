@@ -15,6 +15,7 @@ discussions. Phases 0, 1 and 2 are built (see phase-2-status.md). Read in this o
 10. [catalog.md](catalog.md), [matching.md](matching.md), [api.md](api.md), [web.md](web.md), [seo.md](seo.md), [methodology.md](methodology.md), [beta-plan.md](beta-plan.md), [a11y-report.md](a11y-report.md), [phase-0-exit-report.md](phase-0-exit-report.md): phase 1 engineering docs.
 11. [optimizer.md](optimizer.md): the phase 2 cart optimizer (MILP and the heuristic it is compared with).
 12. [phase-2-status.md](phase-2-status.md): status of every phase 0, 1 and 2 issue, what is blocked, and the owner's runbook, in order.
+13. [fullstack.md](fullstack.md): the one-command local run on synthetic data (`scripts/demo`), the real-API smoke test, the Playwright suite against the real API, and the gaps that run found.
 
 ## Facts versus estimates
 

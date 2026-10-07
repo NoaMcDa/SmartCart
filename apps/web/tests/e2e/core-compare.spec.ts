@@ -14,6 +14,24 @@ for (const viewport of [
   test.describe(`comparison results at ${viewport.width} px`, () => {
     test.use({ viewport });
 
+    test("the split card links to /split and a priced line links to its product page", async ({
+      page,
+    }) => {
+      await mockApi(page);
+      await openWeeklyResults(page);
+      const link = page.getByTestId("plan-split").getByTestId("split-link");
+      expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+      await link.click();
+      await expect(page).toHaveURL(/\/split$/);
+      await page.goBack();
+      await page.getByTestId("basket-details").locator("summary").click();
+      const line = page.getByTestId("line-product-link").first();
+      await expect(line).toBeVisible();
+      await line.click();
+      await expect(page).toHaveURL(/\/product\/\d+\?name=/);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    });
+
     test("three plans with the mock numbers, net saving versus the home store", async ({
       page,
     }) => {

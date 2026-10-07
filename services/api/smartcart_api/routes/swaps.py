@@ -24,7 +24,7 @@ router = APIRouter(prefix="/optimize", tags=["basket"])
 def swap_suggestions(
     body: schemas.CompareRequest,
     store_id: int,
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> schemas.SwapSuggestionResponse:
     store = store_info(conn, store_id, body.location)
     if store is None:

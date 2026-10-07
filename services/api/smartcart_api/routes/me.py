@@ -20,9 +20,10 @@ from psycopg.types.json import Jsonb
 
 from smartcart_api import schemas
 from smartcart_api.auth import User, user_conn
+from smartcart_api.lists import load_lists
 
 router = APIRouter(prefix="/me", tags=["me"])
-UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn)]
+UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="function")]
 
 _PROFILE_COLS = (
     "home_store_id", "radius_m", "neighborhood_lat", "neighborhood_lon", "travel_mode",
@@ -69,22 +70,12 @@ def put_profile(body: schemas.ProfileUpdate, uc: UserConn) -> schemas.Profile:
 
 
 def _load_lists(conn: psycopg.Connection, user: User, list_id: int | None = None) -> list[schemas.ShoppingList]:
-    with conn.cursor(row_factory=dict_row) as cur:
-        lists = cur.execute(
-            "SELECT id, name, is_recurring, created_at, updated_at FROM lists"
-            " WHERE user_id = %s AND (%s::bigint IS NULL OR id = %s) ORDER BY updated_at DESC, id",
-            (user.id, list_id, list_id),
-        ).fetchall()
-        items = cur.execute(
-            "SELECT id, list_id, canonical_id, input_text, quantity, flex_level, confirmed, sort"
-            " FROM list_items WHERE list_id = ANY(%s) ORDER BY list_id, sort, id",
-            ([lst["id"] for lst in lists],),
-        ).fetchall()
-    by_list: dict[int, list[schemas.ListItem]] = {}
-    for it in items:
-        lid = it.pop("list_id")
-        by_list.setdefault(lid, []).append(schemas.ListItem(**it))
-    return [schemas.ShoppingList(**lst, items=by_list.get(lst["id"], [])) for lst in lists]
+    """Owned lists plus accepted shared lists (``shared``, ``role``), or the one ``list_id``."""
+    return load_lists(conn, user, None if list_id is None else [list_id])
+
+
+def _owned_list(conn: psycopg.Connection, user: User, list_id: int) -> schemas.ShoppingList:
+    return load_lists(conn, user, [list_id], include_shared=False)[0]
 
 
 def _write_items(conn: psycopg.Connection, user: User, list_id: int, items: list[schemas.ListItemIn]) -> None:
@@ -92,10 +83,10 @@ def _write_items(conn: psycopg.Connection, user: User, list_id: int, items: list
     with conn.cursor() as cur:
         cur.executemany(
             "INSERT INTO list_items (list_id, user_id, canonical_id, input_text, quantity,"
-            " flex_level, confirmed, sort) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            " flex_level, confirmed, checked, sort) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
             [
                 (list_id, user.id, it.canonical_id, it.input_text, it.quantity, it.flex_level,
-                 it.confirmed, n)
+                 it.confirmed, it.checked, n)
                 for n, it in enumerate(items)
             ],
         )
@@ -103,6 +94,8 @@ def _write_items(conn: psycopg.Connection, user: User, list_id: int, items: list
 
 @router.get("/lists", response_model=list[schemas.ShoppingList])
 def list_lists(uc: UserConn) -> list[schemas.ShoppingList]:
+    """The user's own lists, then the lists other users shared with them (accepted invites),
+    told apart by ``shared`` and ``role``."""
     user, conn = uc
     return _load_lists(conn, user)
 
@@ -115,11 +108,13 @@ def create_list(body: schemas.ShoppingListIn, uc: UserConn) -> schemas.ShoppingL
         (user.id, body.name, body.is_recurring),
     ).fetchone()[0]
     _write_items(conn, user, list_id, body.items)
-    return _load_lists(conn, user, list_id)[0]
+    return _owned_list(conn, user, list_id)
 
 
 @router.get("/lists/{list_id}", response_model=schemas.ShoppingList)
 def get_list(list_id: int, uc: UserConn) -> schemas.ShoppingList:
+    """An owned list, or one shared with the user (``shared``, ``role``). Only the owner may
+    PUT or DELETE it; editors change items through PostgREST (RLS)."""
     user, conn = uc
     found = _load_lists(conn, user, list_id)
     if not found:
@@ -138,7 +133,7 @@ def update_list(list_id: int, body: schemas.ShoppingListIn, uc: UserConn) -> sch
     if not updated:
         raise HTTPException(status_code=404, detail="list not found")
     _write_items(conn, user, list_id, body.items)
-    return _load_lists(conn, user, list_id)[0]
+    return _owned_list(conn, user, list_id)
 
 
 @router.delete("/lists/{list_id}", status_code=204)

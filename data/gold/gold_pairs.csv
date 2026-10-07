@@ -2418,3 +2418,107 @@ gold-00830,פרוסות סלמון מעושן שופרסל 200 גרם,7295122754
 gold-00830,פרוסות סלמון מעושן שופרסל 200 גרם,7295122754254,False,salmon-fillet-frozen,no_match,meat_fish,orphan: smoked_salmon has no canonical
 gold-00831,סלמון מעושן 100 גרם,7293582503088,False,salmon-fillet-fresh,no_match,meat_fish,orphan: smoked_salmon has no canonical
 gold-00831,סלמון מעושן 100 גרם,7293582503088,False,salmon-fillet-frozen,no_match,meat_fish,orphan: smoked_salmon has no canonical
+gold-00832,יוגורט סויה אלפרו 400 גרם,7290000000560,False,soy-yogurt-400g,exact,dairy,same barcode
+gold-00832,יוגורט סויה אלפרו 400 גרם,7290000000560,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00832,יוגורט סויה אלפרו 400 גרם,7290000000560,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00832,יוגורט סויה אלפרו 400 גרם,7290000000560,False,eggs-l-12,no_match,dairy,hard negative: product type plant_yogurt vs eggs
+gold-00833,שטראוס יוגורט סויה 400 גרם,7290000000560,False,soy-yogurt-400g,exact,dairy,same barcode
+gold-00833,שטראוס יוגורט סויה 400 גרם,7290000000560,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00833,שטראוס יוגורט סויה 400 גרם,7290000000560,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00833,שטראוס יוגורט סויה 400 גרם,7290000000560,False,cottage-5pct-500g,no_match,dairy,hard negative: product type plant_yogurt vs cottage
+gold-00834,יוגורט סויה שופרסל 400 גרם,7295425663996,False,soy-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00834,יוגורט סויה שופרסל 400 גרם,7295425663996,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00834,יוגורט סויה שופרסל 400 גרם,7295425663996,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00834,יוגורט סויה שופרסל 400 גרם,7295425663996,False,cottage-5pct-250g,no_match,dairy,hard negative: product type plant_yogurt vs cottage
+gold-00835,יוגורט סויה שטראוס 400 גרם,7297245572728,False,soy-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00835,יוגורט סויה שטראוס 400 גרם,7297245572728,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00835,יוגורט סויה שטראוס 400 גרם,7297245572728,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00835,יוגורט סויה שטראוס 400 גרם,7297245572728,False,white-cheese-9pct-250g,no_match,dairy,hard negative: product type plant_yogurt vs white_cheese
+gold-00836,אלפרו יוגורט סויה בטעם קוקוס 400 גרם,7293064348928,False,soy-yogurt-400g,close,dairy,soft differs: flavor coconut vs natural
+gold-00836,אלפרו יוגורט סויה בטעם קוקוס 400 גרם,7293064348928,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00836,אלפרו יוגורט סויה בטעם קוקוס 400 גרם,7293064348928,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00836,אלפרו יוגורט סויה בטעם קוקוס 400 גרם,7293064348928,False,soy-drink-1l,no_match,dairy,hard negative: product type plant_yogurt vs soy_drink
+gold-00837,יוגורט סויה טבעי שופרסל 150 גרם,7297821300311,False,soy-yogurt-400g,close,dairy,soft differs: pack size 150 vs 400 g
+gold-00837,יוגורט סויה טבעי שופרסל 150 גרם,7297821300311,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00837,יוגורט סויה טבעי שופרסל 150 גרם,7297821300311,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00837,יוגורט סויה טבעי שופרסל 150 גרם,7297821300311,False,milk-1pct-1l,no_match,dairy,hard negative: product type plant_yogurt vs milk
+gold-00838,יוגורט סויה וניל אלפרו 400 גרם,7296596394483,False,soy-yogurt-400g,close,dairy,soft differs: flavor vanilla vs natural
+gold-00838,יוגורט סויה וניל אלפרו 400 גרם,7296596394483,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00838,יוגורט סויה וניל אלפרו 400 גרם,7296596394483,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00838,יוגורט סויה וניל אלפרו 400 גרם,7296596394483,False,yogurt-1.5pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00839,שטראוס יוגורט סויה 150 גרם,7298544535761,False,soy-yogurt-400g,close,dairy,soft differs: pack size 150 vs 400 g
+gold-00839,שטראוס יוגורט סויה 150 גרם,7298544535761,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00839,שטראוס יוגורט סויה 150 גרם,7298544535761,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00839,שטראוס יוגורט סויה 150 גרם,7298544535761,False,yellow-cheese-28pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yellow_cheese
+gold-00840,שופרסל יוגורט סויה 150 גרם,7290674306318,False,soy-yogurt-400g,close,dairy,soft differs: pack size 150 vs 400 g
+gold-00840,שופרסל יוגורט סויה 150 גרם,7290674306318,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00840,שופרסל יוגורט סויה 150 גרם,7290674306318,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00840,שופרסל יוגורט סויה 150 גרם,7290674306318,False,sweet-cream-38pct-250ml,no_match,dairy,hard negative: product type plant_yogurt vs sweet_cream
+gold-00841,יוגורט סויה טבעי וילי פוד 400 גרם,7293938833379,False,soy-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00841,יוגורט סויה טבעי וילי פוד 400 גרם,7293938833379,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00841,יוגורט סויה טבעי וילי פוד 400 גרם,7293938833379,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00841,יוגורט סויה טבעי וילי פוד 400 גרם,7293938833379,False,oat-drink-1l,no_match,dairy,hard negative: product type plant_yogurt vs oat_drink
+gold-00842,שופרסל יוגורט סויה בטעם קוקוס 400 גרם,7297977417530,False,soy-yogurt-400g,close,dairy,soft differs: flavor coconut vs natural
+gold-00842,שופרסל יוגורט סויה בטעם קוקוס 400 גרם,7297977417530,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00842,שופרסל יוגורט סויה בטעם קוקוס 400 גרם,7297977417530,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00842,שופרסל יוגורט סויה בטעם קוקוס 400 גרם,7297977417530,False,cottage-3pct-250g,no_match,dairy,hard negative: product type plant_yogurt vs cottage
+gold-00843,יוגורט סויה טבעי שטראוס 400 גרם,7296460547222,False,soy-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00843,יוגורט סויה טבעי שטראוס 400 גרם,7296460547222,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00843,יוגורט סויה טבעי שטראוס 400 גרם,7296460547222,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00843,יוגורט סויה טבעי שטראוס 400 גרם,7296460547222,False,sweet-cream-38pct-250ml,no_match,dairy,hard negative: product type plant_yogurt vs sweet_cream
+gold-00844,יוגורט סויה טבעי שופרסל 400 גרם,7294559078209,False,soy-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00844,יוגורט סויה טבעי שופרסל 400 גרם,7294559078209,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00844,יוגורט סויה טבעי שופרסל 400 גרם,7294559078209,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00844,יוגורט סויה טבעי שופרסל 400 גרם,7294559078209,False,cottage-5pct-500g,no_match,dairy,hard negative: product type plant_yogurt vs cottage
+gold-00845,וילי פוד יוגורט סויה 400 גרם,7293040248531,False,soy-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00845,וילי פוד יוגורט סויה 400 גרם,7293040248531,False,coconut-yogurt-400g,no_match,dairy,hard negative: base soy vs coconut
+gold-00845,וילי פוד יוגורט סויה 400 גרם,7293040248531,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00845,וילי פוד יוגורט סויה 400 גרם,7293040248531,False,white-cheese-5pct-250g,no_match,dairy,hard negative: product type plant_yogurt vs white_cheese
+gold-00846,אלפרו יוגורט קוקוס 400 גרם,7290000000570,False,coconut-yogurt-400g,exact,dairy,same barcode
+gold-00846,אלפרו יוגורט קוקוס 400 גרם,7290000000570,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00846,אלפרו יוגורט קוקוס 400 גרם,7290000000570,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00846,אלפרו יוגורט קוקוס 400 גרם,7290000000570,False,yellow-cheese-28pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yellow_cheese
+gold-00847,יוגורט קוקוס שופרסל 400 גרם,7290000000570,False,coconut-yogurt-400g,exact,dairy,same barcode
+gold-00847,יוגורט קוקוס שופרסל 400 גרם,7290000000570,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00847,יוגורט קוקוס שופרסל 400 גרם,7290000000570,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00847,יוגורט קוקוס שופרסל 400 גרם,7290000000570,False,eggs-l-12,no_match,dairy,hard negative: product type plant_yogurt vs eggs
+gold-00848,יוגורט קוקוס טבעי שופרסל 400 גרם,7293542277524,False,coconut-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00848,יוגורט קוקוס טבעי שופרסל 400 גרם,7293542277524,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00848,יוגורט קוקוס טבעי שופרסל 400 גרם,7293542277524,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00848,יוגורט קוקוס טבעי שופרסל 400 גרם,7293542277524,False,sour-cream-15pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs sour_cream
+gold-00849,יוגורט קוקוס טבעי אלפרו 400 גרם,7295272290133,False,coconut-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00849,יוגורט קוקוס טבעי אלפרו 400 גרם,7295272290133,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00849,יוגורט קוקוס טבעי אלפרו 400 גרם,7295272290133,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00849,יוגורט קוקוס טבעי אלפרו 400 גרם,7295272290133,False,oat-drink-1l,no_match,dairy,hard negative: product type plant_yogurt vs oat_drink
+gold-00850,אלפרו יוגורט קוקוס וניל 400 גרם,7290268506554,False,coconut-yogurt-400g,close,dairy,soft differs: flavor vanilla vs natural
+gold-00850,אלפרו יוגורט קוקוס וניל 400 גרם,7290268506554,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00850,אלפרו יוגורט קוקוס וניל 400 גרם,7290268506554,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00850,אלפרו יוגורט קוקוס וניל 400 גרם,7290268506554,False,sweet-cream-38pct-250ml,no_match,dairy,hard negative: product type plant_yogurt vs sweet_cream
+gold-00851,יוגורט קוקוס טבעי שטראוס 400 גרם,7293533493057,False,coconut-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00851,יוגורט קוקוס טבעי שטראוס 400 גרם,7293533493057,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00851,יוגורט קוקוס טבעי שטראוס 400 גרם,7293533493057,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00851,יוגורט קוקוס טבעי שטראוס 400 גרם,7293533493057,False,sweet-cream-38pct-250ml,no_match,dairy,hard negative: product type plant_yogurt vs sweet_cream
+gold-00852,יוגורט קוקוס שטראוס 150 גרם,7297578285970,False,coconut-yogurt-400g,close,dairy,soft differs: pack size 150 vs 400 g
+gold-00852,יוגורט קוקוס שטראוס 150 גרם,7297578285970,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00852,יוגורט קוקוס שטראוס 150 גרם,7297578285970,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00852,יוגורט קוקוס שטראוס 150 גרם,7297578285970,False,white-cheese-5pct-250g,no_match,dairy,hard negative: product type plant_yogurt vs white_cheese
+gold-00853,יוגורט קוקוס וילי פוד 150 גרם,7298404363659,False,coconut-yogurt-400g,close,dairy,soft differs: pack size 150 vs 400 g
+gold-00853,יוגורט קוקוס וילי פוד 150 גרם,7298404363659,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00853,יוגורט קוקוס וילי פוד 150 גרם,7298404363659,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00853,יוגורט קוקוס וילי פוד 150 גרם,7298404363659,False,white-cheese-9pct-250g,no_match,dairy,hard negative: product type plant_yogurt vs white_cheese
+gold-00854,שופרסל יוגורט קוקוס 400 גרם,7299684237692,False,coconut-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00854,שופרסל יוגורט קוקוס 400 גרם,7299684237692,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00854,שופרסל יוגורט קוקוס 400 גרם,7299684237692,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00854,שופרסל יוגורט קוקוס 400 גרם,7299684237692,False,sweet-cream-38pct-250ml,no_match,dairy,hard negative: product type plant_yogurt vs sweet_cream
+gold-00855,יוגורט קוקוס אלפרו 400 גרם,7296017570986,False,coconut-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00855,יוגורט קוקוס אלפרו 400 גרם,7296017570986,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00855,יוגורט קוקוס אלפרו 400 גרם,7296017570986,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00855,יוגורט קוקוס אלפרו 400 גרם,7296017570986,False,yellow-cheese-28pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yellow_cheese
+gold-00856,שטראוס יוגורט קוקוס 400 גרם,7293698913407,False,coconut-yogurt-400g,any_brand,dairy,critical attributes equal
+gold-00856,שטראוס יוגורט קוקוס 400 גרם,7293698913407,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00856,שטראוס יוגורט קוקוס 400 גרם,7293698913407,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00856,שטראוס יוגורט קוקוס 400 גרם,7293698913407,False,milk-3pct-1l,no_match,dairy,hard negative: product type plant_yogurt vs milk
+gold-00857,יוגורט קוקוס שופרסל 150 גרם,7295724544027,False,coconut-yogurt-400g,close,dairy,soft differs: pack size 150 vs 400 g
+gold-00857,יוגורט קוקוס שופרסל 150 גרם,7295724544027,False,soy-yogurt-400g,no_match,dairy,hard negative: base coconut vs soy
+gold-00857,יוגורט קוקוס שופרסל 150 גרם,7295724544027,False,yogurt-3pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yogurt
+gold-00857,יוגורט קוקוס שופרסל 150 גרם,7295724544027,False,yellow-cheese-9pct-200g,no_match,dairy,hard negative: product type plant_yogurt vs yellow_cheese

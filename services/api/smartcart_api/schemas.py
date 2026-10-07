@@ -215,6 +215,14 @@ class SubstitutionFeedbackRequest(_Model):
     original_item_id: int | None = None
     substitute_item_id: int
     verdict: Literal["not_good", "kept_original", "accepted"]
+    source: Literal["substitution_card", "swap"] = Field(
+        default="substitution_card",
+        description="Where the verdict came from: the substitution card, or the smart-cart swap "
+        "(apply = accepted, undo = kept_original, dismiss = not_good)",
+    )
+    list_item_id: int | None = None
+    flex_level: FlexLevel | None = None
+    match_confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class GapReportRequest(_Model):
@@ -261,6 +269,7 @@ class ListItemIn(_Model):
     quantity: Decimal = Field(default=Decimal(1), gt=0)
     flex_level: FlexLevel = "any_brand"
     confirmed: bool = True
+    checked: bool = Field(default=False, description="Ticked off in the store (shared lists, #101)")
 
 
 class ListItem(ListItemIn):
@@ -281,6 +290,14 @@ class ShoppingList(_Model):
     items: list[ListItem]
     created_at: datetime
     updated_at: datetime
+    shared: bool = Field(
+        default=False, description="true when another user owns the list and shared it with you"
+    )
+    role: Literal["owner", "editor", "viewer"] = Field(
+        default="owner",
+        description="Your access: owner, or your role as a member (editors change items, viewers "
+        "only read)",
+    )
 
 
 class Health(_Model):
@@ -300,6 +317,15 @@ EventName = Literal[
     "flex_changed",
     "split_viewed",
     "gap_reported",
+    # phase 2 surfaces (issues #101, #102)
+    "scan_started",
+    "scan_completed",
+    "alert_created",
+    "swap_applied",
+    "swap_undone",
+    "swap_dismissed",
+    "list_shared",
+    "share_accepted",
 ]
 
 
@@ -406,6 +432,11 @@ class ListMember(_Model):
     role: Literal["editor", "viewer"]
     accepted_at: datetime | None = None
     is_owner: bool = False
+    share_id: int | None = Field(
+        default=None,
+        description="Id of the list_shares row (null for the owner); revoke a pending invite or "
+        "remove a member with DELETE /me/lists/{list_id}/shares/{share_id}",
+    )
 
 
 class StorePrice(_Model):

@@ -29,7 +29,7 @@ from smartcart_api.db import get_conn
 from smartcart_api.routes.me_delete import as_user
 
 router = APIRouter(prefix="/me", tags=["alerts"])
-UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn)]
+UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="function")]
 
 _COLS = (
     "id, canonical_id, threshold_unit_price, flex_level, radius_m, active, last_fired_at,"
@@ -132,7 +132,7 @@ def delete_alert(alert_id: int, uc: UserConn) -> Response:
 def add_push_subscription(
     body: schemas.PushSubscriptionIn,
     user: Annotated[User, Depends(current_user)],
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> schemas.Ack:
     # Service connection: the endpoint may be registered to another account on this device.
     conn.execute(

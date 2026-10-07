@@ -184,6 +184,16 @@ export const IconMap = makeIcon(
 
 export const IconMinus = makeIcon("minus", <path d="M5 12h14" />, { strokeWidth: 2.4 });
 
+export const IconShare = makeIcon(
+  "share",
+  <>
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4" />
+  </>,
+);
+
 export const IconPlus = makeIcon("plus", <path d="M12 5v14M5 12h14" />, { strokeWidth: 2.4 });
 
 /** "Back" in RTL: points right. */

@@ -10,7 +10,14 @@ import styles from "./Results.module.css";
  * substitutes are labeled and link to their card, weighed goods are marked estimated and club
  * promos are tagged (issue #12).
  */
-export function BasketDetails({ plan }: { plan: Plan }) {
+export function BasketDetails({
+  plan,
+  names,
+}: {
+  plan: Plan;
+  /** canonical id -> the list's name for it, used as the product page's `name`. */
+  names?: Map<number, string>;
+}) {
   return (
     <details className={styles.details} data-testid="basket-details">
       <summary className={styles.detailsSummary}>
@@ -25,7 +32,15 @@ export function BasketDetails({ plan }: { plan: Plan }) {
               .map((line) => (
                 <li key={line.item_id} className={styles.line} data-trust-scope="line">
                   <div className={styles.lineMain}>
-                    <span className={styles.lineName}>{line.display_name_he}</span>
+                    <Link
+                      href={`/product/${line.canonical_id}?name=${encodeURIComponent(
+                        names?.get(line.canonical_id) ?? line.display_name_he,
+                      )}`}
+                      className={styles.lineName}
+                      data-testid="line-product-link"
+                    >
+                      {line.display_name_he}
+                    </Link>
                     <span className={styles.lineTags}>
                       {line.is_substitute ? (
                         <Link

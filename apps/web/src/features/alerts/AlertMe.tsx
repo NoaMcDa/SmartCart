@@ -13,6 +13,7 @@ import { Button, Card, Price, SegmentedControl } from "@/components/ui";
 import { IconCheck, IconInfo } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { reportAlertCreated } from "@/features/consent/betaEvents";
 import { useShopper } from "@/state/shopper";
 import { rememberAlertLabel } from "./alertNames";
 import { parseThreshold } from "./threshold";
@@ -101,6 +102,7 @@ export function AlertMe({
         radius_m: shopper?.radiusM,
       });
       rememberAlertLabel(canonicalId, { name, unitLabel });
+      reportAlertCreated(level, "product");
       setExisting((prev) => [...prev, alert]);
       setCreated(alert);
       setThreshold("");

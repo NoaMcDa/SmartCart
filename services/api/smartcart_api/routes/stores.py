@@ -23,7 +23,7 @@ def nearest_store(
     chain_id: str,
     lon: Annotated[float, Query(ge=-180, le=180)],
     lat: Annotated[float, Query(ge=-90, le=90)],
-    conn: Annotated[psycopg.Connection, Depends(get_conn)],
+    conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> schemas.StoreRef:
     row = conn.execute(
         "WITH p AS (SELECT ST_SetSRID(ST_MakePoint(%(lon)s, %(lat)s), 4326)::geography AS g)"

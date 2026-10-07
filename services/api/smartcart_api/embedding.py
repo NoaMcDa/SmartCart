@@ -1,24 +1,33 @@
-"""A deterministic 1024-dimension character n-gram hash embedding.
+"""The query embedder for search, and the text normalization the search retrievers share.
 
-This is a stand-in for BGE-M3 (decision D5) so search, the list parser and their tests work
-without a model download. It captures spelling, not meaning: typos and word order are fine,
-synonyms are not. The catalog workstream defines the same idea (``HashEmbedder``) in
-``smartcart_catalog``; when real embeddings are loaded into ``canonical_products.embedding`` and
-``item_embeddings``, swap the query embedder in ``smartcart_api.search`` for the same model.
+Query vectors must come from the same model as the stored vectors, or the cosine similarity is
+noise. The stored vectors are written by the catalog workstream (``smartcart_catalog.embed``:
+``embed_canonicals`` fills ``canonical_products.embedding`` and ``embedding_model``,
+``embed_items`` fills ``item_embeddings`` and its ``model``), so the API embeds queries with the
+catalog's embedder too, chosen by ``API_QUERY_EMBEDDER``:
 
-The vector of a text is the L2-normalized sum of signed hashed features: character 2-, 3- and
-4-grams of each word padded with spaces, plus the whole word. blake2b keeps it stable across
-processes and Python versions (``hash()`` is salted per process).
+* ``hash`` (default): the catalog's deterministic character n-gram ``HashEmbedder``
+  (``hash-ngram-2-3-4-v1``). It captures spelling, not meaning; for tests, CI and local runs.
+* ``bge-m3``: BGE-M3 through sentence-transformers (the catalog's optional ``embed`` extra must be
+  installed in the API's environment, and the model is loaded on the first query).
+
+``smartcart_api.search`` compares a query only with vectors whose recorded model is this
+embedder's ``model_name``.
 """
 
 from __future__ import annotations
 
-import hashlib
-import math
+import os
 import re
 import unicodedata
+from functools import lru_cache
 
-DIM = 1024
+from smartcart_catalog.embed import get_embedder, to_pgvector
+from smartcart_catalog.models import Embedder
+
+__all__ = ["QueryEmbedder", "normalize_text", "query_embedder", "to_pgvector"]
+
+QUERY_EMBEDDER_ENV = "API_QUERY_EMBEDDER"
 
 _NIQQUD = re.compile(r"[֑-ׇ]")
 _QUOTES = re.compile(r"[\"'`׳״“”’]")
@@ -36,39 +45,29 @@ def normalize_text(text: str) -> str:
     return " ".join(s.split())
 
 
-def _features(text: str) -> list[str]:
-    out: list[str] = []
-    for word in normalize_text(text).split():
-        out.append(f"w:{word}")
-        padded = f" {word} "
-        for n in (2, 3, 4):
-            out.extend(f"{n}:{padded[i : i + n]}" for i in range(max(0, len(padded) - n + 1)))
-    return out
+class QueryEmbedder:
+    """One query at a time over a catalog ``Embedder``."""
 
+    def __init__(self, inner: Embedder) -> None:
+        self.inner = inner
 
-class HashEmbedder:
-    model_name = "hash-ngram-1024"
-    dim = DIM
+    @property
+    def model_name(self) -> str:
+        """The model name stored next to each vector (``canonical_products.embedding_model``,
+        ``item_embeddings.model``); search compares only vectors with this name."""
+        return self.inner.model_name
+
+    name = model_name
+
+    @property
+    def dim(self) -> int:
+        return self.inner.dim
 
     def embed_one(self, text: str) -> list[float]:
-        vec = [0.0] * DIM
-        for feat in _features(text):
-            h = hashlib.blake2b(feat.encode("utf-8"), digest_size=8).digest()
-            idx = int.from_bytes(h[:4], "little") % DIM
-            sign = 1.0 if h[4] & 1 else -1.0
-            weight = 2.0 if feat.startswith("w:") else 1.0
-            vec[idx] += sign * weight
-        norm = math.sqrt(sum(v * v for v in vec))
-        return [v / norm for v in vec] if norm else vec
-
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        return [self.embed_one(t) for t in texts]
+        return self.inner.embed([text])[0]
 
 
-def to_pgvector(vec: list[float]) -> str:
-    """The text form pgvector parses: ``[0.1,0.2,...]``."""
-    return "[" + ",".join(f"{v:.6f}" for v in vec) + "]"
-
-
-def cosine(a: list[float], b: list[float]) -> float:
-    return sum(x * y for x, y in zip(a, b, strict=True))
+@lru_cache(maxsize=1)
+def query_embedder() -> QueryEmbedder:
+    """The process-wide query embedder (``API_QUERY_EMBEDDER``, default ``hash``)."""
+    return QueryEmbedder(get_embedder(os.environ.get(QUERY_EMBEDDER_ENV, "hash") or "hash"))

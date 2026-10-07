@@ -22,17 +22,79 @@ type Ack = Schemas["Ack"];
 const url = (path: string) => `${API_BASE_URL}${path}`;
 
 const STORE_REFS: Record<number, StoreRef> = {
-  101: { store_id: 101, chain_id: "7290058140886", chain_name: "רמי לוי", store_name: "מודיעין", city: "מודיעין", distance_m: 4200, lat: 31.9, lon: 35.01, channel: "physical" },
-  102: { store_id: 102, chain_id: "7290103152017", chain_name: "אושר עד", store_name: "מודיעין", city: "מודיעין", distance_m: 5100, lat: 31.905, lon: 35.0, channel: "physical" },
-  103: { store_id: 103, chain_id: "7290027600007", chain_name: "שופרסל דיל", store_name: "מודיעין", city: "מודיעין", distance_m: 1100, lat: 31.898, lon: 35.008, channel: "physical" },
+  101: {
+    store_id: 101,
+    chain_id: "7290058140886",
+    chain_name: "רמי לוי",
+    store_name: "מודיעין",
+    city: "מודיעין",
+    distance_m: 4200,
+    lat: 31.9,
+    lon: 35.01,
+    channel: "physical",
+  },
+  102: {
+    store_id: 102,
+    chain_id: "7290103152017",
+    chain_name: "אושר עד",
+    store_name: "מודיעין",
+    city: "מודיעין",
+    distance_m: 5100,
+    lat: 31.905,
+    lon: 35.0,
+    channel: "physical",
+  },
+  103: {
+    store_id: 103,
+    chain_id: "7290027600007",
+    chain_name: "שופרסל דיל",
+    store_name: "מודיעין",
+    city: "מודיעין",
+    distance_m: 1100,
+    lat: 31.898,
+    lon: 35.008,
+    channel: "physical",
+  },
+  104: {
+    store_id: 104,
+    chain_id: "7290803800003",
+    chain_name: "יוחננוף",
+    store_name: "מודיעין",
+    city: "מודיעין",
+    distance_m: 3600,
+    lat: 31.9,
+    lon: 35.02,
+    channel: "physical",
+  },
+  105: {
+    store_id: 105,
+    chain_id: "7290696200003",
+    chain_name: "ויקטורי",
+    store_name: "מודיעין",
+    city: "מודיעין",
+    distance_m: 2400,
+    lat: 31.896,
+    lon: 35.015,
+    channel: "physical",
+  },
 };
 
 let alerts: PriceAlert[] = [];
 let nextAlertId = 1;
-let shares: Record<number, ListMember[]> = {};
+/** Pending and accepted shares per list; `token` is the invite token, kept out of `ListMember`. */
+let shares: Record<number, Array<ListMember & { token: string }>> = {};
+let nextShareId = 1;
+let nextMemberId = 1;
+
+const publicMember = ({ token: _token, ...member }: ListMember & { token: string }): ListMember =>
+  member;
 
 /** Deterministic 90-day history: a slow drift plus two promo dips. */
-function historyFixture(canonicalId: number, storeId: number | null, days: number): PriceHistoryResponse {
+function historyFixture(
+  canonicalId: number,
+  storeId: number | null,
+  days: number,
+): PriceHistoryResponse {
   const end = new Date(PRICES_UPDATED_AT);
   const base = 650 + (canonicalId % 7) * 40; // agorot per unit
   const points = [];
@@ -54,8 +116,16 @@ function historyFixture(canonicalId: number, storeId: number | null, days: numbe
     days,
     points,
     promos: [
-      { starts_at: new Date(end.getTime() - 48 * 86_400_000).toISOString(), ends_at: new Date(end.getTime() - 42 * 86_400_000).toISOString(), description: "1+1 על המוצר" },
-      { starts_at: new Date(end.getTime() - 6 * 86_400_000).toISOString(), ends_at: end.toISOString(), description: "1+1 על המוצר" },
+      {
+        starts_at: new Date(end.getTime() - 48 * 86_400_000).toISOString(),
+        ends_at: new Date(end.getTime() - 42 * 86_400_000).toISOString(),
+        description: "1+1 על המוצר",
+      },
+      {
+        starts_at: new Date(end.getTime() - 6 * 86_400_000).toISOString(),
+        ends_at: end.toISOString(),
+        description: "1+1 על המוצר",
+      },
     ],
     generated_at: end.toISOString(),
   };
@@ -65,8 +135,13 @@ export const phase2Handlers = [
   http.delete(url("/me"), () => HttpResponse.json({ ok: true, id: null } satisfies Ack)),
 
   http.get(url("/stores/nearest"), ({ request }) => {
+    // One fixture store per chain, as the compare fixtures have; any other chain has none (404,
+    // like the API for a chain without a physical store).
     const chainId = new URL(request.url).searchParams.get("chain_id");
-    const hit = (Object.values(STORE_REFS).find((s) => s.chain_id === chainId) ?? STORE_REFS[HOME_STORE_ID]) as StoreRef;
+    const hit = Object.values(STORE_REFS).find((s) => s.chain_id === chainId);
+    if (!hit) {
+      return HttpResponse.json({ detail: "no physical store of this chain" }, { status: 404 });
+    }
     return HttpResponse.json(hit);
   }),
 
@@ -97,34 +172,108 @@ export const phase2Handlers = [
     alerts = alerts.filter((a) => a.id !== Number(params.id));
     return new HttpResponse(null, { status: 204 });
   }),
-  http.post(url("/me/push-subscriptions"), () => HttpResponse.json({ ok: true, id: 1 } satisfies Ack, { status: 201 })),
+  http.post(url("/me/push-subscriptions"), () =>
+    HttpResponse.json({ ok: true, id: 1 } satisfies Ack, { status: 201 }),
+  ),
 
   http.post(url("/me/lists/:listId/share"), async ({ params, request }) => {
     const body = (await request.json().catch(() => ({}))) as { role?: "editor" | "viewer" };
     const listId = Number(params.listId);
     const token = `inv-${listId}-${Math.random().toString(36).slice(2, 10)}`;
-    shares[listId] = [...(shares[listId] ?? []), { user_id: null, role: body.role ?? "editor", accepted_at: null, is_owner: false }];
-    const invite: ShareInvite = { list_id: listId, token, url: `/lists/accept/${token}`, role: body.role ?? "editor" };
+    shares[listId] = [
+      ...(shares[listId] ?? []),
+      {
+        user_id: null,
+        role: body.role ?? "editor",
+        accepted_at: null,
+        is_owner: false,
+        share_id: nextShareId++,
+        token,
+      },
+    ];
+    const invite: ShareInvite = {
+      list_id: listId,
+      token,
+      url: `/lists/accept/${token}`,
+      role: body.role ?? "editor",
+    };
     return HttpResponse.json(invite, { status: 201 });
   }),
   http.get(url("/me/lists/:listId/members"), ({ params }) => {
     const listId = Number(params.listId);
-    const members: ListMember[] = [{ user_id: "me", role: "editor", accepted_at: PRICES_UPDATED_AT, is_owner: true }, ...(shares[listId] ?? [])];
+    const members: ListMember[] = [
+      {
+        user_id: "me",
+        role: "editor",
+        accepted_at: PRICES_UPDATED_AT,
+        is_owner: true,
+        share_id: null,
+      },
+      ...(shares[listId] ?? []).map(publicMember),
+    ];
     return HttpResponse.json(members);
+  }),
+  // Revoke a pending invite or remove a member by the list_shares id (`ListMember.share_id`).
+  http.delete(url("/me/lists/:listId/shares/:shareId"), ({ params }) => {
+    const listId = Number(params.listId);
+    const shareId = Number(params.shareId);
+    const before = shares[listId] ?? [];
+    if (!before.some((m) => m.share_id === shareId)) {
+      return HttpResponse.json({ detail: "share not found" }, { status: 404 });
+    }
+    shares[listId] = before.filter((m) => m.share_id !== shareId);
+    return new HttpResponse(null, { status: 204 });
+  }),
+  // The older owner routes: cancel by token, remove a member by user id.
+  http.delete(url("/me/lists/:listId/share/:token"), ({ params }) => {
+    const listId = Number(params.listId);
+    shares[listId] = (shares[listId] ?? []).filter((m) => m.token !== params.token);
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.delete(url("/me/lists/:listId/members/:memberId"), ({ params }) => {
+    const listId = Number(params.listId);
+    shares[listId] = (shares[listId] ?? []).filter((m) => m.user_id !== params.memberId);
+    return new HttpResponse(null, { status: 204 });
   }),
   http.post(url("/lists/accept/:token"), ({ params }) => {
     const listId = Number(String(params.token).split("-")[1] ?? 1);
+    // The invite becomes a member (the owner then sees "remove" instead of "revoke").
+    shares[listId] = (shares[listId] ?? []).map((m) =>
+      m.token === params.token && m.user_id === null
+        ? { ...m, user_id: `member-${nextMemberId++}`, accepted_at: new Date().toISOString() }
+        : m,
+    );
     const now = new Date().toISOString();
     const list: ShoppingList = {
       id: listId,
       name: "הקנייה השבועית (משותפת)",
       is_recurring: true,
       items: [
-        { id: listId * 1000 + 1, sort: 0, canonical_id: 1001, confirmed: true, flex_level: "any_brand", input_text: null, quantity: "2" },
-        { id: listId * 1000 + 2, sort: 1, canonical_id: 1004, confirmed: true, flex_level: "any_brand", input_text: null, quantity: "1" },
+        {
+          id: listId * 1000 + 1,
+          sort: 0,
+          canonical_id: 1001,
+          confirmed: true,
+          flex_level: "any_brand",
+          input_text: null,
+          quantity: "2",
+          checked: false,
+        },
+        {
+          id: listId * 1000 + 2,
+          sort: 1,
+          canonical_id: 1004,
+          confirmed: true,
+          flex_level: "any_brand",
+          input_text: null,
+          quantity: "1",
+          checked: false,
+        },
       ],
       created_at: now,
       updated_at: now,
+      shared: true,
+      role: "editor",
     };
     return HttpResponse.json(list);
   }),
@@ -161,13 +310,56 @@ export const phase2Handlers = [
   http.post(url("/optimize/swaps"), ({ request }) => {
     const storeId = Number(new URL(request.url).searchParams.get("store_id") ?? 101);
     const raw: SwapSuggestionResponse["swaps"] = [
-      { canonical_id: 1004, from_item_id: storeId * 100 + 4, to_item_id: storeId * 100 + 44, to_display_name_he: "רסק עגבניות שופרסל 260 ג'", flex_level: "any_brand", saving: "4.80", confidence: 0.96, tags: [{ key: "product_type", value: "רסק עגבניות", status: "matched" }, { key: "pack_size", value: "260 ג'", status: "matched" }, { key: "brand", value: "מותג פרטי", status: "differs" }] },
-      { canonical_id: 1001, from_item_id: storeId * 100 + 1, to_item_id: storeId * 100 + 41, to_display_name_he: "חלב טרי 3% יטבתה 1 ל'", flex_level: "any_brand", saving: "1.20", confidence: 0.93, tags: [{ key: "fat_pct", value: "3%", status: "matched" }, { key: "brand", value: "יטבתה", status: "differs" }] },
-      { canonical_id: 1002, from_item_id: storeId * 100 + 2, to_item_id: storeId * 100 + 42, to_display_name_he: "משקה סויה ללא סוכר, מותג פרטי, 1 ל'", flex_level: "close", saving: "5.00", confidence: 0.88, tags: [{ key: "base", value: "סויה", status: "matched" }, { key: "brand", value: "מותג פרטי", status: "differs" }] },
+      {
+        canonical_id: 1004,
+        from_item_id: storeId * 100 + 4,
+        to_item_id: storeId * 100 + 44,
+        to_display_name_he: "רסק עגבניות שופרסל 260 ג'",
+        flex_level: "any_brand",
+        saving: "4.80",
+        confidence: 0.96,
+        tags: [
+          { key: "product_type", value: "רסק עגבניות", status: "matched" },
+          { key: "pack_size", value: "260 ג'", status: "matched" },
+          { key: "brand", value: "מותג פרטי", status: "differs" },
+        ],
+      },
+      {
+        canonical_id: 1001,
+        from_item_id: storeId * 100 + 1,
+        to_item_id: storeId * 100 + 41,
+        to_display_name_he: "חלב טרי 3% יטבתה 1 ל'",
+        flex_level: "any_brand",
+        saving: "1.20",
+        confidence: 0.93,
+        tags: [
+          { key: "fat_pct", value: "3%", status: "matched" },
+          { key: "brand", value: "יטבתה", status: "differs" },
+        ],
+      },
+      {
+        canonical_id: 1002,
+        from_item_id: storeId * 100 + 2,
+        to_item_id: storeId * 100 + 42,
+        to_display_name_he: "משקה סויה ללא סוכר, מותג פרטי, 1 ל'",
+        flex_level: "close",
+        saving: "5.00",
+        confidence: 0.88,
+        tags: [
+          { key: "base", value: "סויה", status: "matched" },
+          { key: "brand", value: "מותג פרטי", status: "differs" },
+        ],
+      },
     ];
     const swaps = [...raw].sort((a, b) => Number(b.saving) - Number(a.saving));
     const total = swaps.reduce((s, x) => s + Number(x.saving), 0);
-    const body: SwapSuggestionResponse = { store_id: storeId, swaps, top_swap: swaps[0] ?? null, total_saving: total.toFixed(2), generated_at: new Date().toISOString() };
+    const body: SwapSuggestionResponse = {
+      store_id: storeId,
+      swaps,
+      top_swap: swaps[0] ?? null,
+      total_saving: total.toFixed(2),
+      generated_at: new Date().toISOString(),
+    };
     return HttpResponse.json(body);
   }),
 ];
@@ -177,4 +369,6 @@ export function resetPhase2Mock(): void {
   alerts = [];
   nextAlertId = 1;
   shares = {};
+  nextShareId = 1;
+  nextMemberId = 1;
 }

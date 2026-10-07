@@ -47,5 +47,10 @@ def close_pool() -> None:
 
 
 def get_conn() -> Iterator[psycopg.Connection]:
+    """Routes depend on this with ``scope="function"`` so the pool commits (or rolls back) as
+    soon as the endpoint returns, before the response is sent. With the default request scope
+    FastAPI runs this exit code after the response, so a client could read its own write too
+    early: ``PUT /me/profile`` answered 200 and the next ``POST /me/alerts`` found no location.
+    """
     with get_pool().connection() as conn:
         yield conn

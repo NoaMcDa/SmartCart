@@ -27,6 +27,7 @@ import { setFlash, useFlash } from "@/state/flash";
 import { basketItems, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
 import { BasketDetails } from "./BasketDetails";
+import { useResolveHomeStore } from "@/features/profile/profileState";
 import { PlanCard } from "./PlanCard";
 import { ReportGapSheet } from "./ReportGapSheet";
 import { SmartCartCard } from "./SmartCartCard";
@@ -64,7 +65,7 @@ export function ResultsContent({
 
       <SmartCartCard plan={recommended} />
       <SubstitutionsSection res={res} plan={recommended} />
-      <BasketDetails plan={recommended} />
+      <BasketDetails plan={recommended} names={names} />
 
       <footer className={styles.footnote} data-testid="disclaimer">
         <p>
@@ -152,13 +153,18 @@ export function ResultsView() {
 
   const itemCount = state.items.filter((i) => !i.notFound).length;
   const radiusKm = shopper ? Math.round(shopper.radiusM / 100) / 10 : null;
-  const gapStores: StoreResult[] = data
-    ? [
-        ...new Map(
-          plansOf(data).flatMap((p) => p.stores.map((s) => [s.store.store_id, s.store])),
-        ).values(),
-      ]
-    : [];
+  const gapStores = useMemo<StoreResult[]>(
+    () =>
+      data
+        ? [
+            ...new Map(
+              plansOf(data).flatMap((p) => p.stores.map((s) => [s.store.store_id, s.store])),
+            ).values(),
+          ]
+        : [],
+    [data],
+  );
+  useResolveHomeStore(gapStores);
 
   let body: ReactNode;
   if (!hydrated || !shopper) {
