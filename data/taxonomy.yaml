@@ -1,0 +1,216 @@
+# SmartCart product taxonomy v1 (issue #10). Source of truth; seeded by `smartcart-catalog seed`.
+#
+# One entry per node. The id is a stable dotted slug: the parent is the id without its last
+# segment, and the level is the number of segments (1 department, 2 category, 3 product type,
+# 4 optional sub-type). Never rename or reuse an id: canonical_products.taxonomy_id points at it.
+# To retire a node, keep it and stop pointing canonicals at it. Order in this file is `sort`.
+#
+# Level 1 is the 19 departments. The research says the taxonomy starts from Hazol's 19
+# categories (research section 4.3) but does not list them; the list below is our own Hebrew
+# supermarket department list of 19 (a design choice, not copied from Hazol). How to add a node
+# and who approves: docs/catalog.md.
+version: 1
+nodes:
+- {id: dairy, name_he: מוצרי חלב וביצים, name_en: Dairy and eggs}
+- {id: meat, name_he: בשר ועוף, name_en: Meat and poultry}
+- {id: fish, name_he: דגים, name_en: Fish}
+- {id: deli, name_he: מעדנייה וסלטים, name_en: Deli and chilled salads}
+- {id: produce, name_he: פירות וירקות, name_en: Fruit and vegetables}
+- {id: bakery, name_he: לחם ומאפים, name_en: Bread and bakery}
+- {id: pantry, name_he: מזון יבש ובישול, name_en: Pantry and dry goods}
+- {id: canned, name_he: שימורים, name_en: Canned and jarred}
+- {id: frozen, name_he: קפואים, name_en: Frozen}
+- {id: beverages, name_he: משקאות, name_en: Beverages}
+- {id: snacks, name_he: חטיפים ומתוקים, name_en: Snacks and sweets}
+- {id: baby, name_he: תינוקות, name_en: Baby}
+- {id: cleaning, name_he: ניקיון ומוצרים לבית, name_en: Cleaning and household}
+- {id: paper, name_he: נייר וחד-פעמי, name_en: Paper and disposables}
+- {id: toiletries, name_he: טיפוח והיגיינה, name_en: Toiletries and cosmetics}
+- {id: health, name_he: בריאות ופארם, name_en: Health}
+- {id: pets, name_he: חיות מחמד, name_en: Pets}
+- {id: holiday, name_he: כשר לפסח ומוצרי חג, name_en: Passover and holiday}
+- {id: alcohol, name_he: יין ואלכוהול, name_en: Wine and alcohol}
+- {id: dairy.milk, name_he: חלב ומשקאות חלב, name_en: Milk and milk drinks}
+- {id: dairy.milk.fresh, name_he: חלב טרי, name_en: Fresh milk}
+- {id: dairy.milk.long_life, name_he: חלב עמיד, name_en: Long-life milk}
+- {id: dairy.milk.lactose_free, name_he: חלב ללא לקטוז, name_en: Lactose-free milk}
+- {id: dairy.milk.flavored, name_he: משקאות חלב בטעמים, name_en: Flavored milk drinks}
+- {id: dairy.cheese, name_he: גבינות, name_en: Cheese}
+- {id: dairy.cheese.cottage, name_he: קוטג', name_en: Cottage cheese}
+- {id: dairy.cheese.white, name_he: גבינה לבנה, name_en: White cheese}
+- {id: dairy.cheese.cream, name_he: גבינת שמנת וממרחים, name_en: Cream cheese and spreads}
+- {id: dairy.cheese.yellow, name_he: גבינה צהובה, name_en: Yellow cheese}
+- {id: dairy.cheese.yellow.sliced, name_he: גבינה צהובה פרוסה, name_en: Sliced yellow cheese}
+- {id: dairy.cheese.yellow.grated, name_he: גבינה מגורדת, name_en: Grated cheese}
+- {id: dairy.cheese.brined, name_he: גבינות מלוחות, name_en: Brined cheese}
+- {id: dairy.cheese.labane, name_he: לבנה, name_en: Labane}
+- {id: dairy.yogurt, name_he: יוגורט ומעדנים, name_en: Yogurt and desserts}
+- {id: dairy.yogurt.plain, name_he: יוגורט טבעי, name_en: Plain yogurt}
+- {id: dairy.yogurt.fruit, name_he: יוגורט פירות, name_en: Fruit yogurt}
+- {id: dairy.yogurt.greek, name_he: יוגורט יווני, name_en: Greek yogurt}
+- {id: dairy.yogurt.desserts, name_he: מעדני חלב, name_en: Dairy desserts}
+- {id: dairy.cream, name_he: שמנת וחמאה, name_en: Cream and butter}
+- {id: dairy.cream.sour, name_he: שמנת חמוצה, name_en: Sour cream}
+- {id: dairy.cream.sweet, name_he: שמנת מתוקה, name_en: Whipping cream}
+- {id: dairy.cream.cooking, name_he: שמנת לבישול, name_en: Cooking cream}
+- {id: dairy.cream.butter, name_he: חמאה ומרגרינה, name_en: Butter and margarine}
+- {id: dairy.eggs, name_he: ביצים, name_en: Eggs}
+- {id: dairy.eggs.chicken, name_he: ביצי תרנגולת, name_en: Chicken eggs}
+- {id: meat.chicken, name_he: עוף, name_en: Chicken}
+- {id: meat.chicken.breast, name_he: חזה עוף, name_en: Chicken breast}
+- {id: meat.chicken.thigh, name_he: פרגיות וירכיים, name_en: Thighs}
+- {id: meat.chicken.legs, name_he: שוקיים וכרעיים, name_en: Drumsticks and legs}
+- {id: meat.chicken.whole, name_he: עוף שלם, name_en: Whole chicken}
+- {id: meat.chicken.wings, name_he: כנפיים, name_en: Wings}
+- {id: meat.chicken.ground, name_he: עוף טחון, name_en: Ground chicken}
+- {id: meat.chicken.offal, name_he: כבד ופנימיים, name_en: Liver and offal}
+- {id: meat.beef, name_he: בקר, name_en: Beef}
+- {id: meat.beef.ground, name_he: בקר טחון, name_en: Ground beef}
+- {id: meat.beef.cuts, name_he: נתחי בקר, name_en: Beef cuts}
+- {id: meat.turkey, name_he: הודו, name_en: Turkey}
+- {id: meat.turkey.breast, name_he: חזה הודו, name_en: Turkey breast}
+- {id: fish.fillets, name_he: פילה דגים, name_en: Fish fillets}
+- {id: fish.fillets.salmon, name_he: פילה סלמון, name_en: Salmon fillet}
+- {id: fish.fillets.white, name_he: פילה דג לבן, name_en: White fish fillet}
+- {id: fish.whole, name_he: דגים שלמים, name_en: Whole fish}
+- {id: fish.whole.sea_bream, name_he: דניס, name_en: Sea bream}
+- {id: fish.smoked, name_he: דגים מעושנים, name_en: Smoked fish}
+- {id: fish.smoked.salmon, name_he: סלמון מעושן, name_en: Smoked salmon}
+- {id: deli.salads, name_he: סלטים, name_en: Chilled salads}
+- {id: deli.salads.hummus, name_he: חומוס, name_en: Hummus}
+- {id: deli.salads.tahini, name_he: סלט טחינה, name_en: Tahini salad}
+- {id: deli.salads.vegetable, name_he: סלטי ירקות מבושלים, name_en: Cooked vegetable salads}
+- {id: deli.cold_cuts, name_he: נקניקים, name_en: Cold cuts}
+- {id: deli.cold_cuts.sliced, name_he: נקניק פרוס, name_en: Sliced cold cuts}
+- {id: deli.cold_cuts.sausages, name_he: נקניקיות, name_en: Sausages and hot dogs}
+- {id: produce.vegetables, name_he: ירקות, name_en: Vegetables}
+- {id: produce.vegetables.fruiting, name_he: 'עגבניות, מלפפונים ופלפלים', name_en: Fruiting vegetables}
+- {id: produce.vegetables.root, name_he: ירקות שורש ובצלים, name_en: Roots and bulbs}
+- {id: produce.vegetables.leafy, name_he: ירקות עלים וכרוביים, name_en: Leafy and brassicas}
+- {id: produce.vegetables.mushrooms, name_he: פטריות, name_en: Mushrooms}
+- {id: produce.fruit, name_he: פירות, name_en: Fruit}
+- {id: produce.fruit.citrus, name_he: הדרים, name_en: Citrus}
+- {id: produce.fruit.tropical, name_he: פירות טרופיים, name_en: Tropical fruit}
+- {id: produce.fruit.pome, name_he: תפוחים ואגסים, name_en: Apples and pears}
+- {id: produce.fruit.melons, name_he: אבטיח ומלון, name_en: Melons}
+- {id: produce.fruit.berries, name_he: ענבים ופירות יער, name_en: Grapes and berries}
+- {id: produce.fruit.stone, name_he: פירות גלעין, name_en: Stone fruit}
+- {id: produce.herbs, name_he: עשבי תיבול, name_en: Herbs}
+- {id: produce.herbs.fresh, name_he: עשבי תיבול טריים, name_en: Fresh herbs}
+- {id: bakery.bread, name_he: לחם, name_en: Bread}
+- {id: bakery.bread.loaves, name_he: כיכרות לחם, name_en: Loaves}
+- {id: bakery.bread.challah, name_he: חלות, name_en: Challah}
+- {id: bakery.bread.flat, name_he: פיתות ולחמים שטוחים, name_en: Pita and flatbread}
+- {id: bakery.bread.rolls, name_he: לחמניות ובאגטים, name_en: Rolls and baguettes}
+- {id: pantry.rice, name_he: אורז, name_en: Rice}
+- {id: pantry.rice.white, name_he: אורז לבן, name_en: White rice}
+- {id: pantry.rice.brown, name_he: אורז מלא, name_en: Brown rice}
+- {id: pantry.pasta, name_he: פסטה ודגנים, name_en: Pasta and grains}
+- {id: pantry.pasta.long, name_he: פסטה ארוכה, name_en: Long pasta}
+- {id: pantry.pasta.short, name_he: פסטה קצרה, name_en: Short pasta}
+- {id: pantry.pasta.israeli, name_he: 'פתיתים, קוסקוס ואטריות', name_en: 'Ptitim, couscous and noodles'}
+- {id: pantry.legumes, name_he: קטניות ודגנים, name_en: Legumes and grains}
+- {id: pantry.legumes.dry, name_he: קטניות יבשות, name_en: Dry legumes}
+- {id: pantry.legumes.grains, name_he: דגנים, name_en: Grains}
+- {id: pantry.baking, name_he: אפייה, name_en: Baking}
+- {id: pantry.baking.flour, name_he: קמח, name_en: Flour}
+- {id: pantry.baking.sugar, name_he: סוכר, name_en: Sugar}
+- {id: pantry.baking.aids, name_he: חומרי אפייה, name_en: Baking aids}
+- {id: pantry.oils, name_he: שמנים, name_en: Oils}
+- {id: pantry.oils.vegetable, name_he: שמן צמחי, name_en: Vegetable oil}
+- {id: pantry.oils.olive, name_he: שמן זית, name_en: Olive oil}
+- {id: pantry.spreads, name_he: ממרחים, name_en: Spreads}
+- {id: pantry.spreads.sweet, name_he: ממרחים מתוקים, name_en: Sweet spreads}
+- {id: pantry.spreads.tahini, name_he: טחינה, name_en: Tahini}
+- {id: pantry.condiments, name_he: רטבים ותבלינים, name_en: Sauces and condiments}
+- {id: pantry.condiments.sauces, name_he: רטבים, name_en: Sauces}
+- {id: pantry.condiments.spices, name_he: תבלינים, name_en: Spices}
+- {id: pantry.condiments.soup, name_he: אבקות מרק, name_en: Soup powders}
+- {id: pantry.breakfast, name_he: דגני בוקר, name_en: Breakfast cereals}
+- {id: pantry.breakfast.cereal, name_he: דגני בוקר, name_en: Cereals}
+- {id: canned.fish, name_he: שימורי דגים, name_en: Canned fish}
+- {id: canned.fish.tuna, name_he: טונה, name_en: Tuna}
+- {id: canned.fish.other, name_he: שימורי דגים אחרים, name_en: Other canned fish}
+- {id: canned.vegetables, name_he: שימורי ירקות, name_en: Canned vegetables}
+- {id: canned.vegetables.legumes, name_he: שימורי קטניות ותירס, name_en: Canned legumes and corn}
+- {id: canned.vegetables.pickles, name_he: חמוצים וזיתים, name_en: Pickles and olives}
+- {id: canned.vegetables.other, name_he: שימורי ירקות אחרים, name_en: Other canned vegetables}
+- {id: canned.tomatoes, name_he: מוצרי עגבניות, name_en: Tomato products}
+- {id: canned.tomatoes.paste, name_he: רסק ועגבניות מרוסקות, name_en: Paste and crushed tomatoes}
+- {id: frozen.vegetables, name_he: ירקות קפואים, name_en: Frozen vegetables}
+- {id: frozen.vegetables.single, name_he: ירק קפוא, name_en: Single frozen vegetables}
+- {id: frozen.vegetables.potato, name_he: צ'יפס ומוצרי תפוחי אדמה, name_en: Fries and potato products}
+- {id: frozen.ready, name_he: מוכן לחימום, name_en: Ready to heat}
+- {id: frozen.ready.chicken, name_he: מוצרי עוף קפואים, name_en: Frozen chicken products}
+- {id: frozen.ready.dough, name_he: בצקים ומאפים קפואים, name_en: Frozen dough and pastries}
+- {id: frozen.ready.other, name_he: מוכן אחר, name_en: Other ready frozen}
+- {id: frozen.desserts, name_he: גלידות, name_en: Ice cream}
+- {id: frozen.desserts.ice_cream, name_he: גלידה, name_en: Ice cream}
+- {id: beverages.water, name_he: מים, name_en: Water}
+- {id: beverages.water.still, name_he: מים מינרליים, name_en: Still water}
+- {id: beverages.water.sparkling, name_he: מים מוגזים וטעמים, name_en: Sparkling and flavored water}
+- {id: beverages.soft_drinks, name_he: משקאות קלים, name_en: Soft drinks}
+- {id: beverages.soft_drinks.cola, name_he: קולה, name_en: Cola}
+- {id: beverages.soft_drinks.other, name_he: משקאות מוגזים אחרים, name_en: Other sodas}
+- {id: beverages.juice, name_he: מיצים ותרכיזים, name_en: Juice and concentrates}
+- {id: beverages.juice.chilled, name_he: מיץ מקורר, name_en: Chilled juice}
+- {id: beverages.juice.shelf, name_he: מיץ ונקטר, name_en: Shelf-stable juice}
+- {id: beverages.juice.concentrate, name_he: תרכיזים, name_en: Concentrates}
+- {id: beverages.plant_drinks, name_he: משקאות צמחיים, name_en: Plant drinks}
+- {id: beverages.plant_drinks.soy, name_he: משקה סויה, name_en: Soy drink}
+- {id: beverages.plant_drinks.almond, name_he: משקה שקדים, name_en: Almond drink}
+- {id: beverages.plant_drinks.oat, name_he: משקה שיבולת שועל, name_en: Oat drink}
+- {id: beverages.hot, name_he: קפה ותה, name_en: Coffee and tea}
+- {id: beverages.hot.coffee, name_he: קפה, name_en: Coffee}
+- {id: beverages.hot.tea, name_he: תה, name_en: Tea}
+- {id: snacks.salty, name_he: חטיפים מלוחים, name_en: Salty snacks}
+- {id: snacks.salty.puffs, name_he: במבה וביסלי, name_en: Puffs and wheat snacks}
+- {id: snacks.salty.chips, name_he: צ'יפס ובייגלה, name_en: Chips and pretzels}
+- {id: snacks.salty.seeds, name_he: גרעינים ואגוזים, name_en: Seeds and nuts}
+- {id: snacks.sweet, name_he: מתוקים, name_en: Sweets}
+- {id: snacks.sweet.chocolate, name_he: שוקולד, name_en: Chocolate}
+- {id: snacks.sweet.biscuits, name_he: ביסקוויטים וופלים, name_en: Biscuits and wafers}
+- {id: snacks.sweet.halva, name_he: חלבה, name_en: Halva}
+- {id: snacks.crackers, name_he: פריכיות וקרקרים, name_en: Rice cakes and crackers}
+- {id: snacks.crackers.all, name_he: פריכיות וקרקרים, name_en: Rice cakes and crackers}
+- {id: baby.hygiene, name_he: היגיינת תינוק, name_en: Baby hygiene}
+- {id: baby.hygiene.wipes, name_he: מגבונים, name_en: Wipes}
+- {id: cleaning.dishes, name_he: כלים, name_en: Dishwashing}
+- {id: cleaning.dishes.liquid, name_he: נוזל כלים, name_en: Dish soap}
+- {id: cleaning.dishes.dishwasher, name_he: מדיח כלים, name_en: Dishwasher}
+- {id: cleaning.dishes.sponges, name_he: ספוגים, name_en: Sponges}
+- {id: cleaning.laundry, name_he: כביסה, name_en: Laundry}
+- {id: cleaning.laundry.detergent, name_he: חומרי כביסה, name_en: Detergent}
+- {id: cleaning.laundry.softener, name_he: מרכך כביסה, name_en: Fabric softener}
+- {id: cleaning.surfaces, name_he: ניקוי משטחים, name_en: Surface cleaning}
+- {id: cleaning.surfaces.bleach, name_he: אקונומיקה, name_en: Bleach}
+- {id: cleaning.surfaces.floor, name_he: ניקוי רצפות, name_en: Floor cleaner}
+- {id: cleaning.surfaces.spray, name_he: תרסיסי ניקוי, name_en: Cleaning sprays}
+- {id: cleaning.bags, name_he: שקיות, name_en: Bags}
+- {id: cleaning.bags.garbage, name_he: שקיות אשפה, name_en: Garbage bags}
+- {id: paper.tissue, name_he: נייר, name_en: Paper}
+- {id: paper.tissue.toilet, name_he: נייר טואלט, name_en: Toilet paper}
+- {id: paper.tissue.towels, name_he: מגבות נייר, name_en: Paper towels}
+- {id: paper.tissue.facial, name_he: ממחטות, name_en: Facial tissues}
+- {id: paper.kitchen, name_he: עטיפה ואפייה, name_en: Wrap and baking}
+- {id: paper.kitchen.foil, name_he: נייר כסף, name_en: Aluminum foil}
+- {id: paper.kitchen.baking, name_he: נייר אפייה, name_en: Baking paper}
+- {id: paper.kitchen.wrap, name_he: ניילון נצמד, name_en: Cling wrap}
+- {id: paper.disposables, name_he: חד-פעמי, name_en: Disposables}
+- {id: paper.disposables.tableware, name_he: כלים חד-פעמיים, name_en: Disposable tableware}
+- {id: toiletries.oral, name_he: היגיינת הפה, name_en: Oral care}
+- {id: toiletries.oral.toothpaste, name_he: משחת שיניים, name_en: Toothpaste}
+- {id: toiletries.hair, name_he: שיער, name_en: Hair}
+- {id: toiletries.hair.shampoo, name_he: שמפו, name_en: Shampoo}
+- {id: toiletries.body, name_he: רחצה, name_en: Bath and body}
+- {id: toiletries.body.soap, name_he: סבון, name_en: Soap}
+- {id: toiletries.body.deodorant, name_he: דאודורנט, name_en: Deodorant}
+- {id: health.first_aid, name_he: עזרה ראשונה, name_en: First aid}
+- {id: pets.cats, name_he: חתולים, name_en: Cats}
+- {id: pets.dogs, name_he: כלבים, name_en: Dogs}
+- {id: holiday.passover, name_he: פסח, name_en: Passover}
+- {id: holiday.passover.matzah, name_he: מצות, name_en: Matzah}
+- {id: alcohol.beer, name_he: בירה, name_en: Beer}
+- {id: alcohol.beer.lager, name_he: בירה לאגר, name_en: Lager}
+- {id: alcohol.wine, name_he: יין, name_en: Wine}
+- {id: alcohol.wine.red, name_he: יין אדום, name_en: Red wine}
