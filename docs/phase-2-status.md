@@ -1,8 +1,10 @@
 # Status of phases 0, 1 and 2, and the owner runbook
 
-Written 2026-10-07 on `phase-2-base` (commit `c36d6b3`). It answers two questions: what is done, and what
-only the owner can do next. Sources: the status comments on issues #1 to #6, the bodies of PR #82
-(phase 0, merged) and PR #93 (phase 1, open), and the docs named in each row.
+Written 2026-10-07 on `phase-2-base` (commit `c36d6b3`) and updated the same day on `mvp-complete`, after
+PR #100 (phases 0 to 2) and the MVP completion round (#101, #102, #16, #12 and the full-stack suite). It
+answers two questions: what is done, and what only the owner can do next. Sources: the status comments on
+issues #1 to #7, the bodies of PR #82 (phase 0), PR #100 (phases 0 to 2) and the MVP completion PR, and
+the docs named in each row.
 
 Labels follow `docs/README.md`: **verified** means shown by a test or a measurement, **estimate** means a
 judgement. Every cost and time figure below is an estimate unless it says otherwise.
@@ -14,7 +16,7 @@ judgement. Every cost and time figure below is an estimate unless it says otherw
 | **done by tests** | The acceptance criteria are met by tests that run in CI, or by a written decision. Nothing here depends on real data. Where a manual check on a device remains, the note says so. |
 | **done with synthetic data** | Built and tested, but only against synthetic fixtures, a synthetic gold set or a mock API. The behavior is real, the numbers are not. It needs the real-data steps in the runbook before any figure from it is quoted. |
 | **blocked** | Needs something that only the owner can supply: infrastructure, an API key, real files, a reviewer, a domain, a device or people. The blocker column says which. |
-| **open, phase 2** | Engineering work that is not finished and is not waiting on the owner. For the milestone 3 issues the repo has only the shared contract (migration `20261008100000_phase2.sql`, API schemas, stub routes, MSW handlers); the implementations are separate phase 2 workstreams. Update this table as each one merges. |
+| **open, phase 2** | Engineering work that is not finished and is not waiting on the owner. After the MVP completion round no row carries this label; it stays in the legend for the next round. |
 
 Numbers that appear below are quoted from the status comments: 780 Python tests (2 skipped) and 321 unit,
 95 e2e and 131 accessibility web tests were green in CI on `phase-1-base`. All are on synthetic data.
@@ -50,9 +52,9 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 | #6 | Epic: SEO, growth and beta | blocked | A deployed domain, real prices, people (#35, #40, #44). |
 | #10 | Taxonomy v1 | done by tests | 203 nodes. The 19 departments are our own list, not Hazol's (the research does not list Hazol's categories). The reviewer should compare. |
 | #11 | Next.js PWA scaffold | done by tests | Install on a real Android Chrome and iOS Safari device by hand (steps in `docs/web.md`). |
-| #12 | Trust signals | done by tests | Promo confidence needs an API field (#90). Timestamps on product detail and the split view were left to the secondary screens. |
+| #12 | Trust signals | done by tests | Promo confidence is recorded by every adapter (`promos.raw.confidence`, rubric in `docs/adapters.md`) and shown when present. The substitution card carries the checkout disclaimer; every substitute is labeled. |
 | #15 | 150 to 300 canonical products | blocked | 245 canonicals are committed. A domain-aware reviewer must sign them off (checklist in `docs/catalog.md` section 2). The rank is an estimate: replace with a measured one. |
-| #16 | Report-a-gap button | open, phase 2 | UI and `POST /feedback/gap` are done and tested. Feeding gap reports into the quality checks is the remaining half. |
+| #16 | Report-a-gap button | done by tests | UI and `POST /feedback/gap`; gap reports feed the quality checks (`gap_report_pressure`, the `quality_gap_reports_7d` view, a soft ingest warning that never quarantines, a dashboard panel). The threshold `GAP_REPORT_PRESSURE_MIN=3` is a placeholder. |
 | #18 | Onboarding | done by tests | Eye check of dark theme at 390 px. |
 | #20 | Rule normalization | done with synthetic data | 50 table cases with realistic, not real, names. Turn the issue list from `smartcart-catalog normalize` on real loads into test cases. |
 | #21 | Methodology page and quality metric | done with synthetic data | The published metric comes from the synthetic gold set and is labeled so. Links from results and the substitution card are open (#91). Structured data has not been run through an external validator. |
@@ -84,27 +86,37 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 | #66 | In-store shopping mode | done by tests | Visual check in both themes; Wake Lock is not testable in CI. |
 | #67 | Generated TypeScript client | done by tests | CI fails on drift. |
 | #80 | Loader: chain-level base prices | done by tests | The price-jump gate does not compare base records yet. |
-| #90 | API follow-ups | open, phase 2 | `DELETE /me`, store coordinates, promo confidence, nearest store of a chain. The phase 2 base has schemas and stub routes for them. |
-| #91 | Web follow-ups | open, phase 2 | `AuthProvider` in the root layout, event tracking and consent, methodology links, design-system page, top bar at 200% zoom. |
-| #92 | Catalog contract follow-ups | open, phase 2 | The columns are in the phase 2 migration (`item_canonical.reason`, `human_rejected`, `canonical_products.embedding_model`, `reference_barcodes`, feedback context and RLS). The catalog code that reads and writes them is still to do. |
+| #90 | API follow-ups | done by tests | `DELETE /me`, store coordinates, promo confidence and `GET /stores/nearest` are implemented (PR #100 and the completion round). |
+| #91 | Web follow-ups | done by tests | All items landed in PR #100; the remaining loose ends became #101 and are done (below). |
+| #92 | Catalog contract follow-ups | done by tests | Columns and the catalog code that reads and writes them landed in PR #100; the remaining items became #102 and are done (below). |
 
 ## Phase 2, advanced savings (milestone 3)
 
-At the base commit these have a shared contract and nothing else. None is blocked on the owner except #52
-and #56, which need real data and real users.
+All built in PR #100 and finished in the MVP completion round. Only #52 and #56 are blocked, on real data
+and real users.
 
 | Issue | Title | Status | Blocker or what remains |
 |---|---|---|---|
-| #7 | Epic: advanced savings | open, phase 2 | Children below. |
-| #13 | MILP cart optimizer | open, phase 2 | The API schema has solver selection and promo bundles. Design in `docs/optimizer.md` (being written). Compare against the phase 1 heuristic on real baskets. |
-| #19 | Club membership filtering | open, phase 2 | Club flags and the `noclub` fallback already exist in the precompute (#47). |
-| #23 | Price-drop alerts with web push | open, phase 2 | Tables for alerts, push subscriptions and deliveries are in the phase 2 migration. Web push needs a VAPID key pair, which the owner generates (runbook step 11). |
-| #28 | Price history, 90 days | open, phase 2 | Schema and API contract exist. Real history needs weeks of real loads; until then charts show synthetic data. |
-| #34 | Shared family lists in real time | open, phase 2 | `list_shares`, member policies and the Realtime publication are in the migration. Realtime needs the real Supabase project. |
-| #39 | Barcode scanning in the PWA | open, phase 2 | Barcode lookup contract exists. Needs a device check, and barcodes in the catalog from real loads. |
-| #45 | Smart cart: single best swap | open, phase 2 | Swap-suggestion contract exists. Depends on the real catalog for meaningful swaps. |
+| #7 | Epic: advanced savings | done with synthetic data | Children below. |
+| #13 | MILP cart optimizer | done with synthetic data | OR-Tools CP-SAT with cross-item promos and quantity rounding (`docs/optimizer.md`). Equals the heuristic without bundles and beats it on the bundle case, by test. Solve times were measured on synthetic baskets only; re-measure on real price files. |
+| #19 | Club membership filtering | done by tests | Club-only promos apply only when the user's clubs include the club, across `/compare` and `/optimize`. |
+| #23 | Price-drop alerts with web push | done with synthetic data | Alerts CRUD, `alerts-run` job, pywebpush sender tested with a fake. Needs the VAPID key pair (runbook step 11) and the real pipeline to fire on real drops. |
+| #28 | Price history, 90 days | done with synthetic data | Series from the price change events with promo markers; the chart is a small SVG component. Real history needs weeks of real loads. |
+| #34 | Shared family lists in real time | done with synthetic data | Invite link, accept, members, revoke by `share_id`, per-item `checked`, offline queue, Supabase Realtime with a polling fallback. Realtime itself needs the real project. |
+| #39 | Barcode scanning in the PWA | done by tests | BarcodeDetector with a ZXing fallback and a manual field; the lookup joins to effective prices in the radius. Device check of the camera flow remains. `/scan` reads no code from the URL yet. |
+| #45 | Smart cart: single best swap | done by tests | Swap suggestions, apply, undo and dismiss (dismissal holds until the saving changes by ₪1 and 25%); verdicts stored as catalog feedback with `source=swap`; a dismissal never flags the mapping for review. |
 | #52 | Catalog expansion with active learning | blocked | Needs real labeled pairs from the review UI and the beta's rejected substitutions. |
 | #56 | Native app decision | blocked | Needs retention data from real users (after the beta and launch). Not a build task. |
+
+## MVP completion round (2026-10-07)
+
+Four parallel workstreams on `mvp-complete`, merged in one PR to `main`.
+
+| Issue | Title | Status | What landed |
+|---|---|---|---|
+| #101 | Phase 2 follow-ups, web | done by tests | "שיתוף" entry point; swap undo and dismiss; every route fits at 195 px (`docs/a11y-report.md`); onboarding resolves the home store through `GET /stores/nearest` so the first results page shows the net saving; pending-invite revoke; `checked` flag with an offline queue ("ממתין לסנכרון"); scan, alert, swap and share events; links from results to the split view and product detail; checkout disclaimer on the substitution card; Hebrew labels for attribute tags and units. |
+| #102 | Phase 2 follow-ups, API and catalog | done with synthetic data | `GET /me/lists` returns owned then shared lists (`shared`, `role`); `share_id` on members and `DELETE /me/lists/{id}/shares/{share_id}`; `base` is a critical attribute of the plant drinks (three canonicals changed, 104 gold pairs added, precision 1.00 at every level on the synthetic set); SEO snapshot regenerated; query vectors compared only with embeddings of the same model (`API_QUERY_EMBEDDER`); `routes/feedback.py` writes through `record_feedback`; adapters record promo confidence. Optimizer timings on real files remain. |
+| — | Full-stack run and suite | done with synthetic data | `scripts/demo/up.sh` builds the whole pipeline on the synthetic fixtures through the real loader and gates, `smoke.py` checks the real API, `npm run e2e:fullstack` drives the real app against the real API, and the "Full stack" workflow runs it in CI. `docs/fullstack.md` lists the counts and the gaps it found. |
 
 ## Owner runbook
 

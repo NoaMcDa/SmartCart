@@ -32,7 +32,7 @@ phase 1 attribute extraction.
 ## Phase 1: MVP (8–10 weeks)
 
 **Status (2026-10-07).** The catalog, matching, API, web app, trust pages, SEO pages and beta
-instrumentation are built and tested (PR #93). Everything that touches prices or matching runs on synthetic
+instrumentation are built and tested (PR #100, follow-ups in the MVP completion round). Everything that touches prices or matching runs on synthetic
 data, and the 98% precision figure is measured on a synthetic gold set, so it is not evidence yet. Open:
 real data, the extraction pilot, BGE-M3, human review, deployment, the screen-reader pass and recruiting the
 beta. See [phase-2-status.md](phase-2-status.md).
@@ -64,10 +64,11 @@ set. SEO pages indexed. Beta substitution rejection rate low enough that trust h
 
 ## Phase 2: Advanced savings (about 3 months)
 
-**Status (2026-10-07).** Started. `phase-2-base` has the shared contract (migration, API schemas, stub
-routes, mock handlers); the features themselves are separate workstreams and are not merged yet. The
-optimizer design is in [optimizer.md](optimizer.md). The native-app decision and catalog expansion need real
-users and real labels. See [phase-2-status.md](phase-2-status.md).
+**Status (2026-10-07).** Built: MILP optimizer, club filtering, price alerts with web push, price history,
+shared lists in real time, barcode scanning and the smart-cart swap, all on synthetic data (PR #100 and the
+MVP completion round). The whole stack runs end to end with `scripts/demo/up.sh` ([fullstack.md](fullstack.md)).
+The native-app decision and catalog expansion need real users and real labels. See
+[phase-2-status.md](phase-2-status.md).
 
 MILP optimizer with cross-item promos and quantity rounding. Club filtering. Canonical-level price
 alerts ("any soy drink under X"). Price history (90 days with promo markers). Shared family lists in
