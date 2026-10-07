@@ -20,6 +20,7 @@ export { Skeleton, SkeletonText, type SkeletonProps } from "./Skeleton";
 export { Stepper, type StepperProps } from "./Stepper";
 export { Switch, Toggle, type SwitchProps } from "./Switch";
 export { Tag, type TagProps, type TagVariant } from "./Tag";
+export { PromoConfidence, type PromoConfidenceProps } from "./PromoConfidence";
 export { CheckChip, type CheckChipProps } from "./CheckChip";
 export { TrustedPrice, type TrustedPriceProps } from "./TrustedPrice";
 export { UpdatedAt, formatUpdatedAt, type UpdatedAtProps } from "./UpdatedAt";

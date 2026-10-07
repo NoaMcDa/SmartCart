@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ApiError, type OptimizeResponse, type Plan, type StoreResult } from "@/api/client";
 import {
   Button,
@@ -21,6 +21,8 @@ import {
   responseUpdatedAt,
   useOptimize,
 } from "@/state/comparison";
+import { reportResultsShown, reportSubstitutionsShown } from "@/features/consent/betaEvents";
+import { MethodologyLink } from "@/features/seo/components";
 import { setFlash, useFlash } from "@/state/flash";
 import { basketItems, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
@@ -29,6 +31,7 @@ import { PlanCard } from "./PlanCard";
 import { ReportGapSheet } from "./ReportGapSheet";
 import { SmartCartCard } from "./SmartCartCard";
 import { SubstitutionsSection } from "./SubstitutionsSection";
+import { substitutionLevelCounts } from "./substitutionLevels";
 import styles from "./Results.module.css";
 
 /** Recommended plan first, then the other plan, then the home store (Results artboard). */
@@ -66,7 +69,8 @@ export function ResultsContent({
       <footer className={styles.footnote} data-testid="disclaimer">
         <p>
           <strong>{res.disclaimer_he}</strong> המחירים לפי קבצי שקיפות המחירים של הרשתות, ומבצעי
-          מועדון רק לפי המועדונים שסימנת. החיסכון מחושב תמיד מול הסופר שלך, אחרי נסיעה.
+          מועדון רק לפי המועדונים שסימנת. החיסכון מחושב תמיד מול הסופר שלך, אחרי נסיעה.{" "}
+          <MethodologyLink />
         </p>
         <p className={styles.footRow}>
           <UpdatedAt iso={updated} prefix="מחירים עודכנו" withIcon />
@@ -117,6 +121,19 @@ export function ResultsView() {
   );
   const result = useOptimize(input);
   const data = "data" in result ? result.data : undefined;
+
+  // Beta events (docs/beta-plan.md): once per response, never any list text or names.
+  const reported = useRef<OptimizeResponse | null>(null);
+  useEffect(() => {
+    if (!data || reported.current === data) return;
+    reported.current = data;
+    const recommended = plansOf(data).find((p) => p.recommended) ?? data.single;
+    reportResultsShown({
+      itemCount: basket.length,
+      storeCount: new Set(plansOf(data).flatMap((p) => p.stores.map((s) => s.store.store_id))).size,
+    });
+    reportSubstitutionsShown(substitutionLevelCounts(recommended, state.items));
+  }, [data, basket.length, state.items]);
 
   // Show the message carried over from the substitution card once, then clear it.
   useEffect(() => {

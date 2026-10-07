@@ -9,8 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ensureApiAuth, setApiToken } from "./apiAuth";
-import { getSupabase, isSupabaseConfigured } from "./supabaseClient";
+import { setAuthTokenProvider } from "@/features/seo/track";
+import { ensureApiAuth, getApiToken, setApiToken } from "./apiAuth";
+import { isSupabaseConfigured, loadSupabase } from "./supabaseClient";
 import { SignInSheet } from "./SignInSheet";
 
 export type AuthStatus = "loading" | "signed-out" | "signed-in";
@@ -41,6 +42,7 @@ export function useAuth(): AuthState {
 /**
  * Tracks the Supabase session, keeps the API token in sync (`apiAuth`), and hosts the email OTP
  * sheet. Without Supabase configuration it stays signed out and the sheet explains why.
+ * Mounted once, in the root layout, so `/feedback/*` and `/events` carry the user on every screen.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const configured = isSupabaseConfigured();
@@ -51,29 +53,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     ensureApiAuth();
-    const supabase = getSupabase();
-    if (!supabase) {
-      setApiToken(null);
-      return;
-    }
+    // Beta events carry the user too: the API reads the id from the same bearer token.
+    setAuthTokenProvider(getApiToken);
     let active = true;
-    const apply = (session: { access_token: string; user?: { email?: string | null } } | null) => {
+    let unsubscribe = () => {};
+    void loadSupabase().then((supabase) => {
       if (!active) return;
-      setApiToken(session?.access_token ?? null);
-      setEmail(session?.user?.email ?? null);
-      setStatus(session ? "signed-in" : "signed-out");
-    };
-    void supabase.auth.getSession().then(({ data }) => apply(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => apply(session));
+      if (!supabase) {
+        setApiToken(null);
+        return;
+      }
+      const apply = (
+        session: { access_token: string; user?: { email?: string | null } } | null,
+      ) => {
+        if (!active) return;
+        setApiToken(session?.access_token ?? null);
+        setEmail(session?.user?.email ?? null);
+        setStatus(session ? "signed-in" : "signed-out");
+      };
+      void supabase.auth.getSession().then(({ data }) => apply(data.session));
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => apply(session));
+      unsubscribe = () => data.subscription.unsubscribe();
+    });
     return () => {
       active = false;
-      data.subscription.unsubscribe();
+      unsubscribe();
     };
   }, []);
 
   const openSignIn = useCallback(() => setSheetOpen(true), []);
   const signOut = useCallback(async () => {
-    const supabase = getSupabase();
+    const supabase = await loadSupabase();
     setApiToken(null);
     if (supabase) await supabase.auth.signOut();
     setEmail(null);

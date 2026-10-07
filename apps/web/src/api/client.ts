@@ -31,6 +31,7 @@ export type SearchHit = Schemas["SearchHit"];
 export type GapReportRequest = Schemas["GapReportRequest"];
 export type SubstitutionFeedbackRequest = Schemas["SubstitutionFeedbackRequest"];
 export type Ack = Schemas["Ack"];
+export type StoreRef = Schemas["StoreRef"];
 export type FlexLevel = NonNullable<BasketItem["flex_level"]>;
 
 // Phase 2 (history, alerts, push, shared lists, barcode, swaps)
@@ -48,7 +49,6 @@ export type ShoppingListInput = Schemas["ShoppingListIn"];
 export type ListItemInput = Opt<Schemas["ListItemIn"], "confirmed" | "flex_level" | "quantity">;
 export type BarcodeLookupResponse = Schemas["BarcodeLookupResponse"];
 export type StorePrice = Schemas["StorePrice"];
-export type StoreRef = Schemas["StoreRef"];
 export type SwapSuggestion = Schemas["SwapSuggestion"];
 export type SwapSuggestionResponse = Schemas["SwapSuggestionResponse"];
 
@@ -259,17 +259,6 @@ export async function swapSuggestions(
   );
 }
 
-export async function nearestStore(
-  chainId: string,
-  where: { lat: number; lon: number },
-): Promise<StoreRef> {
-  return unwrap(
-    await api.GET("/stores/nearest", {
-      params: { query: { chain_id: chainId, lat: where.lat, lon: where.lon } },
-    }),
-  );
-}
-
 /** `DELETE /me/lists/{id}/share/{token}`: owner only; the invite is revoked and its member loses access. */
 export async function revokeShare(listId: number, token: string): Promise<void> {
   expectOk(
@@ -291,4 +280,19 @@ export async function removeMember(listId: number, memberId: string): Promise<vo
 /** `GET /me/shared-lists`: lists other people shared with me (accepted invites). */
 export async function sharedWithMe(): Promise<ShoppingList[]> {
   return unwrap(await api.GET("/me/shared-lists"));
+}
+
+/**
+ * DELETE /me: removes the signed-in user's `profiles` row and the Supabase auth user (issues #30
+ * and #55). Needs the bearer token (`ensureApiAuth()` installs it). Throws ApiError on failure.
+ */
+export async function deleteMe(): Promise<Ack> {
+  return unwrap(await api.DELETE("/me"));
+}
+
+/** GET /stores/nearest: the nearest store of a chain to a point (the home store lookup). */
+export async function nearestStore(chainId: string, lat: number, lon: number): Promise<StoreRef> {
+  return unwrap(
+    await api.GET("/stores/nearest", { params: { query: { chain_id: chainId, lat, lon } } }),
+  );
 }

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { THEME_COLOR, THEME_INIT_SCRIPT } from "@/components/theme/theme-constants";
+import { AuthProvider } from "@/features/auth/AuthProvider";
 import { heebo } from "./fonts";
 import "./globals.css";
 
@@ -44,7 +45,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
         <ServiceWorkerRegistrar />
       </body>
     </html>

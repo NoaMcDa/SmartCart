@@ -26,6 +26,26 @@ describe("API client with NEXT_PUBLIC_API_MOCK=1", () => {
     expect(networkFetch).not.toHaveBeenCalled();
   });
 
+  it("deleteMe and nearestStore are typed helpers over the phase 2 routes", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_MOCK", "1");
+    vi.resetModules();
+    const { deleteMe, nearestStore } = await import("./client");
+    await expect(deleteMe()).resolves.toMatchObject({ ok: true });
+    const store = await nearestStore("7290058140886", 31.898, 35.01);
+    expect(store).toMatchObject({ chain_name: "רמי לוי", store_id: 101 });
+  });
+
+  it("deleteMe throws ApiError on a failed response", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_MOCK", "");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ detail: "boom" }, { status: 500 })),
+    );
+    vi.resetModules();
+    const { deleteMe, ApiError } = await import("./client");
+    await expect(deleteMe()).rejects.toBeInstanceOf(ApiError);
+  });
+
   it("uses the network when the mock is off", async () => {
     vi.stubEnv("NEXT_PUBLIC_API_MOCK", "");
     const networkFetch = vi.fn(async () => Response.json({ status: "ok", version: "1.2.3" }));

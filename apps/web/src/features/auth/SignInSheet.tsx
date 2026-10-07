@@ -4,7 +4,7 @@ import { useId, useState, type FormEvent } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import controls from "@/features/profile/controls/controls.module.css";
-import { getSupabase } from "./supabaseClient";
+import { loadSupabase } from "./supabaseClient";
 
 type Step = "email" | "code";
 
@@ -41,7 +41,7 @@ export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInShe
 
   async function sendCode(e: FormEvent) {
     e.preventDefault();
-    const supabase = getSupabase();
+    const supabase = await loadSupabase();
     if (!supabase) return;
     if (!EMAIL_RE.test(email.trim())) {
       setError("כתובת האימייל לא נראית תקינה.");
@@ -63,7 +63,7 @@ export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInShe
 
   async function verify(e: FormEvent) {
     e.preventDefault();
-    const supabase = getSupabase();
+    const supabase = await loadSupabase();
     if (!supabase) return;
     if (!/^\d{6,10}$/.test(code.trim())) {
       setError("הקוד הוא ספרות בלבד, כפי שהגיע באימייל.");

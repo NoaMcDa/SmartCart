@@ -130,8 +130,6 @@ describe("phase 2 typed helpers", () => {
     expect(swaps.store_id).toBe(101);
     expect(swaps.swaps.map((s) => s.saving)).toEqual(["5.00", "4.80", "1.20"]);
     expect(swaps.top_swap?.saving).toBe("5.00");
-    expect((await nearestStore("7290058140886", { lat: 31.9, lon: 35 })).chain_name).toBe(
-      "רמי לוי",
-    );
+    expect((await nearestStore("7290058140886", 31.9, 35)).chain_name).toBe("רמי לוי");
   });
 });

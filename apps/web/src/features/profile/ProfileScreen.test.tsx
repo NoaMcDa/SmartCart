@@ -1,9 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider, __resetThemeStoreForTests } from "@/components/theme/ThemeProvider";
 import { AuthProvider } from "@/features/auth/AuthProvider";
 import { setSupabaseForTests } from "@/features/auth/supabaseClient";
+import { resetTrackingForTests } from "@/features/seo/track";
 import { server } from "@/mocks/node";
 import { ProfileScreen } from "./ProfileScreen";
 import { recordSaving } from "./savingsHistory";
@@ -172,6 +173,26 @@ describe("profile", () => {
     await user.click(consent);
     expect(getProfile().consentLocation).toBe(false);
     expect(getProfile().location).toBeNull();
+  });
+
+  it("has the beta usage-events opt-out in the privacy section only in a build that collects events", async () => {
+    renderProfile();
+    expect(screen.queryByRole("switch", { name: "אירועי שימוש לבדיקת הבטא" })).toBeNull();
+    cleanup();
+    vi.stubEnv("NEXT_PUBLIC_BETA_EVENTS", "1");
+    try {
+      const user = userEvent.setup();
+      renderProfile();
+      const toggle = await screen.findByRole("switch", { name: "אירועי שימוש לבדיקת הבטא" });
+      expect(toggle).toHaveAttribute("aria-checked", "false");
+      await user.click(toggle);
+      expect(window.localStorage.getItem("sc-events-consent")).toBe("1");
+      await user.click(toggle);
+      expect(window.localStorage.getItem("sc-events-consent")).toBe("0");
+    } finally {
+      vi.unstubAllEnvs();
+      resetTrackingForTests();
+    }
   });
 
   it("delete my data needs confirmation, then clears the device", async () => {

@@ -1,6 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import { API_BASE_URL } from "@/api/config";
+import { compareFixture, optimizeFixture } from "@/mocks/fixtures";
 import { STORAGE_KEYS } from "@/features/profile/storage";
 import { clearLastResultCache } from "@/features/split/lastResult";
 import { shopperSeed, weeklyListState } from "@/mocks/lastResult";
@@ -115,6 +118,51 @@ describe("map screen", () => {
         "href",
         "/compare",
       );
+    });
+
+    describe("store coordinates from the API (StoreResult.lat and lon)", () => {
+      /** Adds real coordinates to every store in a response, except those in `skip`. */
+      function withCoords(value: unknown, skip: number[] = []): unknown {
+        if (Array.isArray(value)) return value.map((v) => withCoords(v, skip));
+        if (value && typeof value === "object") {
+          const obj = Object.fromEntries(
+            Object.entries(value).map(([k, v]) => [k, withCoords(v, skip)]),
+          );
+          if ("store_id" in obj && "distance_m" in obj && "items" in obj) {
+            const id = obj.store_id as number;
+            return skip.includes(id)
+              ? { ...obj, lat: null, lon: null }
+              : { ...obj, lat: 31.9 + (id - 100) * 0.002, lon: 35.01 + (id - 100) * 0.003 };
+          }
+          return obj;
+        }
+        return value;
+      }
+
+      function serve(skip: number[] = []) {
+        server.use(
+          http.post(`${API_BASE_URL}/compare`, () =>
+            HttpResponse.json(withCoords(compareFixture(), skip) as object),
+          ),
+          http.post(`${API_BASE_URL}/optimize`, () =>
+            HttpResponse.json(withCoords(optimizeFixture(), skip) as object),
+          ),
+        );
+      }
+
+      it("uses them for the pins and drops the approximation note when every store has them", async () => {
+        serve();
+        render(<MapScreen />);
+        expect(await screen.findAllByTestId("map-pin")).toHaveLength(5);
+        expect(screen.queryByTestId("map-approx")).toBeNull();
+      });
+
+      it("keeps the note only while a store has null coordinates", async () => {
+        serve([102]);
+        render(<MapScreen />);
+        expect(await screen.findAllByTestId("map-pin")).toHaveLength(5);
+        expect(screen.getByTestId("map-approx")).toHaveTextContent("מדויק");
+      });
     });
 
     it("start shopping from the sheet begins a session for that store", async () => {

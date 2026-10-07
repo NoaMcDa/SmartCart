@@ -11,6 +11,7 @@ import {
   Skeleton,
   UpdatedAt,
 } from "@/components/ui";
+import { reportListPasted } from "@/features/consent/betaEvents";
 import { buildCompareInput, useCompareEstimate } from "@/state/comparison";
 import { basketItems, groupByDepartment, listActions, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
@@ -35,6 +36,8 @@ export function ListBuilder() {
   const [hint, setHint] = useState<string | null>(null);
   const [flexItemId, setFlexItemId] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Set by a paste into the box or the clipboard button; read by the next successful parse.
+  const pastedRef = useRef(false);
   const inputId = useId();
   const micTipId = useId();
 
@@ -59,12 +62,15 @@ export function ListBuilder() {
   async function submit(raw: string) {
     const value = raw.trim();
     if (!value || parsing) return;
+    const wasPasted = pastedRef.current;
+    pastedRef.current = false;
     setParsing(true);
     setError(null);
     setHint(null);
     try {
       const res = await parseList({ text: value, flex_defaults: state.flexDefaults });
       listActions.add(res.rows);
+      if (wasPasted) reportListPasted(res.rows.length);
       setText("");
     } catch {
       setError("לא הצלחנו לזהות את הרשימה. בדקי את החיבור ונסי שוב.");
@@ -94,6 +100,7 @@ export function ListBuilder() {
         return;
       }
       setText(clip);
+      pastedRef.current = true;
       await submit(clip);
     } catch {
       setHint("אין גישה ללוח. הדביקי בתיבה עם Ctrl+V או לחיצה ארוכה.");
@@ -132,8 +139,14 @@ export function ListBuilder() {
               rows={1}
               value={text}
               placeholder={PLACEHOLDER}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                if (!e.target.value) pastedRef.current = false;
+              }}
               onKeyDown={onKeyDown}
+              onPaste={() => {
+                pastedRef.current = true;
+              }}
               aria-describedby={error || hint ? `${inputId}-msg` : undefined}
               enterKeyHint="done"
             />

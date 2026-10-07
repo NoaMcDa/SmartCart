@@ -7,8 +7,8 @@
  * routes ignore it too (anonymous callers are fine; /feedback/* record the user id when present).
  *
  * Any code that makes a call needing identity (/me/*, /feedback/*) calls `ensureApiAuth()` first;
- * it is idempotent and cheap. The (secondary) layout mounts AuthProvider, which does it for the
- * whole client session. See docs/web.md for the request to W4a to mount it in the root layout.
+ * it is idempotent and cheap. The root layout mounts AuthProvider, which does it for the whole
+ * client session.
  */
 import { api } from "@/api/client";
 

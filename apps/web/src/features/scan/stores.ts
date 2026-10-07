@@ -60,19 +60,19 @@ export function useScanStores(shopper: ShopperContext | null) {
   useEffect(() => {
     if (lat === undefined || lon === undefined) return;
     let cancelled = false;
-    void Promise.all(
-      SCAN_CHAIN_IDS.map((id) => nearestStore(id, { lat, lon }).catch(() => null)),
-    ).then((all) => {
-      if (cancelled) return;
-      const seen = new Set<number>();
-      const found: StoreRef[] = [];
-      for (const ref of all) {
-        if (!ref || seen.has(ref.store_id)) continue;
-        seen.add(ref.store_id);
-        found.push(ref);
-      }
-      setRefs(found.sort((a, b) => (a.distance_m ?? 1e9) - (b.distance_m ?? 1e9)));
-    });
+    void Promise.all(SCAN_CHAIN_IDS.map((id) => nearestStore(id, lat, lon).catch(() => null))).then(
+      (all) => {
+        if (cancelled) return;
+        const seen = new Set<number>();
+        const found: StoreRef[] = [];
+        for (const ref of all) {
+          if (!ref || seen.has(ref.store_id)) continue;
+          seen.add(ref.store_id);
+          found.push(ref);
+        }
+        setRefs(found.sort((a, b) => (a.distance_m ?? 1e9) - (b.distance_m ?? 1e9)));
+      },
+    );
     return () => {
       cancelled = true;
     };

@@ -114,6 +114,11 @@
   list-style: none;
 }
 
+.methodology {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
 .source {
   display: flex;
   flex-wrap: wrap;

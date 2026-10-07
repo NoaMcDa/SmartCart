@@ -3,6 +3,7 @@
 import { useId, useState, type FormEvent } from "react";
 import { reportGap, type StoreResult } from "@/api/client";
 import { BottomSheet, Button, Price, UpdatedAt } from "@/components/ui";
+import { reportGapReported } from "@/features/consent/betaEvents";
 import styles from "./Results.module.css";
 
 export type ReportGapSheetProps = {
@@ -55,6 +56,7 @@ function GapForm({ stores, items, onClose }: Omit<ReportGapSheetProps, "open">) 
         actual_price: toNumber(actual),
         note: note.trim() || null,
       });
+      reportGapReported();
       setStatus("sent");
     } catch {
       setStatus("error");
