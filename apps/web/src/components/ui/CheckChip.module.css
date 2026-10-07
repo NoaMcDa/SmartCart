@@ -1,0 +1,31 @@
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--sc-touch);
+  padding-inline: 12px;
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.checked {
+  border-color: var(--sc-accent-fg);
+  background: var(--sc-accent-soft);
+}
+
+.input {
+  inline-size: 16px;
+  block-size: 16px;
+  margin: 0;
+  accent-color: var(--sc-accent);
+}
+
+.chip:focus-within {
+  outline: 2px solid var(--sc-accent-fg);
+  outline-offset: 2px;
+}

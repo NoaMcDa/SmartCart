@@ -1,0 +1,31 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  min-width: 0;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  min-height: var(--sc-touch);
+  margin-block: -8px -10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sc-accent-fg);
+  text-decoration: none;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+@media (width >= 768px) {
+  .title {
+    font-size: 28px;
+  }
+}
