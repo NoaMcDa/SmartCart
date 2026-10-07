@@ -108,7 +108,8 @@ def prefix_like(prefix: str) -> str:
 
 TOP_K_SQL = """
 SELECT c.id, 1 - c.distance AS similarity, c.taxonomy_id, c.slug, c.display_name_he,
-       c.product_type, c.base_unit, c.critical_attrs, c.soft_attrs, c.is_mvp, c.rank
+       c.product_type, c.base_unit, c.critical_attrs, c.soft_attrs, c.is_mvp, c.rank,
+       c.reference_barcodes
 FROM item_embeddings e
 CROSS JOIN LATERAL (
   SELECT cp.*, cp.embedding <=> e.embedding AS distance
@@ -126,7 +127,7 @@ ORDER BY c.distance, c.id
 
 
 def _canonical_from_row(row: tuple[Any, ...]) -> CanonicalProduct:
-    cid, _sim, taxonomy_id, slug, name, ptype, base_unit, crit, soft, is_mvp, rank = row
+    cid, _sim, taxonomy_id, slug, name, ptype, base_unit, crit, soft, is_mvp, rank, codes = row
     return CanonicalProduct(
         id=cid,
         taxonomy_id=taxonomy_id,
@@ -138,6 +139,7 @@ def _canonical_from_row(row: tuple[Any, ...]) -> CanonicalProduct:
         soft_attrs=soft if isinstance(soft, dict) else json.loads(soft or "{}"),
         is_mvp=is_mvp,
         rank=rank,
+        reference_barcodes=tuple(codes or ()),
     )
 
 

@@ -203,6 +203,20 @@ def test_dict_row_and_id_key() -> None:
     assert n.item_id == 42 and n.clean_name == "במבה 80 גרם"
 
 
+def test_source_fields_and_issues_travel_on_the_item() -> None:
+    """Issue #92: chain, manufacturer, barcode, raw name and issues are on the item itself."""
+    row = ItemRecord(chain_id="7290027600007", item_code="7290004131074",
+                     barcode="7290004131074", raw_name="גבינה לבנה 5% 500 גרם",
+                     manufacturer="תנובה", quantity=D(250), unit="גרם")  # fmt: skip
+    r = normalize_with_issues(row, item_id=7)
+    n = r.item
+    assert (n.chain_id, n.manufacturer, n.barcode) == ("7290027600007", "תנובה", "7290004131074")
+    assert n.raw_name == "גבינה לבנה 5% 500 גרם"
+    assert n.issues == r.issues and any("fields say 250 g" in i for i in n.issues)
+    bare = normalize({"raw_name": "במבה 80 גרם", "manufacturer": "  "})
+    assert (bare.chain_id, bare.manufacturer, bare.barcode, bare.issues) == (None, None, None, ())
+
+
 # --- unit price -----------------------------------------------------------------------------------
 
 

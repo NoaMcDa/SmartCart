@@ -30,13 +30,15 @@ items.raw_name ──> item_attributes (extraction, #25)  or  fallback_attribute
           ▼                     ▼                       ▼            ▼
    item_canonical          item_canonical            no mapping    (nothing)
    needs_review=false      needs_review=true ──> review UI ──> source='human'
-          │                                                 ▲
+   (+ reason)              (+ reason)                 │        (accept, or human_rejected=true)
+          │                                           ▲
           └── user: "not a good substitute" ──> needs_review=true (feedback marker)
 ```
 
-`apply_decisions` is the only writer of machine mappings. It is idempotent, never touches a row
-with `source = 'human'`, never re-creates a pair a human rejected, and keeps `needs_review` set
-while a user report on that mapping is unresolved.
+`apply_decisions` is the only writer of machine mappings. It is idempotent, stores the judge's
+reason in `item_canonical.reason`, never touches a row with `source = 'human'`, never re-creates
+a pair a human rejected (`human_rejected = true`), and keeps `needs_review` set while a user
+report on that mapping is unresolved.
 
 ## Step C: embeddings and blocking (#29)
 
@@ -49,9 +51,14 @@ while a user report on that mapping is unresolved.
 
 **Batch jobs** `embed_canonicals` and `embed_items` are idempotent: an item already embedded with
 the same model and not updated since is skipped; a canonical is re-embedded only when its vector
-is missing, its name changed (fingerprint), or the model changed. Each run writes a `match_runs`
-row (`kind = 'embed'`) with counts. `canonical_products` has no model column, so the model and
-the name fingerprints live in that row (contract change requested below).
+is missing, its `canonical_products.embedding_model` differs from the embedder's model (or is
+NULL, as on rows embedded before the column existed), or its name changed. The model sits next to
+each vector (`canonical_products.embedding_model`, `item_embeddings.model`), so a model change is
+visible on the row without reading `match_runs` (issue #92); anything that compares a query
+vector with these vectors must use the same model. Name changes are still detected through a
+name fingerprint kept in the last canonical embed run's `match_runs` metrics, because the
+`updated_at` trigger fires on the embedding update itself. Each run writes a `match_runs` row
+(`kind = 'embed'`) with counts.
 
 **Blocking.** An item is compared only with canonicals whose `taxonomy_id` is its department
 prefix (`dairy` matches `dairy` and `dairy.*`, not `dairymilk`) and whose `base_unit` equals the
@@ -76,13 +83,15 @@ selective block still returns k rows.
 Embeddings never decide a match. The judge does, with hard rules that similarity cannot override.
 Rules per candidate (`judge.RuleJudge`):
 
-1. **Exact.** The item's barcode is one of the canonical's reference barcodes
-   (`soft_attrs.barcodes`): level `exact`, confidence 1.0, source `rule`.
+1. **Exact.** The item's barcode (`NormalizedItem.barcode`) is one of the canonical's reference
+   barcodes (`CanonicalProduct.reference_barcodes`, the `canonical_products.reference_barcodes`
+   column): level `exact`, confidence 1.0, source `rule`.
 2. **Critical veto.** The product type and every critical key of the product type
    (`product_type_rules.critical_keys`) that the canonical defines in `critical_attrs` are
    compared with the item's attributes. Any known value that differs removes the candidate. It can
    never qualify at "any brand", or at all: 3% vs 1% milk, fresh vs frozen salmon, soy vs almond
-   drink, cola vs cola zero, tuna in oil vs in water. The 1% item maps to the 1% canonical instead.
+   drink (the product type, and `base` where a rule lists it), cola vs cola zero, tuna in oil vs in
+   water. The 1% item maps to the 1% canonical instead.
 3. **Soft check.** Soft keys (`soft_keys`) the canonical defines are compared, brand keys
    excluded ("any brand" means the brand may differ). All equal or unknown: `any_brand`. Any
    difference (500 g vs 250 g, strawberry vs natural): `close`. Pack sizes are compared in g/ml.
@@ -108,10 +117,20 @@ or when the runner-up at the same level is within 0.03 (ambiguous).
 | 0.60 to < 0.90 | review queue | mapped, `needs_review = true` |
 | < 0.60 | reject | no row (any earlier machine row is removed) |
 
-Every mapping row carries `flex_level`, `confidence` and `source` (`rule` for `RuleJudge`,
-`model` for `LLMJudge`, `human` from the review UI). The plain-words reason (which attributes
-matched, which vetoed) is on the `MatchDecision`; it is not stored (no column), so the review UI
-recomputes it.
+Every mapping row carries `flex_level`, `confidence`, `source` (`rule` for `RuleJudge`,
+`model` for `LLMJudge`, `human` from the review UI) and `reason`: the plain-words explanation
+from the `MatchDecision` (which attributes matched, which vetoed), stored by `apply_decisions` and
+shown as is by the review UI. A human decision prefixes its own note (`human: accepted by noa |
+judge: ...`).
+
+**Human rejections.** A reviewer's "not this canonical" keeps the row with
+`human_rejected = true`, `source = 'human'`, `confidence = 0` and `needs_review = true` (the last
+two so that a reader that only filters `NOT needs_review` or a confidence floor still never
+serves it). `match.load_items` collects each item's rejected canonicals and `match_item` removes
+them from the retrieved candidates (fetching extra rows so k remain) before the judge runs, so
+the judge never proposes them again and decides among the others; `apply_decisions` refuses the
+pair as well. A rejection is not a human mapping: the item can still be matched to another
+canonical. **Every reader of `item_canonical` must filter `NOT human_rejected`.**
 
 **LLM judge** (`judge.LLMJudge`): Claude (`claude-sonnet-5-5` by default, `$MATCH_JUDGE_MODEL`)
 chooses among the candidates that survived the hard rules, with structured output
@@ -155,18 +174,25 @@ Needs `DATABASE_URL` with write access to `item_canonical` and `gold_pairs`. Tab
 - **Feedback**: rejection rates per category and level.
 
 Every decision writes `item_canonical` with `source = 'human'`, `reviewed_by`, `reviewed_at`
-(and `confidence = 1`) and records the pair in `gold_pairs` (`any_brand`/`close`/`exact` on accept,
-`no_match` on reject, note `review: ... by <reviewer>`), so human decisions grow the gold set. A
-reject has no row to keep in `item_canonical` (its `flex_level` cannot say "no match"), so the
-`no_match` gold pair is what stops the judge from re-creating it. The query and command functions
-(`review_queue`, `explain`, `bestseller_status`, `accept`, `reject`, `remap`) are tested without
-Streamlit in `tests/test_match_review.py`.
+and records the pair in `gold_pairs` (`any_brand`/`close`/`exact` on accept, `no_match` on reject,
+note `review: ... by <reviewer>`), so human decisions grow the gold set. Accept sets
+`confidence = 1` and clears `human_rejected`; reject sets `human_rejected = true` (see "Human
+rejections" above). `gold_pairs` is used for evaluation only: it no longer decides what the judge
+may write. The queue shows the stored judge reason; `explain` re-runs retrieval only to list the
+candidates a reviewer can re-map to (rejected canonicals excluded). The query and command
+functions (`review_queue`, `explain`, `bestseller_status`, `accept`, `reject`, `remap`) are
+tested without Streamlit in `tests/test_match_review.py`.
 
 ## Feedback loop (#43)
 
 `feedback.record_feedback(conn, user_id, canonical_id, original_item_id, substitute_item_id,
-verdict)` is the write path for the API (`verdict` is `not_good`, `kept_original` or `accepted`).
-It inserts `substitution_feedback` and returns the mapping's level and confidence at that moment.
+verdict, *, list_item_id=None, flex_level=None, match_confidence=None)` is the write path for the
+API (`verdict` is `not_good`, `kept_original` or `accepted`). It inserts `substitution_feedback`,
+with the context columns `list_item_id` (the list line), `flex_level` (the level the list asked
+for) and `match_confidence` (the confidence shown) when they are given (issue #92), and returns
+the mapping's level and confidence at that moment. A human-rejected pair is never flagged. The
+table has row level security since migration 20261008100000 (a signed-in user reads and inserts
+only their own rows); the catalog jobs run as a role that bypasses it.
 On `not_good` it sets `needs_review = true` on the (substitute item, canonical) mapping and
 nothing else: a report alone never changes a mapping; a human decides in the review UI, where
 the item appears first with a feedback marker. `rejection_rates` gives the rate per category and
@@ -207,6 +233,9 @@ candidates. `gold_pairs` rows from human review count too.
 | any_brand | 1.0000 | 0.8079 | 530 | 656 |
 | close | 1.0000 | 0.7546 | 609 | 807 |
 
+Re-run on 2026-10-07 after the issue #92 contract changes (reference barcodes in their own
+column, `base` critical for the gold set's plant drinks): identical numbers.
+
 Retrieval recall@10: 0.9988. Of 831 items, 609 auto-accepted, 197 to the review queue, 25
 unmapped (the 24 orphans, correctly, and one other item). If the review queue were
 auto-accepted, precision at "any brand" would be 0.9939: the review band is what keeps the rest
@@ -241,19 +270,20 @@ phase 1 (#29).
 
 The database is `$DATABASE_URL`; the embedder defaults to `$EMBEDDER` (`hash` when unset).
 
-## Contract changes requested
+## Contract changes (issue #92, done)
 
-The schema and `models.py` were not changed by this work; these would remove workarounds:
+The workarounds this work started with are gone; migration 20261008100000 added the columns.
 
-- `NormalizedItem.barcode` (or a barcode argument on `Judge.judge`): the exact rule needs it;
-  today `RuleJudge`/`LLMJudge` take `barcode=` as an extra keyword.
-- `CanonicalProduct.reference_barcodes` (or a `canonical_barcodes` table): reference barcodes
-  live in `soft_attrs.barcodes` for now.
-- `canonical_products.embedding_model text`: the model and name fingerprints live in `match_runs`.
-- `item_canonical.reason text`: the judge's reason is recomputed by the review UI.
-- A way to store a human "not this canonical" decision in `item_canonical` (a `rejected` status or
-  `flex_level` allowing `no_match`): today the `no_match` row in `gold_pairs` carries it.
-- `substitution_feedback`: add `list_item_id`, `flex_level` and `match_confidence` columns (#43
-  context), and RLS (owner reads and inserts own rows) like the other user tables.
-- `Attributes` has no key for a milk-alternative base or a variety; the gold set uses distinct
-  product types (soy vs almond drink) and `flavor` (bread, rice, tuna variety).
+| Before | Now |
+|---|---|
+| `RuleJudge`/`LLMJudge` took `barcode=`; extractors took a `context` map | `NormalizedItem` carries `chain_id`, `chain_name`, `manufacturer`, `barcode`, `raw_name`, `issues`; the `Judge` and `Extractor` protocol signatures are unchanged |
+| Reference barcodes in `soft_attrs.barcodes` | `CanonicalProduct.reference_barcodes` and `canonical_products.reference_barcodes`; `seed` loads them from `canonicals.yaml`, the gold set from `gold_catalog.yaml` |
+| Embedding model in `match_runs` only | `canonical_products.embedding_model`, compared row by row |
+| Judge reason recomputed by the review UI | `item_canonical.reason` |
+| A `no_match` row in `gold_pairs` blocked the judge | `item_canonical.human_rejected`; `gold_pairs` is evaluation only |
+| `substitution_feedback` without context or RLS | `list_item_id`, `flex_level`, `match_confidence`; RLS |
+| Plant-drink base only as separate product types | `Attributes.base` (soy, almond, oat, rice, coconut) and `Attributes.variety` |
+
+What readers outside the catalog must do: filter `NOT human_rejected` on every `item_canonical`
+read, and compare query embeddings only with canonicals whose `embedding_model` is the query's
+model.

@@ -15,7 +15,7 @@ import re
 from decimal import Decimal
 from functools import lru_cache
 
-from smartcart_catalog.extract.base import ContextMap, ItemContext, Result
+from smartcart_catalog.extract.base import Result
 from smartcart_catalog.models import Attributes, ExtractionError, NormalizedItem
 from smartcart_catalog.seed import Catalog, load_catalog
 
@@ -81,6 +81,25 @@ _FLAVOR_BY_TYPE: dict[str, tuple[tuple[str, str], ...]] = {
 }
 _EXTRA_INGREDIENT = re.compile(rf"(?<!{_LETTER})(?:עם|בתוספת|ממולא)(?!{_LETTER})")
 
+# Plant drinks (issue #92): the base is critical (soy vs almond is never "any brand").
+PLANT_DRINK_TYPES: frozenset[str] = frozenset(
+    {"soy_drink", "almond_drink", "oat_drink", "rice_drink", "coconut_drink", "plant_drink"}
+)
+_BASE_WORDS: tuple[tuple[str, str], ...] = (
+    ("שיבולת שועל", "oat"), ("שיבולת", "oat"), ("אוטלי", "oat"), ("oat", "oat"),
+    ("סויה", "soy"), ("soy", "soy"), ("שקדים", "almond"), ("שקד", "almond"),
+    ("almond", "almond"), ("אורז", "rice"), ("rice", "rice"), ("קוקוס", "coconut"),
+    ("coconut", "coconut"),
+)
+_BASE_BY_TYPE: dict[str, str] = {
+    "soy_drink": "soy", "almond_drink": "almond", "oat_drink": "oat", "rice_drink": "rice",
+    "coconut_drink": "coconut",
+}
+_VARIETY_WORDS: tuple[tuple[str, str], ...] = (
+    ("בריסטה", "barista"), ("ברסיטה", "barista"), ("barista", "barista"),
+    ("חלבון", "protein"), ("protein", "protein"),
+)
+
 _KOSHER_WORDS: tuple[tuple[str, str], ...] = (
     ("כשר לפסח", "כשר לפסח"), ('בד"ץ', 'בד"ץ'), ("בדץ", 'בד"ץ'), ("מהדרין", "מהדרין"),
 )
@@ -106,11 +125,10 @@ def _has(word: str, text: str) -> bool:
 
 
 class RuleExtractor:
-    """``Extractor`` over keyword tables. ``extract(items, context=...)``."""
+    """``Extractor`` over keyword tables. Chain and manufacturer come from the item."""
 
     name = "rule"
     model: str | None = None
-    uses_context = True
 
     def __init__(self, catalog: Catalog | None = None) -> None:
         self.catalog = catalog or load_catalog()
@@ -180,6 +198,22 @@ class RuleExtractor:
         return None
 
     @staticmethod
+    def base(name: str, product_type: str | None) -> str | None:
+        """Plant-drink base, only for plant drink types: the first base word in the name, else
+        the one the product type implies."""
+        if product_type not in PLANT_DRINK_TYPES:
+            return None
+        found = [(m.start(), b) for word, b in _BASE_WORDS if (m := _find(word, name))]
+        if found:
+            return min(found)[1]
+        return _BASE_BY_TYPE.get(product_type or "")
+
+    @staticmethod
+    def variety(name: str) -> str | None:
+        found = [(m.start(), v) for word, v in _VARIETY_WORDS if (m := _find(word, name))]
+        return min(found)[1] if found else None
+
+    @staticmethod
     def kosher(name: str) -> str | None:
         for word, value in _KOSHER_WORDS:
             if word in name:
@@ -197,11 +231,13 @@ class RuleExtractor:
         return tuple(flags)
 
     @staticmethod
-    def brand(name: str, ctx: ItemContext | None) -> tuple[str | None, bool | None]:
+    def brand(
+        name: str, chain_id: str | None = None, manufacturer: str | None = None
+    ) -> tuple[str | None, bool | None]:
         """``(brand, is_private_label)``. Private label needs the chain id."""
-        texts = [name] + ([ctx.manufacturer] if ctx and ctx.manufacturer else [])
-        if ctx and ctx.chain_id in PRIVATE_LABELS:
-            for label in PRIVATE_LABELS[ctx.chain_id]:
+        texts = [name] + ([manufacturer] if manufacturer else [])
+        if chain_id in PRIVATE_LABELS:
+            for label in PRIVATE_LABELS[chain_id]:
                 if any(_has(label, t) for t in texts):
                     return label, True
         for text in texts:
@@ -212,7 +248,7 @@ class RuleExtractor:
 
     # --- whole item ------------------------------------------------------------------------------
 
-    def extract_one(self, item: NormalizedItem, ctx: ItemContext | None = None) -> Result:
+    def extract_one(self, item: NormalizedItem) -> Result:
         name = item.clean_name
         if not name.strip():
             return ExtractionError(item_id=item.item_id, reason="empty name", retryable=False)
@@ -226,7 +262,7 @@ class RuleExtractor:
         flavor = self.flavor(name, pt) if (not rule or "flavor" in keys) else None
         if flavor is None and "flavor" in implied:
             flavor = implied["flavor"]
-        brand, private = self.brand(name, ctx)
+        brand, private = self.brand(name, item.chain_id, item.manufacturer)
         pack_size = None if item.is_weighed else item.total_quantity
         unit = None if item.is_weighed else item.unit
 
@@ -243,12 +279,11 @@ class RuleExtractor:
             diet_flags=self.diet_flags(name),
             pack_size=pack_size,
             unit=unit,
+            base=self.base(name, pt) or implied.get("base"),
+            variety=self.variety(name) or implied.get("variety"),
             verified_keys=(),
             confidence=round(min(confidence, MAX_CONFIDENCE), 2),
         )
 
-    def extract(
-        self, items: list[NormalizedItem], *, context: ContextMap | None = None
-    ) -> list[Result]:
-        context = context or {}
-        return [self.extract_one(i, context.get(i.item_id)) for i in items]
+    def extract(self, items: list[NormalizedItem]) -> list[Result]:
+        return [self.extract_one(i) for i in items]

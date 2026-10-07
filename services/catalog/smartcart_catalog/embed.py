@@ -14,7 +14,9 @@ Two embedders implement the ``Embedder`` protocol from ``models``:
   extra). Imported lazily so the package works without torch.
 
 The batch jobs ``embed_canonicals`` and ``embed_items`` are idempotent: a row already embedded
-with the same model, and unchanged since, is skipped. Each call records a ``match_runs`` row.
+with the same model, and unchanged since, is skipped. The model is stored next to each vector
+(``canonical_products.embedding_model``, ``item_embeddings.model``), so a model change is
+visible on the row itself. Each call records a ``match_runs`` row.
 """
 
 from __future__ import annotations
@@ -145,43 +147,52 @@ def _fingerprint(text: str) -> str:
     return hashlib.blake2b(text.encode("utf-8"), digest_size=8).hexdigest()
 
 
-def _last_canonical_embed_run(conn: psycopg.Connection) -> tuple[str | None, dict[str, str]]:
+def _last_canonical_fingerprints(conn: psycopg.Connection) -> dict[str, str]:
     row = conn.execute(
-        "SELECT metrics->>'model', metrics->'fingerprints' FROM match_runs"
+        "SELECT metrics->'fingerprints' FROM match_runs"
         " WHERE kind = 'embed' AND metrics->>'target' = 'canonicals' AND finished_at IS NOT NULL"
         " ORDER BY finished_at DESC, id DESC LIMIT 1"
     ).fetchone()
-    return (row[0], row[1] or {}) if row else (None, {})
+    return (row[0] or {}) if row else {}
 
 
 def embed_canonicals(
     conn: psycopg.Connection, embedder: Embedder, *, batch_size: int = 256, force: bool = False
 ) -> dict[str, Any]:
-    """Embed ``canonical_products.display_name_he`` into ``canonical_products.embedding``.
+    """Embed ``canonical_products.display_name_he`` into ``canonical_products.embedding`` and
+    record the model in ``canonical_products.embedding_model``.
 
-    ``canonical_products`` has no model column, so the last finished canonical embed run in
-    ``match_runs`` records the model and a fingerprint of every embedded name. A canonical is
-    (re-)embedded when it has no vector, when its name changed since (fingerprint differs), or
-    when the model differs from ``embedder.model_name`` (or ``force``).
+    A canonical is (re-)embedded when it has no vector, when its ``embedding_model`` differs
+    from ``embedder.model_name`` (read from the row itself), when its name changed since the
+    last canonical embed run (a name fingerprint kept in that run's ``match_runs`` metrics), or
+    with ``force``.
     """
     _check_dim(embedder)
-    last_model, prints = _last_canonical_embed_run(conn)
-    full = force or last_model != embedder.model_name
+    prints = _last_canonical_fingerprints(conn)
     rows_all = conn.execute(
-        "SELECT id, display_name_he, embedding IS NOT NULL FROM canonical_products ORDER BY id"
+        "SELECT id, display_name_he, embedding IS NOT NULL, embedding_model"
+        " FROM canonical_products ORDER BY id"
     ).fetchall()
     rows = [
         (cid, name)
-        for cid, name, has_vec in rows_all
-        if full or not has_vec or prints.get(str(cid)) != _fingerprint(name)
+        for cid, name, has_vec, model in rows_all
+        if force
+        or not has_vec
+        or model != embedder.model_name
+        or prints.get(str(cid)) != _fingerprint(name)
     ]
+    full = bool(rows_all) and len(rows) == len(rows_all)
     run_id = start_run(conn, "embed")
     for batch in _batches(rows, batch_size):
         vectors = embedder.embed([name for _, name in batch])
         with conn.cursor() as cur:
             cur.executemany(
-                "UPDATE canonical_products SET embedding = %s::vector WHERE id = %s",
-                [(to_pgvector(v), cid) for (cid, _), v in zip(batch, vectors, strict=True)],
+                "UPDATE canonical_products SET embedding = %s::vector, embedding_model = %s"
+                " WHERE id = %s",
+                [
+                    (to_pgvector(v), embedder.model_name, cid)
+                    for (cid, _), v in zip(batch, vectors, strict=True)
+                ],
             )
     metrics = {
         "target": "canonicals",
@@ -189,7 +200,7 @@ def embed_canonicals(
         "embedded": len(rows),
         "skipped": len(rows_all) - len(rows),
         "full": full,
-        "fingerprints": {str(cid): _fingerprint(name) for cid, name, _ in rows_all},
+        "fingerprints": {str(cid): _fingerprint(name) for cid, name, _, _ in rows_all},
     }
     finish_run(conn, run_id, metrics)
     return {k: v for k, v in metrics.items() if k != "fingerprints"}
