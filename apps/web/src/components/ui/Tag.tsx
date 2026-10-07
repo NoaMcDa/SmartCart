@@ -1,5 +1,13 @@
 import type { ReactNode } from "react";
-import { IconCheck, IconClose, IconDiffers, IconInfo, IconWarning } from "./icons";
+import {
+  IconCheck,
+  IconClose,
+  IconDiffers,
+  IconInfo,
+  IconRefresh,
+  IconTag,
+  IconWarning,
+} from "./icons";
 import styles from "./Tag.module.css";
 
 /**
@@ -10,9 +18,12 @@ import styles from "./Tag.module.css";
  * - differs: a neutral difference, e.g. private label instead of brand
  * - missing: item not available (red, only for missing)
  * - estimated: weighed produce, estimated price (amber)
+ * - substitute: labels a substituted line ("תחליף", amber like the close-substitute chip)
+ * - club: club or credit-card promo ("מבצע מועדון", accent soft)
  * Maps to openapi AttributeTag.status for the first three.
  */
-export type TagVariant = "matched" | "unverified" | "differs" | "missing" | "estimated";
+export type TagVariant =
+  "matched" | "unverified" | "differs" | "missing" | "estimated" | "substitute" | "club";
 
 const ICONS: Record<TagVariant, ReactNode> = {
   matched: <IconCheck size={13} />,
@@ -20,6 +31,8 @@ const ICONS: Record<TagVariant, ReactNode> = {
   differs: <IconDiffers size={13} />,
   missing: <IconClose size={13} />,
   estimated: <IconWarning size={13} />,
+  substitute: <IconRefresh size={13} />,
+  club: <IconTag size={13} />,
 };
 
 export type TagProps = {

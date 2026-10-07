@@ -271,3 +271,104 @@ asserts all four weights load and no Google Fonts request is made. Never add a G
 check that `src/api/types.ts` matches `openapi.json`, unit tests, build, Playwright e2e (Chromium
 installed by `npx playwright install --with-deps chromium`, cached), Lighthouse CI. Time limit 10
 minutes. The Playwright HTML report and Lighthouse reports are uploaded as an artifact.
+
+## Core screens (W4b)
+
+Issues #24 (list builder), #31 (flexibility sheet), #36 (comparison results), #48 (substitution
+card) and the UI half of #12 (trust signals). Artboards: `Main`, `Flexibility`, `Results`,
+`Substitution`, `DesktopList`, `DesktopResults`.
+
+| Route | Page (server, owns the h1) | Client screen |
+|---|---|---|
+| `/` | `src/app/(core)/page.tsx`, "הקנייה השבועית" | `features/list/ListBuilder.tsx` (+ `ListRow`, `EstimatePanel`, `FlexibilitySheet`) |
+| `/compare` | `src/app/(core)/compare/page.tsx`, "איפה הכי זול השבוע?" | `features/compare/ResultsView.tsx` (+ `PlanCard`, `SubstitutionsSection`, `BasketDetails`, `ReportGapSheet`) |
+| `/compare/substitution/[id]?plan=single\|split` | `.../substitution/[id]/page.tsx`, "פרטי החלפה" | `features/substitution/SubstitutionView.tsx`; `[id]` is the substitute's `item_id` |
+
+### State (`src/state`)
+
+| Module | What | Storage |
+|---|---|---|
+| `list.ts` | The list: rows (canonical, candidates, quantity, unit, weighed, flex level, allowed soft attributes, `exactItemId`, confirmation and not-found flags) and `flexDefaults` (taxonomy id to level). Pure `listReducer`, `useList()`, `listActions`, `basketItems()` (API items, duplicates merged), `useFlexDefaults()` | `localStorage["sc-list-v1"]`, versioned and sanitized on read, every access in try/catch; works in memory in private mode; syncs across tabs |
+| `flex.ts` | Level resolution for a new row: the user's remembered default for the node or an ancestor, then the smart default (`toiletries`, `health`, `baby` = exact, D4), then the level `/parse-list` returned (any brand for staples). Per-category copy and soft attributes for the sheet | none |
+| `shopper.ts` | Location, radius, home store, clubs, travel. `useShopper()`, `saveShopperProfile(patch)` | `localStorage["sc-profile-v1"]` with the API `Profile` field names plus `city_label` |
+| `comparison.ts` | Builds `/optimize` and `/compare` requests; a shared cache (`useOptimize`, `useCompareEstimate`) so results and the substitution card read the same response; `estimateRange`, `findSubstitution`, `substitutionSaving`, plan helpers | memory |
+| `flash.ts` | One-shot status message across a navigation ("we kept the original") | memory |
+
+Defaults when `sc-profile-v1` is missing: Modi'in (31.898, 35.010, neighborhood precision), 5 km,
+car, ₪1.2/km, ₪25 per extra stop, up to 2 stores. The home store defaults to the mock's
+(103, שופרסל דיל) only when `NEXT_PUBLIC_API_MOCK=1` and the field is absent; an explicit
+`home_store_id: null`, or any real build without one, shows "מה הסופר שלך?" and no saving at all
+(D7: never an invented baseline).
+
+### Behaviour worth knowing
+
+- **Parse.** Enter (or "הוסיפי") sends the text with the user's `flex_defaults` to `/parse-list`.
+  The clipboard button reads the clipboard and parses it; without permission it says how to paste.
+  The mic is `aria-disabled` with a "בקרוב" tooltip. The same confident product twice adds up.
+  Rows group by `canonical.category_path_he[0]` (the mock fixtures carry the path now), in order
+  of first appearance; `not_found` rows sit in their own "לא זוהו" group with edit and remove.
+- **Confirmation.** `needs_confirmation` rows show the amber block with "כן" and "בחרי אחר"
+  (the candidates); either resolves the flag. Unconfirmed rows still count for Compare.
+- **Estimate.** `/compare` with the list's products and levels; the range is over stores that
+  carry every product (a gap never makes a store look cheap), and quantities are applied locally
+  (line total / line quantity x the row's quantity), so the steppers update it without a refetch
+  and a level change refetches. Phone: fixed bar above the bottom nav. 1024 px and up: sticky side
+  card with the home store total, the cheapest store and the flexibility counts (DesktopList).
+- **Flexibility sheet.** Three radios (icon, label, one-line explanation, example), soft-attribute
+  checkboxes for any brand and close, "זכרי בחירה זו לכל סוגי ה…" which writes
+  `flexDefaults[taxonomy_id]` and applies it to that category's rows. Save/cancel; Escape and the
+  scrim cancel. The soft attributes are stored with the row only: the API has no field for them.
+- **Results.** Recommended plan first (the split only when the API marks it), then the other
+  plan, then minimum effort (the home store). Saving block = `breakdown.net_saving`, always named
+  "לעומת <home store>, הסופר שלך"; the split explains basket saving minus travel and the extra
+  stop. Missing items are a red button (icon + text) that lists the names. "X פריטים הוחלפו" opens
+  the first substitute's card. Below: every substitute of the recommended plan with "למה?" and
+  "בטלי", line-by-line prices (collapsed), the disclaimer from the API (`disclaimer_he`) and
+  report-a-gap (sheet: store, item, actual price, note, `POST /feedback/gap`). List/map toggle:
+  "מפה" navigates to `/map` (W5).
+- **Substitution card.** Original versus substitute with shelf and unit price and update time,
+  saving x quantity, tags from `tags` (matched green check, unverified amber, differs neutral),
+  source line with the match confidence and the price time. "בסדר" sends `accepted` and moves to
+  the next substitute (or back); "השאירי את המקורי" sends `kept_original` and sets the row to
+  exact with `exact_item_id = original_item_id`; "לא תחליף טוב" sends `not_good` and does the same.
+  Both return to `/compare`, which recomputes because the request changed.
+- **The original's price** is the home store's non-substitute line for the same canonical: the
+  API gives only `original_item_id`, not its price at the substitute's store. Without a home
+  store the card says there is no price to compare.
+
+### Trust signals (#12)
+
+- `UpdatedAt` (`<time datetime>`; "היום 06:40", "אתמול 18:20", "לפני 3 ימים", then the date, in
+  Israel time) on every card, line, substitute and estimate; `TrustedPrice` = `Price` + its time,
+  with `updatedAt` required by the type. A missing time renders "מועד העדכון לא ידוע", never
+  nothing.
+- `ResultsView.test.tsx` walks every rendered ₪ amount and fails if it is not inside a
+  `[data-trust-scope]` that also contains a `time[datetime]`. It also fails if the results ever say
+  "most expensive" (Hebrew or English).
+- New `Tag` variants: `substitute` ("תחליף", refresh icon) and `club` ("מבצע מועדון", tag icon).
+  Weighed rows and lines carry `estimated` ("מחיר משוער · שקיל").
+- Not done: a confidence indicator on promos. The API returns `promo_description` but no promo
+  confidence; the UI shows the promo text and the source note in the footnote.
+
+### Tests
+
+- Unit: `state/list.test.ts` (acceptance parse, merge, confirmation, remember, keep original,
+  sanitize, persistence and private mode), `state/flex.test.ts`, `state/comparison.test.ts`
+  (estimate, substitutions, saving x quantity, shopper defaults), `UpdatedAt.test.tsx`,
+  `FlexibilitySheet.test.tsx`, `ResultsView.test.tsx`, `SubstitutionView.test.tsx`.
+- E2E: `core-list.spec.ts`, `core-compare.spec.ts`, `core-substitution.spec.ts` at 390 and
+  1280 px, the results also in dark. `core-helpers.ts` `mockApi(page)` answers the browser's API
+  calls from the MSW handlers, so the specs pass on a build with or without
+  `NEXT_PUBLIC_API_MOCK=1` (CI builds without it) and can assert request bodies; `seedProfile`
+  writes `sc-profile-v1` the way onboarding will.
+
+### For W5 and W6
+
+- Profile "flexibility defaults": read `useFlexDefaults()` and edit with
+  `listActions.setFlexDefault(taxonomyId, level | null)` (`@/state/list`).
+- Onboarding and Profile: write location, radius, home store, clubs and travel with
+  `saveShopperProfile({...})` (`@/state/shopper`); the comparison screens pick it up live.
+- `/map` and `/split` can reuse `useOptimize(buildOptimizeInput(basketItems(state), shopper))`
+  for the same cached response the results screen uses.
+- `UpdatedAt`, `TrustedPrice`, `CheckChip` and the new `Tag` variants are in `@/components/ui`;
+  they are not on `/design-system` yet because that page belongs to the shell group.
