@@ -494,6 +494,177 @@ and by pointer (columns on desktop, tabs on a phone), map pins and sheet in ligh
 chunk loaded only on `/map`, store mode including a reload with the network cut at the proxy, and
 the gap report. Not tested here: the Wake Lock API and real Supabase.
 
+## Phase 2 screens (P2-E)
+
+Issues #39 (barcode scanning), #28 (price history), #23 (alerts and web push), #34 (shared lists) and
+#45 (smart cart): the UI halves. Built against `src/mocks/handlers.phase2.ts`; the API halves are
+workstream P2-A. `/scan` and `/alerts` moved out of `(shell)` into the new `(phase2)` group (P2-D:
+the shell layout comment that lists them as placeholders is now stale; nothing else of the shell was
+touched).
+
+| Route | Page | Client screen |
+|---|---|---|
+| `/scan` | `app/(phase2)/scan/page.tsx`, "סריקת ברקוד" | `features/scan/ScanScreen.tsx` (+ `ResultCard`, `barcode`, `camera`, `detector`, `stores`, `scanLog`) |
+| `/alerts` | `app/(phase2)/alerts/page.tsx`, "התראות" | `features/alerts/AlertsScreen.tsx` (+ `PushPanel`, `push`, `alertNames`) |
+| `/lists/[id]/share` | `app/(phase2)/lists/[id]/share/page.tsx`, "שיתוף הרשימה" | `features/share/SharedListScreen.tsx` (+ `ShareSheet`, `useSharedList`, `listSync`) |
+| `/lists/accept/[token]` | `app/(phase2)/lists/accept/[token]/page.tsx`, "הצטרפות לרשימה משותפת" | `features/share/AcceptInvite.tsx` |
+| product detail | (existing `/product/[id]`) | `features/history/PriceHistory.tsx` and `features/alerts/AlertMe.tsx`, mounted by `ProductDetail` |
+| results | (existing `/compare`) | `features/compare/SmartCartCard.tsx`, mounted by `ResultsContent` (one import and one JSX line) |
+
+The `(phase2)` layout is just `AppShell`; `AuthProvider` comes from the root layout. Typed helpers for the new
+routes are in `src/api/client.ts` (`priceHistory`, `listAlerts`, `createAlert`, `deleteAlert`,
+`addPushSubscription`, `createList`, `getList`, `updateList`, `shareList`, `listMembers`,
+`acceptShare`, `lookupBarcode`, `swapSuggestions`, `nearestStore`).
+
+### Barcode scanning (#39)
+
+- The camera is never asked for on load. The card explains ("לא נשמרות תמונות והן לא עוזבות את
+  המכשיר") and the permission prompt follows the tap on "הפעלת המצלמה". Denied, no camera, busy and
+  unsupported each have their own Hebrew message, and the manual field is always on the page.
+- `detector.ts`: native `BarcodeDetector` when it lists `ean_13` (Android Chrome), otherwise
+  `@zxing/browser`, loaded with a dynamic `import()` so only `/scan` pays for it (iOS Safari has no
+  native detector, so installed iOS PWAs take this path). Both report only codes that pass the EAN-13
+  or EAN-8 check digit, so a misread never becomes a product (D5). Manual entry runs the same check
+  before any request ("הספרות לא מרכיבות ברקוד תקין").
+- Store picker: `/stores/nearest` for the chains in `SCAN_CHAIN_IDS` (GS1 ids; the first three are
+  the mock's), pre-selecting the remembered store, then the shopper's home store, then the nearest. A
+  home store that is not among them is offered as "הסופר שלי".
+- Result card: "כאן" (the price at the picked store, or the shelf price the shopper typed), "הכי זול
+  באזור" and "תחליף זול" with `Tag variant="substitute"` and the reason, each price with its update
+  time, unit prices (D6) and the checkout disclaimer. A typed shelf price that differs from ours shows
+  a warning and `ReportGapButton`. Add to list uses `listActions.add` with a `Stepper` quantity; the
+  flexibility level is whatever the list resolves for the category (D4). Not found: "לא ננחש מוצר",
+  report-a-gap, manual entry.
+- Scan success rate and time to result are kept on the device (`sc-scan-log-v1`: counters and a sum of
+  milliseconds, no image, barcode or location). The API's `EventIn.name` has no scan event, so nothing
+  is sent until it does (`trackEvent` cannot carry it).
+
+### Price history (#28)
+
+`PriceHistoryChart` is an SVG with no chart library. Unit price is the default axis (D6), shelf price
+is a toggle; 30 or 90 days; the store is "my store", "cheapest nearby" or the chain base price.
+
+- Time runs in reading direction (oldest on the right in Hebrew) and the price axis is on the right;
+  every number is an LTR island. Colors are tokens (line `--sc-accent-fg`, promo `--sc-warn-*`).
+- Promo windows are shaded bands; promo days carry a marker with a Hebrew tooltip (`<title>` on hover,
+  and a status line below the chart that follows the pointer). A legend names each mark in words.
+  Each promo window is listed under the chart with its dates, `Tag variant="club"` ("מבצע מועדון · <name>")
+  when `club_only`, and the confidence ("ביטחון במבצע: 87%", or "לא נבדק" when the API has none, D10);
+  the tooltip repeats audience and confidence.
+- Days without data are gaps, never interpolated: the line is cut where two points are more than 3
+  days apart (`MAX_JOIN_DAYS`; the mock samples every 3 days) and the hole is hatched. Leading and
+  trailing holes count too. The chart says so in a sentence under it.
+- The drawing is `aria-hidden`. A summary sentence (min, max, latest, promo periods, gap days) and a
+  visually hidden `<table>` with every point carry the same data for screen readers.
+- Shows the time of the last price and "המחיר הקובע הוא בקופה.".
+
+### Alerts and web push (#23)
+
+- `AlertMe` on product detail: "התריעי לי מתחת ל-₪__" is a target unit price at one of the three
+  levels, within the shopper's radius. Existing alerts for the product are listed with delete.
+  `/alerts` lists all of them with the product, price, level, radius and last fired time, and lets the
+  shopper pause or resume (`PUT /me/alerts/{id}` with `active`), edit price and level in a sheet
+  (`EditAlertSheet`, the API re-arms an edited alert) and delete.
+- The API returns only the canonical id, so the device remembers the product name when the alert is
+  created (`sc-alert-names-v1`); an unknown one reads "מוצר מס' <id>".
+- Signed out with Supabase configured, both screens ask for sign-in instead of failing; without
+  Supabase (mock, local) they call the API directly. 402/403/429 read as the free-tier limit.
+- `push.ts`: feature-detected (service worker, Push API, Notification, the key). Needs
+  `NEXT_PUBLIC_VAPID_PUBLIC_KEY` at build time. States: unsupported, iOS before "add to home screen",
+  no key, denied (with how to allow it), on (with an off switch), off. Permission is requested only
+  after a tap, then the subscription goes to `POST /me/push-subscriptions`; turning it off also calls
+  `DELETE /me/push-subscriptions?endpoint=`. None of these states
+  breaks alerts; they stay listed on `/alerts`.
+- `public/sw.js`: `push` shows a notification from `{title, body, url, tag, product, store, price,
+  updated_at}` (composed body: product, store, price, the price's time in Israel time, "המחיר הקובע
+  הוא בקופה."; Hebrew, RTL, `tag` collapses repeats) and `notificationclick` focuses an open window
+  or opens the product. Only same-origin paths are ever opened. `sw.test.ts` runs the handlers in a vm.
+
+### Shared lists (#34)
+
+- Entry: `/lists/mine/share` creates the shared copy of the device's list once (`POST /me/lists`,
+  names and quantities and levels only, no location or preferences), remembers its id and redirects
+  to `/lists/<id>/share`. `ShareSheet` (role "עריכה" or "צפייה בלבד", invite link, copy with a
+  select-and-copy fallback, `navigator.share` when present) opens from "הזמנת בני משפחה".
+- `/lists/accept/<token>`: joining is a tap, never automatic; an expired or revoked link says so.
+- The owner can cancel the link just created ("ביטול הקישור", `DELETE /me/lists/{id}/share/{token}`) and
+  remove a joined member ("הסרה מהרשימה", `DELETE /me/lists/{id}/members/{user_id}`; shown only on the
+  list this device shared). `/lists/mine/share` also lists the lists others shared with me
+  (`GET /me/shared-lists`). A pending invite cannot be revoked later because the API does not return
+  its token and the app never stores tokens.
+- `useSharedList`: signed in with Supabase, items come from `GET /me/lists/{id}` once and then from a
+  Realtime subscription on `list_items` filtered to `list_id=eq.<id>`; edits go to `list_items`
+  directly (RLS decides) and are applied optimistically, rolled back with a message on failure; the
+  list is read again whenever the channel (re)subscribes, which merges what happened offline. Not
+  signed in (mock, local), the list is read every 4 seconds and edits are sent as `PUT /me/lists/{id}`.
+- Conflict rule (`listSync.ts`): per item, never per list. A change replaces what we know of the item
+  unless its `updated_at` is older than the one we hold (without a timestamp, the last change received
+  wins). Different items never interact; a delete removes only that item; an insert whose id is known
+  is an update, so a replay cannot duplicate.
+- Members: owner, pending invites ("הזמנה ממתינה") and joined members, with a line that members see
+  only the list. Member names and emails are never shown.
+
+### Smart cart (#45)
+
+`SmartCartCard` takes the recommended plan, asks `POST /optimize/swaps?store_id=<its store>` with the
+list, and shows "N החלפות יחסכו לך ₪X" (the sum of the visible swaps in whole agorot; the API's swaps
+do not overlap), then the top one: name, saving, confidence, a "למה" line by level and `Tag`s for the
+attributes. Nothing is applied by itself.
+
+- "החלפה" sets the list rows of that product to the swap's level (the substitution flow's inverse of
+  "keep the original") and sends `accepted` to `/feedback/substitution`; "ביטול ההחלפה" restores the
+  previous level, soft attributes and exact item.
+- "לא עכשיו" sends `not_good` and hides the swap until its saving changes by at least ₪1 and 25%.
+- Renders nothing while loading, on an error or with nothing to suggest.
+
+### Storage and configuration
+
+| Key | Owner | What |
+|---|---|---|
+| `sc-scan-store-v1` | `features/scan/stores.ts` | Store id picked on `/scan` |
+| `sc-scan-log-v1` | `features/scan/scanLog.ts` | Counters: attempts, found, not found, failed, summed ms, by input. No images, codes or location |
+| `sc-alert-names-v1` | `features/alerts/alertNames.ts` | Canonical id to product name and unit label, for `/alerts` |
+| `sc-shared-lists-v1` | `features/share/sharedLists.ts` | Server id of the list shared from this device, lists joined by invite (id, name) |
+| `sc-swaps-v1` | `features/swaps/swapState.ts` | Dismissed swaps (key to saving at dismissal), applied swaps with the rows' previous state |
+
+Existing keys used: `sc-list-v1` (add to list, apply and undo), `sc-profile-v1` (location, radius, home
+store). New build variable: `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (web push; optional).
+
+Dependencies added: `@zxing/browser` 0.2.1 and its peer `@zxing/library` 0.23.0, both pinned, loaded
+only by `/scan`.
+
+### Tests
+
+Unit: `barcode`, `detector` (native stub and the zxing fallback), `ScanScreen` (manual, camera denied,
+stubbed camera and detector, not found, gap, logging), `series` and `PriceHistory` (gaps, promo
+bands, tooltips, table, controls), `push`, `AlertsScreen`, `sw` (push and click handlers),
+`listSync`, `share` (sheet, accept, polling, a fake Supabase Realtime channel, optimistic rollback,
+share my list), `swaps` and `SmartCartCard`, `client.phase2`. E2E (`phase2-*.spec.ts`): scan with a
+stubbed `getUserMedia` and `BarcodeDetector` at 390 and 1280 px; history in both themes; alerts
+create, list, delete; share, copy, accept on a second context and see edits in both directions;
+smart cart dismiss, apply and undo at 390 and 1280 px.
+
+### Manual checks (not automatable here)
+
+1. Real camera: scan a known EAN-13 on Android Chrome (native detector) and on an installed iOS PWA
+   16.4 or later (zxing); note the devices in the PR.
+2. Real push: set `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, build, install the PWA, create an alert and send a
+   push from the API; the notification shows product, store, price and time, and a tap opens the
+   product. On iOS the app must be added to the home screen first.
+3. Two real signed-in accounts on a Supabase project with the phase 2 migration: edits appear on both
+   within a couple of seconds, and a non-member gets nothing.
+
+### Requests to other workstreams
+
+- API: `updated_at` on `list_items` and `ShoppingList.items`; a "checked" flag per item; scan events
+  in `EventIn.name`; the paid-tier limits as a documented error code; the invite token (or an id) on
+  pending `ListMember` rows so an owner can revoke them from the members list. The shared mock has no
+  handlers for `PUT /me/alerts/{id}`, the two share DELETEs, `DELETE /me/push-subscriptions` and
+  `GET /me/shared-lists` (the e2e stubs the alert PUT itself).
+- P2-D (list builder): a "שיתוף" link to `/lists/mine/share` next to the list's name.
+- Mock numbers: `/optimize/swaps` returns 5.00, 4.80 and 1.20, so `total_saving` is 11.00, not 10.90;
+  `cheapest_nearby` is אושר עד and the substitute is at רמי לוי.
+
 ## Phase 2 web follow-ups (P2-D, issue #91)
 
 Loose ends reported by W4b, W5 and W6, plus the UI halves of #12 (promo confidence), #30 and #55

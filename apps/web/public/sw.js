@@ -10,6 +10,9 @@
  *     manifest              network first, cached copy offline
  *     anything else         network only (API calls are cross-origin and never cached here)
  * - activate: drop caches from older versions, take control of open pages.
+ * - push: price-drop alerts (issue #23). The payload is JSON {title, body, url, tag, product, store,
+ *   price, updated_at}; without `body` one is composed from the parts. The notification always says
+ *   that the price at checkout governs. notificationclick opens (or focuses) the product page.
  */
 const VERSION = "v1";
 const SHELL_CACHE = `sc-shell-${VERSION}`;
@@ -132,4 +135,78 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname === "/manifest.webmanifest") {
     event.respondWith(fetch(request).catch(() => caches.match(request)));
   }
+});
+
+// ---- Web push (price alerts) -------------------------------------------------------------------
+
+const DEFAULT_ALERT_URL = "/alerts";
+const CHECKOUT_NOTE = "המחיר הקובע הוא בקופה.";
+
+/** Only same-origin paths are ever opened from a notification. */
+function safeUrl(raw) {
+  try {
+    const url = new URL(raw || DEFAULT_ALERT_URL, self.location.origin);
+    return url.origin === self.location.origin ? url.pathname + url.search : DEFAULT_ALERT_URL;
+  } catch {
+    return DEFAULT_ALERT_URL;
+  }
+}
+
+function formatUpdated(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const opts = { timeZone: "Asia/Jerusalem" };
+  const time = d.toLocaleTimeString("he-IL", { ...opts, hour: "2-digit", minute: "2-digit", hour12: false });
+  const date = d.toLocaleDateString("he-IL", { ...opts, day: "2-digit", month: "2-digit" }).replace(/\//g, ".");
+  return `${date} ${time}`;
+}
+
+function alertBody(data) {
+  if (data.body) return String(data.body);
+  const parts = [];
+  if (data.product) parts.push(String(data.product));
+  if (data.store) parts.push(String(data.store));
+  if (data.price !== undefined && data.price !== null) parts.push(`₪\u00A0${data.price}`);
+  const updated = data.updated_at ? formatUpdated(data.updated_at) : "";
+  const head = parts.join(" · ") || "מוצר ברשימת ההתראות שלך הגיע למחיר שביקשת.";
+  return [head, updated ? `מחיר מ-${updated}.` : "", CHECKOUT_NOTE].filter(Boolean).join(" ");
+}
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  const title = data.title ? String(data.title) : "SmartCart · ירידת מחיר";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: alertBody(data),
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      lang: "he",
+      dir: "rtl",
+      // One notification per alert and price: a second push for the same drop replaces it.
+      tag: data.tag ? String(data.tag) : "price-alert",
+      data: { url: safeUrl(data.url) },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = safeUrl(event.notification.data && event.notification.data.url);
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of windows) {
+        if (new URL(client.url).origin !== self.location.origin) continue;
+        await client.focus();
+        if ("navigate" in client) await client.navigate(target).catch(() => undefined);
+        return;
+      }
+      await self.clients.openWindow(target);
+    })(),
+  );
 });

@@ -29,6 +29,7 @@ import { useShopper } from "@/state/shopper";
 import { BasketDetails } from "./BasketDetails";
 import { PlanCard } from "./PlanCard";
 import { ReportGapSheet } from "./ReportGapSheet";
+import { SmartCartCard } from "./SmartCartCard";
 import { SubstitutionsSection } from "./SubstitutionsSection";
 import { substitutionLevelCounts } from "./substitutionLevels";
 import styles from "./Results.module.css";
@@ -61,6 +62,7 @@ export function ResultsContent({
         ))}
       </div>
 
+      <SmartCartCard plan={recommended} />
       <SubstitutionsSection res={res} plan={recommended} />
       <BasketDetails plan={recommended} />
 

@@ -18,6 +18,8 @@ export const ROUTES: ReadonlyArray<{ path: string; h1: string }> = [
   { path: "/c/dairy-milk", h1: "חלב ומשקאות חלב" },
   { path: "/alerts", h1: "התראות" },
   { path: "/scan", h1: "סריקת ברקוד" },
+  { path: "/lists/1/share", h1: "שיתוף הרשימה" },
+  { path: "/lists/accept/inv-1-abc", h1: "הצטרפות לרשימה משותפת" },
   { path: "/offline", h1: "אין חיבור לאינטרנט" },
   { path: "/design-system", h1: "ערכת עיצוב" },
 ];
