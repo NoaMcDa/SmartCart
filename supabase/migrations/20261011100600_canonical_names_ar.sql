@@ -36,7 +36,7 @@ $$;
 -- it, and the API re-scores each name on its own.
 CREATE OR REPLACE FUNCTION canonical_names_ar_norm(names text[]) RETURNS text
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-  SELECT search_norm_ar(array_to_string(names, ' | '))
+  SELECT public.search_norm_ar(array_to_string(names, ' | '))
 $$;
 
 CREATE INDEX canonical_products_names_ar_trgm
