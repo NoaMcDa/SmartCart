@@ -1,0 +1,55 @@
+{
+  "chain_id": "7290103152017",
+  "max_items": 200,
+  "files": [
+    {
+      "file": "Stores7290103152017-000-20261006-080501.xml",
+      "kind": "stores",
+      "source_file": "Stores7290103152017-000-20261006-080501.xml",
+      "sha256_original": "ac54d2abd2156bd62a4a408ef0ee0970494c502a9918d274071c778705ea762e",
+      "bytes_original": 9790,
+      "published_at": "2026-10-06T08:05+03:00",
+      "fetched_at": "2026-10-08T06:56:59+00:00",
+      "schema": "v1",
+      "gate": {
+        "status": "quarantined",
+        "gates": [
+          "stale_date"
+        ],
+        "reason": "stale_date: published 2026-10-06T05:05:01+00:00, 49.9 h old (limit 36 h)"
+      },
+      "stores": 24,
+      "sha256": "ac54d2abd2156bd62a4a408ef0ee0970494c502a9918d274071c778705ea762e",
+      "bytes": 9790,
+      "parsed": {
+        "stores": 24,
+        "items": 0,
+        "prices": 0
+      }
+    },
+    {
+      "file": "PriceFull7290103152017-001-001-20261008-080000.gz",
+      "kind": "price_full",
+      "source_file": "PriceFull7290103152017-001-001-20261008-080000.gz",
+      "sha256_original": "cbf6d808c8c91b045f204b63c6db67d351150709a552db08b8cb41fe24d8a3e9",
+      "bytes_original": 494422,
+      "published_at": "2026-10-08T08:00+03:00",
+      "fetched_at": "2026-10-08T06:57:07+00:00",
+      "schema": "v1",
+      "gate": {
+        "status": "loaded",
+        "gates": [],
+        "reason": "items=6629"
+      },
+      "items_original": 6629,
+      "items_trimmed": 200,
+      "sha256": "568f9c79bf6ea5112eac5304015468c293405a698ca7df634cf089ea315f6245",
+      "bytes": 11525,
+      "parsed": {
+        "stores": 0,
+        "items": 200,
+        "prices": 200
+      }
+    }
+  ]
+}
