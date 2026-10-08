@@ -86,9 +86,29 @@ Three retrievers over `canonical_products.display_name_he`, merged with reciproc
   `matched_by` lists the retrievers that found the hit. `confidence` is the evidence:
   `0.85 x best similarity + 0.15 x share of retrievers that found it`.
 - `canonical.category_path_he` is the taxonomy path, root first.
+- `canonical.display_name_ar` is the canonical's first Arabic name (`names_ar[1]`, see below), null
+  when it has none. It is filled on every path, Hebrew queries included; `display_name_he` stays the
+  primary name and is unchanged.
 - Latency: a 30-item `/parse-list` (90 retriever queries) took 0.14 s on the test database with
   the test catalog (measured locally). The target on the MVP catalog (a few hundred canonicals) is
   under 50 ms per query; not yet measured on real data.
+
+### Arabic display names (#73)
+
+Names in responses stay Hebrew; Arabic is added next to them, never instead of them, so a client
+shows `display_name_ar ?? display_name_he`. `names_ar` is machine drafted and **awaits a
+native-speaker review** (`docs/catalog.md`, "Arabic names"); a client that shows it to users should
+treat it like any other unreviewed copy. Where it appears:
+
+| Response | Field | Is |
+|---|---|---|
+| `CanonicalRef` (`/search` hits, `/parse-list` rows and candidates, `/items/barcode` `canonical`, `/parse-recipe`, `/parse-image`) | `display_name_ar` | the canonical's first Arabic name, or null |
+| `PricedItem` (`/compare`, `/optimize`) | `canonical_name_ar` | the same name; `display_name_he` there is the chain's own item name and stays Hebrew, so the Arabic field names what the shopper asked for, not a translation of the item |
+| `SwapSuggestion` (`/optimize/swaps`) | `canonical_name_ar` | the same |
+| `PriceHistoryResponse` (`/history/{id}`) | `canonical_name_ar` | the same |
+| price-alert push payload | `product_ar` | the same; the title and body stay Hebrew |
+
+`/promo-cycles/{id}` and `StorePrice` (barcode prices) carry no canonical name, and the static SEO export (`export_seo`, Hebrew pages) does not emit Arabic names.
 
 ### POST /parse-list
 
@@ -261,6 +281,7 @@ in either file. Change `schemas.py`, then run the script and commit both files.
 | `20261007110100_app_role.sql` | `smartcart_app` role and its grants; grants to `authenticated` on Supabase |
 | `20261007110200_search_indexes.sql` | `search_norm()`, GIN trigram and FTS indexes on canonical names, HNSW on `item_embeddings` |
 | `20261007110300_effective_prices_v2.sql` | `effective_prices.effective_price`, `promo_min_qty`, `is_estimated`, `noclub` |
+| `20261011100800_canonical_name_embeddings.sql` | `canonical_name_embeddings` (vectors of the Arabic names for the Arabic vector retriever, #73) and its grant to the API role |
 
 `20261007100100_user_tables_rls.sql` was also fixed so it applies on Supabase, where the `auth`
 schema belongs to `supabase_auth_admin` (it now creates the stand-in `auth.users` only when the

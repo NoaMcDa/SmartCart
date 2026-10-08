@@ -73,7 +73,7 @@ class Hit:
 _ALERTS_SQL = """
 SELECT a.id, a.user_id, a.canonical_id, a.threshold_unit_price, a.flex_level, a.radius_m,
        a.neighborhood_lat::float8, a.neighborhood_lon::float8, a.last_fired_at,
-       COALESCE(pr.clubs, '{}'), cp.display_name_he
+       COALESCE(pr.clubs, '{}'), cp.display_name_he, cp.names_ar[1]
 FROM price_alerts AS a
 JOIN canonical_products AS cp ON cp.id = a.canonical_id
 LEFT JOIN profiles AS pr ON pr.user_id = a.user_id
@@ -125,7 +125,9 @@ def _item_name(conn: psycopg.Connection, item_id: int) -> str:
     return row[0] if row else ""
 
 
-def payload(alert_id: int, canonical_id: int, product: str, hit: Hit) -> dict:
+def payload(
+    alert_id: int, canonical_id: int, product: str, hit: Hit, product_ar: str | None = None
+) -> dict:
     price = f"₪ {money(hit.unit_price)}"
     updated = hit.price_valid_from.astimezone(UTC).strftime("%d.%m.%Y %H:%M")
     club = f" (מבצע מועדון: {hit.club_name})" if hit.club_name else ""
@@ -139,6 +141,7 @@ def payload(alert_id: int, canonical_id: int, product: str, hit: Hit) -> dict:
         "tag": f"alert-{alert_id}",
         "alert_id": alert_id,
         "canonical_id": canonical_id,
+        "product_ar": product_ar,
         "store_id": hit.store_id,
         "item_id": hit.item_id,
         "unit_price": str(hit.unit_price),
@@ -156,7 +159,7 @@ def evaluate_alerts(
     started = time.monotonic()
     result = AlertRunResult()
     for (alert_id, user_id, cid, threshold, flex, radius, lat, lon, last_fired, clubs,
-         product) in conn.execute(_ALERTS_SQL).fetchall():
+         product, product_ar) in conn.execute(_ALERTS_SQL).fetchall():
         result.alerts_checked += 1
         if last_fired is not None and now - last_fired < DEDUP_WINDOW:
             result.deduplicated += 1
@@ -190,7 +193,7 @@ def evaluate_alerts(
         result.fired += 1
         if channel != "push":
             continue
-        body = payload(alert_id, cid, product, hit)
+        body = payload(alert_id, cid, product, hit, product_ar)
         for t in targets:
             status = sender(t, body)
             if 200 <= status < 300:

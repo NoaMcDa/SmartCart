@@ -317,7 +317,8 @@ Arabic shoppers type list lines, not chain item names, so Arabic matching starts
 line with more Arabic than Hebrew letters (`normalize.script_of`) takes the Arabic path; Hebrew
 and Latin-only text never does, so Hebrew behavior is byte-identical (the Hebrew list-parsing
 cases are pinned by `services/api/tests/test_api_arabic_parse.py`, the Hebrew gold evaluation is
-unchanged). Display names stay Hebrew in the API for now (`CanonicalRef.display_name_he`); each
+unchanged). Display names stay Hebrew in the API (`CanonicalRef.display_name_he`) with the first Arabic
+name next to it (`display_name_ar`, `docs/api.md`, "Arabic display names"); each
 canonical carries 1-3 Arabic names (`names_ar`, machine drafted, **needs native-speaker review**;
 see `docs/catalog.md`, "Arabic names").
 
@@ -338,8 +339,22 @@ and confidence; trigram and full text read `canonical_products.names_ar` through
 `test_arabic_fold_sql.py`): alef forms, `ى`, `ة`, `ؤ`, `ئ`, hamza, tashkeel, tatweel, digits,
 `٪`. The query is cleaned first (brands such as تنوفا, soft descriptors `كبير`/`عائلي`, politeness, bare
 numbers and pack sizes are dropped), then tried with and without the article ال, the conjunction و
-and بال/لل. The vector retriever is unchanged and is **recall only** for Arabic: a hit found
+and بال/لل. The vector retriever is **recall only** for Arabic: a hit found
 by vectors alone is shown as a candidate, capped at 0.60, never answered.
+
+**Arabic vectors** (`search._vector_ar`, `embed.embed_canonical_names_ar`). `embed_canonicals` also embeds every
+`names_ar` entry, one row per (canonical, name), into `canonical_name_embeddings(canonical_id, lang, name,
+embedding vector(1024), embedding_model)` (migration `20261011100800`). A table, not a column on
+`canonical_products`: the Hebrew vector there is one per canonical and the Hebrew retriever and its evaluation read
+it unchanged, while a canonical has 1-3 Arabic names that change independently, and a query is close to one
+spelling (standard or colloquial), not to their average; `lang` lets another language reuse the table. The
+job is idempotent per row (a missing row, another `embedding_model` or `--force` re-embeds; a name no longer
+in `names_ar` is deleted; the `match_runs` metrics add `ar_embedded`, `ar_skipped`, `ar_removed`). On the Arabic
+path the vector retriever takes, per canonical, the best of the Hebrew name vector, the Arabic name vectors
+and the vectors of the items mapped to it, all of the query embedder's model only (BGE-M3 is
+cross-lingual, so the Hebrew vectors keep helping). It never answers: a vector-only hit stays capped at 0.60,
+and the hard checks drop a canonical whose critical attribute the query contradicts whatever the vectors say.
+The Hebrew path and its SQL are unchanged.
 
 **Precision rules** (all in the Arabic path only):
 
@@ -390,9 +405,23 @@ list (`كلوروكس`, `بيبسي`) and typos end in a confirmation.
 
 What would make this evidence: real list lines from consenting Arabic-speaking users, labeled by a
 native speaker, with the 98% any_brand target of D5 re-measured; and a native-speaker review of the
-names (they are the ceiling of recall). `names_ar` are not embedded: with BGE-M3 the vector retriever
-sees only the Hebrew names, so `embed_canonicals` should also embed the Arabic names before vectors
-are expected to help Arabic recall.
+names (they are the ceiling of recall). With the hash embedder (spelling only, no meaning) the Arabic
+vectors add little; they are for BGE-M3, which has not been run on the Arabic set yet.
+
+**Re-run with the Arabic name vectors, 2026-10-08** (same set; hash embedder; `evaluate-ar` now embeds the canonicals
+first, `--no-embed` skips it; run after the Hebrew evaluation on the same database, as in CI). Precision at every level
+is unchanged at 1.0000, recall at any_brand moves from 0.9363 (338 served) to 0.9391 (339 served), everything else
+equal: the vector retriever now finds the canonical it already had by letters, which raises the confidence of lines
+that were suggestions (`حليب بقر 3%` 0.67 to 0.72) and lifts one over 0.75:
+
+| Level | Precision before | after | Recall before | after | Served before | after |
+|---|---|---|---|---|---|---|
+| exact | 1.0000 | 1.0000 | 0.8889 | 0.8889 | 24 | 24 |
+| any_brand | 1.0000 | 1.0000 | 0.9363 | 0.9391 | 338 | 339 |
+| close | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 23 | 23 |
+| all | 1.0000 | 1.0000 | 0.9367 | 0.9392 | 385 | 386 |
+
+Held-out lines: precision 1.0000, recall 0.7917, 76 served, before and after. The Hebrew gold evaluation is identical before and after (exact 1.0000/1.0000, any_brand 1.0000/0.8125, close 1.0000/0.7611, recall@10 0.9988).
 
 **Re-run after the active-learning change (issue #52), 2026-10-08.** Same set, same settings
 (fresh database with a UTF-8 ctype, `EMBEDDER=hash`, `cli_matching evaluate --fail-below 0.98`,

@@ -143,7 +143,7 @@ def price_history(
     days: Annotated[int, Query(ge=1, le=365, description="Days back from today, 90 by default")] = 90,
 ) -> schemas.PriceHistoryResponse:
     canon = conn.execute(
-        "SELECT base_unit FROM canonical_products WHERE id = %s", (canonical_id,)
+        "SELECT base_unit, names_ar[1] FROM canonical_products WHERE id = %s", (canonical_id,)
     ).fetchone()
     if canon is None:
         raise HTTPException(status_code=404, detail="canonical product not found")
@@ -156,6 +156,7 @@ def price_history(
     item_id = _pick_item(conn, canonical_id, store_id)
     resp = schemas.PriceHistoryResponse(
         canonical_id=canonical_id, store_id=store_id, days=days, points=[], generated_at=now,
+        canonical_name_ar=canon[1],
     )
     if item_id is None:
         return resp

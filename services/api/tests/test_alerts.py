@@ -154,6 +154,21 @@ def test_club_promo_fires_only_for_members(client, db, w: World, users) -> None:
     assert "מועדון לקוחות" in payload["body"] and payload["price_valid_from"]
 
 
+def test_push_payload_carries_the_arabic_product_name(client, db, w: World, users) -> None:
+    a, _ = users
+    db.execute("UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+               (["بيض", "بيض طازج"], w.canon["eggs"]))
+    alert(client, a, w.canon["eggs"], "1.20")
+    alert(client, a, w.canon["milk3"], "9.00")
+    subscribe(client, a, "https://push.example/a")
+    sender = FakeSender()
+    assert evaluate_alerts(db, sender).fired == 2
+    by_canonical = {p["canonical_id"]: p for _, p in sender.sent}
+    assert by_canonical[w.canon["eggs"]]["product_ar"] == "بيض"
+    assert by_canonical[w.canon["milk3"]]["product_ar"] is None
+    assert by_canonical[w.canon["eggs"]]["title"].startswith("ירידת מחיר: ")  # Hebrew unchanged
+
+
 def test_seeded_drop_fires_once_then_deduplicates(client, db, w: World, users) -> None:
     a, _ = users
     a_alert = alert(client, a, w.canon["eggs"], "0.95")

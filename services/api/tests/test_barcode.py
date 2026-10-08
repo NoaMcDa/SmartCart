@@ -145,3 +145,13 @@ def test_parameters_are_validated(client, w: World) -> None:
     r = client.get(f"/items/barcode/{code('eggs_c1')}",
                    params={"lon": ORIGIN[0], "lat": ORIGIN[1], "radius_m": 100})
     assert r.status_code == 422
+
+
+def test_barcode_canonical_carries_the_arabic_name(client, db, w: World) -> None:
+    code_ = code("milk3_c1_tnuva")
+    assert scan(client, code_)["canonical"]["display_name_ar"] is None
+    db.execute("UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+               (["حليب 3%", "حليب طازج 3%"], w.canon["milk3"]))
+    resp = scan(client, code_)
+    assert resp["canonical"]["display_name_ar"] == "حليب 3%"
+    assert resp["canonical"]["display_name_he"] and resp["display_name_he"] == "חלב תנובה 3% 1 ליטר"

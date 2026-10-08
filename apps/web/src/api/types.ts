@@ -791,6 +791,11 @@ export interface components {
              * @description Taxonomy names, root first
              */
             category_path_he?: string[];
+            /**
+             * Display Name Ar
+             * @description The canonical's first Arabic name (names_ar[1], machine drafted, pending native review); null when it has none. Hebrew stays the primary name.
+             */
+            display_name_ar?: string | null;
             /** Display Name He */
             display_name_he: string;
             /** Taxonomy Id */
@@ -1332,6 +1337,11 @@ export interface components {
         PriceHistoryResponse: {
             /** Canonical Id */
             canonical_id: number;
+            /**
+             * Canonical Name Ar
+             * @description The canonical's first Arabic name, null when none
+             */
+            canonical_name_ar?: string | null;
             /** Days */
             days: number;
             /** Display Name He */
@@ -1376,6 +1386,11 @@ export interface components {
         PricedItem: {
             /** Canonical Id */
             canonical_id: number;
+            /**
+             * Canonical Name Ar
+             * @description The canonical's first Arabic name. display_name_he is the chain's own item name and stays Hebrew; this is what the shopper asked for, not a translation of the item.
+             */
+            canonical_name_ar?: string | null;
             /** Club Name */
             club_name?: string | null;
             /**
@@ -2096,6 +2111,11 @@ export interface components {
         SwapSuggestion: {
             /** Canonical Id */
             canonical_id: number;
+            /**
+             * Canonical Name Ar
+             * @description The canonical's first Arabic name, null when none
+             */
+            canonical_name_ar?: string | null;
             /** Confidence */
             confidence?: number | null;
             /**

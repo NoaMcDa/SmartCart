@@ -178,3 +178,13 @@ def test_empty_radius(client, w: World) -> None:
     assert resp["stores"] == []
     # The home store is still priced so the user sees what their usual basket costs.
     assert D(resp["home_store_total"]) == D("138.70")
+
+
+def test_priced_items_carry_the_canonicals_arabic_name(client, db, w: World) -> None:
+    db.execute("UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+               (["بيض", "بيض طازج"], w.canon["eggs"]))
+    home = by_store(post(client, w))[w.stores["home"]]
+    eggs = line(home, w.canon["eggs"])
+    assert eggs["canonical_name_ar"] == "بيض"
+    assert eggs["display_name_he"]  # the chain's item name, still Hebrew
+    assert line(home, w.canon["salmon"])["canonical_name_ar"] is None

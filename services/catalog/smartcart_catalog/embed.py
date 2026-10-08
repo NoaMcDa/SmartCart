@@ -168,7 +168,8 @@ def embed_canonicals(
     conn: psycopg.Connection, embedder: Embedder, *, batch_size: int = 256, force: bool = False
 ) -> dict[str, Any]:
     """Embed ``canonical_products.display_name_he`` into ``canonical_products.embedding`` and
-    record the model in ``canonical_products.embedding_model``.
+    record the model in ``canonical_products.embedding_model``; then the Arabic names, see
+    ``embed_canonical_names_ar``.
 
     A canonical is (re-)embedded when it has no vector, when its ``embedding_model`` differs
     from ``embedder.model_name`` (read from the row itself), when its name changed since the
@@ -210,8 +211,66 @@ def embed_canonicals(
         "full": full,
         "fingerprints": {str(cid): _fingerprint(name) for cid, name, _, _ in rows_all},
     }
+    metrics.update(embed_canonical_names_ar(conn, embedder, batch_size=batch_size, force=force))
     finish_run(conn, run_id, metrics)
     return {k: v for k, v in metrics.items() if k != "fingerprints"}
+
+
+def embed_canonical_names_ar(
+    conn: psycopg.Connection, embedder: Embedder, *, batch_size: int = 256, force: bool = False
+) -> dict[str, int]:
+    """Embed every ``canonical_products.names_ar`` entry into ``canonical_name_embeddings``
+    (``lang = 'ar'``), the vectors the API's Arabic vector retriever reads (issue #73).
+
+    One row per (canonical, name). A row is (re-)embedded when it is missing, was made by another
+    model, or ``force``; a row whose name is no longer in ``names_ar`` is deleted. The Hebrew
+    vectors and ``embedding_model`` are not touched. Returns ``ar_embedded``, ``ar_skipped`` and
+    ``ar_removed`` counts for the run's metrics.
+    """
+    _check_dim(embedder)
+    wanted = [
+        (cid, name)
+        for cid, names in conn.execute(
+            "SELECT id, names_ar FROM canonical_products WHERE cardinality(names_ar) > 0 ORDER BY id"
+        )
+        for name in dict.fromkeys(names)
+    ]
+    have = {
+        (cid, name): model
+        for cid, name, model in conn.execute(
+            "SELECT canonical_id, name, embedding_model FROM canonical_name_embeddings"
+            " WHERE lang = 'ar'"
+        )
+    }
+    todo = [k for k in wanted if force or have.get(k) != embedder.model_name]
+    stale = sorted(set(have) - set(wanted))
+    if stale:
+        with conn.cursor() as cur:
+            cur.executemany(
+                "DELETE FROM canonical_name_embeddings"
+                " WHERE canonical_id = %s AND lang = 'ar' AND name = %s",
+                stale,
+            )
+    for batch in _batches(todo, batch_size):
+        vectors = embedder.embed([name for _, name in batch])
+        with conn.cursor() as cur:
+            cur.executemany(
+                "INSERT INTO canonical_name_embeddings"
+                " (canonical_id, lang, name, embedding, embedding_model, embedded_at)"
+                " VALUES (%s, 'ar', %s, %s::vector, %s, clock_timestamp())"
+                " ON CONFLICT (canonical_id, lang, name) DO UPDATE SET"
+                " embedding = EXCLUDED.embedding, embedding_model = EXCLUDED.embedding_model,"
+                " embedded_at = EXCLUDED.embedded_at",
+                [
+                    (cid, name, to_pgvector(v), embedder.model_name)
+                    for (cid, name), v in zip(batch, vectors, strict=True)
+                ],
+            )
+    return {
+        "ar_embedded": len(todo),
+        "ar_skipped": len(wanted) - len(todo),
+        "ar_removed": len(stale),
+    }
 
 
 def embed_items(

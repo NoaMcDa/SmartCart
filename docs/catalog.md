@@ -227,6 +227,9 @@ mistake):
   shoppers drop a word (`انتريكوت` for `انتريكوت بقر طازج`), but not for a state that a sibling
   changes: `صدر دجاج` alone must stay ambiguous between fresh and frozen.
 
+The names are also embedded (`smartcart-catalog embed`, one vector per name in `canonical_name_embeddings`,
+`docs/matching.md`, "Arabic vectors"), so a changed name needs `embed` to run again; it redoes only that name.
+
 To add or review a name: edit `data/canonicals.yaml`, run `smartcart-catalog seed --check`, then
 `smartcart-catalog evaluate-ar` (a new name can make another canonical's line ambiguous). Fix the
 name, not the check.

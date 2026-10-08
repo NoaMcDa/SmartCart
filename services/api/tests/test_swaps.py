@@ -163,3 +163,12 @@ def test_unknown_store(client, w: World) -> None:
     r = client.post("/optimize/swaps?store_id=999999999",
                     json={"items": basket(w), "location": w.location})
     assert r.status_code == 404
+
+
+def test_swap_carries_the_canonicals_arabic_name(client, db, w: World) -> None:
+    db.execute("UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+               (["سلمون طازج", "سمك سلمون"], w.canon["salmon"]))
+    swaps = {s["canonical_id"]: s for s in post(client, w, "home")["swaps"]}
+    assert swaps[w.canon["salmon"]]["canonical_name_ar"] == "سلمون طازج"
+    assert swaps[w.canon["salmon"]]["to_display_name_he"] == "סלמון קפוא 1 קילו"  # Hebrew unchanged
+    assert swaps[w.canon["milk3"]]["canonical_name_ar"] is None  # no Arabic name: null

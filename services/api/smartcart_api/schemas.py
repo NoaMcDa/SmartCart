@@ -32,6 +32,11 @@ class ParseListRequest(_Model):
 class CanonicalRef(_Model):
     canonical_id: int
     display_name_he: str
+    display_name_ar: str | None = Field(
+        default=None,
+        description="The canonical's first Arabic name (names_ar[1], machine drafted, pending native "
+        "review); null when it has none. Hebrew stays the primary name.",
+    )
     taxonomy_id: str
     base_unit: Literal["100g", "100ml", "unit", "kg"]
     category_path_he: list[str] = Field(default_factory=list, description="Taxonomy names, root first")
@@ -170,6 +175,11 @@ class PricedItem(_Model):
     canonical_id: int
     item_id: int
     display_name_he: str
+    canonical_name_ar: str | None = Field(
+        default=None,
+        description="The canonical's first Arabic name. display_name_he is the chain's own item name "
+        "and stays Hebrew; this is what the shopper asked for, not a translation of the item.",
+    )
     quantity: Decimal
     shelf_price: Decimal
     effective_unit_price: Decimal
@@ -478,6 +488,7 @@ class PriceHistoryResponse(_Model):
     generated_at: datetime
     item_id: int | None = Field(default=None, description="The item whose price events make the series; null when none")
     display_name_he: str | None = None
+    canonical_name_ar: str | None = Field(default=None, description="The canonical's first Arabic name, null when none")
 
 
 class PriceAlertIn(_Model):
@@ -558,6 +569,7 @@ class SwapSuggestion(_Model):
     from_item_id: int
     to_item_id: int
     to_display_name_he: str
+    canonical_name_ar: str | None = Field(default=None, description="The canonical's first Arabic name, null when none")
     flex_level: FlexLevel
     saving: Decimal = Field(description="For the requested quantity, ILS")
     confidence: float | None = None

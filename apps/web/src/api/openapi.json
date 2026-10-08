@@ -163,7 +163,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -284,6 +283,18 @@
             },
             "title": "Category Path He",
             "type": "array"
+          },
+          "display_name_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The canonical's first Arabic name (names_ar[1], machine drafted, pending native review); null when it has none. Hebrew stays the primary name.",
+            "title": "Display Name Ar"
           },
           "display_name_he": {
             "title": "Display Name He",
@@ -420,7 +431,6 @@
           "home_store_total": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -547,7 +557,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -596,7 +605,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -693,7 +701,6 @@
           },
           "quantity": {
             "default": "1",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Quantity",
             "type": "string"
           },
@@ -756,7 +763,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -909,7 +915,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -1230,7 +1235,6 @@
           },
           "quantity": {
             "default": "1",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Quantity",
             "type": "string"
           },
@@ -1308,14 +1312,12 @@
             "type": "integer"
           },
           "total": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total",
             "type": "string"
           },
           "travel_cost": {
             "default": "0",
             "description": "Round-trip travel to this plan's stores, ILS",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Travel Cost",
             "type": "string"
           }
@@ -1371,7 +1373,6 @@
             "type": "integer"
           },
           "threshold_unit_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Threshold Unit Price",
             "type": "string"
           }
@@ -1413,7 +1414,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -1430,6 +1430,18 @@
           "canonical_id": {
             "title": "Canonical Id",
             "type": "integer"
+          },
+          "canonical_name_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The canonical's first Arabic name, null when none",
+            "title": "Canonical Name Ar"
           },
           "days": {
             "title": "Days",
@@ -1515,7 +1527,6 @@
           "shelf_price": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -1537,7 +1548,6 @@
             "title": "Store Id"
           },
           "unit_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Unit Price",
             "type": "string"
           }
@@ -1553,6 +1563,18 @@
             "title": "Canonical Id",
             "type": "integer"
           },
+          "canonical_name_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The canonical's first Arabic name. display_name_he is the chain's own item name and stays Hebrew; this is what the shopper asked for, not a translation of the item.",
+            "title": "Canonical Name Ar"
+          },
           "club_name": {
             "anyOf": [
               {
@@ -1567,7 +1589,6 @@
           "club_offer_discount": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -1611,7 +1632,6 @@
             "type": "string"
           },
           "effective_unit_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Effective Unit Price",
             "type": "string"
           },
@@ -1630,7 +1650,6 @@
             "type": "integer"
           },
           "line_total": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Line Total",
             "type": "string"
           },
@@ -1653,7 +1672,6 @@
           "promo_add_qty": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -1666,7 +1684,6 @@
           "promo_add_saving": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -1710,7 +1727,6 @@
           "promo_min_qty": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -1721,12 +1737,10 @@
             "title": "Promo Min Qty"
           },
           "quantity": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Quantity",
             "type": "string"
           },
           "shelf_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Shelf Price",
             "type": "string"
           },
@@ -1775,7 +1789,6 @@
           },
           "cost_per_km": {
             "default": "1.2",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Cost Per Km",
             "type": "string"
           },
@@ -1793,7 +1806,6 @@
           },
           "extra_stop_value": {
             "default": "25",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Extra Stop Value",
             "type": "string"
           },
@@ -1837,7 +1849,6 @@
           "monthly_budget": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
                 "type": "string"
               },
               {
@@ -1925,7 +1936,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -1947,7 +1957,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -1998,7 +2007,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
                 "type": "string"
               },
               {
@@ -2064,7 +2072,6 @@
           "add_qty": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2084,7 +2091,6 @@
             "type": "string"
           },
           "saving": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Saving",
             "type": "string"
           }
@@ -2331,7 +2337,6 @@
           "price": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2344,7 +2349,6 @@
           "quantity": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2400,7 +2404,6 @@
           "total": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2419,23 +2422,19 @@
         "properties": {
           "basket_saving": {
             "description": "Home store total minus this plan's basket total",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Basket Saving",
             "type": "string"
           },
           "extra_stop_cost": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Extra Stop Cost",
             "type": "string"
           },
           "net_saving": {
             "description": "basket_saving - travel_cost - extra_stop_cost; the hero number",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Net Saving",
             "type": "string"
           },
           "travel_cost": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Travel Cost",
             "type": "string"
           }
@@ -2666,7 +2665,6 @@
           },
           "total": {
             "description": "ILS; the user's actual total overrides the app's estimate",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
             "title": "Total",
             "type": "string"
           }
@@ -2725,7 +2723,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2743,7 +2740,6 @@
           "budget": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2776,7 +2772,6 @@
           "budget": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2801,7 +2796,6 @@
             "type": "string"
           },
           "total": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total",
             "type": "string"
           }
@@ -2904,7 +2898,6 @@
             "title": "Promo Description"
           },
           "shelf_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Shelf Price",
             "type": "string"
           },
@@ -2927,7 +2920,6 @@
             "title": "Tags"
           },
           "unit_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Unit Price",
             "type": "string"
           },
@@ -3104,7 +3096,6 @@
           "saving_vs_home": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3127,7 +3118,6 @@
             "type": "integer"
           },
           "total": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total",
             "type": "string"
           }
@@ -3231,6 +3221,18 @@
             "title": "Canonical Id",
             "type": "integer"
           },
+          "canonical_name_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The canonical's first Arabic name, null when none",
+            "title": "Canonical Name Ar"
+          },
           "confidence": {
             "anyOf": [
               {
@@ -3253,7 +3255,6 @@
           },
           "saving": {
             "description": "For the requested quantity, ILS",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Saving",
             "type": "string"
           },
@@ -3315,7 +3316,6 @@
             ]
           },
           "total_saving": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Saving",
             "type": "string"
           }
@@ -3334,7 +3334,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -3349,7 +3348,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],

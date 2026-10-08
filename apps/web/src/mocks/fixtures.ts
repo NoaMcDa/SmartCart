@@ -37,6 +37,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1001: {
     canonical_id: 1001,
     display_name_he: "חלב טרי 3%, 1 ליטר",
+    display_name_ar: "حليب طازج 3%",
     taxonomy_id: "dairy.milk",
     category_path_he: ["מוצרי חלב", "חלב"],
     base_unit: "100ml",
@@ -47,6 +48,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1002: {
     canonical_id: 1002,
     display_name_he: "קוטג' 5%, 250 ג'",
+    display_name_ar: "كوتيج 5%",
     taxonomy_id: "dairy.cottage",
     category_path_he: ["מוצרי חלב", "גבינות", "קוטג'"],
     base_unit: "100g",
@@ -57,6 +59,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1003: {
     canonical_id: 1003,
     display_name_he: "משקה סויה ללא סוכר, 1 ליטר",
+    display_name_ar: "مشروب صويا",
     taxonomy_id: "dairy_alt.soy",
     category_path_he: ["מוצרי חלב", "תחליפי חלב", "משקה סויה"],
     base_unit: "100ml",
@@ -67,6 +70,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1004: {
     canonical_id: 1004,
     display_name_he: "רסק עגבניות, 260 ג'",
+    display_name_ar: "معجون بندورة",
     taxonomy_id: "pantry.tomato_paste",
     category_path_he: ["מזווה", "רסק עגבניות"],
     base_unit: "100g",
@@ -77,6 +81,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1005: {
     canonical_id: 1005,
     display_name_he: 'שמן זית כתית מעולה, 750 מ"ל',
+    display_name_ar: "زيت زيتون بكر ممتاز",
     taxonomy_id: "pantry.olive_oil",
     category_path_he: ["מזווה", "שמן זית"],
     base_unit: "100ml",
@@ -87,6 +92,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1006: {
     canonical_id: 1006,
     display_name_he: "פסטה פנה, 500 ג'",
+    display_name_ar: "بيني",
     taxonomy_id: "pantry.pasta",
     category_path_he: ["מזווה", "פסטה"],
     base_unit: "100g",
@@ -97,6 +103,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1007: {
     canonical_id: 1007,
     display_name_he: 'עגבניות, 1 ק"ג',
+    display_name_ar: "بندورة",
     taxonomy_id: "produce.tomato",
     category_path_he: ["ירקות ופירות", "עגבניות"],
     base_unit: "kg",
@@ -108,6 +115,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1008: {
     canonical_id: 1008,
     display_name_he: "פילה סלמון טרי",
+    display_name_ar: "فيليه سلمون طازج",
     taxonomy_id: "fish.salmon",
     category_path_he: ["דגים ובשר", "סלמון"],
     base_unit: "kg",
@@ -119,6 +127,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1009: {
     canonical_id: 1009,
     display_name_he: "ביצים L, 12 יחידות",
+    display_name_ar: "بيض L",
     taxonomy_id: "eggs.chicken",
     category_path_he: ["מוצרי חלב", "ביצים"],
     base_unit: "unit",
@@ -130,6 +139,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1010: {
     canonical_id: 1010,
     display_name_he: "שמן זית כתית, 1 ליטר",
+    display_name_ar: null,
     taxonomy_id: "pantry.olive_oil",
     category_path_he: ["מזווה", "שמן זית"],
     base_unit: "100ml",
@@ -140,6 +150,7 @@ export const CATALOG: Record<number, CatalogEntry> = {
   1011: {
     canonical_id: 1011,
     display_name_he: 'שמן זית כתית מעולה, 500 מ"ל',
+    display_name_ar: "زيت زيتون بكر ممتاز",
     taxonomy_id: "pantry.olive_oil",
     category_path_he: ["מזווה", "שמן זית"],
     base_unit: "100ml",
@@ -155,6 +166,7 @@ export function canonicalRef(id: number): CanonicalRef {
   return {
     canonical_id: c.canonical_id,
     display_name_he: c.display_name_he,
+    display_name_ar: c.display_name_ar ?? null,
     taxonomy_id: c.taxonomy_id,
     base_unit: c.base_unit,
     category_path_he: c.category_path_he ?? [],
@@ -388,6 +400,7 @@ function pricedItem(store: StoreSpec, line: Line): PricedItem {
     item_id: itemId,
     promo_applied: false,
     display_name_he: line.name ?? cat.display_name_he,
+    canonical_name_ar: cat.display_name_ar ?? null,
     quantity: String(qty),
     shelf_price: money(toAgorot(line.price)),
     effective_unit_price: money(Math.round(lineAgorot / qty / unitDivisor)),
