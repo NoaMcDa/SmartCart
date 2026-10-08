@@ -25,7 +25,7 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 
 | Issue | Title | Status | Blocker or what remains |
 |---|---|---|---|
-| #1 | Epic: data foundation | blocked | Children #14, #22, #60 and #81 are open; #32, #53 and #57 wait for real files. |
+| #1 | Epic: data foundation | blocked | Every child is built; #14, #22 and #60 wait on provisioning and two weeks of real nightly loads, and #32, #53, #57 and #81 wait on real files. |
 | #9 | Chain list (8 to 10 chains) | done by tests | Decision D13, no code. The chain size tiers are an estimate: replace with a sourced figure before any public coverage claim. |
 | #14 | Supabase vs self-hosted, provision the database | blocked | The project does not exist. Owner creates it (`docs/infra-provisioning.md` section 2). The PostGIS and pgvector smoke tests already pass in CI on the Supabase image. The restore test record (section 4.4) is also the owner's. |
 | #17 | Monorepo scaffold and CI | done by tests | All five items met. The last one, "a failing test turns CI red", was exercised once on the throwaway branch `ci/red-check` (commit `fba9fd7`, never merged): run https://github.com/NoaMcDa/SmartCart/actions/runs/37621263324 ended `failure` in the Test step on Python 3.12 and 3.13, with Lint green. Delete the branch with `git push origin --delete ci/red-check` if it still exists (the build environment could not). |
@@ -39,7 +39,7 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 | #53 | Online-store record and channel tag | done with synthetic data | Every per-chain rule and the placeholder store codes are provisional until real Stores files confirm them. Osher Ad is listed as having no online record (to confirm). |
 | #57 | Dual schema (v1 and v2) | done with synthetic data | `PROVISIONAL_V2_MARKER` is a placeholder. A real file in the authority's new model is needed to confirm it. |
 | #60 | Phase 0 exit validation | blocked | Two weeks of nightly loads on the VPS. The report generator and basket query are tested on synthetic data; go/no-go stays NO-GO (`docs/phase-0-exit-report.md`). |
-| #81 | Adapters for Machsanei Hashuk and King Store | blocked | Not built: only eight of the ten D13 chains have adapters. Needs the code (synthetic fixtures first) and the VPS for real laibcatalog files. If the schedule slips, D13 drops King Store first, then Machsanei Hashuk. |
+| #81 | Adapters for Machsanei Hashuk and King Store | done with synthetic data | Both adapters are built on synthetic fixtures (laibcatalog JSON and Bina layouts) and covered by the quality-gate adapter test; all ten D13 chains load in `scripts/demo/up.sh`. Real files need the VPS (`fetch_fixtures`). |
 
 ## Phase 1, MVP (milestone 2)
 
