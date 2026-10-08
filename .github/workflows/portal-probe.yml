@@ -1,0 +1,135 @@
+name: Portal probe
+
+# Issues #32, #53, #57 and #60 (preparation). From a GitHub-hosted runner, which is NOT an Israeli
+# IP, so this also measures which portals block cloud ranges: reachability of the transparency
+# portals of the ten D13 chains, the Cerberus FTP login, one Stores and one PriceFull file per
+# chain where reachable (through the pinned upstream scraper, never a chain's online store), and
+# every downloaded file through the real Scheduler path (adapter, quality gates, loader) in a
+# throwaway Postgres. Downloaded files are untrusted data: only the chain adapters read them.
+# It is a measurement: unreachable portals do not fail the job. See docs/ingestion.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      chains:
+        description: "Chain slugs, space separated (empty: all ten D13 chains)"
+        required: false
+        default: ""
+        type: string
+      timeout:
+        description: "Seconds allowed per download"
+        required: false
+        default: 180
+        type: number
+  schedule:
+    # Daily at 07:17 UTC (10:17 Israel summer time, 09:17 winter): after the laibcatalog listing
+    # fills up (it is empty from midnight to about 08:00 Israel time, D13).
+    - cron: "17 7 * * *"
+
+concurrency:
+  group: portal-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: portals, downloads, adapters and gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    services:
+      # Same image and tag as ci.yml (Postgres 17 with PostGIS, pgvector and pg_trgm).
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      CHAINS: ${{ inputs.chains || '' }}
+      DOWNLOAD_TIMEOUT: ${{ inputs.timeout || 180 }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install
+        run: uv sync
+
+      - name: Runner location
+        run: |
+          {
+            echo "## Runner"
+            echo
+            echo "Public IP country (ipinfo.io): $(curl -fsS --max-time 15 https://ipinfo.io/country || echo unknown)."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Reachability and Cerberus login (check_portals.sh)
+        run: |
+          set +e
+          MARKDOWN_OUT="$GITHUB_STEP_SUMMARY" bash infra/smoke/check_portals.sh
+          code=$?
+          echo "check_portals.sh exit code: $code (0 pass, 1 a failure, 2 inconclusive; not enforced here)" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      # Untrusted downloads live outside the checkout ($RUNNER_TEMP); nothing runs from there.
+      - name: Download one Stores and one PriceFull file per chain
+        run: |
+          echo "PROBE_DIR=$RUNNER_TEMP/portal-probe" >> "$GITHUB_ENV"
+          PROBE_DIR="$RUNNER_TEMP/portal-probe"
+          args=()
+          for slug in $CHAINS; do args+=(--chain "$slug"); done
+          uv run --no-sync python scripts/unblock/portal_probe.py probe \
+            --out "$PROBE_DIR" --timeout "$DOWNLOAD_TIMEOUT" "${args[@]}"
+
+      - name: Migrate the throwaway database
+        run: uv run --no-sync smartcart-ingest migrate
+
+      - name: Adapters, quality gates and loader (the real Scheduler path)
+        run: |
+          args=()
+          for slug in $CHAINS; do args+=(--chain "$slug"); done
+          uv run --no-sync python scripts/unblock/portal_probe.py gate \
+            --files "$PROBE_DIR/files" --probe "$PROBE_DIR/probe.json" \
+            --out portal-probe.md --json-out portal-probe.json "${args[@]}"
+
+      - name: Job summary
+        if: always()
+        run: cat portal-probe.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "no probe table" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the downloaded files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-probe-files
+          path: ${{ runner.temp }}/portal-probe/files
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload the probe table
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-probe-report
+          path: |
+            portal-probe.md
+            portal-probe.json
+            ${{ runner.temp }}/portal-probe/probe.json
+          retention-days: 30
+          if-no-files-found: ignore

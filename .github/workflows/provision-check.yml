@@ -1,0 +1,91 @@
+name: Provision check
+
+# Issues #14 and #22. Runs the existing provisioning smoke tests against the real services once
+# their secrets exist, and otherwise says which secret to set and exits 0, so it is safe to merge
+# before anything is provisioned. One job per service (scripts/unblock/provision_check.sh):
+#   database: SUPABASE_DB_URL                    -> infra/smoke/db_smoke.sql through psql
+#   VPS:      VPS_SSH_HOST + VPS_SSH_KEY         -> check_israeli_ip.sh and check_portals.sh over ssh
+#   bucket:   S3_BUCKET, S3_ACCESS_KEY_ID, ...   -> infra/smoke/bucket_roundtrip.py
+# A smoke test that runs and fails turns its job red. docs/infra-provisioning.md section 9.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply_migrations:
+        description: "Also run `smartcart-ingest migrate` against SUPABASE_DB_URL (idempotent)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: provision-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  database:
+    name: Supabase database (db_smoke.sql)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      APPLY_MIGRATIONS: ${{ inputs.apply_migrations && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: psql
+        run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
+
+      - name: Set up uv (only for apply_migrations)
+        if: inputs.apply_migrations
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install (only for apply_migrations)
+        if: inputs.apply_migrations
+        run: uv sync
+
+      - name: Database smoke test
+        run: SUMMARY_OUT="$GITHUB_STEP_SUMMARY" scripts/unblock/provision_check.sh db
+
+  vps:
+    name: Israeli-IP VPS (geolocation and portals, over ssh)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+      VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+      VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: VPS smoke tests
+        run: SUMMARY_OUT="$GITHUB_STEP_SUMMARY" scripts/unblock/provision_check.sh vps
+
+  bucket:
+    name: Object storage (bucket round trip)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+      S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+      S3_REGION: ${{ secrets.S3_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Bucket round trip
+        run: SUMMARY_OUT="$GITHUB_STEP_SUMMARY" scripts/unblock/provision_check.sh bucket
