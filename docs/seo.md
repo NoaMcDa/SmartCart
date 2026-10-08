@@ -64,9 +64,22 @@ which products are covered.
 - No images, no text from chain online stores, no third-party requests (the e2e suite checks this).
 
 Without prices (all of them today) a product page says "עדיין לא נטענו מחירים" and explains what counts
-as the same product. That is thin content for a search engine. `INDEX_UNPRICED` in
-`features/seo/config.ts` is `true`; set it to `false` to send `noindex` for unpriced product pages and
-drop them from the sitemap until the catalog has prices. **Decide before the domain goes live.**
+as the same product. That is thin content for a search engine. Whether such pages are indexed is a
+build-time setting, `NEXT_PUBLIC_INDEX_UNPRICED` (`features/seo/config.ts`):
+
+| Value | Unpriced product pages |
+|---|---|
+| unset or `1` (default, as before) | indexable, listed in the sitemap |
+| `0` (also `false`, `off`, `no`) | `<meta name="robots" content="noindex, follow">`, left out of the sitemap |
+
+One rule (`isIndexable`) drives the page metadata and the sitemap, so they cannot disagree; the tests run
+both values. Priced pages are always indexable, and category pages are not affected. Flip it back to `1`
+(or drop the variable) when the catalog has prices; the next build puts the pages back. **Decide before
+the domain goes live.** It is a build argument like `NEXT_PUBLIC_SITE_URL` (see `deploy.md`), not a
+runtime switch, because Next.js inlines `NEXT_PUBLIC_*` values.
+
+`robots.txt` deliberately does not `Disallow` those pages: a crawler that may not fetch a page never
+reads its `noindex`, and the URL can still be indexed from links.
 
 ## Sitemap and robots
 
@@ -77,8 +90,50 @@ drop them from the sitemap until the catalog has prices. **Decide before the dom
 sitemap. It is a route handler, not `robots.ts`, because the metadata file only works at the app root.
 
 `NEXT_PUBLIC_SITE_URL` is the public origin used in canonical URLs, the sitemap and JSON-LD. It defaults
-to `https://smartcart.example` (a reserved name) because no domain exists yet. **Set it for the build
-that goes live**, or every canonical URL points at the placeholder.
+to `https://smartcart.example` (a reserved name) because no domain exists yet; an empty value counts as
+unset (the Dockerfile passes an empty build arg when the repository variable is missing). **Set it for
+the build that goes live**, or every canonical URL points at the placeholder.
+
+Build-time settings (all read in `features/seo/config.ts`):
+
+| Variable | Values | Effect |
+|---|---|---|
+| `NEXT_PUBLIC_SITE_URL` | absolute https origin | canonical URLs, sitemap, robots `Sitemap:` line, JSON-LD |
+| `NEXT_PUBLIC_INDEX_UNPRICED` | `1` (default) / `0` | index or `noindex` unpriced product pages, see above |
+| `SEO_STRICT_SITE_URL` | `1` | opt-in guard: a `NODE_ENV=production` build **fails** when the site URL is unset, the placeholder, not absolute, or not https |
+| `SEO_ALLOW_PLACEHOLDER` | `1` | switches the guard off again (CI and local builds) |
+
+The guard is opt-in because `next build` always runs with `NODE_ENV=production`, including the CI build
+that has no domain. Set `SEO_STRICT_SITE_URL=1` in the deploy build only (next to
+`NEXT_PUBLIC_SITE_URL`), and the build cannot ship canonical URLs on the placeholder. The error names
+the variable and the way out.
+
+## Checks
+
+| Check | Where | What it covers |
+|---|---|---|
+| Structured data, offline | `tests/unit/structured-data.test.ts` (`npm test`) | Renders every generated page (70 category, 130 product, methodology, basket index, accessibility) and validates the JSON-LD it emits against hand-written schema.org shape rules for the types in use: `BreadcrumbList`, `ItemList`, `CollectionPage`, `Product`, `Offer` / `AggregateOffer`, `UnitPriceSpecification`, `QuantitativeValue`, `WebPage`, `WebSite`, `Dataset`, `Organization`. Required fields; absolute URLs on the site origin; ISO 8601 dates; currency `ILS`; a price only on a page that shows an update date; offers exactly when prices exist; canonical equals the JSON-LD `url` and the last breadcrumb; no raw `<` in the script. An unknown `@type` fails, so a new type needs a validator. The snapshot has no prices yet, so a second pass runs every page with synthetic prices and a published basket month. Negative cases prove the validator rejects what it should |
+| Index configuration | `tests/unit/structured-data-config.test.ts` | both values of `NEXT_PUBLIC_INDEX_UNPRICED` against the sitemap, the page `robots` metadata and `robots.txt`; the site URL guard |
+| Live site | `.github/workflows/seo-check.yml` (manual) | see below |
+| Lighthouse | `lighthouserc.seo.json`, CI | SEO, accessibility, best practices on the six page types |
+
+The offline test replaces the external validator run in CI. **Google's Rich Results Test (and the
+Schema.org validator) is still a one-time manual check after the first deploy**: it knows what Google
+accepts for rich results, which a shape check cannot.
+
+### `seo-check` workflow (needs the live domain)
+
+Actions, "SEO check", `workflow_dispatch`, inputs `site_url` (for example `https://www.example.co.il`)
+and `sample_size` (default 10). With `site_url` empty it passes with a notice, so it is safe to run
+before the domain exists. Otherwise it fetches `/robots.txt` (200, text/plain, no `Disallow: /`, a
+`Sitemap:` line on this origin), `/sitemap.xml` (200, at least 50 URLs, every URL on the origin, no
+duplicates, none disallowed by robots.txt) and the sampled sitemap pages, spread evenly and always
+including a category, a product and the methodology page when the sitemap has them. Per page: status
+200, `lang="he" dir="rtl"`, a title and one `h1`, the canonical equal to the sitemap URL, **no `noindex`
+(meta or `X-Robots-Tag`) on a page the sitemap lists**, JSON-LD that parses with every URL on the origin,
+and a visible update date wherever offers exist. The table goes to the job summary and the log; any
+failed check fails the job. It does not replace Search Console: submit the sitemap and record the
+indexed count weekly.
 
 ## Regenerating
 
@@ -164,11 +219,12 @@ deploy. The first month needs real prices: none are loaded, so `months` is empty
   regeneration once ingestion and the precompute run.
 - **The quality metric is synthetic.** It comes from the template-generated gold set. The page says so.
 - **The product ranking is an estimate** (decides which products have pages).
-- **Structured data was not run through an external validator** (no network from the build environment).
-  Unit tests check the shape (`@context`, `@type`, required fields, absolute URLs, escaping). Before launch
-  run each page type through the Schema.org validator and Google's Rich Results Test (`beta-plan.md`
-  checklist). Lighthouse (accessibility, best practices, SEO) is 100 on all six page types in the `a11y`
-  CI job.
+- **Structured data is validated offline, not by Google.** `structured-data.test.ts` checks the shape of
+  every page's JSON-LD (see "Checks"); there is no network from the build environment. Run each page type
+  through Google's Rich Results Test and the Schema.org validator once after the first deploy
+  (`beta-plan.md` checklist). Lighthouse (accessibility, best practices, SEO) is 100 on all six page types
+  in the `a11y` CI job. Known gap: the `Offer` nodes carry no `validFrom`, so the date of a price is
+  the visible `<time>` on the same page, not part of the JSON-LD (`jsonld.ts`).
 - **Not indexed yet.** There is no domain, so nothing is submitted to Search Console and no indexed-page
   count exists. After launch: submit `/sitemap.xml`, record the indexed count weekly in the beta report
   (issue #35's last criterion).
