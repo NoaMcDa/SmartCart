@@ -195,6 +195,12 @@
   gap: var(--sc-space-1);
 }
 
+/* Large text (#26): a long promo tag wraps inside the row instead of spilling out of it. */
+.tags > * {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
 .updated {
   display: flex;
   align-items: center;

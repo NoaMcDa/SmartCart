@@ -4,7 +4,7 @@
  */
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { postSpend, type SpendEntry } from "@/api/client";
+import { ApiError, deleteSpend, postSpend, updateSpend, type SpendEntry } from "@/api/client";
 import { API_BASE_URL } from "@/api/config";
 import { mockSpendEntries, resetPhase3Mock } from "@/mocks/handlers.phase3";
 import { server } from "@/mocks/node";
@@ -19,10 +19,19 @@ import {
   mergeServerEntries,
   monthlyTotals,
   recordSpend,
+  removeSpendRow,
+  restoreSpendRow,
   spentInMonth,
   rowFromServer,
+  validSpendTotal,
 } from "./spendState";
-import { pullSpendMonths, pushPendingSpend, syncSpend } from "./sync";
+import {
+  commitSpendRemoval,
+  correctSpend,
+  pullSpendMonths,
+  pushPendingSpend,
+  syncSpend,
+} from "./sync";
 
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {
@@ -115,6 +124,7 @@ describe("recording a shop", () => {
     const row = shop();
     expect(row).toEqual({
       id: expect.any(String),
+      client_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
       date: "2026-10-08",
       store_id: 101,
       store_name: "רמי לוי · מודיעין",
@@ -123,6 +133,7 @@ describe("recording a shop", () => {
       plan: "single",
     });
     expect(Object.keys(row).sort()).toEqual([
+      "client_id",
       "date",
       "id",
       "item_count",
@@ -266,6 +277,7 @@ describe("sync", () => {
     expect(mockSpendEntries()).toEqual([
       {
         id: 1,
+        client_id: queued.client_id,
         date: queued.date,
         store_id: queued.store_id,
         store_name: queued.store_name,
@@ -329,5 +341,213 @@ describe("sync", () => {
   it("a month that fails does not block the others, and nothing throws offline", async () => {
     server.use(http.get(`${API_BASE_URL}/me/spend`, () => HttpResponse.error()));
     await expect(syncSpend(["2026-09", "2026-10"])).resolves.toBeUndefined();
+  });
+});
+
+function mockBody(row: ReturnType<typeof shop>) {
+  return {
+    date: row.date,
+    store_id: row.store_id,
+    store_name: row.store_name,
+    total: row.total.toFixed(2),
+    item_count: row.item_count,
+    plan: row.plan,
+  };
+}
+
+describe("client_id: a lost response never duplicates a shop", () => {
+  it("every entry gets a UUID, kept with it and reused by every POST", async () => {
+    const queued = shop({ pending: true });
+    expect(queued.client_id).toMatch(/^[0-9a-f-]{36}$/);
+    const ids: unknown[] = [];
+    server.use(
+      http.post(`${API_BASE_URL}/me/spend`, async ({ request }) => {
+        ids.push(((await request.json()) as { client_id?: string }).client_id);
+        return HttpResponse.error(); // the request reached the server, the response did not
+      }),
+    );
+    await pushPendingSpend();
+    await pushPendingSpend();
+    expect(ids).toEqual([queued.client_id, queued.client_id]);
+    expect(loadSpend().pending).toEqual([queued.id]);
+  });
+
+  it("the account returns the stored entry for a repeated client_id, so the retry adds nothing", async () => {
+    const queued = shop({ pending: true });
+    // First try: stored by the account, response lost.
+    const body = { ...mockBody(queued), client_id: queued.client_id };
+    const first = await postSpend(body);
+    const again = await postSpend(body);
+    expect(again.id).toBe(first.id);
+    expect(mockSpendEntries()).toHaveLength(1);
+    // The device's own retry also lands on the same entry and links to it.
+    expect(await pushPendingSpend()).toBe(1);
+    expect(mockSpendEntries()).toHaveLength(1);
+    expect(loadSpend().entries[0]?.server_id).toBe(first.id);
+    expect(loadSpend().pending).toEqual([]);
+  });
+
+  it("a pull adopts an entry whose response was lost instead of adding it a second time", async () => {
+    const queued = shop({ pending: true });
+    await postSpend({ ...mockBody(queued), client_id: queued.client_id });
+    expect(await pullSpendMonths(["2026-10"])).toBe(0);
+    const { entries, pending } = loadSpend();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.server_id).toBe(1);
+    expect(pending).toEqual([]);
+  });
+
+  it("an entry saved before client_id existed gets one on its first POST and keeps it", async () => {
+    window.localStorage.setItem(
+      STORAGE_KEYS.spend,
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            id: "sp1",
+            date: "2026-10-08",
+            store_id: 101,
+            store_name: "x",
+            total: 10,
+            item_count: 1,
+            plan: "single",
+          },
+        ],
+        pending: ["sp1"],
+      }),
+    );
+    await pushPendingSpend();
+    const stored = loadSpend().entries[0]!;
+    expect(stored.client_id).toBeTruthy();
+    expect(mockSpendEntries()[0]?.client_id).toBe(stored.client_id);
+  });
+});
+
+describe("client helpers: PUT and DELETE /me/spend/{id}", () => {
+  it("updateSpend replaces the entry and keeps its id and client_id", async () => {
+    const queued = shop({ pending: true });
+    await pushPendingSpend();
+    const saved = await updateSpend(1, { ...mockBody(queued), total: "350.00" });
+    expect(saved).toMatchObject({ id: 1, total: "350.00", client_id: queued.client_id });
+    expect(mockSpendEntries()).toHaveLength(1);
+  });
+
+  it("deleteSpend removes it; an unknown id is a 404 ApiError", async () => {
+    shop({ pending: true });
+    await pushPendingSpend();
+    await expect(deleteSpend(1)).resolves.toBeUndefined();
+    expect(mockSpendEntries()).toEqual([]);
+    await expect(deleteSpend(1)).rejects.toMatchObject({ status: 404 });
+    await expect(deleteSpend(1)).rejects.toBeInstanceOf(ApiError);
+    await expect(updateSpend(9, mockBody(shop()))).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("correcting a total", () => {
+  it("validates: positive, at most two decimals, a comma is fine, up to 100,000", () => {
+    expect(validSpendTotal("371.4")).toBe(371.4);
+    expect(validSpendTotal("371,40")).toBe(371.4);
+    expect(validSpendTotal(" ₪ 88 ")).toBe(88);
+    expect(validSpendTotal(100000)).toBe(100000);
+    for (const bad of ["", "0", "-5", "abc", "1.234", "1e3", "100000.01", "12 34", null, NaN]) {
+      expect(validSpendTotal(bad)).toBeNull();
+    }
+  });
+
+  it("signed out: changes the device copy only and marks the amount as the person's", async () => {
+    const row = shop();
+    expect(await correctSpend(row.id, "350", false)).toBe("ok");
+    expect(loadSpend().entries[0]).toMatchObject({ total: 350, corrected: true });
+    expect(mockSpendEntries()).toEqual([]);
+  });
+
+  it("an invalid amount changes nothing", async () => {
+    const row = shop();
+    expect(await correctSpend(row.id, "0", true)).toBe("invalid");
+    expect(await correctSpend("nope", "10", true)).toBe("missing");
+    expect(loadSpend().entries[0]?.total).toBe(371.4);
+  });
+
+  it("signed in, an entry already on the account is sent with PUT", async () => {
+    const row = shop({ pending: true });
+    await pushPendingSpend();
+    expect(await correctSpend(row.id, "350.50", true)).toBe("ok");
+    expect(mockSpendEntries()[0]).toMatchObject({ total: "350.50", client_id: row.client_id });
+  });
+
+  it("signed in, a pending entry goes out later with the corrected total", async () => {
+    const row = shop({ pending: true });
+    expect(await correctSpend(row.id, "300", true)).toBe("ok");
+    expect(mockSpendEntries()).toEqual([]);
+    await pushPendingSpend();
+    expect(mockSpendEntries()[0]?.total).toBe("300.00");
+  });
+
+  it("rolls the device copy back when the account refuses", async () => {
+    const row = shop({ pending: true });
+    await pushPendingSpend();
+    server.use(
+      http.put(`${API_BASE_URL}/me/spend/:id`, () => HttpResponse.json({}, { status: 500 })),
+    );
+    expect(await correctSpend(row.id, "10", true)).toBe("failed");
+    expect(loadSpend().entries[0]).toMatchObject({ total: 371.4 });
+    expect(loadSpend().entries[0]?.corrected).toBeUndefined();
+  });
+});
+
+describe("deleting an entry", () => {
+  it("removes it from the device and from the pending queue, and undo puts it back in place", () => {
+    const a = shop();
+    const b = shop({ pending: true });
+    const c = shop();
+    const removed = removeSpendRow(b.id)!;
+    expect(loadSpend().entries.map((e) => e.id)).toEqual([a.id, c.id]);
+    expect(loadSpend().pending).toEqual([]);
+    restoreSpendRow(removed);
+    expect(loadSpend().entries.map((e) => e.id)).toEqual([a.id, b.id, c.id]);
+    expect(loadSpend().pending).toEqual([b.id]);
+    expect(removeSpendRow("nope")).toBeNull();
+  });
+
+  it("signed in, the account's copy is deleted; signed out or never synced, nothing is sent", async () => {
+    const synced = shop({ pending: true });
+    await pushPendingSpend();
+    const local = shop();
+    const sentLocal = removeSpendRow(local.id)!;
+    expect(await commitSpendRemoval(sentLocal, true)).toBe(true);
+    expect(mockSpendEntries()).toHaveLength(1);
+    const removed = removeSpendRow(synced.id)!;
+    expect(await commitSpendRemoval(removed, false)).toBe(true);
+    expect(mockSpendEntries()).toHaveLength(1);
+    expect(await commitSpendRemoval(removed, true)).toBe(true);
+    expect(mockSpendEntries()).toEqual([]);
+  });
+
+  it("brings the entry back when the account refuses, and counts an already-gone entry as done", async () => {
+    const row = shop({ pending: true });
+    await pushPendingSpend();
+    const removed = removeSpendRow(row.id)!;
+    server.use(
+      http.delete(`${API_BASE_URL}/me/spend/:id`, () => new HttpResponse(null, { status: 500 })),
+    );
+    expect(await commitSpendRemoval(removed, true)).toBe(false);
+    expect(loadSpend().entries.map((e) => e.id)).toEqual([row.id]);
+    server.resetHandlers();
+    const again = removeSpendRow(row.id)!;
+    server.use(
+      http.delete(`${API_BASE_URL}/me/spend/:id`, () => HttpResponse.json({}, { status: 404 })),
+    );
+    expect(await commitSpendRemoval(again, true)).toBe(true);
+    expect(loadSpend().entries).toEqual([]);
+  });
+
+  it("a pull inside the undo window does not bring the deleted entry back", async () => {
+    const row = shop({ pending: true });
+    await pushPendingSpend();
+    const removed = removeSpendRow(row.id)!;
+    expect(await pullSpendMonths(["2026-10"])).toBe(0);
+    expect(loadSpend().entries).toEqual([]);
+    restoreSpendRow(removed);
+    expect(loadSpend().entries).toHaveLength(1);
   });
 });

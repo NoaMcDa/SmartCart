@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PrivacyDraftBadge, PrivacySections } from "./PrivacySections";
 import styles from "./privacy.module.css";
 
 export const metadata: Metadata = { title: "מדיניות פרטיות" };
@@ -12,6 +13,7 @@ export default function Page() {
   return (
     <article className={styles.page}>
       <h1 className={styles.title}>מדיניות פרטיות</h1>
+      <PrivacyDraftBadge />
       <p className={styles.lead}>
         בקצרה: אנחנו אוספים רק מה שצריך כדי להשוות מחירים, לא מוכרים מידע על משתמשים ולא מציגים
         תוצאות ממומנות.
@@ -71,6 +73,8 @@ export default function Page() {
           </li>
         </ul>
       </section>
+
+      <PrivacySections />
 
       <section aria-labelledby="p-retention">
         <h2 id="p-retention">כמה זמן שומרים</h2>

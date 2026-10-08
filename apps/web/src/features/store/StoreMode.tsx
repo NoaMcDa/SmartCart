@@ -18,7 +18,9 @@ import { ReportGapButton } from "@/features/feedback/GapReportSheet";
 import { recordSaving } from "@/features/profile/savingsHistory";
 import { useComparison, type LastResult } from "@/features/split/lastResult";
 import { netSavingForStore } from "@/features/split/savings";
+import { trackEvent } from "@/features/seo/track";
 import { formatTime } from "@/lib/format";
+import { detectPlatform } from "@/lib/platform";
 import { resolveDepartments } from "./departments";
 import { useOnline, useWakeLock, warmStoreModePage } from "./device";
 import {
@@ -133,6 +135,14 @@ function StoreModeInner() {
   }, [session?.storeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useWakeLock(Boolean(session));
+
+  // Native-app decision (#56): store mode opened with a plan. Once per shopping session.
+  const reportedSession = useRef<string | null>(null);
+  useEffect(() => {
+    if (!session || reportedSession.current === session.startedAt) return;
+    reportedSession.current = session.startedAt;
+    trackEvent("store_mode_used", { plan: session.plan ?? "single", platform: detectPlatform() });
+  }, [session]);
 
   // Undo snackbar disappears by itself.
   useEffect(() => {

@@ -343,6 +343,21 @@ export async function postSpend(entry: SpendEntryInput): Promise<SpendEntry> {
   return unwrap(await api.POST("/me/spend", { body: entry }));
 }
 
+/**
+ * `PUT /me/spend/{id}`: replaces an entry, e.g. with the actual checkout total (#70). The body is
+ * the whole `SpendEntryIn`, with the same `client_id` the entry was created with.
+ */
+export async function updateSpend(id: number, entry: SpendEntryInput): Promise<SpendEntry> {
+  return unwrap(
+    await api.PUT("/me/spend/{entry_id}", { params: { path: { entry_id: id } }, body: entry }),
+  );
+}
+
+/** `DELETE /me/spend/{id}` (204): removes one entry of the signed-in user (#70). */
+export async function deleteSpend(id: number): Promise<void> {
+  expectOk(await api.DELETE("/me/spend/{entry_id}", { params: { path: { entry_id: id } } }));
+}
+
 /** `GET /me/spend?month=YYYY-MM`: the signed-in user's entries for one month. */
 export async function getSpend(month: string): Promise<SpendMonth> {
   return unwrap(await api.GET("/me/spend", { params: { query: { month } } }));
