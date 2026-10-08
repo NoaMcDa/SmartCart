@@ -35,7 +35,7 @@ _PROFILE_COLS = (
 def _profile(row: dict | None, user: User) -> schemas.Profile:
     if row is None:
         return schemas.Profile(user_id=str(user.id), exists=False)
-    data = {k: row[k] for k in _PROFILE_COLS}
+    data = {k: row[k] for k in (*_PROFILE_COLS, "monthly_budget")}
     for k in ("neighborhood_lat", "neighborhood_lon"):
         data[k] = float(data[k]) if data[k] is not None else None
     return schemas.Profile(user_id=str(user.id), exists=True, **data)
@@ -57,9 +57,12 @@ def put_profile(body: schemas.ProfileUpdate, uc: UserConn) -> schemas.Profile:
         raise HTTPException(status_code=422, detail="a location is stored only with consent_location")
     values = body.model_dump()
     values["flex_defaults"] = Jsonb(values["flex_defaults"])
-    cols = ", ".join(_PROFILE_COLS)
-    placeholders = ", ".join(f"%({c})s" for c in _PROFILE_COLS)
-    updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in _PROFILE_COLS)
+    # monthly_budget (#70) is written only when the request names it: omitted keeps the stored
+    # budget (older clients PUT the profile without it), an explicit null clears it.
+    names = (*_PROFILE_COLS, "monthly_budget") if "monthly_budget" in body.model_fields_set else _PROFILE_COLS
+    cols = ", ".join(names)
+    placeholders = ", ".join(f"%({c})s" for c in names)
+    updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in names)
     with conn.cursor(row_factory=dict_row) as cur:
         row = cur.execute(
             f"INSERT INTO profiles (user_id, {cols}) VALUES (%(user_id)s, {placeholders})"

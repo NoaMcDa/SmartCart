@@ -6,11 +6,12 @@ The web app generates TypeScript types from the OpenAPI document this module pro
 
 from __future__ import annotations
 
+from datetime import date as Date
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 FlexLevel = Literal["exact", "any_brand", "close"]
 TravelMode = Literal["car", "walk_transit", "delivery"]
@@ -51,6 +52,33 @@ class ParsedRow(_Model):
 class ParseListResponse(_Model):
     rows: list[ParsedRow]
     generated_at: datetime
+
+
+# --- parse-recipe (phase 3, issue #71) -------------------------------------------------------
+
+class ParseRecipeRequest(_Model):
+    text: str | None = Field(default=None, min_length=1, max_length=20000, description="A pasted recipe, Hebrew")
+    url: str | None = Field(
+        default=None, min_length=8, max_length=2000,
+        description="A recipe page (http or https). Only this page is fetched: 5 s timeout, 2 MB cap",
+    )
+    servings: int | None = Field(
+        default=None, ge=1, le=100,
+        description="Scale the amounts to this many servings (needs the recipe's own yield)",
+    )
+
+    @model_validator(mode="after")
+    def _one_source(self) -> ParseRecipeRequest:
+        if (self.text is None) == (self.url is None):
+            raise ValueError("send exactly one of text or url")
+        return self
+
+
+class ParseRecipeResponse(_Model):
+    title: str | None
+    servings: int | None = Field(description="The servings the quantities are for; null when the recipe's yield is unknown (then nothing was scaled)")
+    items: list[ParsedRow] = Field(description="One row per ingredient, resolved like /parse-list; quantity counts packs (rounded up to the canonical's typical pack size) or kg when unit is kg")
+    unresolved: list[str] = Field(description="Ingredient lines left to the user: not a supermarket product, to taste, optional, or not found in the catalog")
 
 
 # --- search ----------------------------------------------------------------------------------
@@ -256,6 +284,10 @@ class ProfileUpdate(_Model):
     flex_defaults: dict[str, FlexLevel] = Field(default_factory=dict)
     theme: Literal["system", "light", "dark"] = "system"
     consent_location: bool = Field(default=False, description="Required to store a neighborhood location")
+    monthly_budget: Decimal | None = Field(
+        default=None, ge=0, max_digits=10, decimal_places=2,
+        description="Monthly grocery budget, ILS (#70). Omitted keeps the stored value; null clears it",
+    )
 
 
 class Profile(ProfileUpdate):
@@ -326,6 +358,9 @@ EventName = Literal[
     "swap_dismissed",
     "list_shared",
     "share_accepted",
+    # phase 3 surfaces
+    "voice_started",
+    "voice_completed",
 ]
 
 
@@ -484,3 +519,50 @@ class SwapSuggestionResponse(_Model):
     top_swap: SwapSuggestion | None = None
     total_saving: Decimal
     generated_at: datetime
+
+
+# --- budget and spend (phase 3, issue #70) ---------------------------------------------------
+
+class SpendEntryIn(_Model):
+    date: Date = Field(description="The shopping day")
+    store_id: int
+    store_name: str = Field(min_length=1, max_length=200)
+    total: Decimal = Field(ge=0, max_digits=10, decimal_places=2, description="ILS; the user's actual total overrides the app's estimate")
+    item_count: int = Field(ge=0, le=1000)
+    plan: Literal["single", "split"]
+
+
+class SpendEntry(SpendEntryIn):
+    id: int
+
+
+class SpendMonth(_Model):
+    month: str = Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="YYYY-MM")
+    entries: list[SpendEntry] = Field(description="Oldest first")
+    total: Decimal
+    budget: Decimal | None = Field(description="profiles.monthly_budget; null when not set")
+
+
+class SpendExport(_Model):
+    budget: Decimal | None
+    entries: list[SpendEntry] = Field(description="Every entry of the user, oldest first")
+    generated_at: datetime
+
+
+# --- promo cycles (phase 3, issue #69) -------------------------------------------------------
+
+class PromoCycleChain(_Model):
+    chain_id: str
+    chain_name: str
+    cycles_seen: int = Field(ge=0, description="Gaps between consecutive promo windows observed")
+    median_gap_days: float | None = Field(description="Median days from one promo start to the next; null with no gap")
+    confidence: float = Field(ge=0, le=1, description="cycles_seen / (cycles_seen + 1.5) x max(0, 1 - coefficient of variation of the gaps)")
+    last_promo_ends: Date | None = Field(description="End of the latest promo window seen")
+    next_expected_from: Date | None = Field(description="null unless the prediction passes the gate (3 cycles, confidence 0.6)")
+    next_expected_to: Date | None
+    advice: Literal["buy_now", "wait", "unknown"] = Field(description="A hint, never a promise; unknown below the gate")
+
+
+class PromoCycleResponse(_Model):
+    canonical_id: int
+    chains: list[PromoCycleChain]

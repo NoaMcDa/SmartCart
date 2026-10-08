@@ -357,7 +357,9 @@
               "swap_undone",
               "swap_dismissed",
               "list_shared",
-              "share_accepted"
+              "share_accepted",
+              "voice_started",
+              "voice_completed"
             ],
             "title": "Name",
             "type": "string"
@@ -964,6 +966,107 @@
           "generated_at"
         ],
         "title": "ParseListResponse",
+        "type": "object"
+      },
+      "ParseRecipeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "servings": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Scale the amounts to this many servings (needs the recipe's own yield)",
+            "title": "Servings"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A pasted recipe, Hebrew",
+            "title": "Text"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A recipe page (http or https). Only this page is fetched: 5 s timeout, 2 MB cap",
+            "title": "Url"
+          }
+        },
+        "title": "ParseRecipeRequest",
+        "type": "object"
+      },
+      "ParseRecipeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "One row per ingredient, resolved like /parse-list; quantity counts packs (rounded up to the canonical's typical pack size) or kg when unit is kg",
+            "items": {
+              "$ref": "#/components/schemas/ParsedRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "servings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The servings the quantities are for; null when the recipe's yield is unknown (then nothing was scaled)",
+            "title": "Servings"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "unresolved": {
+            "description": "Ingredient lines left to the user: not a supermarket product, to taste, optional, or not found in the catalog",
+            "items": {
+              "type": "string"
+            },
+            "title": "Unresolved",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "servings",
+          "items",
+          "unresolved"
+        ],
+        "title": "ParseRecipeResponse",
         "type": "object"
       },
       "ParsedRow": {
@@ -1669,6 +1772,19 @@
             "title": "Max Stores",
             "type": "integer"
           },
+          "monthly_budget": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Monthly grocery budget, ILS (#70). Omitted keeps the stored value; null clears it",
+            "title": "Monthly Budget"
+          },
           "neighborhood_lat": {
             "anyOf": [
               {
@@ -1828,6 +1944,23 @@
             "title": "Max Stores",
             "type": "integer"
           },
+          "monthly_budget": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Monthly grocery budget, ILS (#70). Omitted keeps the stored value; null clears it",
+            "title": "Monthly Budget"
+          },
           "neighborhood_lat": {
             "anyOf": [
               {
@@ -1923,6 +2056,127 @@
           "saving"
         ],
         "title": "PromoBundle",
+        "type": "object"
+      },
+      "PromoCycleChain": {
+        "additionalProperties": false,
+        "properties": {
+          "advice": {
+            "description": "A hint, never a promise; unknown below the gate",
+            "enum": [
+              "buy_now",
+              "wait",
+              "unknown"
+            ],
+            "title": "Advice",
+            "type": "string"
+          },
+          "chain_id": {
+            "title": "Chain Id",
+            "type": "string"
+          },
+          "chain_name": {
+            "title": "Chain Name",
+            "type": "string"
+          },
+          "confidence": {
+            "description": "cycles_seen / (cycles_seen + 1.5) x max(0, 1 - coefficient of variation of the gaps)",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "cycles_seen": {
+            "description": "Gaps between consecutive promo windows observed",
+            "minimum": 0.0,
+            "title": "Cycles Seen",
+            "type": "integer"
+          },
+          "last_promo_ends": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "End of the latest promo window seen",
+            "title": "Last Promo Ends"
+          },
+          "median_gap_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Median days from one promo start to the next; null with no gap",
+            "title": "Median Gap Days"
+          },
+          "next_expected_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null unless the prediction passes the gate (3 cycles, confidence 0.6)",
+            "title": "Next Expected From"
+          },
+          "next_expected_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Expected To"
+          }
+        },
+        "required": [
+          "chain_id",
+          "chain_name",
+          "cycles_seen",
+          "median_gap_days",
+          "confidence",
+          "last_promo_ends",
+          "next_expected_from",
+          "next_expected_to",
+          "advice"
+        ],
+        "title": "PromoCycleChain",
+        "type": "object"
+      },
+      "PromoCycleResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_id": {
+            "title": "Canonical Id",
+            "type": "integer"
+          },
+          "chains": {
+            "items": {
+              "$ref": "#/components/schemas/PromoCycleChain"
+            },
+            "title": "Chains",
+            "type": "array"
+          }
+        },
+        "required": [
+          "canonical_id",
+          "chains"
+        ],
+        "title": "PromoCycleResponse",
         "type": "object"
       },
       "PromoWindow": {
@@ -2289,6 +2543,203 @@
           "name"
         ],
         "title": "ShoppingListIn",
+        "type": "object"
+      },
+      "SpendEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "description": "The shopping day",
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "item_count": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Item Count",
+            "type": "integer"
+          },
+          "plan": {
+            "enum": [
+              "single",
+              "split"
+            ],
+            "title": "Plan",
+            "type": "string"
+          },
+          "store_id": {
+            "title": "Store Id",
+            "type": "integer"
+          },
+          "store_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Store Name",
+            "type": "string"
+          },
+          "total": {
+            "description": "ILS; the user's actual total overrides the app's estimate",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
+            "title": "Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "store_id",
+          "store_name",
+          "total",
+          "item_count",
+          "plan",
+          "id"
+        ],
+        "title": "SpendEntry",
+        "type": "object"
+      },
+      "SpendEntryIn": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "description": "The shopping day",
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "item_count": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Item Count",
+            "type": "integer"
+          },
+          "plan": {
+            "enum": [
+              "single",
+              "split"
+            ],
+            "title": "Plan",
+            "type": "string"
+          },
+          "store_id": {
+            "title": "Store Id",
+            "type": "integer"
+          },
+          "store_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Store Name",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
+                "type": "string"
+              }
+            ],
+            "description": "ILS; the user's actual total overrides the app's estimate",
+            "title": "Total"
+          }
+        },
+        "required": [
+          "date",
+          "store_id",
+          "store_name",
+          "total",
+          "item_count",
+          "plan"
+        ],
+        "title": "SpendEntryIn",
+        "type": "object"
+      },
+      "SpendExport": {
+        "additionalProperties": false,
+        "properties": {
+          "budget": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget"
+          },
+          "entries": {
+            "description": "Every entry of the user, oldest first",
+            "items": {
+              "$ref": "#/components/schemas/SpendEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "budget",
+          "entries",
+          "generated_at"
+        ],
+        "title": "SpendExport",
+        "type": "object"
+      },
+      "SpendMonth": {
+        "additionalProperties": false,
+        "properties": {
+          "budget": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "profiles.monthly_budget; null when not set",
+            "title": "Budget"
+          },
+          "entries": {
+            "description": "Oldest first",
+            "items": {
+              "$ref": "#/components/schemas/SpendEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "month": {
+            "description": "YYYY-MM",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Month",
+            "type": "string"
+          },
+          "total": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "entries",
+          "total",
+          "budget"
+        ],
+        "title": "SpendMonth",
         "type": "object"
       },
       "StoreAssignment": {
@@ -4569,6 +5020,299 @@
         ]
       }
     },
+    "/me/spend": {
+      "get": {
+        "operationId": "month_spend_me_spend_get",
+        "parameters": [
+          {
+            "description": "YYYY-MM; default the current month (UTC)",
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM; default the current month (UTC)",
+              "title": "Month"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendMonth"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Month Spend",
+        "tags": [
+          "me"
+        ]
+      },
+      "post": {
+        "operationId": "create_spend_me_spend_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpendEntryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendEntry"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Spend",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/me/spend/export": {
+      "get": {
+        "description": "Every spend entry of the user, oldest first, and the budget.",
+        "operationId": "export_spend_me_spend_export_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendExport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Spend",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/me/spend/{entry_id}": {
+      "delete": {
+        "operationId": "delete_spend_me_spend__entry_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Spend",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "description": "Replace an entry, e.g. with the actual checkout total.",
+        "operationId": "update_spend_me_spend__entry_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpendEntryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendEntry"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Spend",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/optimize": {
       "post": {
         "operationId": "optimize_optimize_post",
@@ -4700,6 +5444,111 @@
         "summary": "Parse List",
         "tags": [
           "basket"
+        ]
+      }
+    },
+    "/parse-recipe": {
+      "post": {
+        "operationId": "parse_recipe_parse_recipe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseRecipeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseRecipeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Parse Recipe",
+        "tags": [
+          "basket"
+        ]
+      }
+    },
+    "/promo-cycles/{canonical_id}": {
+      "get": {
+        "operationId": "get_promo_cycles_promo_cycles__canonical_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "canonical_id",
+            "required": true,
+            "schema": {
+              "title": "Canonical Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Clubs the user marked; club-only promos count only for these",
+            "in": "query",
+            "name": "clubs",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 20,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Clubs the user marked; club-only promos count only for these",
+              "title": "Clubs"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromoCycleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Promo Cycles",
+        "tags": [
+          "history"
         ]
       }
     },

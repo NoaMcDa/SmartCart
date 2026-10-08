@@ -162,6 +162,13 @@ export const handlers = [
       extra_stop_value: String(body.extra_stop_value ?? "25"),
       neighborhood_lat: round3(body.neighborhood_lat),
       neighborhood_lon: round3(body.neighborhood_lon),
+      // Like the API (#70): an omitted budget keeps the stored one, null clears it.
+      monthly_budget:
+        body.monthly_budget === undefined
+          ? (meProfile?.monthly_budget ?? null)
+          : body.monthly_budget === null
+            ? null
+            : Number(body.monthly_budget).toFixed(2),
       exists: true,
     };
     return HttpResponse.json(meProfile);

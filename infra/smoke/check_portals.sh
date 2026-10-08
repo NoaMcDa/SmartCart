@@ -5,12 +5,19 @@
 # Run it on the ingestion VPS. Run it once from a non-Israeli machine too if you want proof that
 # the block is real: the laibcatalog line should then differ.
 #
-# Exit codes: 0 everything reachable and the download probe passed;
-#             1 a portal is unreachable, blocked or erroring, or the download probe failed;
+# Exit codes: 0 everything reachable, every Cerberus login worked and the download probe passed;
+#             1 a portal is unreachable, blocked or erroring, a Cerberus login failed, or the
+#               download probe failed;
 #             2 reachability is fine but the download probe was inconclusive (the laibcatalog
 #               listing is empty between midnight and about 08:00 Israel time; re-run later).
 # Needs curl and python3 (standard library only). Optional: CURL_MAX_TIME (default 20),
 # SKIP_DOWNLOAD_PROBE=1, PROBE_EDI (laibcatalog chain id, default Victory 7290696200003).
+#
+# Also checks the Cerberus FTP login (FTP over TLS, the user name of each Cerberus chain and an
+# empty password, as the upstream scraper logs in) for the four D13 Cerberus chains; a failed
+# login counts as a failure. SKIP_FTP_LOGIN_PROBE=1 skips it.
+# MARKDOWN_OUT=<file> also appends the results as a Markdown table to that file (the
+# portal-probe workflow points it at $GITHUB_STEP_SUMMARY).
 set -euo pipefail
 
 CURL_MAX_TIME="${CURL_MAX_TIME:-20}"
@@ -59,6 +66,16 @@ classify() {
   esac
 }
 
+MARKDOWN_OUT="${MARKDOWN_OUT:-}"
+md() {
+  # Append one line to the Markdown output when MARKDOWN_OUT is set.
+  if [[ -n "$MARKDOWN_OUT" ]]; then printf '%s\n' "$*" >>"$MARKDOWN_OUT"; fi
+}
+md "### Portal reachability (infra/smoke/check_portals.sh)"
+md ""
+md "| portal | HTTP | result |"
+md "|---|---|---|"
+
 failures=0
 printf '%-44s %-6s %s\n' "PORTAL" "HTTP" "RESULT"
 for entry in "${PORTALS[@]}"; do
@@ -67,11 +84,55 @@ for entry in "${PORTALS[@]}"; do
   code="$(probe "$url")"
   result="$(classify "$code")"
   printf '%-44s %-6s %s\n' "$label" "$code" "$result"
+  md "| ${label} | ${code} | ${result} |"
   case "$result" in
     OK | REACHABLE) ;;
     *) failures=$((failures + 1)) ;;
   esac
 done
+
+# Cerberus chains log in over FTP with TLS: host|user (from the upstream scrapers).
+CERBERUS_LOGINS=(
+  "url.retail.publishedprices.co.il|RamiLevi"
+  "url.retail.publishedprices.co.il|TivTaam"
+  "url.retail.publishedprices.co.il|osherad"
+  "url.retail.publishedprices.co.il|yohananof"
+)
+if [[ "${SKIP_FTP_LOGIN_PROBE:-0}" != "1" ]]; then
+  echo
+  md ""
+  md "| Cerberus FTP login | result |"
+  md "|---|---|"
+  for entry in "${CERBERUS_LOGINS[@]}"; do
+    host="${entry%%|*}"
+    user="${entry#*|}"
+    login="$(python3 - "$host" "$user" "$CURL_MAX_TIME" <<'PY'
+import ftplib
+import ssl
+import sys
+
+host, user, timeout = sys.argv[1], sys.argv[2], float(sys.argv[3])
+try:
+    ftp = ftplib.FTP_TLS(host, timeout=timeout, context=ssl.create_default_context())
+    try:
+        ftp.login(user, "")
+        ftp.prot_p()
+    finally:
+        try:
+            ftp.quit()
+        except (ftplib.Error, OSError):
+            ftp.close()
+except (ftplib.Error, OSError, EOFError) as exc:
+    print(f"FAIL ({type(exc).__name__})")
+else:
+    print("OK")
+PY
+)"
+    printf 'ftp login %-34s %s\n' "${user}@${host}" "$login"
+    md "| ${user}@${host} | ${login} |"
+    [[ "$login" == "OK" ]] || failures=$((failures + 1))
+  done
+fi
 
 probe_status="SKIPPED"
 if [[ "${SKIP_DOWNLOAD_PROBE:-0}" != "1" ]]; then
@@ -130,6 +191,8 @@ fi
 echo
 echo "reachability failures: ${failures}"
 echo "download probe:        ${probe_status}"
+md ""
+md "Reachability and login failures: ${failures}; laibcatalog download probe: ${probe_status}."
 
 if [[ "$failures" -gt 0 || "$probe_status" == "FAIL" ]]; then
   exit 1

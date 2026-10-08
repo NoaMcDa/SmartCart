@@ -40,6 +40,9 @@ router = APIRouter(prefix="/events", tags=["events"])
 EVENTS_PER_SESSION_PER_MINUTE = 120
 
 FLEX_LEVELS = frozenset({"exact", "any_brand", "close"})
+# Speech recognizers the voice list may use: the browser's Web Speech API, a server-side
+# recognizer, or the fallback of typing instead.
+VOICE_ENGINES = ("web_speech", "server", "manual")
 
 
 @dataclass(frozen=True)
@@ -114,6 +117,15 @@ EVENT_PROPS: dict[str, dict[str, Key]] = {
     # Shared lists: an invite link was created; an invite was accepted.
     "list_shared": {"role": _choices("editor", "viewer")},
     "share_accepted": {"role": _choices("editor", "viewer")},
+    # --- phase 3: voice list. No transcript, no audio: the outcome and counts only.
+    # The microphone opened. engine says which recognizer was used.
+    "voice_started": {"engine": _choices(*VOICE_ENGINES)},
+    # A voice session ended. outcome is what the user saw; duration_ms runs from voice_started.
+    "voice_completed": {
+        "outcome": _choices("parsed", "empty", "cancelled", "error", required=True),
+        "duration_ms": Key(0, 600_000),
+        "item_count": Key(0, 200),
+    },
 }
 
 

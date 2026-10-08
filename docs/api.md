@@ -459,3 +459,116 @@ id, price, list id or token. Every prop is optional except `scan_completed.outco
 | `list_shared`, `share_accepted` | `role`: `editor`, `viewer` |
 
 Tests: `test_api_events.py` stores each with its props and rejects other keys and values.
+
+## Phase 3: recipe to list, budget and spend, promo cycles, voice events (#71, #70, #69)
+
+Built on synthetic data and the seeded catalog only; nothing here has run against real files.
+The contract additions are new routes and optional fields, so older clients keep working;
+`openapi.json` and `types.ts` are regenerated.
+
+| Route | Auth | Purpose |
+|---|---|---|
+| `POST /parse-recipe` | none | a Hebrew recipe (pasted text or one page) to basket rows (#71) |
+| `GET /me/spend?month=YYYY-MM` | required | the month's spend entries, their total and the budget (#70) |
+| `POST /me/spend` | required | record a shopping trip; 201 with the entry and its `id` |
+| `PUT`, `DELETE /me/spend/{id}` | required | correct an entry (the actual checkout total replaces the estimate), or remove it (204) |
+| `GET /me/spend/export` | required | every spend entry and the budget: the user's copy of their spend data |
+| `GET /promo-cycles/{canonical_id}?clubs=` | none | when a promo is likely to return, per chain (#69) |
+
+`PUT /me/profile` gains `monthly_budget` (ILS, 2 decimals, at least 0). It is written only when
+the request names it: a client that omits the field keeps the stored budget (the existing
+onboarding and settings screens PUT the profile without it), an explicit `null` clears it.
+`GET /me/profile` returns it.
+
+### POST /parse-recipe
+
+Request `{text?, url?, servings?}`, exactly one of `text` and `url` (else 422); `servings` 1 to
+100. Response `{title, servings, items: ParsedRow[], unresolved: string[]}`. Code:
+`routes/recipe.py`, `recipe_fetch.py`, and the catalog's parser `smartcart_catalog/recipe.py`
+(rules and tables in [catalog.md](catalog.md#7-recipe-parser-71)).
+
+1. **Read.** Text goes to the rule parser. A `url` is fetched (below) and read from its JSON-LD
+   `Recipe` (`recipeIngredient`, `recipeYield`, `name`), else from the visible text under an
+   ingredients header ("מצרכים"); a page without either yields no items. No LLM is used or needed.
+2. **Merge and scale.** The same ingredient twice is one row (`input_text` joins the lines with
+   ` + `). With `servings` and a known recipe yield the amounts are scaled; `servings` in the
+   response is the number the quantities are for, the recipe's own yield when none was asked, or
+   null when the yield is unknown (then nothing was scaled).
+3. **Resolve.** Each ingredient goes through the `/parse-list` matcher (`routes.search.resolve`,
+   the same retrievers, ambiguity cap, candidates and flexibility defaults). The floor is stricter
+   than /parse-list: a best hit under **0.70** goes to `unresolved` with its line, not to a
+   confirmation prompt, because recipe words are not written for our catalog ("יין לבן" shares a
+   word with "קמח לבן", "סודה לשתייה" with soda water). Two equally good canonicals ("חלב", 3 % or
+   1 %) are capped at exactly 0.70 by the matcher and stay as a row with `needs_confirmation` and
+   candidates. The 0.70 floor is an estimate from the ten-recipe fixture, not a measured precision.
+4. **Quantity.** `quantity` follows /parse-list: kilograms with `unit = "kg"` for canonicals sold
+   by weight (rounded up to 50 g), else whole packs of the canonical's typical pack size
+   (`canonical_products.soft_attrs.pack_size`), rounded up. "200 גרם גבינה" with a 250 g pack is
+   1; 600 g of spaghetti in 500 g packs is 2. The original amount stays visible in `input_text`.
+   An amount the tables cannot convert (no density, no piece weight, no pack size, slices of a
+   packaged product) keeps one pack or one kilogram and sets `needs_confirmation`.
+5. **Unresolved.** Lines left to the user, in order: what the parser set aside (tap water, ice,
+   "to taste" or "as needed" without an amount such as "מלח לפי הטעם", optional ingredients),
+   then ingredients the matcher did not find. Nothing is dropped silently and nothing is guessed.
+
+Every row has a canonical; `confidence >= 0.70`; `is_weighed` exactly when `unit = "kg"`.
+Pantry staples are not filtered by default: salt with an amount is a row, salt "to taste" is
+unresolved. A pantry toggle (issue #71) is a client-side filter on the rows.
+
+**Fetching a URL** (`recipe_fetch.py`): http or https on the default ports, no credentials in the
+URL, and the host must resolve to public addresses only (loopback, private, link-local,
+multicast, reserved and unspecified are refused with 422 before any request). Only the given
+page is fetched: no links are followed, at most 3 redirects, each checked like the first URL.
+5 s timeout per phase and in total, 2 MB body cap, HTML or plain text only. A site error or
+timeout answers 502. The fetcher is a FastAPI dependency (`get_fetcher`), so the tests use a
+fake and never touch the network. Known limit: the address is checked before httpx connects,
+so DNS rebinding is not caught in the process; deploy the API with egress limited to the public
+internet.
+
+Tests: `test_recipe.py`, ten Hebrew recipes (`tests/fixtures/recipes.json`: headers or not,
+fractions, ranges, word amounts, pack units, cloves, weights in parentheses, amounts after the
+name, JSON-LD and plain-HTML pages, scaling up and down) against the seeded MVP catalog with
+hash embeddings, plus the fetch rules with an `httpx.MockTransport`.
+
+### Budget and spend (/me/spend)
+
+- Entry: `{id, date, store_id, store_name, total, item_count, plan: "single" | "split"}`. `total`
+  is what the client sends: the app's estimate when a list is marked as purchased, or the actual
+  checkout total the user typed, which replaces it (`PUT`). The estimate label and the net-saving
+  explanation (D7) are the screen's; the API stores the number. An unknown `store_id` is 422.
+- Month: `{month, entries (oldest first), total, budget}`; `month` defaults to the current UTC
+  month; `budget` is `profiles.monthly_budget` or null. Decimals are strings in JSON.
+- RLS: `spend_entries` has `spend_entries_own` (`user_id = auth.uid()`, forced), so the routes
+  run on `user_conn` like the other `/me` routes. Tests (`test_spend.py`): user A cannot read,
+  change or delete B's entries over the API, and at SQL level through `smartcart_app` (including
+  an insert with another user's id, refused by the policy).
+- Privacy (D10, D11): spend data never enters `events` and is never sent anywhere. `DELETE /me`
+  deletes the user's `spend_entries` under RLS and the profile (with the budget);
+  `test_me_delete.py` checks both. The auth cascade removes them on Supabase too.
+
+### GET /promo-cycles/{canonical_id}
+
+`{canonical_id, chains: [{chain_id, chain_name, cycles_seen, median_gap_days, confidence,
+last_promo_ends, next_expected_from, next_expected_to, advice}]}`, one entry per chain with promo
+history for the canonical, by chain id; 404 for an unknown canonical. Dates are Israel-local days
+(`YYYY-MM-DD`). The method, the thresholds (estimates) and the limits are in
+[promo-cycles.md](promo-cycles.md). In short: below 3 cycles or a confidence of 0.6 the window is
+null and `advice = "unknown"`; `wait` means the next window opens within 14 days; `buy_now`
+means a promo is running or none is expected soon. Club-only promos count only for clubs passed
+in `clubs` (repeatable), with the /compare club rule (`basket.club_member`). It reads `promos` per
+request and is not on the compare or optimize path.
+
+### Events: voice list
+
+`POST /events` accepts two more names. No transcript, no audio, no item text.
+
+| Event | Props |
+|---|---|
+| `voice_started` | `engine`: `web_speech`, `server`, `manual` |
+| `voice_completed` | `outcome` (required): `parsed`, `empty`, `cancelled`, `error`; `duration_ms` 0 to 600000; `item_count` 0 to 200 |
+
+### Migration
+
+| File | What |
+|---|---|
+| `20261010100000_phase3.sql` | `profiles.monthly_budget numeric(10,2)`; `spend_entries` with own-rows RLS (forced), grants to `smartcart_app` and, on Supabase, `authenticated` |
