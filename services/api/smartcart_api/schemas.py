@@ -405,6 +405,7 @@ EventName = Literal[
     "voice_completed",
     # finish round (issues #56, #61, #68, #72, #73)
     "pwa_installed",
+    "push_prompt_shown",
     "push_opt_in",
     "push_opened",
     "store_mode_used",
