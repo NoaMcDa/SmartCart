@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Price } from "@/components/ui/Price";
 import { IconInfo } from "@/components/ui/icons";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { MonthlyBudgetSection } from "@/features/budget/MonthlyBudgetSection";
 import { ChainControls } from "./controls/ChainControls";
 import { LocationControls } from "./controls/LocationControls";
 import { TravelControls } from "./controls/TravelControls";
@@ -116,6 +117,8 @@ export function ProfileScreen() {
           </h2>
           <SavingsSection />
         </Card>
+
+        <MonthlyBudgetSection className={styles.wide} />
 
         <Card as="section" aria-labelledby="location-heading">
           <h2 id="location-heading" className={styles.sectionTitle}>

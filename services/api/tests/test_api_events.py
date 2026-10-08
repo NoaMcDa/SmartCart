@@ -291,3 +291,40 @@ def test_rejected_substitutions_view_lists_the_context_for_review(client, db, wo
         "SELECT canonical_slug, substitute_item, needs_review, reviewed FROM beta_rejected_substitutions"
     ).fetchall()
     assert row[0] == "t-salmon" and row[2] is True and row[3] is False and row[1]
+
+
+# --- phase 3: voice list -------------------------------------------------------------------------
+
+VOICE_EVENTS = [
+    ("voice_started", {"engine": "web_speech"}),
+    ("voice_completed", {"outcome": "parsed", "duration_ms": 5200, "item_count": 7}),
+    ("voice_completed", {"outcome": "empty", "duration_ms": 3000, "item_count": 0}),
+    ("voice_completed", {"outcome": "cancelled"}),
+    ("voice_completed", {"outcome": "error", "duration_ms": 0}),
+]
+
+
+def test_voice_events_are_stored_with_their_props(client, db) -> None:
+    r = post(client, *(ev(n, p) for n, p in VOICE_EVENTS), ev("voice_started"))
+    assert r.status_code == 200 and r.json()["accepted"] == len(VOICE_EVENTS) + 1, r.text
+    assert [(n, p) for _, _, n, p in stored(db)] == [*VOICE_EVENTS, ("voice_started", {})]
+
+
+@pytest.mark.parametrize(
+    ("name", "props", "reason"),
+    [
+        ("voice_started", {"engine": "siri"}, "must be one of"),
+        ("voice_started", {"transcript": "חלב ולחם"}, "not allowed"),
+        ("voice_completed", {}, "required"),
+        ("voice_completed", {"outcome": "partial"}, "must be one of"),
+        ("voice_completed", {"outcome": "parsed", "duration_ms": 700_000}, "between 0 and 600000"),
+        ("voice_completed", {"outcome": "parsed", "item_count": 201}, "between 0 and 200"),
+        ("voice_completed", {"outcome": "parsed", "item_count": "7"}, "must be an integer"),
+        ("voice_completed", {"outcome": "parsed", "text": "חלב"}, "not allowed"),
+    ],
+)
+def test_voice_event_props_are_allowlisted(client, db, name, props, reason) -> None:
+    r = post(client, ev(name, props))
+    assert r.status_code == 422, r.text
+    assert reason in str(r.json()["detail"])
+    assert stored(db) == []

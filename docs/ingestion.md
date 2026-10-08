@@ -267,6 +267,76 @@ and `fetch` reads and deletes the staged file. A scrape that saved nothing but r
 errors raises `PortalError`. Upstream logs and swallows listing exceptions, so a portal that is
 down may look like an empty listing; the run logs `portal listed no files` in that case.
 
+## Portal probe from GitHub runners
+
+`.github/workflows/portal-probe.yml` ("Portal probe", issues #32, #53, #57 and preparation for
+#60) runs on `workflow_dispatch` and daily at 07:17 UTC (after the laibcatalog listing fills, D13).
+A GitHub-hosted runner is **not** an Israeli IP, so the run doubles as a measurement of which
+portals block cloud ranges (laibcatalog is reported to, verified in the research, section 2.3);
+the VPS (#22) remains the production path whatever it shows. Steps:
+
+1. `infra/smoke/check_portals.sh` with `MARKDOWN_OUT=$GITHUB_STEP_SUMMARY`: HTTP reachability of
+   the portal hosts, the Cerberus FTP-over-TLS login for Rami Levy, Tiv Taam, Osher Ad and
+   Yohananof (added for this workflow; it also runs on the VPS), and the laibcatalog download
+   probe. Its exit code is printed, not enforced.
+2. `scripts/unblock/portal_probe.py probe`: per D13 chain, the portal's HTTP status, the Cerberus
+   login, and one Stores and one PriceFull file through `smartcart_ingest.adapters.fetch_fixtures`
+   (`--kind stores --kind price_full --timeout`, the pinned upstream scraper, one subprocess per
+   download so a hung portal is killed). Files land in `$RUNNER_TEMP/portal-probe/files/<slug>/`,
+   outside the checkout. Only transparency portals are contacted, never an online store.
+3. `smartcart-ingest migrate` on the throwaway Supabase Postgres, then `portal_probe.py gate`:
+   every downloaded file goes through `Scheduler.run_full` with a one-file fetcher and the real
+   clock, which is the production path (download tracking, adapter, quality gates, loader; no
+   bypass). The outcome is read back from `file_tracking` and `quarantine_events`.
+
+The job summary is one table: chain, portal reachable (HTTP status), login (Cerberus only), the
+Stores and PriceFull file (name, size, publication time), what the adapter parsed (stores and
+online stores; items and prices), the gate result (`loaded`, `quarantined (<gates>)`, `failed
+(<reason>)`) and the schema the adapter detected (v1 or v2; v2 depends on the provisional marker,
+#57). Download errors and alerts follow in collapsed sections. The same table is also printed to
+the job log, and the gate step logs one untruncated `RESULT {...}` JSON line per file (chain,
+kind, file, size, publication time, schema, stores, items, prices, parse error, status, gates,
+reason), so the outcome can be read without downloading an artifact. Artifacts:
+`portal-probe-files` (the raw files, 7 days) and `portal-probe-report` (table and JSON, 30 days).
+Inputs: `chains` (space-separated slugs, default all ten), `timeout` (seconds per download,
+default 180) and `commit_fixtures` (below). The job only fails if the script itself breaks;
+unreachable portals are a result.
+
+The Cerberus login (Rami Levy, Tiv Taam, Osher Ad, Yohananof) is checked the way the upstream
+scraper connects: `ftplib.FTP_TLS(host, user, "")` on `url.retail.publishedprices.co.il` with no
+SSL context, which in ftplib means an unverified one (no CA and no host-name check). The portal's
+certificate does not match that host name (seen from a runner on 2026-10-08), so a verifying login
+fails while the scraper downloads normally; the result then reads `ok (certificate not verified,
+as upstream; ...)`. This is the upstream package's behaviour for public price data, recorded here,
+not changed.
+
+**Committing real fixtures (`commit_fixtures`, #32).** With the input set, the probe job runs
+`portal_probe.py fixtures` after the gates: every file the adapter accepted is written to
+`<chain>/real/`, Stores whole and PriceFull trimmed to its first 200 rows by
+`fetch_fixtures.trim_price_file` (decoded and parsed with the adapters' own `xmlutil`, no entity
+resolution; header, XML declaration, encoding, BOM and outer gzip or zip kept; a numeric `Count`
+on the container updated), then re-parsed through the adapter. Each chain gets a `MANIFEST.json`:
+source file name, sha256 and size of the original and of the committed file, publication and
+fetch times, rows before and after trimming, what the adapter parsed, the schema and the gate
+result seen on the runner. A separate job, the only one with `contents: write`, copies the
+artifact into `services/ingest/tests/fixtures/<chain>/real/` (`scripts/unblock/copy_fixtures.sh`
+accepts only `<known chain>/real/<plain file name>`), commits as `github-actions[bot]` and pushes
+the branch `probe/fixtures-<YYYYMMDD>` (with the run id appended if that branch exists). No pull
+request is opened, and a push with the workflow token does not start other workflows, so CI runs
+when the pull request is opened. `tests/test_adapters.py` then picks the files up: each must parse
+through its adapter with a schema, a publication time and (PriceFull) a store code, items, prices
+with a store code and every price above zero; and per chain the files go through the Scheduler
+path with the clock one hour after the newest file and must load, or be quarantined only by the quality
+gates above that their `MANIFEST.json` recorded. The synthetic fixtures are unchanged
+and stay the regression set for the edge cases. In one fresh
+database a PriceFull has no earlier file, so the item-count and price-jump gates cannot trip;
+stale date and zero price can.
+
+Run it locally without portal access on a migrated database:
+`uv run --no-sync python scripts/unblock/portal_probe.py gate --files services/ingest/tests/fixtures`
+(the synthetic fixtures are past the 36-hour stale limit, so they show `quarantined
+(stale_date)`; add `--now 2026-10-06T12:00` to see them load).
+
 ## Not done yet, and what to verify on the VPS
 
 - `ScraperFetcher` against the real portals (unreachable from development machines). Check that each

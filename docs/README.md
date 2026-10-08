@@ -16,6 +16,9 @@ discussions. Phases 0, 1 and 2 are built (see phase-2-status.md). Read in this o
 11. [optimizer.md](optimizer.md): the phase 2 cart optimizer (MILP and the heuristic it is compared with).
 12. [phase-2-status.md](phase-2-status.md): status of every phase 0, 1 and 2 issue, what is blocked, and the owner's runbook, in order.
 13. [fullstack.md](fullstack.md): the one-command local run on synthetic data (`scripts/demo`), the real-API smoke test, the Playwright suite against the real API, and the gaps that run found.
+14. [deploy.md](deploy.md): the go-live runbook: containers, VPS units and timers, the deploy workflow, sizing from the scaled load test, rollback.
+15. [unblock.md](unblock.md): the four manual workflows that run on GitHub runners (BGE-M3 evaluation, portal probe with real fixtures, extraction pilot, provision check) and the minimum owner input per blocked issue.
+16. [promo-cycles.md](promo-cycles.md): promo cycle prediction (phase 3): method, thresholds and limits, measured on synthetic history only.
 
 ## Facts versus estimates
 

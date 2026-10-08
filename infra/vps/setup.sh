@@ -9,6 +9,8 @@
 #   3. creates the unprivileged `smartcart` service user and the directories it needs;
 #   4. clones or updates the repo in /opt/smartcart and syncs the ingest workspace member;
 #   5. installs the systemd units (daily full sync, hourly delta) and log rotation;
+#   5b. installs the API: smartcart-api.service (127.0.0.1:8000), the nightly precompute and hourly
+#      alerts timers, and with SMARTCART_API_DOMAIN a Caddy reverse proxy with TLS (docs/deploy.md);
 #   6. applies baseline hardening: firewall, key-only SSH (only when keys exist), auto updates.
 #
 # Secrets are never written by this script. It creates /etc/smartcart/ingest.env empty (mode 0640,
@@ -22,6 +24,11 @@
 #   SMARTCART_SKIP_CLONE 1 to leave /opt/smartcart as it is
 #   SMARTCART_SSH_PORT   SSH port to keep open in the firewall (default 22)
 #   SMARTCART_SKIP_HARDENING 1 to skip the firewall and sshd changes
+#   SMARTCART_SKIP_API   1 to install only the ingestion units (no API service, no API timers)
+#   SMARTCART_API_DOMAIN public host name of the API (e.g. api.example.org). When set, Caddy is
+#                        installed as a TLS reverse proxy to 127.0.0.1:8000 and ports 80 and 443 are
+#                        opened. The DNS A record must already point at this server.
+#   SMARTCART_API_PORT   loopback port of the API (default 8000; also set it in api.env)
 set -euo pipefail
 
 REPO_URL="${SMARTCART_REPO_URL:-https://github.com/NoaMcDa/SmartCart.git}"
@@ -31,6 +38,11 @@ APP_USER="smartcart"
 APP_DIR="/opt/smartcart"
 ENV_DIR="/etc/smartcart"
 ENV_FILE="${ENV_DIR}/ingest.env"
+API_ENV_FILE="${ENV_DIR}/api.env"
+JOBS_ENV_FILE="${ENV_DIR}/jobs.env"
+SKIP_API="${SMARTCART_SKIP_API:-0}"
+API_DOMAIN="${SMARTCART_API_DOMAIN:-}"
+API_PORT="${SMARTCART_API_PORT:-8000}"
 LOG_DIR="/var/log/smartcart"
 STATE_DIR="/var/lib/smartcart"
 UV_PYTHON_DIR="/opt/uv-python"
@@ -112,12 +124,18 @@ if [[ ! -f "${APP_DIR}/pyproject.toml" ]]; then
 fi
 chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 
-log "syncing the smartcart-ingest environment"
+# One environment for both: the API package depends on the ingest package, and syncing them
+# together keeps a later sync of one from removing the other's dependencies.
+SYNC_PACKAGES="--package smartcart-ingest"
+if [[ "${SKIP_API}" != "1" ]]; then
+  SYNC_PACKAGES="${SYNC_PACKAGES} --package smartcart-api"
+fi
+log "syncing the environment (${SYNC_PACKAGES})"
 runuser -u "${APP_USER}" -- env \
   HOME="${STATE_DIR}" \
   UV_PYTHON_INSTALL_DIR="${UV_PYTHON_DIR}" \
   UV_CACHE_DIR="${STATE_DIR}/.cache/uv" \
-  bash -c "cd '${APP_DIR}' && uv sync --package smartcart-ingest --python 3.12 --no-dev"
+  bash -c "cd '${APP_DIR}' && uv sync ${SYNC_PACKAGES} --python 3.12 --no-dev"
 
 if [[ ! -x "${APP_DIR}/.venv/bin/smartcart-ingest" ]]; then
   warn "smartcart-ingest entry point not found in ${APP_DIR}/.venv/bin; the units will fail until the ingest package defines it"
@@ -161,6 +179,99 @@ if grep -Eq '^DATABASE_URL=.+' "${ENV_FILE}"; then
 else
   warn "${ENV_FILE} has no DATABASE_URL yet: timers are enabled but not started."
   warn "fill the file, then: systemctl start smartcart-ingest-full.timer smartcart-ingest-delta.timer"
+fi
+
+# 5b. API service, precompute and alerts timers, reverse proxy -----------------------------------
+if [[ "${SKIP_API}" != "1" ]]; then
+  log "installing the API units"
+  for unit in \
+    smartcart-api.service \
+    smartcart-precompute.service smartcart-precompute.timer \
+    smartcart-alerts.service smartcart-alerts.timer; do
+    install -m 0644 -o root -g root "${SCRIPT_DIR}/${unit}" "/etc/systemd/system/${unit}"
+  done
+  for f in "${API_ENV_FILE}" "${JOBS_ENV_FILE}"; do
+    if [[ ! -f "${f}" ]]; then
+      log "creating empty ${f} (fill it from .env.example, see docs/deploy.md)"
+      install -m 0640 -o root -g "${APP_USER}" /dev/null "${f}"
+    fi
+  done
+  if [[ ! -s "${API_ENV_FILE}" ]]; then
+    cat >"${API_ENV_FILE}" <<'EOF'
+# SmartCart API environment (smartcart-api.service). Loaded after ingest.env; values here win.
+# Names are catalogued in .env.example; see docs/deploy.md. Never commit this file.
+# DATABASE_URL=            # the API's service connection (transaction pooler), not the ingest role
+# SUPABASE_JWT_SECRET=
+# SUPABASE_URL=
+# SUPABASE_SERVICE_ROLE_KEY=
+# API_CORS_ORIGINS=https://<your domain>
+# API_PUBLIC_WEB_URL=https://<your domain>
+# VAPID_PRIVATE_KEY=
+# VAPID_PUBLIC_KEY=
+# VAPID_SUBJECT=mailto:
+# API_QUERY_EMBEDDER=hash
+# WEB_CONCURRENCY=2
+EOF
+  fi
+  if [[ ! -s "${JOBS_ENV_FILE}" ]]; then
+    cat >"${JOBS_ENV_FILE}" <<'EOF'
+# SmartCart batch jobs (smartcart-precompute, smartcart-alerts). Loaded last; values here win.
+# The precompute deletes stale effective_prices rows and the alerts job reads every user's alerts,
+# so DATABASE_URL here must be a connection that may do both (docs/deploy.md). Never commit it.
+# DATABASE_URL=
+EOF
+  fi
+  chown root:"${APP_USER}" "${API_ENV_FILE}" "${JOBS_ENV_FILE}"
+  chmod 0640 "${API_ENV_FILE}" "${JOBS_ENV_FILE}"
+
+  systemctl daemon-reload
+  systemctl enable smartcart-api.service smartcart-precompute.timer smartcart-alerts.timer
+  if grep -Eq '^DATABASE_URL=.+' "${ENV_FILE}" "${API_ENV_FILE}"; then
+    # A restart picks up the new code and environment after every deploy.
+    systemctl restart smartcart-api.service
+    systemctl restart smartcart-precompute.timer smartcart-alerts.timer
+    log "waiting for the API health check on 127.0.0.1:${API_PORT}"
+    healthy=0
+    for _ in $(seq 1 30); do
+      if curl -fsS --max-time 2 "http://127.0.0.1:${API_PORT}/health" >/dev/null 2>&1; then
+        healthy=1
+        break
+      fi
+      sleep 1
+    done
+    if [[ "${healthy}" -ne 1 ]]; then
+      echo "the API did not answer /health within 30 s; last lines of ${LOG_DIR}/api.log:" >&2
+      tail -n 40 "${LOG_DIR}/api.log" >&2 || true
+      exit 1
+    fi
+    log "API healthy: $(curl -fsS "http://127.0.0.1:${API_PORT}/health")"
+  else
+    warn "no DATABASE_URL in ${ENV_FILE} or ${API_ENV_FILE}: the API and its timers are enabled, not started."
+    warn "fill ${API_ENV_FILE}, then run this script again (or: systemctl restart smartcart-api)"
+  fi
+
+  if [[ -n "${API_DOMAIN}" ]]; then
+    log "installing Caddy as the TLS reverse proxy for ${API_DOMAIN}"
+    apt-get install -y --no-install-recommends caddy
+    cat >/etc/caddy/Caddyfile <<EOF
+# Managed by infra/vps/setup.sh (SMARTCART_API_DOMAIN). TLS certificates are automatic.
+${API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:${API_PORT}
+}
+EOF
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+    systemctl enable caddy
+    systemctl reload caddy 2>/dev/null || systemctl restart caddy
+    if [[ "${SMARTCART_SKIP_HARDENING:-0}" != "1" ]]; then
+      ufw allow 80/tcp >/dev/null
+      ufw allow 443/tcp >/dev/null
+    fi
+  else
+    log "SMARTCART_API_DOMAIN not set: the API listens on loopback only (no reverse proxy)"
+  fi
+else
+  log "API skipped (SMARTCART_SKIP_API=1)"
 fi
 
 # 6. Baseline hardening -------------------------------------------------------------------------

@@ -24,6 +24,8 @@ data/canonicals.yaml ─┘
 | Attribute extraction | `services/catalog/smartcart_catalog/extract/` (`schema.py`, `rule.py`, `claude.py`, `queue.py`, `base.py`) |
 | Configuration | `services/catalog/smartcart_catalog/settings.py` |
 | Command line | `smartcart-catalog` (`cli.py`) |
+| Recipe parser (phase 3, #71) | `services/catalog/smartcart_catalog/recipe.py`, section 7 |
+| Promo cycles (phase 3, #69) | `services/catalog/smartcart_catalog/promo_cycles.py`, `cli_promo.py`, section 8 and [promo-cycles.md](promo-cycles.md) |
 | Tables | `supabase/migrations/20261007100000_catalog_v1.sql` |
 
 ## 1. Taxonomy
@@ -340,6 +342,8 @@ uv run smartcart-catalog seed [--check]              # validate data/*.yaml, ups
 uv run smartcart-catalog normalize [--chain ID]      # report sizes, multipacks, unparseable names
 uv run smartcart-catalog extract [--extractor rule|claude] [--chain ID] [--limit N] [--batch-size N]
 uv run smartcart-catalog cost-report [--runs N]      # tokens and estimated USD per model batch
+uv run smartcart-catalog promo-cycles CANONICAL [--club NAME ...] [--as-of YYYY-MM-DD] [--json]
+uv run smartcart-catalog promo-backtest [--synthetic] [--min-windows N] [--days N]
 ```
 
 | Variable | Default | |
@@ -366,3 +370,77 @@ Other modules add commands through `register(app)` in a module listed in `cli.EX
 - Measured ranking to replace the estimated rank.
 - House-brand lists per chain and the brand list, from loaded data.
 - Real chain names as normalization fixtures, from the first loads.
+
+## 7. Recipe parser (#71)
+
+`smartcart_catalog/recipe.py` reads a Hebrew recipe into ingredient lines with an amount in
+grams, milliliters, pieces or packs. It is pure (no database, no network, no LLM); the API's
+`POST /parse-recipe` resolves the lines with the `/parse-list` matcher and turns the amounts into
+basket quantities with `basket_quantity` (docs/api.md, "POST /parse-recipe").
+
+**Where the ingredients are.** A page: the JSON-LD `Recipe` first (`recipeIngredient`,
+`recipeYield`, `name`, also inside `@graph` or a list, `@type` as a list), else the visible text
+(scripts, styles and templates skipped) under an ingredients header ("מצרכים", "רכיבים",
+"מרכיבים", "חומרים") and above the method header ("אופן ההכנה", "הוראות הכנה", "הכנה"...); no
+header, nothing read. Pasted text: the same sections when the headers are there; else the first
+line without an amount is the title and the other short lines (six words at most) are
+ingredients. Lines ending with ":" are sub-headers ("לבצק:"); long lines without an amount are
+prose. Servings: "4 מנות", "ל-4 סועדים", "מספר מנות: 4", `recipeYield` as a number, string or list.
+
+**One line** (`parse_ingredient`):
+
+| Part | Read as |
+|---|---|
+| Numbers | `2`, `1.5`, `1,5`, `1/2`, `1 1/2`, `½`, `1½`, `חצי`, `רבע`, `שליש`, `שתי`, `שלוש`..., `וחצי` / `ורבע` after a number or a unit (`כוס וחצי`, `2 וחצי כוסות`) |
+| Ranges | `2-3`, `2 עד 3`, `2 או 3`: the upper bound, so the list buys enough |
+| Approximation | `כ-200`, `בערך` are dropped |
+| Mass, volume | grams, `ק"ג`; `מ"ל`, liters; cup 240 ml, spoon 15 ml, teaspoon 5 ml (Israeli kitchen convention, estimate); a unit alone means one (`כוס קמח`) |
+| Packs | `חבילה`, `גביע`, `קופסה`, `פחית`, `שקית`, `בקבוק`, `צנצנת`, `חפיסה`... count purchasable packs |
+| Pieces | `יחידות` or a bare count; `צרור`, `ראש`, `שן`/`שיני` (a clove is 5 g), `פרוסות`, `עלי`, `ענפי` are loose pieces, not packs |
+| Weight in parentheses | `1 בצל גדול (כ-200 גרם)` becomes 200 g |
+| Amount after the name | `קמח - 2 כוסות`, `גבינה לבנה 5%: 250 גרם` |
+| Product text | without what follows a comma or ` + `, parenthetical remarks, the second of two alternatives (`או`, `/`), preparation and size words (`קצוץ`, `מומסת`, `גדולים`, `בשלות`...); then `ALIASES` maps recipe words to catalog names (`קמח` to `קמח לבן`, `ביצה` to `ביצים L`, `בצל` to `בצל יבש`, `טחינה` to `טחינה גולמית`) |
+
+Set aside as `unresolved` (precision over recall, D5): tap water and ice (`NOT_PRODUCTS`;
+`מים מינרליים` is a product); "to taste" and "as needed" without an amount (`לפי הטעם`, `קורט`,
+`מעט`, `לטיגון`, `לקישוט`, `למריחה`, `מלח ופלפל`); optional lines (`לא חובה`, `אופציונלי`). With
+an amount the marker is dropped and the line is kept (`2 כוסות שמן לטיגון`).
+
+**Basket quantities** (`basket_quantity(ingredient, base_unit, pack_size, pack_unit,
+canonical_name)`): goods sold by weight in kilograms rounded up to 50 g; counted and packaged
+goods in whole packs of the canonical's `soft_attrs.pack_size` rounded up (at most 99); a pack
+count is kept; a bare count of a packaged product is packs (`2 חמאה`). Conversions:
+
+- volume to mass and back with `GRAMS_PER_CUP`, about 70 staples (flour 140 g, sugar 200 g, rice
+  200 g, salt 290 g, butter 227 g, honey 340 g per 240 ml cup), looked up by the product text,
+  then by the canonical's name; a liquid canonical given in grams uses density 1;
+- pieces to kilograms with `PIECE_GRAMS` for produce (onion 150 g, tomato 130 g, potato 200 g,
+  lemon 100 g, head of garlic 50 g...).
+
+Every number in both tables is a kitchen estimate from common conversion tables, not a
+measurement; adjust them with a test. When a conversion is unknown the row keeps one pack or one
+kilogram and is marked `converted = False`, which the API turns into `needs_confirmation`.
+
+Tests: `services/catalog/tests/test_recipe.py` (lines, set-aside lines, pages, servings, scaling,
+merging, quantities) and the API's ten-recipe fixture (`services/api/tests/fixtures/recipes.json`).
+Limits: the recipes are written for the tests, not taken from sites; real recipe pages vary more
+(ingredient groups in tables, amounts in words after the product, mixed English). Re-run on a
+sample of real pages before calling the parser done.
+
+## 8. Promo cycles (#69)
+
+`smartcart_catalog/promo_cycles.py` estimates, per (canonical, chain), how regularly a promo
+returns and when it is next expected: promo windows from `promos` (merged across items and
+stores), the median gap between starts, a confidence from the number of cycles and the spread of
+the gaps, and a gate (3 cycles, confidence 0.6) below which nothing is predicted. The method,
+thresholds (all estimates), the synthetic backtest numbers and the limits are in
+[promo-cycles.md](promo-cycles.md). The API serves it as `GET /promo-cycles/{canonical_id}`.
+
+| Command | What it does |
+|---|---|
+| `smartcart-catalog promo-cycles CANONICAL` | the per-chain table for a canonical id or slug; `--club` counts club-only promos of that club, `--as-of` sets today, `--json` |
+| `smartcart-catalog promo-backtest` | walk-forward hit and false-alarm rates on the database's promo history; `--synthetic` on the generated mix the docs quote |
+
+`synthetic_history` and `irregular_history` generate deterministic windows from a seed;
+`seed_promo_history` writes windows as promos for tests and demos. Tests:
+`services/catalog/tests/test_promo_cycles.py` and the API's `test_promo_cycles_route.py`.

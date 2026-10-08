@@ -110,41 +110,16 @@
   cursor: pointer;
 }
 
-.inputButton:hover:not([aria-disabled="true"]) {
+.inputButton:hover {
   background: var(--sc-accent-soft);
 }
 
-.inputButton[aria-disabled="true"] {
-  color: var(--sc-faint);
-  cursor: not-allowed;
-}
-
-.tipWrap {
-  position: relative;
-  display: inline-flex;
-}
-
-.tooltip {
-  position: absolute;
-  inset-block-start: calc(100% + 4px);
-  inset-inline-start: 50%;
-  transform: translateX(50%);
-  z-index: 5;
-  padding: 4px 10px;
-  border-radius: var(--sc-radius-small);
-  background: var(--sc-text);
-  color: var(--sc-bg);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-
-.tipWrap:hover .tooltip,
-.tipWrap:focus-within .tooltip {
-  opacity: 1;
+/* Other ways to fill the list (recipe); sits right under the input row. */
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+  margin-block-start: -4px;
 }
 
 .hint,

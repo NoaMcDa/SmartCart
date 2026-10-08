@@ -9,6 +9,9 @@ exist yet, and the author of this document could not create them. Everything bel
 plus scripts that were written without being run against live services. Where a step depends on the
 current behavior of a vendor product, the text says so and tells you what to confirm.
 
+After provisioning, going live (the API service and its timers on this VPS, the web app, the deploy
+workflow, rollback and sizing) is [deploy.md](deploy.md).
+
 Evidence labels follow the research: **verified** (stated in the research or in the project docs, with
 the source), **estimate** (the author's or the research's estimate), **unverified** (a vendor fact from
 general knowledge that this document could not check; confirm it in the vendor's dashboard or docs
@@ -469,3 +472,62 @@ git history does not un-leak it.
 3. Section 6: bucket and both tokens.
 4. Section 5: VPS, `setup.sh`, the two smoke scripts, the bucket round trip from the VPS. Tick the first three items of #22.
 5. Wait for the schema (#27) and some real loads, then run the restore test (section 4.3) and fill 4.4. Tick the last item of #14.
+
+## 9. One-secret provisioning (GitHub Actions)
+
+Added 2026-10-08 so that each provisioning step needs the owner for as little as possible: one
+token, a few repository secrets, and a click on a workflow. Nothing in this section has been run
+against a live service; the API details are **unverified** where marked.
+
+### 9.1 Create the Supabase project from one token (#14)
+
+`scripts/unblock/supabase_provision.py` (standard library only) needs one management token and
+the organization id. It creates the project, waits until it is healthy, enables `postgis`,
+`vector` and `pg_trgm` in the `extensions` schema (section 2.2), and prints the direct and pooler
+connection strings with `<password>` in place of the password.
+
+```bash
+export SUPABASE_ACCESS_TOKEN=...          # supabase.com, Account, Access Tokens; revoke it afterwards
+export SUPABASE_DB_PASSWORD=...           # optional: from the password manager; else one is generated and printed once
+python3 scripts/unblock/supabase_provision.py --org-id <org id> --dry-run   # prints every request, calls nothing
+python3 scripts/unblock/supabase_provision.py --org-id <org id> --region eu-central-1
+python3 scripts/unblock/supabase_provision.py --ref <project ref>            # an existing project: extensions and strings only
+```
+
+The calls are `POST /v1/projects`, `GET /v1/projects/{ref}` until `ACTIVE_HEALTHY`,
+`POST /v1/projects/{ref}/database/query` and `GET /v1/projects/{ref}/config/database/pooler` on
+`https://api.supabase.com`. These paths and fields are from the Management API as the author
+knows it and are **unverified**: compare the `--dry-run` output with the current API reference
+before the first real run. The plan (Pro, section 2.1) is set on the organization (unverified),
+so upgrade the organization first; choosing and paying for the plan stays with the owner. The region choice and
+the latency check of section 2.1 still apply. The token is powerful: create it for this run and
+revoke it after.
+
+### 9.2 Repository secrets and the "Provision check" workflow (#14, #22)
+
+`.github/workflows/provision-check.yml` runs `scripts/unblock/provision_check.sh` once per service.
+A service whose secrets are absent prints what to set and passes; a smoke test that runs and
+fails turns its job red. Set the secrets in the repository settings (Secrets and variables,
+Actions) and run the workflow from the Actions tab:
+
+| Job | Secrets | What runs | Ticks |
+|---|---|---|---|
+| Supabase database | `SUPABASE_DB_URL`: the `postgres` user's **session pooler** string with the password (GitHub-hosted runners have no IPv6, and the direct host may be IPv6 only, unverified) | `psql -f infra/smoke/db_smoke.sql`; with the input `apply_migrations`, also `smartcart-ingest migrate` | #14: project with the extensions, PostGIS and pgvector smoke |
+| Israeli-IP VPS | `VPS_SSH_HOST`, `VPS_SSH_KEY` (a private key whose public half is in the admin user's `authorized_keys`); optional `VPS_SSH_USER` (default `admin`, section 5.2), `VPS_SSH_PORT`, `VPS_SSH_KNOWN_HOSTS` | `check_israeli_ip.sh` and `check_portals.sh` streamed to the VPS over ssh (the VPS needs no checkout for this) | #22: Israeli IP, and the laibcatalog download from the VPS |
+| Object storage | `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, plus `S3_ENDPOINT_URL` (R2) or `S3_REGION` (S3): the ingest-writer token of section 6.1 | `uv run infra/smoke/bucket_roundtrip.py` | #22: bucket round trip |
+
+Without `VPS_SSH_KNOWN_HOSTS` the host key is learned on first use and its fingerprint printed in
+the job summary; compare it with the provider's console and then pin it in that secret. A
+dedicated key pair for the workflow (not your personal key) is the safer choice; remove its line
+from `authorized_keys` to revoke it. Exit code 2 of either VPS script (a geolocation service or the
+laibcatalog listing was silent) is reported but does not fail the job; run it again later.
+`check_portals.sh` now also checks the Cerberus FTP login of the four Cerberus chains, so its
+output (section 5.4) has four `ftp login ... OK` lines before the download probe. The login is
+made the way the upstream scraper makes it, without certificate verification; the portal's
+certificate does not match `url.retail.publishedprices.co.il`, so the line reads `OK (certificate
+fails verification; upstream does not verify it)` (docs/ingestion.md, portal probe).
+
+What stays with the owner here: the accounts and payment (Supabase Pro, the VPS provider, R2 or
+S3), creating the VPS and the bucket tokens (sections 5.2 and 6.1), and the restore test record
+(section 4.4), which needs a few thousand real rows first. Point-in-time recovery (section 4.1)
+is a dashboard setting.

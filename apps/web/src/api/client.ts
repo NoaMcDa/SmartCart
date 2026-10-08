@@ -328,3 +328,27 @@ export async function nearestStore(chainId: string, lat: number, lon: number): P
     await api.GET("/stores/nearest", { params: { query: { chain_id: chainId, lat, lon } } }),
   );
 }
+
+// ---------------------------------------------------------------------------------------------
+// Phase 3 (unblock round): spend tracking (#70) and recipe to list (#71).
+
+export type SpendEntry = Schemas["SpendEntry"];
+export type SpendEntryInput = Schemas["SpendEntryIn"];
+export type SpendMonth = Schemas["SpendMonth"];
+export type ParseRecipeRequest = Schemas["ParseRecipeRequest"];
+export type ParseRecipeResponse = Schemas["ParseRecipeResponse"];
+
+/** `POST /me/spend` (201): needs the bearer token. The server assigns the numeric `id`. */
+export async function postSpend(entry: SpendEntryInput): Promise<SpendEntry> {
+  return unwrap(await api.POST("/me/spend", { body: entry }));
+}
+
+/** `GET /me/spend?month=YYYY-MM`: the signed-in user's entries for one month. */
+export async function getSpend(month: string): Promise<SpendMonth> {
+  return unwrap(await api.GET("/me/spend", { params: { query: { month } } }));
+}
+
+/** `POST /parse-recipe`: pasted recipe text or a URL (exactly one) to `/parse-list` rows. */
+export async function parseRecipe(body: ParseRecipeRequest): Promise<ParseRecipeResponse> {
+  return unwrap(await api.POST("/parse-recipe", { body }));
+}

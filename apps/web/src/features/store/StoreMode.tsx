@@ -8,8 +8,12 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Price } from "@/components/ui/Price";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Switch } from "@/components/ui/Switch";
 import { Tag } from "@/components/ui/Tag";
 import { IconCheck, IconClock, IconInfo } from "@/components/ui/icons";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { recordSpend } from "@/features/budget/spendState";
+import { pushPendingSpend } from "@/features/budget/sync";
 import { ReportGapButton } from "@/features/feedback/GapReportSheet";
 import { recordSaving } from "@/features/profile/savingsHistory";
 import { useComparison, type LastResult } from "@/features/split/lastResult";
@@ -92,7 +96,10 @@ function StoreModeInner() {
   const session = useSession();
   const { result } = useComparison();
   const online = useOnline();
+  const auth = useAuth();
   const [finishOpen, setFinishOpen] = useState(false);
+  // "סיימתי לקנות" also adds the shop to the monthly budget (issue #70); the person can opt out here.
+  const [recordInBudget, setRecordInBudget] = useState(true);
   const [undo, setUndo] = useState<{ itemId: number; name: string } | null>(null);
   const resolving = useRef(false);
   // Set when the user finishes, so the "start from ?store=" effect does not open a new session
@@ -105,7 +112,12 @@ function StoreModeInner() {
     if (session && session.storeId === storeParam) return;
     const store = pickStore(result, storeParam, planParam);
     if (!store) return;
-    startSession(buildSession(store, result, { overhead: overheadFor(result, store, planParam) }));
+    startSession(
+      buildSession(store, result, {
+        overhead: overheadFor(result, store, planParam),
+        plan: planParam === "split" ? "split" : "single",
+      }),
+    );
   }, [storeParam, planParam, result, session]);
 
   // Departments for the checklist (once), then keep the page itself available offline.
@@ -153,10 +165,29 @@ function StoreModeInner() {
     setUndo(item.checked ? null : { itemId: item.itemId, name: item.name });
   }
 
+  // What the budget records: the prices of what was collected, or, when nothing was ticked, the
+  // whole plan for this store. Always the prices the app showed, never a receipt.
+  const spend =
+    progress.checked > 0
+      ? { total: progress.checkedTotal, count: progress.checked, ofPlan: false }
+      : { total: progress.allTotal, count: progress.total, ofPlan: true };
+
   function finish() {
     if (!session) return;
     if (saving !== null && progress.checked > 0) {
       recordSaving({ storeName: session.storeName, listName: session.listName, net: saving });
+    }
+    if (recordInBudget && spend.total > 0) {
+      const signedIn = auth.status === "signed-in";
+      recordSpend({
+        storeId: session.storeId,
+        storeName: session.storeName,
+        total: spend.total,
+        itemCount: spend.count,
+        plan: session.plan ?? "single",
+        pending: signedIn,
+      });
+      if (signedIn) void pushPendingSpend();
     }
     finishing.current = true;
     clearSession();
@@ -270,7 +301,7 @@ function StoreModeInner() {
 
       <div className={styles.finishBar}>
         <Button block size="md" onClick={() => setFinishOpen(true)} data-testid="finish">
-          סיימתי
+          סיימתי לקנות
         </Button>
       </div>
 
@@ -343,6 +374,22 @@ function StoreModeInner() {
               ))}
             </ul>
           </div>
+        ) : null}
+        {spend.total > 0 ? (
+          <Switch
+            checked={recordInBudget}
+            onChange={setRecordInBudget}
+            label="לרשום בתקציב החודשי"
+            description={
+              <>
+                יירשמו <Price amount={spend.total} />{" "}
+                {spend.ofPlan
+                  ? `(כל ${spend.count} הפריטים בחנות הזו, כי לא סומן דבר)`
+                  : `(${spend.count} פריטים שנאספו)`}
+                , לפי המחירים שהוצגו ולא לפי קבלה. רק תאריך, חנות, סכום ומספר פריטים.
+              </>
+            }
+          />
         ) : null}
         <p className={styles.muted}>
           בסיום, הרשימה נמחקת מהמכשיר והחיסכון נרשם בפרופיל. המחיר הקובע הוא בקופה.

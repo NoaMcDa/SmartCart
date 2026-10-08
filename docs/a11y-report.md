@@ -62,6 +62,33 @@ fixes, four routes overflowed; after them none does, and none of the states behi
 
 All fixes use logical properties and media queries on width only; at 390 px nothing moved.
 
+## Phase 3 screens (unblock round)
+
+`tests/a11y/phase3.spec.ts` (23 tests): axe (`wcag2a`, `wcag2aa`, serious or critical fails) in the
+states behind a tap, at 390 and 1280 px in both themes; 195 px overflow; keyboard-only use. No
+violation. Not a conformance claim; the manual items below still apply.
+
+| Screen or state | axe, 390 and 1280 px, light and dark | 195 px (200% zoom) | Keyboard |
+|---|---|---|---|
+| List builder with the microphone | no violation | fits | the mic is a 44 px button reached by Tab |
+| Voice sheet: intro, listening, review, microphone denied | no violation | fits, also with a long transcript | opens with Enter, focus moves in and stays in (Tab x8), start, stop and add by Enter, Escape closes and focus returns to the mic |
+| Recipe sheet: input and preview | no violation | fits | field, read, the servings stepper buttons and add all by keyboard |
+| Results with the "נותר החודש" card (over budget) | no violation | fits | a link to the budget |
+| Profile budget section with the six-month chart | no violation | fits; month names under the bars are hidden at 195 px and the table carries them | the budget field submits with Enter, the status is announced (`role="status"`) |
+| Store mode finish sheet with the budget switch | no violation | fits | the switch is a `role="switch"` with a visible label |
+
+Notes: the chart's drawing is `aria-hidden` and a real `<table>` (caption, column and row headers)
+carries every number; the over-budget state is amber text with an icon and words, not color alone;
+the voice live transcript is not a live region (interim text would be read out on every change), the
+status line "מקשיבה…" is. Found and fixed while testing the finish sheet: checked rows in store mode
+were dimmed with `opacity: 0.6`, so the tags and the update time fell below 4.5:1 (axe
+`color-contrast`); they keep their color now and only the name and price turn muted, with the
+strikethrough unchanged.
+
+Manual and still open for these screens: the screen reader pass (VoiceOver, TalkBack) on the voice
+sheet and the chart table, and whether `he-IL` speech recognition works on iOS Safari (installed
+PWA) and Android Chrome.
+
 ## What remains manual
 
 1. **Screen reader pass in Hebrew RTL**, not done. Do it with VoiceOver (iOS Safari) and TalkBack

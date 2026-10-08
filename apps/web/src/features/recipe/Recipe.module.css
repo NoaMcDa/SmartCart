@@ -1,0 +1,134 @@
+/* Recipe sheet (issue #71). Tokens and logical properties only. */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+.hint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sc-muted);
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input {
+  inline-size: 100%;
+  min-block-size: var(--sc-touch);
+  padding: var(--sc-space-3);
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+textarea.input {
+  min-block-size: 140px;
+  resize: vertical;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--sc-accent-fg);
+  outline-offset: 1px;
+}
+
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn-fg);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.callout > svg {
+  flex-shrink: 0;
+  margin-block-start: 2px;
+}
+
+.recipeTitle {
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.servingsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-2) var(--sc-space-3);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--sc-space-2);
+  padding-block: var(--sc-space-2);
+  border-block-end: 1px solid var(--sc-divider);
+  font-size: 15px;
+}
+
+.item:last-child {
+  border-block-end: 0;
+}
+
+.qty {
+  min-inline-size: 2.5em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.itemName {
+  flex: 1 1 120px;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.legend {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.unresolved {
+  margin: 0;
+  padding-inline-start: 1.2em;
+  font-size: 14px;
+  color: var(--sc-muted);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+
+.footer > * {
+  flex: 1 1 auto;
+}

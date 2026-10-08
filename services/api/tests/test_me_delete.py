@@ -28,11 +28,16 @@ def users(db, monkeypatch) -> tuple[uuid.UUID, uuid.UUID]:
 
 
 def seed_user(client, db, w: World, uid: uuid.UUID) -> int:
-    """Profile, a list with items, an alert, a push subscription, feedback; returns the list id."""
+    """Profile with a budget, a list with items, an alert, a push subscription, feedback, a spend
+    entry; returns the list id."""
     assert client.put("/me/profile", headers=h(uid), json={
         "neighborhood_lat": 32.08, "neighborhood_lon": 34.78, "consent_location": True,
-        "clubs": ["רשת אחת"],
+        "clubs": ["רשת אחת"], "monthly_budget": "2400.00",
     }).status_code == 200
+    assert client.post("/me/spend", headers=h(uid), json={
+        "date": "2026-10-02", "store_id": w.stores["home"], "store_name": "הבית", "total": "312.40",
+        "item_count": 18, "plan": "single",
+    }).status_code == 201
     lst = client.post("/me/lists", headers=h(uid), json={
         "name": "שבועי", "items": [{"input_text": "חלב"}, {"input_text": "לחם"}],
     })
@@ -63,6 +68,7 @@ COUNTS = {
     "substitution_feedback": "SELECT count(*) FROM substitution_feedback WHERE user_id = %s",
     "list_shares": "SELECT count(*) FROM list_shares WHERE owner_id = %s OR member_id = %s",
     "gap_reports": "SELECT count(*) FROM gap_reports WHERE user_id = %s",
+    "spend_entries": "SELECT count(*) FROM spend_entries WHERE user_id = %s",
     "auth.users": "SELECT count(*) FROM auth.users WHERE id = %s",
 }
 

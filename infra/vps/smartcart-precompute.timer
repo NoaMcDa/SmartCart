@@ -1,0 +1,14 @@
+[Unit]
+Description=SmartCart: nightly effective-price precompute, after the morning full sync (Israel time)
+
+[Timer]
+# The full sync runs at 06:00 and again at 08:30 (smartcart-ingest-full.timer); 09:30 follows the
+# second pass, and the service waits on the ingestion lock if that pass is still running.
+OnCalendar=*-*-* 09:30:00 Asia/Jerusalem
+RandomizedDelaySec=120
+# Run a missed precompute after a reboot or an outage.
+Persistent=true
+Unit=smartcart-precompute.service
+
+[Install]
+WantedBy=timers.target

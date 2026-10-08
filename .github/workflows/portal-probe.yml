@@ -1,0 +1,227 @@
+name: Portal probe
+
+# Issues #32, #53, #57 and #60 (preparation). From a GitHub-hosted runner, which is NOT an Israeli
+# IP, so this also measures which portals block cloud ranges: reachability of the transparency
+# portals of the ten D13 chains, the Cerberus FTP login, one Stores and one PriceFull file per
+# chain where reachable (through the pinned upstream scraper, never a chain's online store), and
+# every downloaded file through the real Scheduler path (adapter, quality gates, loader) in a
+# throwaway Postgres. Downloaded files are untrusted data: only the chain adapters read them.
+# It is a measurement: unreachable portals do not fail the job. See docs/ingestion.md.
+#
+# With commit_fixtures, the files the adapters accepted become regression fixtures: Stores whole,
+# PriceFull trimmed to its first 200 rows, under services/ingest/tests/fixtures/<chain>/real/ with
+# a MANIFEST.json, committed by a separate job (the only one with write access) to a new branch
+# probe/fixtures-<YYYYMMDD>. No pull request is opened.
+
+on:
+  workflow_dispatch:
+    inputs:
+      chains:
+        description: "Chain slugs, space separated (empty: all ten D13 chains)"
+        required: false
+        default: ""
+        type: string
+      timeout:
+        description: "Seconds allowed per download"
+        required: false
+        default: 180
+        type: number
+      commit_fixtures:
+        description: "Commit the accepted files as fixtures to a new branch probe/fixtures-<date>"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    # Daily at 07:17 UTC (10:17 Israel summer time, 09:17 winter): after the laibcatalog listing
+    # fills up (it is empty from midnight to about 08:00 Israel time, D13).
+    - cron: "17 7 * * *"
+
+concurrency:
+  group: portal-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: portals, downloads, adapters and gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      fixture_chains: ${{ steps.fixtures.outputs.chains }}
+
+    services:
+      # Same image and tag as ci.yml (Postgres 17 with PostGIS, pgvector and pg_trgm).
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      CHAINS: ${{ inputs.chains || '' }}
+      DOWNLOAD_TIMEOUT: ${{ inputs.timeout || 180 }}
+      FIXTURE_ITEMS: "200"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install
+        run: uv sync
+
+      - name: Runner location
+        run: |
+          {
+            echo "## Runner"
+            echo
+            echo "Public IP country (ipinfo.io): $(curl -fsS --max-time 15 https://ipinfo.io/country || echo unknown)."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Reachability and Cerberus login (check_portals.sh)
+        run: |
+          set +e
+          MARKDOWN_OUT="$GITHUB_STEP_SUMMARY" bash infra/smoke/check_portals.sh
+          code=$?
+          echo "check_portals.sh exit code: $code (0 pass, 1 a failure, 2 inconclusive; not enforced here)" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      # Untrusted downloads live outside the checkout ($RUNNER_TEMP); nothing runs from there.
+      - name: Download one Stores and one PriceFull file per chain
+        run: |
+          echo "PROBE_DIR=$RUNNER_TEMP/portal-probe" >> "$GITHUB_ENV"
+          PROBE_DIR="$RUNNER_TEMP/portal-probe"
+          args=()
+          for slug in $CHAINS; do args+=(--chain "$slug"); done
+          uv run --no-sync python scripts/unblock/portal_probe.py probe \
+            --out "$PROBE_DIR" --timeout "$DOWNLOAD_TIMEOUT" "${args[@]}"
+
+      - name: Migrate the throwaway database
+        run: uv run --no-sync smartcart-ingest migrate
+
+      # Prints one untruncated "RESULT {...}" line per file to the log (schema, counts, gate
+      # status, gates and reason).
+      - name: Adapters, quality gates and loader (the real Scheduler path)
+        run: |
+          args=()
+          for slug in $CHAINS; do args+=(--chain "$slug"); done
+          uv run --no-sync python scripts/unblock/portal_probe.py gate \
+            --files "$PROBE_DIR/files" --probe "$PROBE_DIR/probe.json" \
+            --out portal-probe.md --json-out portal-probe.json "${args[@]}"
+
+      - name: Report (job summary and log)
+        if: always()
+        run: |
+          if [ -f portal-probe.md ]; then
+            cat portal-probe.md >> "$GITHUB_STEP_SUMMARY"
+            cat portal-probe.md
+          else
+            echo "no probe table" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Build regression fixtures (trimmed PriceFull, whole Stores, MANIFEST.json)
+        id: fixtures
+        if: inputs.commit_fixtures
+        run: |
+          uv run --no-sync python scripts/unblock/portal_probe.py fixtures \
+            --files "$PROBE_DIR/files" --gate-json portal-probe.json \
+            --out "$PROBE_DIR/fixtures" --max-items "$FIXTURE_ITEMS"
+          mkdir -p "$PROBE_DIR/fixtures"
+          echo "chains=$(find "$PROBE_DIR/fixtures" -name MANIFEST.json | wc -l | tr -d ' ')" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the fixtures for the commit job
+        if: inputs.commit_fixtures && steps.fixtures.outputs.chains != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-probe-fixtures
+          path: ${{ runner.temp }}/portal-probe/fixtures
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload the downloaded files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-probe-files
+          path: ${{ runner.temp }}/portal-probe/files
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload the probe table
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-probe-report
+          path: |
+            portal-probe.md
+            portal-probe.json
+            ${{ runner.temp }}/portal-probe/probe.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+  commit-fixtures:
+    name: commit the fixtures to probe/fixtures-<date>
+    needs: probe
+    if: inputs.commit_fixtures && needs.probe.outputs.fixture_chains != '' && needs.probe.outputs.fixture_chains != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Download the fixtures
+        uses: actions/download-artifact@v4
+        with:
+          name: portal-probe-fixtures
+          path: ${{ runner.temp }}/fixtures
+
+      # Only <known chain>/real/<plain file name> is copied; nothing in the artifact is executed.
+      - name: Copy into services/ingest/tests/fixtures/<chain>/real/
+        run: |
+          bash scripts/unblock/copy_fixtures.sh "$RUNNER_TEMP/fixtures"
+          git status --short
+
+      - name: Commit and push the branch
+        run: |
+          branch="probe/fixtures-$(date -u +%Y%m%d)"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            branch="$branch-$GITHUB_RUN_ID"
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -- services/ingest/tests/fixtures
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git commit -q -m "Real transparency fixtures from the portal probe" \
+            -m "Stores files whole, PriceFull trimmed to its first $FIXTURE_ITEMS rows, with a MANIFEST.json per chain. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git push origin "HEAD:refs/heads/$branch"
+          {
+            echo "## Fixtures committed"
+            echo
+            echo "Branch \`$branch\` ($(git rev-parse --short HEAD)); no pull request was opened."
+            echo
+            git show --stat --format= HEAD
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          FIXTURE_ITEMS: "200"

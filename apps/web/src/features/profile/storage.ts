@@ -10,6 +10,10 @@ export const STORAGE_KEYS = {
   shopping: "sc-shopping",
   /** SavingsEntry[]: realized savings, written by "סיימתי" in store mode. */
   savings: "sc-savings-history",
+  /** SpendStore: shops recorded by "סיימתי לקנות" (features/budget/spendState.ts, issue #70). */
+  spend: "sc-spend-v1",
+  /** StoredBudget: the monthly budget in ILS (features/budget/budgetState.ts, issue #70). */
+  budget: "sc-budget-v1",
 } as const;
 
 /**

@@ -6,8 +6,10 @@ travel cost. The differentiator is matching depth and trust, not being another b
 
 Phases 0 (data foundation), 1 (MVP) and 2 (advanced savings) are implemented: `services/ingest`,
 `services/catalog`, `services/api`, `services/dashboard`, `supabase/` and `apps/web`. The whole stack
-runs end to end on synthetic data with `scripts/demo/up.sh` (`docs/fullstack.md`). Engineering docs are
-indexed in `docs/README.md`; per-issue status and the owner's runbook are in `docs/phase-2-status.md`.
+runs end to end on synthetic data with `scripts/demo/up.sh` (`docs/fullstack.md`), ships as containers
+with a deploy workflow (`docs/deploy.md`), and the items that need network or a secret run as manual
+GitHub workflows (`docs/unblock.md`). Engineering docs are indexed in `docs/README.md`; per-issue status
+and the owner's runbook are in `docs/phase-2-status.md`.
 Infrastructure is not provisioned yet (`docs/infra-provisioning.md`); the catalog runs on synthetic
 fixtures and a synthetic gold set until real transparency files are loaded. Read this file first, then
 `docs/README.md`.
