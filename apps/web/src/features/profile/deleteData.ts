@@ -14,6 +14,9 @@
  */
 import { api, ApiError, deleteMe } from "@/api/client";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { profileMessages } from "@/i18n/messages/profile";
 import { toProfileUpdate } from "./profileApi";
 import { DEFAULT_PROFILE, resetProfileCache } from "./profileState";
 import { clearLocalData } from "./storage";
@@ -25,6 +28,8 @@ export type DeleteResult =
 export async function deleteMyData(options: {
   signedIn: boolean;
   signOut: () => Promise<void>;
+  /** Language of the error text (Hebrew by default). */
+  locale?: Locale;
 }): Promise<DeleteResult> {
   let listsDeleted = 0;
   if (options.signedIn) {
@@ -50,7 +55,7 @@ export async function deleteMyData(options: {
     } catch {
       return {
         ok: false,
-        error: "לא הצלחנו למחוק מהשרת. הנתונים במכשיר נשארו כדי שאפשר יהיה לנסות שוב.",
+        error: translate(profileMessages, options.locale ?? DEFAULT_LOCALE, "serverDeleteFailed"),
       };
     }
   }

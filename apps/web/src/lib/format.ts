@@ -1,3 +1,7 @@
+import { DEFAULT_LOCALE, INTL_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { formatMessages } from "@/i18n/messages/format";
+
 /** Non-breaking space placed between the shekel sign and the digits (CLAUDE.md conventions). */
 export const NBSP = "\u00A0";
 export const SHEKEL = "₪";
@@ -32,10 +36,10 @@ export function formatPrice(
   return `${sign}${SHEKEL}${NBSP}${body}`;
 }
 
-/** Hebrew relative-free timestamp: "היום 06:40" style is screen-specific; this returns HH:MM. */
-export function formatTime(iso: string): string {
+/** HH:MM in Israel time (the "היום 06:40" style is screen-specific). Latin digits in both locales. */
+export function formatTime(iso: string, locale: Locale = DEFAULT_LOCALE): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString("he-IL", {
+  return d.toLocaleTimeString(INTL_LOCALE[locale], {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -43,8 +47,10 @@ export function formatTime(iso: string): string {
   });
 }
 
-/** Distance in meters as Hebrew km: 4200 -> "4.2 ק"מ", 800 -> "800 מ'". */
-export function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)} מ'`;
-  return `${(meters / 1000).toFixed(1)} ק"מ`;
+/** Distance in meters as km: 4200 -> "4.2 ק"מ", 800 -> "800 מ'" (Arabic: "4.2 كم", "800 م"). */
+export function formatDistance(meters: number, locale: Locale = DEFAULT_LOCALE): string {
+  if (meters < 1000) {
+    return translate(formatMessages, locale, "meters", { n: Math.round(meters) });
+  }
+  return translate(formatMessages, locale, "kilometers", { n: (meters / 1000).toFixed(1) });
 }

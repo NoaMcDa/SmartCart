@@ -1,14 +1,24 @@
 import type { MetadataRoute } from "next";
+import { cookies } from "next/headers";
 import { THEME_COLOR } from "@/components/theme/theme-constants";
+import { DEFAULT_LOCALE, LOCALE_KEY, isLocale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { appMessages } from "@/i18n/messages/app";
 
-/** Web app manifest, served at /manifest.webmanifest. Hebrew, RTL, standalone. */
-export default function manifest(): MetadataRoute.Manifest {
+/**
+ * Web app manifest, served at /manifest.webmanifest. RTL and standalone; the short name, the
+ * description and `lang` follow the `sc-locale` cookie (Hebrew when it is absent), the same choice
+ * the pages use.
+ */
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const stored = (await cookies()).get(LOCALE_KEY)?.value;
+  const locale = isLocale(stored) ? stored : DEFAULT_LOCALE;
   return {
     id: "/",
     name: "SmartCart",
-    short_name: "סמארטקארט",
-    description: "השוואת מחירי סופר לכל הרשימה, עם חיסכון נטו לעומת הסופר שלך.",
-    lang: "he",
+    short_name: translate(appMessages, locale, "manifestShortName"),
+    description: translate(appMessages, locale, "manifestDescription"),
+    lang: locale,
     dir: "rtl",
     start_url: "/",
     scope: "/",

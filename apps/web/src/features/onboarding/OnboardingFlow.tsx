@@ -3,9 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { DocumentTitle } from "@/components/shell/PageChrome";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { IconChevronBack, IconChevronNext, IconInfo } from "@/components/ui/icons";
+import { formatRich } from "@/i18n/format";
+import { useT } from "@/i18n/LocaleProvider";
+import { onboardingMessages } from "@/i18n/messages/onboarding";
 import { ChainControls } from "@/features/profile/controls/ChainControls";
 import { LocationControls } from "@/features/profile/controls/LocationControls";
 import { TravelControls } from "@/features/profile/controls/TravelControls";
@@ -13,43 +17,17 @@ import { updateProfile } from "@/features/profile/profileState";
 import styles from "./Onboarding.module.css";
 
 type StepDef = {
-  title: string;
-  why: ReactNode;
+  titleKey: "step1Title" | "step2Title" | "step3Title";
+  /** The "why we ask" text; the first step ends with a link to the privacy policy. */
+  whyKey: "step1Why" | "step2Why" | "step3Why";
+  privacyLink?: boolean;
   body: ReactNode;
 };
 
 const STEPS: ReadonlyArray<StepDef> = [
-  {
-    title: "איפה את קונה?",
-    why: (
-      <>
-        כדי להציג סניפים קרובים אליך ולחשב כמה עולה להגיע אליהם. המיקום נשמר רק ברמת שכונה (מעוגל
-        לכ-100 מטר), רק אחרי שאישרת, ואפשר למחוק אותו בכל רגע. לא מוכרים נתונים ולא משתפים אותם.{" "}
-        <Link href="/privacy">מדיניות הפרטיות</Link>
-      </>
-    ),
-    body: <LocationControls />,
-  },
-  {
-    title: "הסופר שלי והמועדונים",
-    why: (
-      <>
-        כדי לחשב את החיסכון מול החנות שבה את קונה בדרך כלל, ולהציג מבצעי מועדון רק אם את חברה בהם.
-        בלי חנות בסיס לא נציג חיסכון, כי אנחנו לא משווים מול החנות הכי יקרה.
-      </>
-    ),
-    body: <ChainControls />,
-  },
-  {
-    title: "איך את עושה קניות?",
-    why: (
-      <>
-        כדי לדעת כמה עולה הנסיעה ואם שווה לעצור בחנות נוספת. פיצול הקנייה יוצג רק אם החיסכון נטו,
-        אחרי נסיעה ואחרי השווי שבחרת, באמת משתלם.
-      </>
-    ),
-    body: <TravelControls />,
-  },
+  { titleKey: "step1Title", whyKey: "step1Why", privacyLink: true, body: <LocationControls /> },
+  { titleKey: "step2Title", whyKey: "step2Why", body: <ChainControls /> },
+  { titleKey: "step3Title", whyKey: "step3Why", body: <TravelControls /> },
 ];
 
 /**
@@ -58,6 +36,7 @@ const STEPS: ReadonlyArray<StepDef> = [
  * leaving halfway keeps what was entered and skipping leaves the documented defaults.
  */
 export function OnboardingFlow() {
+  const t = useT(onboardingMessages);
   const router = useRouter();
   const [step, setStep] = useState(0);
   const last = STEPS.length - 1;
@@ -75,40 +54,50 @@ export function OnboardingFlow() {
 
   return (
     <div className={styles.page}>
+      <DocumentTitle text={t("welcome")} />
       <header className={styles.header}>
-        <h1 className={styles.title}>ברוכים הבאים</h1>
-        <p className={styles.lead}>
-          שלוש שאלות קצרות כדי שההשוואה הראשונה תהיה שלך. אפשר לדלג על כל שלב ולחזור אליו בפרופיל.
-        </p>
+        <h1 className={styles.title}>{t("welcome")}</h1>
+        <p className={styles.lead}>{t("lead")}</p>
       </header>
 
-      <nav aria-label="התקדמות">
+      <nav aria-label={t("progress")}>
         <ol className={styles.progress}>
           {STEPS.map((s, i) => (
             <li
-              key={s.title}
+              key={s.titleKey}
               className={styles.dot}
               data-state={i < step ? "done" : i === step ? "current" : "todo"}
               aria-current={i === step ? "step" : undefined}
             >
-              <span className="sr-only">{`שלב ${i + 1} מתוך ${STEPS.length}: ${s.title}`}</span>
+              <span className="sr-only">
+                {t("stepSpoken", { n: i + 1, total: STEPS.length, title: t(s.titleKey) })}
+              </span>
             </li>
           ))}
         </ol>
         <p className={styles.stepCount} data-testid="step-count">
-          שלב <span dir="ltr">{step + 1}</span> מתוך <span dir="ltr">{STEPS.length}</span>
+          {formatRich(t("stepCount"), {
+            n: <span dir="ltr">{step + 1}</span>,
+            total: <span dir="ltr">{STEPS.length}</span>,
+          })}
         </p>
       </nav>
 
       <Card as="section" aria-labelledby="step-title" className={styles.card}>
         <h2 id="step-title" className={styles.stepTitle}>
-          {current.title}
+          {t(current.titleKey)}
         </h2>
-        <aside className={styles.why} aria-label="למה אנחנו שואלים">
+        <aside className={styles.why} aria-label={t("whyAside")}>
           <IconInfo size={18} />
           <p>
-            <strong>למה אנחנו שואלים: </strong>
-            {current.why}
+            <strong>{t("whyLabel")}</strong>
+            {t(current.whyKey)}
+            {current.privacyLink ? (
+              <>
+                {" "}
+                <Link href="/privacy">{t("privacyPolicy")}</Link>
+              </>
+            ) : null}
           </p>
         </aside>
         {current.body}
@@ -122,7 +111,7 @@ export function OnboardingFlow() {
           iconEnd={<IconChevronNext size={18} />}
           data-testid="onboarding-next"
         >
-          {step >= last ? "סיום" : "המשך"}
+          {step >= last ? t("finish") : t("next")}
         </Button>
         <div className={styles.secondary}>
           {step > 0 ? (
@@ -131,13 +120,13 @@ export function OnboardingFlow() {
               iconStart={<IconChevronBack size={18} />}
               onClick={() => setStep(step - 1)}
             >
-              חזרה
+              {t("back")}
             </Button>
           ) : (
             <span />
           )}
           <Button variant="ghost" onClick={next} data-testid="onboarding-skip">
-            {step >= last ? "דילוג וסיום" : "דילוג על השלב"}
+            {step >= last ? t("skipFinish") : t("skipStep")}
           </Button>
         </div>
       </div>

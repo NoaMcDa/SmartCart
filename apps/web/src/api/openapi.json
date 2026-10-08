@@ -32,11 +32,7 @@
             "type": "string"
           },
           "status": {
-            "enum": [
-              "matched",
-              "differs",
-              "unverified"
-            ],
+            "enum": ["matched", "differs", "unverified"],
             "title": "Status",
             "type": "string"
           },
@@ -52,10 +48,7 @@
             "title": "Value"
           }
         },
-        "required": [
-          "key",
-          "status"
-        ],
+        "required": ["key", "status"],
         "title": "AttributeTag",
         "type": "object"
       },
@@ -134,11 +127,7 @@
             "description": "Price at the store the user is in, when store_id was given"
           }
         },
-        "required": [
-          "barcode",
-          "found",
-          "generated_at"
-        ],
+        "required": ["barcode", "found", "generated_at"],
         "title": "BarcodeLookupResponse",
         "type": "object"
       },
@@ -163,11 +152,7 @@
           },
           "flex_level": {
             "default": "any_brand",
-            "enum": [
-              "exact",
-              "any_brand",
-              "close"
-            ],
+            "enum": ["exact", "any_brand", "close"],
             "title": "Flex Level",
             "type": "string"
           },
@@ -185,10 +170,7 @@
             "title": "Quantity"
           }
         },
-        "required": [
-          "canonical_id",
-          "quantity"
-        ],
+        "required": ["canonical_id", "quantity"],
         "title": "BasketItem",
         "type": "object"
       },
@@ -274,18 +256,12 @@
             "type": "string"
           },
           "kind": {
-            "enum": [
-              "receipt",
-              "list"
-            ],
+            "enum": ["receipt", "list"],
             "title": "Kind",
             "type": "string"
           }
         },
-        "required": [
-          "kind",
-          "image"
-        ],
+        "required": ["kind", "image"],
         "title": "Body_parse_image_parse_image_post",
         "type": "object"
       },
@@ -293,12 +269,7 @@
         "additionalProperties": false,
         "properties": {
           "base_unit": {
-            "enum": [
-              "100g",
-              "100ml",
-              "unit",
-              "kg"
-            ],
+            "enum": ["100g", "100ml", "unit", "kg"],
             "title": "Base Unit",
             "type": "string"
           },
@@ -323,12 +294,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "canonical_id",
-          "display_name_he",
-          "taxonomy_id",
-          "base_unit"
-        ],
+        "required": ["canonical_id", "display_name_he", "taxonomy_id", "base_unit"],
         "title": "CanonicalRef",
         "type": "object"
       },
@@ -379,11 +345,7 @@
             "title": "Search Url Template"
           }
         },
-        "required": [
-          "chain_id",
-          "chain_name",
-          "enabled"
-        ],
+        "required": ["chain_id", "chain_name", "enabled"],
         "title": "ChainOnline",
         "type": "object"
       },
@@ -427,10 +389,7 @@
             "$ref": "#/components/schemas/Location"
           }
         },
-        "required": [
-          "items",
-          "location"
-        ],
+        "required": ["items", "location"],
         "title": "CompareRequest",
         "type": "object"
       },
@@ -479,12 +438,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "stores",
-          "home_store_id",
-          "home_store_total",
-          "generated_at"
-        ],
+        "required": ["stores", "home_store_id", "home_store_total", "generated_at"],
         "title": "CompareResponse",
         "type": "object"
       },
@@ -546,10 +500,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "name",
-          "session_id"
-        ],
+        "required": ["name", "session_id"],
         "title": "EventIn",
         "type": "object"
       },
@@ -566,9 +517,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "accepted"
-        ],
+        "required": ["accepted"],
         "title": "EventsAck",
         "type": "object"
       },
@@ -585,9 +534,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "events"
-        ],
+        "required": ["events"],
         "title": "EventsRequest",
         "type": "object"
       },
@@ -663,9 +610,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "store_id"
-        ],
+        "required": ["store_id"],
         "title": "GapReportRequest",
         "type": "object"
       },
@@ -695,10 +640,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "status",
-          "version"
-        ],
+        "required": ["status", "version"],
         "title": "Health",
         "type": "object"
       },
@@ -729,11 +671,7 @@
           },
           "flex_level": {
             "default": "any_brand",
-            "enum": [
-              "exact",
-              "any_brand",
-              "close"
-            ],
+            "enum": ["exact", "any_brand", "close"],
             "title": "Flex Level",
             "type": "string"
           },
@@ -764,10 +702,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "id",
-          "sort"
-        ],
+        "required": ["id", "sort"],
         "title": "ListItem",
         "type": "object"
       },
@@ -798,11 +733,7 @@
           },
           "flex_level": {
             "default": "any_brand",
-            "enum": [
-              "exact",
-              "any_brand",
-              "close"
-            ],
+            "enum": ["exact", "any_brand", "close"],
             "title": "Flex Level",
             "type": "string"
           },
@@ -857,10 +788,7 @@
             "type": "boolean"
           },
           "role": {
-            "enum": [
-              "editor",
-              "viewer"
-            ],
+            "enum": ["editor", "viewer"],
             "title": "Role",
             "type": "string"
           },
@@ -889,9 +817,7 @@
             "title": "User Id"
           }
         },
-        "required": [
-          "role"
-        ],
+        "required": ["role"],
         "title": "ListMember",
         "type": "object"
       },
@@ -918,10 +844,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "lon",
-          "lat"
-        ],
+        "required": ["lon", "lat"],
         "title": "Location",
         "type": "object"
       },
@@ -997,10 +920,7 @@
           "solver": {
             "default": "heuristic",
             "description": "milp handles cross-item promos and quantity rounding (phase 2)",
-            "enum": [
-              "heuristic",
-              "milp"
-            ],
+            "enum": ["heuristic", "milp"],
             "title": "Solver",
             "type": "string"
           },
@@ -1008,10 +928,7 @@
             "$ref": "#/components/schemas/TravelSettings"
           }
         },
-        "required": [
-          "items",
-          "location"
-        ],
+        "required": ["items", "location"],
         "title": "OptimizeRequest",
         "type": "object"
       },
@@ -1044,10 +961,7 @@
           },
           "solver": {
             "default": "heuristic",
-            "enum": [
-              "heuristic",
-              "milp"
-            ],
+            "enum": ["heuristic", "milp"],
             "title": "Solver",
             "type": "string"
           },
@@ -1067,11 +981,7 @@
             "type": "integer"
           }
         },
-        "required": [
-          "single",
-          "subsets_evaluated",
-          "generated_at"
-        ],
+        "required": ["single", "subsets_evaluated", "generated_at"],
         "title": "OptimizeResponse",
         "type": "object"
       },
@@ -1094,10 +1004,7 @@
             "type": "array"
           },
           "kind": {
-            "enum": [
-              "receipt",
-              "list"
-            ],
+            "enum": ["receipt", "list"],
             "title": "Kind",
             "type": "string"
           },
@@ -1126,12 +1033,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "kind",
-          "provider",
-          "items",
-          "unresolved"
-        ],
+        "required": ["kind", "provider", "items", "unresolved"],
         "title": "ParseImageResponse",
         "type": "object"
       },
@@ -1140,11 +1042,7 @@
         "properties": {
           "flex_defaults": {
             "additionalProperties": {
-              "enum": [
-                "exact",
-                "any_brand",
-                "close"
-              ],
+              "enum": ["exact", "any_brand", "close"],
               "type": "string"
             },
             "description": "taxonomy_id -> flex level",
@@ -1159,9 +1057,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "text"
-        ],
+        "required": ["text"],
         "title": "ParseListRequest",
         "type": "object"
       },
@@ -1181,10 +1077,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "rows",
-          "generated_at"
-        ],
+        "required": ["rows", "generated_at"],
         "title": "ParseListResponse",
         "type": "object"
       },
@@ -1280,12 +1173,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "title",
-          "servings",
-          "items",
-          "unresolved"
-        ],
+        "required": ["title", "servings", "items", "unresolved"],
         "title": "ParseRecipeResponse",
         "type": "object"
       },
@@ -1318,11 +1206,7 @@
           },
           "flex_level": {
             "default": "any_brand",
-            "enum": [
-              "exact",
-              "any_brand",
-              "close"
-            ],
+            "enum": ["exact", "any_brand", "close"],
             "title": "Flex Level",
             "type": "string"
           },
@@ -1364,11 +1248,7 @@
             "title": "Unit"
           }
         },
-        "required": [
-          "input_text",
-          "confidence",
-          "needs_confirmation"
-        ],
+        "required": ["input_text", "confidence", "needs_confirmation"],
         "title": "ParsedRow",
         "type": "object"
       },
@@ -1392,11 +1272,7 @@
             "type": "integer"
           },
           "kind": {
-            "enum": [
-              "single",
-              "split",
-              "minimum_effort"
-            ],
+            "enum": ["single", "split", "minimum_effort"],
             "title": "Kind",
             "type": "string"
           },
@@ -1444,12 +1320,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "kind",
-          "stores",
-          "total",
-          "recommended"
-        ],
+        "required": ["kind", "stores", "total", "recommended"],
         "title": "Plan",
         "type": "object"
       },
@@ -1472,11 +1343,7 @@
           },
           "flex_level": {
             "default": "any_brand",
-            "enum": [
-              "exact",
-              "any_brand",
-              "close"
-            ],
+            "enum": ["exact", "any_brand", "close"],
             "title": "Flex Level",
             "type": "string"
           },
@@ -1509,12 +1376,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "canonical_id",
-          "threshold_unit_price",
-          "id",
-          "created_at"
-        ],
+        "required": ["canonical_id", "threshold_unit_price", "id", "created_at"],
         "title": "PriceAlert",
         "type": "object"
       },
@@ -1533,11 +1395,7 @@
           },
           "flex_level": {
             "default": "any_brand",
-            "enum": [
-              "exact",
-              "any_brand",
-              "close"
-            ],
+            "enum": ["exact", "any_brand", "close"],
             "title": "Flex Level",
             "type": "string"
           },
@@ -1562,10 +1420,7 @@
             "title": "Threshold Unit Price"
           }
         },
-        "required": [
-          "canonical_id",
-          "threshold_unit_price"
-        ],
+        "required": ["canonical_id", "threshold_unit_price"],
         "title": "PriceAlertIn",
         "type": "object"
       },
@@ -1634,13 +1489,7 @@
             "title": "Store Id"
           }
         },
-        "required": [
-          "canonical_id",
-          "store_id",
-          "days",
-          "points",
-          "generated_at"
-        ],
+        "required": ["canonical_id", "store_id", "days", "points", "generated_at"],
         "title": "PriceHistoryResponse",
         "type": "object"
       },
@@ -1693,10 +1542,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "date",
-          "unit_price"
-        ],
+        "required": ["date", "unit_price"],
         "title": "PricePoint",
         "type": "object"
       },
@@ -1953,11 +1799,7 @@
           },
           "flex_defaults": {
             "additionalProperties": {
-              "enum": [
-                "exact",
-                "any_brand",
-                "close"
-              ],
+              "enum": ["exact", "any_brand", "close"],
               "type": "string"
             },
             "title": "Flex Defaults",
@@ -2041,21 +1883,13 @@
           },
           "theme": {
             "default": "system",
-            "enum": [
-              "system",
-              "light",
-              "dark"
-            ],
+            "enum": ["system", "light", "dark"],
             "title": "Theme",
             "type": "string"
           },
           "travel_mode": {
             "default": "car",
-            "enum": [
-              "car",
-              "walk_transit",
-              "delivery"
-            ],
+            "enum": ["car", "walk_transit", "delivery"],
             "title": "Travel Mode",
             "type": "string"
           },
@@ -2064,10 +1898,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "user_id",
-          "exists"
-        ],
+        "required": ["user_id", "exists"],
         "title": "Profile",
         "type": "object"
       },
@@ -2125,11 +1956,7 @@
           },
           "flex_defaults": {
             "additionalProperties": {
-              "enum": [
-                "exact",
-                "any_brand",
-                "close"
-              ],
+              "enum": ["exact", "any_brand", "close"],
               "type": "string"
             },
             "title": "Flex Defaults",
@@ -2217,21 +2044,13 @@
           },
           "theme": {
             "default": "system",
-            "enum": [
-              "system",
-              "light",
-              "dark"
-            ],
+            "enum": ["system", "light", "dark"],
             "title": "Theme",
             "type": "string"
           },
           "travel_mode": {
             "default": "car",
-            "enum": [
-              "car",
-              "walk_transit",
-              "delivery"
-            ],
+            "enum": ["car", "walk_transit", "delivery"],
             "title": "Travel Mode",
             "type": "string"
           }
@@ -2270,11 +2089,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "promo_description",
-          "bundle_count",
-          "saving"
-        ],
+        "required": ["promo_description", "bundle_count", "saving"],
         "title": "PromoBundle",
         "type": "object"
       },
@@ -2283,11 +2098,7 @@
         "properties": {
           "advice": {
             "description": "A hint, never a promise; unknown below the gate",
-            "enum": [
-              "buy_now",
-              "wait",
-              "unknown"
-            ],
+            "enum": ["buy_now", "wait", "unknown"],
             "title": "Advice",
             "type": "string"
           },
@@ -2392,10 +2203,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "canonical_id",
-          "chains"
-        ],
+        "required": ["canonical_id", "chains"],
         "title": "PromoCycleResponse",
         "type": "object"
       },
@@ -2480,9 +2288,7 @@
             "title": "Starts At"
           }
         },
-        "required": [
-          "description"
-        ],
+        "required": ["description"],
         "title": "PromoWindow",
         "type": "object"
       },
@@ -2515,11 +2321,7 @@
             "title": "User Agent"
           }
         },
-        "required": [
-          "endpoint",
-          "p256dh",
-          "auth"
-        ],
+        "required": ["endpoint", "p256dh", "auth"],
         "title": "PushSubscriptionIn",
         "type": "object"
       },
@@ -2558,9 +2360,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "text"
-        ],
+        "required": ["text"],
         "title": "ReceiptLine",
         "type": "object"
       },
@@ -2640,12 +2440,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "basket_saving",
-          "travel_cost",
-          "extra_stop_cost",
-          "net_saving"
-        ],
+        "required": ["basket_saving", "travel_cost", "extra_stop_cost", "net_saving"],
         "title": "SavingBreakdown",
         "type": "object"
       },
@@ -2671,11 +2466,7 @@
           },
           "matched_by": {
             "items": {
-              "enum": [
-                "trigram",
-                "fts",
-                "vector"
-              ],
+              "enum": ["trigram", "fts", "vector"],
               "type": "string"
             },
             "title": "Matched By",
@@ -2687,11 +2478,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "canonical",
-          "score",
-          "matched_by"
-        ],
+        "required": ["canonical", "score", "matched_by"],
         "title": "SearchHit",
         "type": "object"
       },
@@ -2710,10 +2497,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "query",
-          "hits"
-        ],
+        "required": ["query", "hits"],
         "title": "SearchResponse",
         "type": "object"
       },
@@ -2726,10 +2510,7 @@
           },
           "role": {
             "default": "editor",
-            "enum": [
-              "editor",
-              "viewer"
-            ],
+            "enum": ["editor", "viewer"],
             "title": "Role",
             "type": "string"
           },
@@ -2742,11 +2523,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "list_id",
-          "token",
-          "url"
-        ],
+        "required": ["list_id", "token", "url"],
         "title": "ShareInvite",
         "type": "object"
       },
@@ -2755,10 +2532,7 @@
         "properties": {
           "role": {
             "default": "editor",
-            "enum": [
-              "editor",
-              "viewer"
-            ],
+            "enum": ["editor", "viewer"],
             "title": "Role",
             "type": "string"
           }
@@ -2796,11 +2570,7 @@
           "role": {
             "default": "owner",
             "description": "Your access: owner, or your role as a member (editors change items, viewers only read)",
-            "enum": [
-              "owner",
-              "editor",
-              "viewer"
-            ],
+            "enum": ["owner", "editor", "viewer"],
             "title": "Role",
             "type": "string"
           },
@@ -2816,14 +2586,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "is_recurring",
-          "items",
-          "created_at",
-          "updated_at"
-        ],
+        "required": ["id", "name", "is_recurring", "items", "created_at", "updated_at"],
         "title": "ShoppingList",
         "type": "object"
       },
@@ -2850,9 +2613,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "ShoppingListIn",
         "type": "object"
       },
@@ -2889,10 +2650,7 @@
             "type": "integer"
           },
           "plan": {
-            "enum": [
-              "single",
-              "split"
-            ],
+            "enum": ["single", "split"],
             "title": "Plan",
             "type": "string"
           },
@@ -2913,15 +2671,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "date",
-          "store_id",
-          "store_name",
-          "total",
-          "item_count",
-          "plan",
-          "id"
-        ],
+        "required": ["date", "store_id", "store_name", "total", "item_count", "plan", "id"],
         "title": "SpendEntry",
         "type": "object"
       },
@@ -2954,10 +2704,7 @@
             "type": "integer"
           },
           "plan": {
-            "enum": [
-              "single",
-              "split"
-            ],
+            "enum": ["single", "split"],
             "title": "Plan",
             "type": "string"
           },
@@ -2986,14 +2733,7 @@
             "title": "Total"
           }
         },
-        "required": [
-          "date",
-          "store_id",
-          "store_name",
-          "total",
-          "item_count",
-          "plan"
-        ],
+        "required": ["date", "store_id", "store_name", "total", "item_count", "plan"],
         "title": "SpendEntryIn",
         "type": "object"
       },
@@ -3026,11 +2766,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "budget",
-          "entries",
-          "generated_at"
-        ],
+        "required": ["budget", "entries", "generated_at"],
         "title": "SpendExport",
         "type": "object"
       },
@@ -3070,12 +2806,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "month",
-          "entries",
-          "total",
-          "budget"
-        ],
+        "required": ["month", "entries", "total", "budget"],
         "title": "SpendMonth",
         "type": "object"
       },
@@ -3094,10 +2825,7 @@
             "$ref": "#/components/schemas/StoreResult"
           }
         },
-        "required": [
-          "store",
-          "item_ids"
-        ],
+        "required": ["store", "item_ids"],
         "title": "StoreAssignment",
         "type": "object"
       },
@@ -3233,10 +2961,7 @@
           },
           "channel": {
             "default": "physical",
-            "enum": [
-              "physical",
-              "online"
-            ],
+            "enum": ["physical", "online"],
             "title": "Channel",
             "type": "string"
           },
@@ -3293,12 +3018,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "store_id",
-          "chain_id",
-          "chain_name",
-          "store_name"
-        ],
+        "required": ["store_id", "chain_id", "chain_name", "store_name"],
         "title": "StoreRef",
         "type": "object"
       },
@@ -3314,10 +3034,7 @@
             "type": "string"
           },
           "channel": {
-            "enum": [
-              "physical",
-              "online"
-            ],
+            "enum": ["physical", "online"],
             "title": "Channel",
             "type": "string"
           },
@@ -3442,11 +3159,7 @@
           "flex_level": {
             "anyOf": [
               {
-                "enum": [
-                  "exact",
-                  "any_brand",
-                  "close"
-                ],
+                "enum": ["exact", "any_brand", "close"],
                 "type": "string"
               },
               {
@@ -3493,10 +3206,7 @@
           "source": {
             "default": "substitution_card",
             "description": "Where the verdict came from: the substitution card, or the smart-cart swap (apply = accepted, undo = kept_original, dismiss = not_good)",
-            "enum": [
-              "substitution_card",
-              "swap"
-            ],
+            "enum": ["substitution_card", "swap"],
             "title": "Source",
             "type": "string"
           },
@@ -3505,20 +3215,12 @@
             "type": "integer"
           },
           "verdict": {
-            "enum": [
-              "not_good",
-              "kept_original",
-              "accepted"
-            ],
+            "enum": ["not_good", "kept_original", "accepted"],
             "title": "Verdict",
             "type": "string"
           }
         },
-        "required": [
-          "canonical_id",
-          "substitute_item_id",
-          "verdict"
-        ],
+        "required": ["canonical_id", "substitute_item_id", "verdict"],
         "title": "SubstitutionFeedbackRequest",
         "type": "object"
       },
@@ -3541,11 +3243,7 @@
             "title": "Confidence"
           },
           "flex_level": {
-            "enum": [
-              "exact",
-              "any_brand",
-              "close"
-            ],
+            "enum": ["exact", "any_brand", "close"],
             "title": "Flex Level",
             "type": "string"
           },
@@ -3622,12 +3320,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "store_id",
-          "swaps",
-          "total_saving",
-          "generated_at"
-        ],
+        "required": ["store_id", "swaps", "total_saving", "generated_at"],
         "title": "SwapSuggestionResponse",
         "type": "object"
       },
@@ -3666,11 +3359,7 @@
           },
           "mode": {
             "default": "car",
-            "enum": [
-              "car",
-              "walk_transit",
-              "delivery"
-            ],
+            "enum": ["car", "walk_transit", "delivery"],
             "title": "Mode",
             "type": "string"
           }
@@ -3710,11 +3399,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
+        "required": ["loc", "msg", "type"],
         "title": "ValidationError",
         "type": "object"
       }
@@ -3874,9 +3559,7 @@
           }
         },
         "summary": "Chains Online",
-        "tags": [
-          "stores"
-        ]
+        "tags": ["stores"]
       }
     },
     "/compare": {
@@ -3915,9 +3598,7 @@
           }
         },
         "summary": "Compare",
-        "tags": [
-          "basket"
-        ]
+        "tags": ["basket"]
       }
     },
     "/events": {
@@ -3974,9 +3655,7 @@
           }
         },
         "summary": "Record a batch of beta events",
-        "tags": [
-          "events"
-        ]
+        "tags": ["events"]
       }
     },
     "/feedback/gap": {
@@ -4033,9 +3712,7 @@
           }
         },
         "summary": "Gap",
-        "tags": [
-          "feedback"
-        ]
+        "tags": ["feedback"]
       }
     },
     "/feedback/substitution": {
@@ -4092,9 +3769,7 @@
           }
         },
         "summary": "Substitution",
-        "tags": [
-          "feedback"
-        ]
+        "tags": ["feedback"]
       }
     },
     "/health": {
@@ -4113,9 +3788,7 @@
           }
         },
         "summary": "Health",
-        "tags": [
-          "meta"
-        ]
+        "tags": ["meta"]
       }
     },
     "/history/{canonical_id}": {
@@ -4185,9 +3858,7 @@
           }
         },
         "summary": "Price History",
-        "tags": [
-          "history"
-        ]
+        "tags": ["history"]
       }
     },
     "/items/barcode/{barcode}": {
@@ -4298,9 +3969,7 @@
           }
         },
         "summary": "Lookup Barcode",
-        "tags": [
-          "barcode"
-        ]
+        "tags": ["barcode"]
       }
     },
     "/lists/accept/{token}": {
@@ -4356,9 +4025,7 @@
           }
         },
         "summary": "Accept Share",
-        "tags": [
-          "shares"
-        ]
+        "tags": ["shares"]
       }
     },
     "/me": {
@@ -4405,9 +4072,7 @@
           }
         },
         "summary": "Delete Me",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       }
     },
     "/me/alerts": {
@@ -4458,9 +4123,7 @@
           }
         },
         "summary": "List Alerts",
-        "tags": [
-          "alerts"
-        ]
+        "tags": ["alerts"]
       },
       "post": {
         "operationId": "create_alert_me_alerts_post",
@@ -4515,9 +4178,7 @@
           }
         },
         "summary": "Create Alert",
-        "tags": [
-          "alerts"
-        ]
+        "tags": ["alerts"]
       }
     },
     "/me/alerts/{alert_id}": {
@@ -4566,9 +4227,7 @@
           }
         },
         "summary": "Delete Alert",
-        "tags": [
-          "alerts"
-        ]
+        "tags": ["alerts"]
       },
       "put": {
         "description": "Edit or pause (``active = false``) an alert. Editing re-arms it (``last_fired_at`` reset)\nwhen the threshold, level or product changes.",
@@ -4633,9 +4292,7 @@
           }
         },
         "summary": "Update Alert",
-        "tags": [
-          "alerts"
-        ]
+        "tags": ["alerts"]
       }
     },
     "/me/beta": {
@@ -4783,9 +4440,7 @@
           }
         },
         "summary": "List Lists",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       },
       "post": {
         "operationId": "create_list_me_lists_post",
@@ -4840,9 +4495,7 @@
           }
         },
         "summary": "Create List",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       }
     },
     "/me/lists/{list_id}": {
@@ -4891,9 +4544,7 @@
           }
         },
         "summary": "Delete List",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       },
       "get": {
         "description": "An owned list, or one shared with the user (``shared``, ``role``). Only the owner may\nPUT or DELETE it; editors change items through PostgREST (RLS).",
@@ -4948,9 +4599,7 @@
           }
         },
         "summary": "Get List",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       },
       "put": {
         "description": "Replace the list's name, recurrence and items.",
@@ -5015,9 +4664,7 @@
           }
         },
         "summary": "Update List",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       }
     },
     "/me/lists/{list_id}/members": {
@@ -5078,9 +4725,7 @@
           }
         },
         "summary": "List Members",
-        "tags": [
-          "shares"
-        ]
+        "tags": ["shares"]
       }
     },
     "/me/lists/{list_id}/members/{member_id}": {
@@ -5140,9 +4785,7 @@
           }
         },
         "summary": "Remove Member",
-        "tags": [
-          "shares"
-        ]
+        "tags": ["shares"]
       }
     },
     "/me/lists/{list_id}/share": {
@@ -5208,9 +4851,7 @@
           }
         },
         "summary": "Share List",
-        "tags": [
-          "shares"
-        ]
+        "tags": ["shares"]
       }
     },
     "/me/lists/{list_id}/share/{token}": {
@@ -5269,9 +4910,7 @@
           }
         },
         "summary": "Revoke Share",
-        "tags": [
-          "shares"
-        ]
+        "tags": ["shares"]
       }
     },
     "/me/lists/{list_id}/shares/{share_id}": {
@@ -5330,9 +4969,7 @@
           }
         },
         "summary": "Delete Share",
-        "tags": [
-          "shares"
-        ]
+        "tags": ["shares"]
       }
     },
     "/me/profile": {
@@ -5379,9 +5016,7 @@
           }
         },
         "summary": "Get Profile",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       },
       "put": {
         "operationId": "put_profile_me_profile_put",
@@ -5436,9 +5071,7 @@
           }
         },
         "summary": "Put Profile",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       }
     },
     "/me/push-subscriptions": {
@@ -5489,9 +5122,7 @@
           }
         },
         "summary": "Delete Push Subscription",
-        "tags": [
-          "alerts"
-        ]
+        "tags": ["alerts"]
       },
       "post": {
         "operationId": "add_push_subscription_me_push_subscriptions_post",
@@ -5546,9 +5177,7 @@
           }
         },
         "summary": "Add Push Subscription",
-        "tags": [
-          "alerts"
-        ]
+        "tags": ["alerts"]
       }
     },
     "/me/shared-lists": {
@@ -5600,9 +5229,7 @@
           }
         },
         "summary": "Shared Lists",
-        "tags": [
-          "shares"
-        ]
+        "tags": ["shares"]
       }
     },
     "/me/spend": {
@@ -5668,9 +5295,7 @@
           }
         },
         "summary": "Month Spend",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       },
       "post": {
         "operationId": "create_spend_me_spend_post",
@@ -5725,9 +5350,7 @@
           }
         },
         "summary": "Create Spend",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       }
     },
     "/me/spend/export": {
@@ -5775,9 +5398,7 @@
           }
         },
         "summary": "Export Spend",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       }
     },
     "/me/spend/{entry_id}": {
@@ -5826,9 +5447,7 @@
           }
         },
         "summary": "Delete Spend",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       },
       "put": {
         "description": "Replace an entry, e.g. with the actual checkout total.",
@@ -5893,9 +5512,7 @@
           }
         },
         "summary": "Update Spend",
-        "tags": [
-          "me"
-        ]
+        "tags": ["me"]
       }
     },
     "/optimize": {
@@ -5934,9 +5551,7 @@
           }
         },
         "summary": "Optimize",
-        "tags": [
-          "basket"
-        ]
+        "tags": ["basket"]
       }
     },
     "/optimize/swaps": {
@@ -5986,9 +5601,7 @@
           }
         },
         "summary": "Swap Suggestions",
-        "tags": [
-          "basket"
-        ]
+        "tags": ["basket"]
       }
     },
     "/parse-image": {
@@ -6027,9 +5640,7 @@
           }
         },
         "summary": "Parse Image",
-        "tags": [
-          "list"
-        ]
+        "tags": ["list"]
       }
     },
     "/parse-list": {
@@ -6068,9 +5679,7 @@
           }
         },
         "summary": "Parse List",
-        "tags": [
-          "basket"
-        ]
+        "tags": ["basket"]
       }
     },
     "/parse-recipe": {
@@ -6109,9 +5718,7 @@
           }
         },
         "summary": "Parse Recipe",
-        "tags": [
-          "basket"
-        ]
+        "tags": ["basket"]
       }
     },
     "/promo-cycles/{canonical_id}": {
@@ -6173,9 +5780,7 @@
           }
         },
         "summary": "Get Promo Cycles",
-        "tags": [
-          "history"
-        ]
+        "tags": ["history"]
       }
     },
     "/search": {
@@ -6229,9 +5834,7 @@
           }
         },
         "summary": "Search",
-        "tags": [
-          "basket"
-        ]
+        "tags": ["basket"]
       }
     },
     "/stores/nearest": {
@@ -6293,9 +5896,7 @@
           }
         },
         "summary": "Nearest Store",
-        "tags": [
-          "stores"
-        ]
+        "tags": ["stores"]
       }
     }
   }

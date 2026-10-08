@@ -9,7 +9,8 @@
  */
 import { useSyncExternalStore } from "react";
 import type { BasketItemInput, CanonicalRef, FlexLevel, ParsedRow } from "@/api/client";
-import { isFlexLevel, resolveFlexLevel, type FlexDefaults } from "./flex";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { department, isFlexLevel, resolveFlexLevel, type FlexDefaults } from "./flex";
 import { readJson, writeJson } from "./storage";
 
 export const LIST_KEY = "sc-list-v1";
@@ -234,11 +235,14 @@ export function basketItems(state: Pick<ListState, "items">): BasketItemInput[] 
 }
 
 /** Group rows by department, in order of first appearance; unrecognized rows come last. */
-export function groupByDepartment(items: ListItem[]): Array<{ name: string; items: ListItem[] }> {
+export function groupByDepartment(
+  items: ListItem[],
+  locale: Locale = DEFAULT_LOCALE,
+): Array<{ name: string; items: ListItem[] }> {
   const groups = new Map<string, ListItem[]>();
   for (const it of items) {
     if (it.notFound) continue;
-    const name = it.canonical?.category_path_he?.[0] ?? "שונות";
+    const name = department(it.canonical, locale);
     const list = groups.get(name) ?? [];
     list.push(it);
     groups.set(name, list);

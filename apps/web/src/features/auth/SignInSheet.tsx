@@ -4,6 +4,9 @@ import { useId, useState, type FormEvent } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import controls from "@/features/profile/controls/controls.module.css";
+import { formatRich } from "@/i18n/format";
+import { useT } from "@/i18n/LocaleProvider";
+import { authMessages } from "@/i18n/messages/auth";
 import { loadSupabase } from "./supabaseClient";
 
 type Step = "email" | "code";
@@ -24,6 +27,7 @@ export type SignInSheetProps = {
  * identity providers.
  */
 export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInSheetProps) {
+  const t = useT(authMessages);
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -44,7 +48,7 @@ export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInShe
     const supabase = await loadSupabase();
     if (!supabase) return;
     if (!EMAIL_RE.test(email.trim())) {
-      setError("כתובת האימייל לא נראית תקינה.");
+      setError(t("errorEmailInvalid"));
       return;
     }
     setBusy(true);
@@ -55,7 +59,7 @@ export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInShe
     });
     setBusy(false);
     if (err) {
-      setError("לא הצלחנו לשלוח קוד. נסי שוב בעוד רגע.");
+      setError(t("errorSendFailed"));
       return;
     }
     setStep("code");
@@ -66,7 +70,7 @@ export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInShe
     const supabase = await loadSupabase();
     if (!supabase) return;
     if (!/^\d{6,10}$/.test(code.trim())) {
-      setError("הקוד הוא ספרות בלבד, כפי שהגיע באימייל.");
+      setError(t("errorCodeFormat"));
       return;
     }
     setBusy(true);
@@ -78,7 +82,7 @@ export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInShe
     });
     setBusy(false);
     if (err) {
-      setError("הקוד שגוי או שפג תוקפו.");
+      setError(t("errorCodeWrong"));
       return;
     }
     setStep("email");
@@ -87,25 +91,17 @@ export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInShe
   }
 
   return (
-    <BottomSheet
-      open={open}
-      onClose={close}
-      title="התחברות"
-      eyebrow="כדי לשמור העדפות ורשימות בין מכשירים"
-    >
+    <BottomSheet open={open} onClose={close} title={t("title")} eyebrow={t("eyebrow")}>
       {!configured ? (
         <p className={controls.hint} data-testid="auth-unavailable">
-          ההתחברות לא מוגדרת בסביבה הזו. אפשר להמשיך להשתמש באפליקציה בלי חשבון: ההעדפות נשמרות
-          במכשיר בלבד.
+          {t("unavailable")}
         </p>
       ) : step === "email" ? (
         <form onSubmit={sendCode} className={controls.stack} noValidate>
-          <p className={controls.hint}>
-            נשלח קוד חד-פעמי לאימייל. בלי סיסמה, ובלי שיתוף הכתובת עם אף גורם חיצוני.
-          </p>
+          <p className={controls.hint}>{t("emailHint")}</p>
           <div className={controls.field}>
             <label htmlFor={emailId} className={controls.label}>
-              אימייל
+              {t("emailLabel")}
             </label>
             <input
               id={emailId}
@@ -124,17 +120,17 @@ export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInShe
             </p>
           ) : null}
           <Button type="submit" block disabled={busy}>
-            {busy ? "שולחת…" : "שליחת קוד"}
+            {busy ? t("sending") : t("sendCode")}
           </Button>
         </form>
       ) : (
         <form onSubmit={verify} className={controls.stack} noValidate>
           <p className={controls.hint}>
-            שלחנו קוד אל <span dir="ltr">{email.trim()}</span>. הקלידי אותו כאן.
+            {formatRich(t("codeSentTo"), { email: <span dir="ltr">{email.trim()}</span> })}
           </p>
           <div className={controls.field}>
             <label htmlFor={codeId} className={controls.label}>
-              קוד אימות
+              {t("codeLabel")}
             </label>
             <input
               id={codeId}
@@ -152,10 +148,10 @@ export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInShe
             </p>
           ) : null}
           <Button type="submit" block disabled={busy}>
-            {busy ? "מאמתת…" : "כניסה"}
+            {busy ? t("verifying") : t("verify")}
           </Button>
           <Button variant="ghost" onClick={() => setStep("email")}>
-            לשנות כתובת אימייל
+            {t("changeEmail")}
           </Button>
         </form>
       )}

@@ -1,4 +1,10 @@
+"use client";
+
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useT } from "@/i18n/LocaleProvider";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { uiMessages } from "@/i18n/messages/ui";
 import { IconLock, IconRefresh, IconTag } from "./icons";
 import styles from "./Chip.module.css";
 
@@ -58,13 +64,25 @@ export function Chip({
 /** API flexibility levels (openapi BasketItem.flex_level). */
 export type FlexLevel = "exact" | "any_brand" | "close";
 
+const FLEX_LABEL_KEYS = {
+  exact: "flexExact",
+  any_brand: "flexAnyBrand",
+  close: "flexClose",
+} as const satisfies Record<FlexLevel, keyof (typeof uiMessages)["he"]>;
+
+/** The chip text of a level in `locale` (Hebrew by default). Screens call it with `useLocale()`. */
+export function flexLevelLabel(level: FlexLevel, locale: Locale = DEFAULT_LOCALE): string {
+  return translate(uiMessages, locale, FLEX_LABEL_KEYS[level]);
+}
+
+/** `label` is the Hebrew text; use `flexLevelLabel(level, locale)` where the locale can be Arabic. */
 export const FLEX_LEVELS: Record<
   FlexLevel,
   { label: string; tone: ChipTone; Icon: typeof IconLock }
 > = {
-  exact: { label: "מוצר מדויק", tone: "exact", Icon: IconLock },
-  any_brand: { label: "כל מותג", tone: "brand", Icon: IconTag },
-  close: { label: "תחליף קרוב", tone: "warn", Icon: IconRefresh },
+  exact: { label: flexLevelLabel("exact"), tone: "exact", Icon: IconLock },
+  any_brand: { label: flexLevelLabel("any_brand"), tone: "brand", Icon: IconTag },
+  close: { label: flexLevelLabel("close"), tone: "warn", Icon: IconRefresh },
 };
 
 export type FlexChipProps = Omit<ChipProps, "tone" | "icon" | "children"> & {
@@ -76,12 +94,14 @@ export type FlexChipProps = Omit<ChipProps, "tone" | "icon" | "children"> & {
  * (lock / tag / refresh) so they read without color.
  */
 export function FlexChip({ level, ...rest }: FlexChipProps) {
-  const { label, tone, Icon } = FLEX_LEVELS[level];
+  const t = useT(uiMessages);
+  const { tone, Icon } = FLEX_LEVELS[level];
+  const label = t(FLEX_LABEL_KEYS[level]);
   return (
     <Chip
       tone={tone}
       icon={<Icon size={13} />}
-      aria-label={rest.onClick ? `רמת גמישות: ${label}` : undefined}
+      aria-label={rest.onClick ? t("flexLevelAria", { label }) : undefined}
       data-flex-level={level}
       {...rest}
     >

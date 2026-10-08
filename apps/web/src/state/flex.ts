@@ -3,6 +3,11 @@
  * and the per-category copy and soft attributes the flexibility sheet shows.
  */
 import type { CanonicalRef, FlexLevel } from "@/api/client";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { stateMessages } from "@/i18n/messages/state";
+
+type StateKey = keyof (typeof stateMessages)["he"];
 
 export type FlexDefaults = Record<string, FlexLevel>;
 
@@ -64,91 +69,112 @@ export function categoryLeaf(canonical: CanonicalRef | null | undefined): string
 }
 
 /** The department (first level of the path), used to group list rows. */
-export function department(canonical: CanonicalRef | null | undefined): string {
-  return canonical?.category_path_he?.[0] ?? "שונות";
+export function department(
+  canonical: CanonicalRef | null | undefined,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  return canonical?.category_path_he?.[0] ?? translate(stateMessages, locale, "otherDepartment");
 }
 
 /** "זכרי בחירה זו לכל סוגי החלב". One-word categories take the definite article. */
-export function rememberLabel(canonical: CanonicalRef | null | undefined): string {
+export function rememberLabel(
+  canonical: CanonicalRef | null | undefined,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
   const leaf = categoryLeaf(canonical);
-  if (!leaf) return "זכרי בחירה זו לכל המוצרים מהסוג הזה";
-  return /\s/.test(leaf) ? `זכרי בחירה זו לכל סוגי ${leaf}` : `זכרי בחירה זו לכל סוגי ה${leaf}`;
+  if (!leaf) return translate(stateMessages, locale, "rememberGeneric");
+  return translate(
+    stateMessages,
+    locale,
+    /\s/.test(leaf) ? "rememberLeaf" : "rememberLeafDefinite",
+    {
+      leaf,
+    },
+  );
 }
 
 export type LevelCopy = { explanation: string; example: string };
 
-const GENERIC_COPY: Record<FlexLevel, LevelCopy> = {
-  exact: {
-    explanation: "רק הברקוד שבחרת, בלי החלפות.",
-    example: "לדוגמה: אותו יצרן, אותה אריזה ואותו גודל.",
-  },
-  any_brand: {
-    explanation: "אותו מוצר מכל יצרן, כולל מותג פרטי. התכונות החשובות נשמרות.",
-    example: "לדוגמה: מותג פרטי במקום מותג מוכר, באותו גודל ובאותו סוג.",
-  },
-  close: {
-    explanation: "גם גודל, אריזה או הרכב קצת שונים. תמיד מסומן כתחליף.",
-    example: "לדוגמה: אריזה גדולה יותר או טעם דומה, עם הסבר מה שונה.",
-  },
+type LevelCopyKeys = { explanation: StateKey; example: StateKey };
+
+const GENERIC_COPY: Record<FlexLevel, LevelCopyKeys> = {
+  exact: { explanation: "exactExplanation", example: "exactExample" },
+  any_brand: { explanation: "anyBrandExplanation", example: "anyBrandExample" },
+  close: { explanation: "closeExplanation", example: "closeExample" },
 };
 
 /** Category-specific copy from the Flexibility artboard. Keys are taxonomy nodes. */
-const CATEGORY_COPY: Record<string, Partial<Record<FlexLevel, LevelCopy>>> = {
+const CATEGORY_COPY: Record<string, Partial<Record<FlexLevel, LevelCopyKeys>>> = {
   "dairy.milk": {
-    exact: {
-      explanation: "רק הברקוד שבחרת.",
-      example: "לדוגמה: תנובה, 3%, קרטון 1 ליטר.",
-    },
-    any_brand: {
-      explanation: "אותו מוצר מכל יצרן.",
-      example: "תנובה, טרה, יטבתה, מותג פרטי. נשמר: 3% שומן, טרי, 1 ליטר.",
-    },
-    close: {
-      explanation: "גם אחוז שומן, אריזה או גודל אחרים. תמיד מסומן כתחליף.",
-      example: "לדוגמה: 1% או 2%, שקית במקום קרטון.",
-    },
+    exact: { explanation: "milkExactExplanation", example: "milkExactExample" },
+    any_brand: { explanation: "milkAnyBrandExplanation", example: "milkAnyBrandExample" },
+    close: { explanation: "milkCloseExplanation", example: "milkCloseExample" },
   },
 };
 
-export function levelCopy(taxonomyId: string | null | undefined, level: FlexLevel): LevelCopy {
+function resolveCopy(keys: LevelCopyKeys, locale: Locale): LevelCopy {
+  return {
+    explanation: translate(stateMessages, locale, keys.explanation),
+    example: translate(stateMessages, locale, keys.example),
+  };
+}
+
+export function levelCopy(
+  taxonomyId: string | null | undefined,
+  level: FlexLevel,
+  locale: Locale = DEFAULT_LOCALE,
+): LevelCopy {
   if (taxonomyId) {
     for (const id of taxonomyAncestors(taxonomyId)) {
       const copy = CATEGORY_COPY[id]?.[level];
-      if (copy) return copy;
+      if (copy) return resolveCopy(copy, locale);
     }
   }
-  return GENERIC_COPY[level];
+  return resolveCopy(GENERIC_COPY[level], locale);
 }
+
+type SoftAttribute = { key: string; label: string };
+type SoftAttributeKeys = ReadonlyArray<{ key: string; labelKey: StateKey }>;
 
 /**
  * Soft attributes the user may allow to differ, by category. The API does not expose category
  * attribute schemas yet, so the lists live here; keys are stored with the list item.
  */
-const SOFT_ATTRIBUTES: Record<string, ReadonlyArray<{ key: string; label: string }>> = {
+const SOFT_ATTRIBUTES: Record<string, SoftAttributeKeys> = {
   "dairy.milk": [
-    { key: "pack_size", label: "גודל אריזה אחר" },
-    { key: "packaging", label: "קרטון או שקית" },
-    { key: "fat_pct", label: "אחוז שומן אחר" },
+    { key: "pack_size", labelKey: "softPackSize" },
+    { key: "packaging", labelKey: "softPackaging" },
+    { key: "fat_pct", labelKey: "softFatPct" },
   ],
   dairy: [
-    { key: "pack_size", label: "גודל אריזה אחר" },
-    { key: "fat_pct", label: "אחוז שומן אחר" },
+    { key: "pack_size", labelKey: "softPackSize" },
+    { key: "fat_pct", labelKey: "softFatPct" },
   ],
-  produce: [{ key: "variety", label: "זן אחר" }],
+  produce: [{ key: "variety", labelKey: "softVariety" }],
 };
 
-const GENERIC_SOFT: ReadonlyArray<{ key: string; label: string }> = [
-  { key: "pack_size", label: "גודל אריזה אחר" },
-  { key: "packaging", label: "סוג אריזה אחר" },
-  { key: "flavor", label: "טעם או גרסה דומים" },
+const GENERIC_SOFT: SoftAttributeKeys = [
+  { key: "pack_size", labelKey: "softPackSize" },
+  { key: "packaging", labelKey: "softPackagingType" },
+  { key: "flavor", labelKey: "softFlavor" },
 ];
 
-export function softAttributes(taxonomyId: string | null | undefined) {
+export function softAttributes(
+  taxonomyId: string | null | undefined,
+  locale: Locale = DEFAULT_LOCALE,
+): ReadonlyArray<SoftAttribute> {
+  let keys = GENERIC_SOFT;
   if (taxonomyId) {
     for (const id of taxonomyAncestors(taxonomyId)) {
       const list = SOFT_ATTRIBUTES[id];
-      if (list) return list;
+      if (list) {
+        keys = list;
+        break;
+      }
     }
   }
-  return GENERIC_SOFT;
+  return keys.map(({ key, labelKey }) => ({
+    key,
+    label: translate(stateMessages, locale, labelKey),
+  }));
 }
