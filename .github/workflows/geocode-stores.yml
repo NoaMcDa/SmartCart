@@ -86,8 +86,12 @@ jobs:
       # Sources, preferred first: data.gov.il CKAN, Wikidata SPARQL, Nominatim by name. Each prints a
       # "SOURCE ..." line (HTTP statuses and row count) to the log and the job summary. The step fails
       # (exit 1, ::error::) when no source returned a single row; a failing source alone does not.
+      # continue-on-error: the step still shows red with its ::error:: annotation when no source gave a
+      # row, but the stores below can still be geocoded from the city in their own address text.
       - name: Locality table (data.gov.il, Wikidata, Nominatim)
+        id: localities
         if: inputs.fetch_localities
+        continue-on-error: true
         run: |
           set -o pipefail
           args=()

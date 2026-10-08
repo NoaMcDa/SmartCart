@@ -59,6 +59,123 @@ SELECT ?item ?code ?coord ?he ?en WHERE {{
 """.strip()
 
 
+API = "https://www.wikidata.org/w/api.php"
+SEARCH_TERMS: tuple[tuple[str, str], ...] = (
+    ("en", "Central Bureau of Statistics"),
+    ("en", "Israel locality"),
+    ("en", "Israeli settlement"),
+    ("en", "CBS code"),
+    ("he", "הלשכה המרכזית לסטטיסטיקה"),
+    ("he", "סמל יישוב"),
+)
+"""Property searches (``wbsearchentities``): language and text."""
+
+# Items whose CBS locality code is well known: Tel Aviv-Yafo 5000, Jerusalem 3000, Haifa 4000. The
+# property that holds those exact values on those items is the CBS locality code, whatever it is
+# called. (If a Q-id here were wrong, that item simply matches nothing.)
+SIGNATURE_ITEMS: tuple[tuple[str, str], ...] = (("Q33935", "5000"), ("Q1218", "3000"), ("Q41621", "4000"))
+SIGNATURE_QUERY = (
+    "SELECT ?item ?prop ?label WHERE { VALUES (?item ?code) { "
+    + " ".join(f'(wd:{q} "{c}")' for q, c in SIGNATURE_ITEMS)
+    + " } ?item ?wdt ?v . FILTER(STR(?v) = ?code) "
+    "?prop wikibase:directClaim ?wdt ; rdfs:label ?label . FILTER(LANG(?label) = \"en\") }"
+)
+
+
+def search_url(term: str, language: str) -> str:
+    return API + "?" + urllib.parse.urlencode(
+        {
+            "action": "wbsearchentities",
+            "type": "property",
+            "language": language,
+            "uselang": language,
+            "search": term,
+            "limit": 50,
+            "format": "json",
+        }
+    )
+
+
+def parse_search(payload: dict[str, Any]) -> list[tuple[str, str, str]]:
+    """``[(property id, label, description)]`` from a ``wbsearchentities`` answer."""
+    out = []
+    for hit in payload.get("search", []):
+        if re.fullmatch(r"P\d+", hit.get("id", "")):
+            out.append((hit["id"], hit.get("label", ""), hit.get("description", "")))
+    return out
+
+
+def score_search_hit(label: str, description: str) -> int:
+    """How much a property looks like "Israeli locality code": needs Israel and a locality word."""
+    text = f"{label} {description}".casefold()
+    israel = "israel" in text or "ישראל" in text
+    place = any(w in text for w in ("locality", "localities", "settlement", "yishuv", "יישוב", "ישוב"))
+    code = any(w in text for w in ("code", "identifier", "id", "סמל", "מזהה", "מספר"))
+    cbs = "central bureau of statistics" in text or "cbs" in text or "הלמ" in text or "לסטטיסטיקה" in text
+    if not (israel and place):
+        return 0
+    return 4 + 2 * code + 2 * cbs
+
+
+def parse_signature(payload: dict[str, Any]) -> dict[str, tuple[str, int]]:
+    """``{property id: (label, number of signature items it matches)}``."""
+    hits: dict[str, tuple[str, set[str]]] = {}
+    for row in payload.get("results", {}).get("bindings", []):
+        m = _PROPERTY_ID.search(row.get("prop", {}).get("value", ""))
+        if not m:
+            continue
+        label, items = hits.setdefault(m.group(1), (row.get("label", {}).get("value", ""), set()))
+        items.add(row.get("item", {}).get("value", ""))
+    return {pid: (label, len(items)) for pid, (label, items) in hits.items()}
+
+
+def discover_property(
+    fetch: SparqlFetch, log: Callable[[str], None] = lambda _line: None
+) -> tuple[str | None, str]:
+    """Find the CBS locality-code property. Returns ``(property id or None, how it was found)``.
+
+    1. ``wbsearchentities`` for several terms (every hit is logged); the best hit whose description
+       says Israel and locality/settlement wins.
+    2. The signature query: the property that holds 5000/3000/4000 on Tel Aviv/Jerusalem/Haifa. A
+       property matching at least two of them is taken over a search hit (it is a fact, not a name).
+    3. The label query on "Central Bureau of Statistics".
+    Everything found is logged, so the choice can be checked in the workflow log.
+    """
+    best_search: tuple[int, str] | None = None
+    for language, term in SEARCH_TERMS:
+        try:
+            hits = parse_search(fetch(search_url(term, language)))
+        except Exception as exc:  # noqa: BLE001 (one failing search must not stop the others)
+            log(f"  wikidata search [{language}] {term!r}: error {type(exc).__name__}: {exc}")
+            continue
+        log(f"  wikidata search [{language}] {term!r}: {len(hits)} properties")
+        for pid, label, description in hits:
+            score = score_search_hit(label, description)
+            log(f"    {pid} | {label} | {description} | score {score}")
+            if score and (best_search is None or (score, -int(pid[1:])) > (best_search[0], -int(best_search[1][1:]))):
+                best_search = (score, pid)
+    try:
+        signature = parse_signature(fetch(sparql_url(SIGNATURE_QUERY)))
+    except Exception as exc:  # noqa: BLE001
+        log(f"  wikidata signature query: error {type(exc).__name__}: {exc}")
+        signature = {}
+    for pid, (label, n) in sorted(signature.items(), key=lambda kv: -kv[1][1]):
+        log(f"    signature {pid} | {label} | matches {n} of {len(SIGNATURE_ITEMS)} known codes")
+    strong = [(n, pid) for pid, (_l, n) in signature.items() if n >= 2]
+    if strong:
+        return max(strong, key=lambda t: (t[0], -int(t[1][1:])))[1], "signature (holds the known codes)"
+    if best_search:
+        return best_search[1], "search (description names Israel and localities)"
+    try:
+        prop, candidates = pick_property(fetch(sparql_url(PROPERTY_QUERY)))
+    except Exception as exc:  # noqa: BLE001
+        log(f"  wikidata label query: error {type(exc).__name__}: {exc}")
+        return None, "none"
+    for pid, label in candidates:
+        log(f"    label query {pid} | {label}")
+    return prop, "label query" if prop else "none"
+
+
 def _score(label: str) -> int:
     text = label.casefold()
     return (
@@ -135,7 +252,11 @@ def parse_localities(
 
 
 def fetch_localities(
-    fetch: SparqlFetch, *, retrieved_at: str, prop: str | None = None
+    fetch: SparqlFetch,
+    *,
+    retrieved_at: str,
+    prop: str | None = None,
+    log: Callable[[str], None] = lambda _line: None,
 ) -> tuple[list[Locality], dict[str, int], str | None]:
     """Run the discovery (unless ``prop`` is given) and the locality query.
 
@@ -143,7 +264,8 @@ def fetch_localities(
     found nothing (rows is then empty).
     """
     if prop is None:
-        prop, _candidates = pick_property(fetch(sparql_url(PROPERTY_QUERY)))
+        prop, how = discover_property(fetch, log)
+        log(f"  wikidata property: {prop} ({how})")
         if prop is None:
             return [], {}, None
     payload = fetch(sparql_url(locality_query(prop)))

@@ -1,0 +1,14 @@
+{
+ "head": {"vars": ["item", "prop", "label"]},
+ "results": {"bindings": [
+  {"item": {"type": "uri", "value": "http://www.wikidata.org/entity/Q33935"},
+   "prop": {"type": "uri", "value": "http://www.wikidata.org/entity/P99999"},
+   "label": {"xml:lang": "en", "type": "literal", "value": "Israel Central Bureau of Statistics locality code"}},
+  {"item": {"type": "uri", "value": "http://www.wikidata.org/entity/Q1218"},
+   "prop": {"type": "uri", "value": "http://www.wikidata.org/entity/P99999"},
+   "label": {"xml:lang": "en", "type": "literal", "value": "Israel Central Bureau of Statistics locality code"}},
+  {"item": {"type": "uri", "value": "http://www.wikidata.org/entity/Q33935"},
+   "prop": {"type": "uri", "value": "http://www.wikidata.org/entity/P66666"},
+   "label": {"xml:lang": "en", "type": "literal", "value": "some other identifier"}}
+ ]}
+}
