@@ -127,10 +127,42 @@ describe("push feature detection", () => {
         ),
       );
       await enablePush(KEY);
-      expect(trackEvent).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(trackEvent).mock.calls.filter(([n]) => n === "push_opt_in")).toHaveLength(1);
       expect(trackEvent).toHaveBeenCalledWith("push_opt_in", {
         platform: expect.stringMatching(/^(ios|android|desktop|other)$/),
       });
+    });
+
+    it("reports push_prompt_shown right before the browser is asked, once, with the platform", async () => {
+      vi.mocked(trackEvent).mockClear();
+      const order: string[] = [];
+      vi.mocked(trackEvent).mockImplementation((name) => {
+        order.push(String(name));
+      });
+      stub(w, "Notification", {
+        permission: "default",
+        requestPermission: () => {
+          order.push("requestPermission");
+          return Promise.resolve("denied");
+        },
+      });
+      await enablePush(KEY);
+      expect(order).toEqual(["push_prompt_shown", "requestPermission"]);
+      expect(trackEvent).toHaveBeenCalledWith("push_prompt_shown", {
+        platform: expect.stringMatching(/^(ios|android|desktop|other)$/),
+      });
+      vi.mocked(trackEvent).mockReset();
+    });
+
+    it("does not report push_prompt_shown when no prompt can appear (already granted or blocked, or no key)", async () => {
+      vi.mocked(trackEvent).mockClear();
+      stub(w, "Notification", {
+        permission: "denied",
+        requestPermission: () => Promise.resolve("denied"),
+      });
+      await enablePush(KEY);
+      await enablePush("");
+      expect(trackEvent).not.toHaveBeenCalledWith("push_prompt_shown", expect.anything());
     });
 
     it("does not report push_opt_in for a denied or an already granted permission", async () => {
@@ -150,7 +182,7 @@ describe("push feature detection", () => {
         ),
       );
       await enablePush(KEY);
-      expect(trackEvent).not.toHaveBeenCalled();
+      expect(trackEvent).not.toHaveBeenCalledWith("push_opt_in", expect.anything());
     });
 
     it("handles a denied permission without subscribing or breaking", async () => {

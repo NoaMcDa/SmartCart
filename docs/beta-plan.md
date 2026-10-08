@@ -136,7 +136,7 @@ id per minute, counted in the table (proposal), 429 with `Retry-After`.
 
 | Event | Props | Fire it | Used by |
 |---|---|---|---|
-| `app_opened` | `surface`: web or pwa | once per visit, in the shell (W5) | return visits |
+| `app_opened` | `surface`: web or pwa, `platform` (#56) | once per visit, in the shell (W5) | return visits |
 | `page_viewed` | `page_type` | SEO pages (done) | SEO to app funnel |
 | `list_pasted` | `item_count` | list builder, on paste (W4b) | drop-off before results |
 | `results_shown` | `duration_ms`, `item_count`, `store_count` | results screen when rendered (W4b) | paste-to-results |
@@ -146,6 +146,7 @@ id per minute, counted in the table (proposal), 429 with `Retry-After`.
 | `split_viewed` | none | split view (W5) | feature use |
 | `gap_reported` | none | report-a-gap (W4b) | data trust |
 | `pwa_installed` | `platform`: ios, android, desktop or other | `appinstalled`, or the first standalone launch, once per browser (finish round, #56) | PWA install rate |
+| `push_prompt_shown` | `platform` | right before our flow asks for the push permission, only when the browser will show its prompt (#56) | denominator of the opt-in rate |
 | `push_opt_in` | `platform` | push permission becomes granted through the alerts button (#56) | push opt-in rate |
 | `push_opened` | `platform` | a push notification is tapped; the service worker messages the page (#56) | notification open rate |
 | `store_mode_used` | `plan`: single or split, `platform` | store mode opens with a shopping session (#56) | share of sessions in store; iOS versus Android split |

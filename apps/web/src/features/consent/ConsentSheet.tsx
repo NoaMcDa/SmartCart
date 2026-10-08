@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { setTrackingConsent, trackEvent } from "@/features/seo/track";
+import { detectPlatform } from "@/lib/platform";
 import styles from "./Consent.module.css";
 import { useTrackingConsent } from "./useTrackingConsent";
 
@@ -89,7 +90,7 @@ export function ConsentGate() {
     const standalone =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(display-mode: standalone)").matches;
-    trackEvent("app_opened", { surface: standalone ? "pwa" : "web" });
+    trackEvent("app_opened", { surface: standalone ? "pwa" : "web", platform: detectPlatform() });
   }, [consent]);
 
   return (

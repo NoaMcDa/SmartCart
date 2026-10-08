@@ -62,6 +62,24 @@ describe("consent sheet", () => {
     expect(sentNames()).toEqual(["app_opened"]);
   });
 
+  it("app_opened carries the surface and the coarse platform (#56), nothing else", async () => {
+    const ua =
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148";
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ua);
+    localStorage.setItem("sc-events-consent", "1");
+    render(<ConsentGate />);
+    await act(() => flushEvents());
+    const [, init] = fetchMock.mock.calls[0]!;
+    const { events } = JSON.parse(init!.body as string) as {
+      events: { name: string; props: Record<string, unknown> }[];
+    };
+    expect(events[0]).toMatchObject({
+      name: "app_opened",
+      props: { surface: "web", platform: "ios" },
+    });
+    vi.restoreAllMocks();
+  });
+
   it("declining stores 0, closes, and nothing is ever sent", async () => {
     const user = userEvent.setup();
     render(<ConsentGate />);

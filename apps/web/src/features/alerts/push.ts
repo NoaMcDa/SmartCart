@@ -74,6 +74,8 @@ export async function enablePush(key: string = VAPID_PUBLIC_KEY): Promise<Enable
   if (support !== "supported") return { ok: false, reason: support };
   try {
     const before = Notification.permission;
+    // The denominator of the opt-in rate (#56): only when the browser will really show its prompt.
+    if (before === "default") trackEvent("push_prompt_shown", { platform: detectPlatform() });
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return { ok: false, reason: "denied" };
     // Counted when the permission becomes granted through our button (#56), not when it already was.

@@ -1031,6 +1031,8 @@ turn muted.
 
 ### Native-decision events (#56)
 
+`app_opened` (fired by `ConsentGate`) also carries `platform`.
+
 `lib/platform.ts` gives a coarse `ios | android | desktop | other` from the UA client hint, then the user
 agent string (an iPad that asks for the desktop site is `ios`); no versions or models. All events go
 through `trackEvent`, so none is queued before consent and none outside a beta build.
@@ -1038,6 +1040,7 @@ through `trackEvent`, so none is queued before consent and none outside a beta b
 | Event | Fired by |
 |---|---|
 | `pwa_installed {platform}` | `components/pwa/pwaEvents.ts`: on `appinstalled`, or on the first launch in standalone mode (also iOS, which has no `appinstalled`). Once per browser, remembered in `localStorage["sc-pwa-installed"]`, and only written when the event was really queued, so a launch before consent is counted later (it re-checks when consent is given) |
+| `push_prompt_shown {platform}` | `alerts/push.ts` `enablePush`, right before `Notification.requestPermission()`, only when the permission is `default` (the denominator of the opt-in rate) |
 | `push_opt_in {platform}` | `alerts/push.ts` `enablePush`, when the permission becomes `granted` through our button (not when it already was) |
 | `push_opened {platform}` | `public/sw.js` `notificationclick` posts `{type: "sc-push-opened"}` to the page it focuses, or to the window it opens (queued until that page listens); `pwaEvents.ts` turns the message into the event |
 | `store_mode_used {plan, platform}` | `store/StoreMode.tsx`, once per shopping session when store mode shows a session |
