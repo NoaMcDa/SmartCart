@@ -14,8 +14,11 @@
 # SKIP_DOWNLOAD_PROBE=1, PROBE_EDI (laibcatalog chain id, default Victory 7290696200003).
 #
 # Also checks the Cerberus FTP login (FTP over TLS, the user name of each Cerberus chain and an
-# empty password, as the upstream scraper logs in) for the four D13 Cerberus chains; a failed
-# login counts as a failure. SKIP_FTP_LOGIN_PROBE=1 skips it.
+# empty password) for the four D13 Cerberus chains, in the upstream scraper's own mode:
+# ftplib.FTP_TLS(host, user, "") without a context, which does not verify the certificate. The
+# portal's certificate does not match url.retail.publishedprices.co.il (seen 2026-10-08), so a
+# verifying login fails while the scraper works; the result line says so. A failed login counts
+# as a failure. SKIP_FTP_LOGIN_PROBE=1 skips it.
 # MARKDOWN_OUT=<file> also appends the results as a Markdown table to that file (the
 # portal-probe workflow points it at $GITHUB_STEP_SUMMARY).
 set -euo pipefail
@@ -91,12 +94,16 @@ for entry in "${PORTALS[@]}"; do
   esac
 done
 
-# Cerberus chains log in over FTP with TLS: host|user (from the upstream scrapers).
+# Cerberus chains log in over FTP with TLS: host|user. The host is the upstream Cerberus engine's
+# default ftp_host and the users are from its scrapers (il_supermarket_scarper 1.0.15).
+# CERBERUS_FTP_HOST and CERBERUS_FTP_PORT override the host and port (for testing).
+CERBERUS_FTP_HOST="${CERBERUS_FTP_HOST:-url.retail.publishedprices.co.il}"
+CERBERUS_FTP_PORT="${CERBERUS_FTP_PORT:-21}"
 CERBERUS_LOGINS=(
-  "url.retail.publishedprices.co.il|RamiLevi"
-  "url.retail.publishedprices.co.il|TivTaam"
-  "url.retail.publishedprices.co.il|osherad"
-  "url.retail.publishedprices.co.il|yohananof"
+  "${CERBERUS_FTP_HOST}|RamiLevi"
+  "${CERBERUS_FTP_HOST}|TivTaam"
+  "${CERBERUS_FTP_HOST}|osherad"
+  "${CERBERUS_FTP_HOST}|yohananof"
 )
 if [[ "${SKIP_FTP_LOGIN_PROBE:-0}" != "1" ]]; then
   echo
@@ -106,31 +113,44 @@ if [[ "${SKIP_FTP_LOGIN_PROBE:-0}" != "1" ]]; then
   for entry in "${CERBERUS_LOGINS[@]}"; do
     host="${entry%%|*}"
     user="${entry#*|}"
-    login="$(python3 - "$host" "$user" "$CURL_MAX_TIME" <<'PY'
+    login="$(python3 - "$host" "$user" "$CURL_MAX_TIME" "$CERBERUS_FTP_PORT" <<'PY'
 import ftplib
 import ssl
 import sys
 
 host, user, timeout = sys.argv[1], sys.argv[2], float(sys.argv[3])
-try:
-    ftp = ftplib.FTP_TLS(host, timeout=timeout, context=ssl.create_default_context())
+ftplib.FTP.port = int(sys.argv[4])
+
+
+def attempt(context):
+    # Exactly how the upstream scraper connects (connection._open_ftp_tls): FTP_TLS(host, user,
+    # password) logs in after AUTH TLS. With context=None ftplib uses an unverified context.
     try:
-        ftp.login(user, "")
-        ftp.prot_p()
-    finally:
+        ftp = ftplib.FTP_TLS(host, user, "", timeout=timeout, context=context)
         try:
-            ftp.quit()
-        except (ftplib.Error, OSError):
-            ftp.close()
-except (ftplib.Error, OSError, EOFError) as exc:
-    print(f"FAIL ({type(exc).__name__})")
+            ftp.voidcmd("NOOP")
+        finally:
+            try:
+                ftp.quit()
+            except (ftplib.Error, OSError):
+                ftp.close()
+    except (ftplib.Error, OSError, EOFError) as exc:
+        return type(exc).__name__
+    return None
+
+
+err = attempt(None)
+if err:
+    print(f"FAIL ({err})")
+elif attempt(ssl.create_default_context()):
+    print("OK (certificate fails verification; upstream does not verify it)")
 else:
     print("OK")
 PY
 )"
     printf 'ftp login %-34s %s\n' "${user}@${host}" "$login"
     md "| ${user}@${host} | ${login} |"
-    [[ "$login" == "OK" ]] || failures=$((failures + 1))
+    [[ "$login" == OK* ]] || failures=$((failures + 1))
   done
 fi
 

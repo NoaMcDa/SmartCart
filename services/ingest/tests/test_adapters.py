@@ -69,7 +69,8 @@ def check_folder(adapter: RegulationAdapter, folder: Path) -> list[str]:
     """Run every fixture in ``folder`` against ``expected.json``; return the kinds covered."""
     expected = json.loads((folder / "expected.json").read_text(encoding="utf-8"))
     assert expected["chain_id"] == adapter.chain_id
-    on_disk = {p.name for p in folder.iterdir() if p.name != "expected.json"}
+    # Files only: a chain's real/ subdirectory holds real portal files (tests below).
+    on_disk = {p.name for p in folder.iterdir() if p.is_file() and p.name != "expected.json"}
     assert on_disk == set(expected["files"]), "every fixture file needs an expected.json entry"
     covered: list[str] = []
     for name, exp in expected["files"].items():
@@ -356,14 +357,127 @@ def test_no_upstream_types_leak_from_parse() -> None:
 # --------------------------------------------------------------------------- real files
 
 
-REAL_FILES = sorted(
-    p for p in (FIXTURES / "real").rglob("*") if p.is_file() and p.name != "manifest.json"
-) if (FIXTURES / "real").is_dir() else []
+# Real portal files live in ``fixtures/<slug>/real/`` (committed by the "Portal probe" workflow
+# with ``commit_fixtures``: Stores whole, PriceFull trimmed to its first 200 rows, plus a
+# MANIFEST.json with the source file, hashes, times, row counts and the gate result seen on the
+# runner) or in ``fixtures/real/<slug>/`` (``fetch_fixtures.py``'s default output). They are
+# untrusted data: only the chain adapters read them. The synthetic fixtures stay as they are.
+
+DOCUMENTED_GATES = {"zero_price", "price_jump", "item_count_drop", "stale_date"}
+"""The quality gates of docs/ingestion.md; a real file may only be quarantined by these."""
+MANIFEST_NAMES = {"MANIFEST.json", "manifest.json"}
 
 
-@pytest.mark.skipif(not REAL_FILES, reason="no real fixtures yet; run adapters/fetch_fixtures.py on the VPS")
-@pytest.mark.parametrize("file", REAL_FILES, ids=lambda p: f"{p.parent.name}/{p.name}")
-def test_real_fixture_parses(file: Path) -> None:
-    adapter = chain_adapters()[file.parent.name]()
+def real_fixture_files(root: Path = FIXTURES) -> list[tuple[str, Path]]:
+    """``[(chain slug, file)]`` for every real file under ``<slug>/real/`` and ``real/<slug>/``."""
+    found: list[tuple[str, Path]] = []
+    for chain_dir in chain_dirs(root):
+        real = chain_dir / "real"
+        if real.is_dir():
+            found += [(chain_dir.name, p) for p in sorted(real.iterdir())
+                      if p.is_file() and p.name not in MANIFEST_NAMES]  # fmt: skip
+    legacy = root / "real"
+    if legacy.is_dir():
+        found += [(p.parent.name, p) for p in sorted(legacy.rglob("*"))
+                  if p.is_file() and p.name not in MANIFEST_NAMES]  # fmt: skip
+    return found
+
+
+def real_manifest_entry(file: Path) -> dict[str, Any]:
+    """The MANIFEST.json entry of a real file, or {} when there is none."""
+    manifest = file.parent / "MANIFEST.json"
+    if not manifest.is_file():
+        return {}
+    files = json.loads(manifest.read_text(encoding="utf-8")).get("files", [])
+    return next((e for e in files if e.get("file") == file.name), {})
+
+
+def documented_gates(file: Path) -> set[str]:
+    gates = set((real_manifest_entry(file).get("gate") or {}).get("gates") or [])
+    assert gates <= DOCUMENTED_GATES, f"{file.name}: undocumented gate(s) {gates - DOCUMENTED_GATES}"
+    return gates
+
+
+REAL_FILES = real_fixture_files()
+REAL_CHAINS = sorted({slug for slug, _ in REAL_FILES})
+NO_REAL = "no real fixtures yet; run the Portal probe workflow with commit_fixtures (docs/ingestion.md)"
+
+
+def test_real_fixture_discovery_reads_chain_real_dirs(tmp_path: Path) -> None:
+    """The discovery itself, on a temporary tree (runs whether or not real files exist)."""
+    (tmp_path / "victory" / "real").mkdir(parents=True)
+    (tmp_path / "victory" / "real" / "Stores7290696200003-000-202610080900.xml.gz").write_bytes(b"x")
+    (tmp_path / "victory" / "real" / "MANIFEST.json").write_text("{}")
+    (tmp_path / "real" / "shufersal").mkdir(parents=True)
+    (tmp_path / "real" / "shufersal" / "Stores7290027600007-000-202610080201.gz").write_bytes(b"x")
+    (tmp_path / "real" / "manifest.json").write_text("{}")
+    found = [(slug, p.name) for slug, p in real_fixture_files(tmp_path)]
+    assert found == [("victory", "Stores7290696200003-000-202610080900.xml.gz"),
+                     ("shufersal", "Stores7290027600007-000-202610080201.gz")]  # fmt: skip
+
+
+@pytest.mark.skipif(not REAL_FILES, reason=NO_REAL)
+@pytest.mark.parametrize(("slug", "file"), REAL_FILES, ids=lambda v: v if isinstance(v, str) else v.name)
+def test_real_fixture_parses(slug: str, file: Path) -> None:
+    adapter = chain_adapters()[slug]()
+    info = adapter.parse_filename(file.name)
+    assert info.published_at is not None, "publication time not parsed from the file name"
     parsed = parse_fixture(adapter, file)
     assert parsed.raw.schema_version in ("v1", "v2")
+    gates = documented_gates(file)
+    if info.kind == "stores":
+        assert parsed.stores, "a Stores file with no stores"
+        assert all(s.store_code for s in parsed.stores)
+        return
+    assert info.store_code, "store code not parsed from the file name"
+    assert parsed.items, "no items"
+    assert parsed.prices, "no prices"
+    assert all(p.store_code for p in parsed.prices), "a price without a store code"
+    if "zero_price" not in gates:
+        assert all(p.price > 0 for p in parsed.prices), "a zero or negative price"
+    entry = real_manifest_entry(file)
+    if entry.get("items_trimmed") is not None:
+        assert len(parsed.prices) <= entry["items_trimmed"]
+
+
+@pytest.mark.db
+@pytest.mark.skipif(not REAL_FILES, reason=NO_REAL)
+@pytest.mark.parametrize("slug", REAL_CHAINS)
+def test_real_fixtures_load_or_are_quarantined_for_a_documented_reason(db, tmp_path, slug) -> None:
+    """The chain's real files through the Scheduler path (adapter, gates, loader) with the clock
+    one hour after the newest file, as the VPS would have seen them: each one loads, or is
+    quarantined only by gates its MANIFEST.json recorded on the runner."""
+    from datetime import timedelta
+
+    from smartcart_ingest import tracking
+    from smartcart_ingest.alerts import Alerter
+    from smartcart_ingest.download import sha256_hex
+    from smartcart_ingest.rawstore import LocalRawStore
+    from smartcart_ingest.scheduler import Scheduler
+    from smartcart_ingest.settings import Settings
+    from tests.fakes import FakeFetcher, RecordingSink
+
+    adapter = chain_adapters()[slug]()
+    files = [p for s, p in REAL_FILES if s == slug]
+    fetcher = FakeFetcher()
+    published = []
+    for path in files:
+        info = adapter.parse_filename(path.name)
+        published.append(info.published_at)
+        fetcher.add(info.kind, path.read_bytes(), chain_id=adapter.chain_id, name=path.name)
+    now = max(published) + timedelta(hours=1)
+    sink = RecordingSink()
+    sched = Scheduler(db, fetcher, LocalRawStore(tmp_path), Alerter([sink]), Settings(),
+                      adapter_for=lambda c: chain_adapters()[slug](), now=lambda: now,
+                      sleep=lambda s: None)  # fmt: skip
+    rep = sched.run_full([adapter.chain_id]).chains[0]
+    assert rep.error is None, rep.error
+    for path in files:
+        row = tracking.get_by_sha(db, sha256_hex(path.read_bytes()))
+        assert row is not None, f"{path.name} was not tracked"
+        if row.status == "quarantined":
+            gates = {g for (g,) in db.execute(
+                "SELECT gate FROM quarantine_events WHERE file_id = %s", (row.id,)).fetchall()}  # fmt: skip
+            assert gates and gates <= documented_gates(path), (path.name, gates, sink.alerts)
+        else:
+            assert row.status == "loaded", (path.name, row.status, row.reason)
