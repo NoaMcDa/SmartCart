@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/i18n/LocaleProvider";
+import { themeMessages } from "@/i18n/messages/theme";
 import { IconMoon, IconSun } from "@/components/ui/icons";
 import { useTheme } from "./ThemeProvider";
 import styles from "./ThemeToggle.module.css";
@@ -12,12 +14,13 @@ import styles from "./ThemeToggle.module.css";
  */
 export function ThemeToggle({ shape = "square" }: { shape?: "square" | "round" }) {
   const { resolved, toggle } = useTheme();
+  const t = useT(themeMessages);
   return (
     <button
       type="button"
       role="switch"
       aria-checked={resolved === "dark"}
-      aria-label="מצב כהה"
+      aria-label={t("darkMode")}
       onClick={toggle}
       className={[styles.toggle, shape === "round" ? styles.round : null].filter(Boolean).join(" ")}
       data-testid="theme-toggle"

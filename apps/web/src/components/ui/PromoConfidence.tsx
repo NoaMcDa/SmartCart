@@ -1,3 +1,7 @@
+"use client";
+
+import { useT } from "@/i18n/LocaleProvider";
+import { uiMessages } from "@/i18n/messages/ui";
 import { Tag } from "./Tag";
 
 export type PromoConfidenceProps = {
@@ -14,17 +18,20 @@ const HIGH = 0.9;
  * nothing: a promo without a score says so.
  */
 export function PromoConfidence({ confidence }: PromoConfidenceProps) {
+  const t = useT(uiMessages);
   const known = typeof confidence === "number" && Number.isFinite(confidence);
   const percent = known ? Math.round(Math.min(1, Math.max(0, confidence)) * 100) : null;
   return (
     <span
-      title="ביטחון בניתוח המבצע מקובץ המחירים"
+      title={t("promoConfidenceTitle")}
       data-promo-confidence={percent === null ? "unknown" : String(percent)}
     >
       {percent === null ? (
-        <Tag variant="unverified">לא נבדק</Tag>
+        <Tag variant="unverified">{t("promoUnchecked")}</Tag>
       ) : (
-        <Tag variant={percent >= HIGH * 100 ? "matched" : "unverified"}>{`ביטחון ${percent}%`}</Tag>
+        <Tag variant={percent >= HIGH * 100 ? "matched" : "unverified"}>
+          {t("promoConfidence", { percent })}
+        </Tag>
       )}
     </span>
   );

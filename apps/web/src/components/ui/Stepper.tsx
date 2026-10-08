@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/i18n/LocaleProvider";
+import { uiMessages } from "@/i18n/messages/ui";
 import { IconMinus, IconPlus } from "./icons";
 import styles from "./Stepper.module.css";
 
@@ -31,12 +33,13 @@ export function Stepper({
   unit,
   className,
 }: StepperProps) {
+  const t = useT(uiMessages);
   const dec = () => onChange(Math.max(min, round(value - step)));
   const inc = () => onChange(Math.min(max, round(value + step)));
   return (
     <div
       role="group"
-      aria-label={`כמות: ${label}`}
+      aria-label={t("stepperGroup", { label })}
       className={[styles.stepper, className].filter(Boolean).join(" ")}
     >
       <button
@@ -44,14 +47,14 @@ export function Stepper({
         className={styles.btn}
         onClick={dec}
         disabled={value <= min}
-        aria-label={`הפחיתי כמות של ${label}`}
+        aria-label={t("stepperDecrease", { label })}
       >
         <IconMinus size={16} />
       </button>
       <output
         className={styles.value}
         aria-live="polite"
-        aria-label={`כמות ${value}${unit ? ` ${unit}` : ""}`}
+        aria-label={t("stepperValue", { value: `${value}${unit ? ` ${unit}` : ""}` })}
       >
         <span dir="ltr">{value}</span>
         {unit ? <span className={styles.unit}>{unit}</span> : null}
@@ -61,7 +64,7 @@ export function Stepper({
         className={styles.btn}
         onClick={inc}
         disabled={value >= max}
-        aria-label={`הוסיפי כמות של ${label}`}
+        aria-label={t("stepperIncrease", { label })}
       >
         <IconPlus size={16} />
       </button>

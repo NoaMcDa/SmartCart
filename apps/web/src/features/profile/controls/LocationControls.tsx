@@ -4,7 +4,10 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
 import { IconPin } from "@/components/ui/icons";
-import { CITIES, findCity } from "../cities";
+import { formatRich } from "@/i18n/format";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { profileMessages } from "@/i18n/messages/profile";
+import { CITIES, cityLabelFor, cityName, findCity } from "../cities";
 import {
   RADIUS_MAX_KM,
   RADIUS_MIN_KM,
@@ -25,10 +28,12 @@ type GeoState = "idle" | "asking" | "denied" | "unavailable";
  * rounded to 3 decimals by `setLocation` (D11).
  */
 export function LocationControls() {
+  const t = useT(profileMessages);
+  const { locale } = useLocale();
   const profile = useProfile();
   const [geo, setGeo] = useState<GeoState>("idle");
   const [manualOpen, setManualOpen] = useState(false);
-  const [city, setCity] = useState(profile.location?.city ?? "");
+  const [city, setCity] = useState(cityLabelFor(profile.location?.city ?? "", locale));
   const [neighborhood, setNeighborhood] = useState(profile.location?.neighborhood ?? "");
   const [cityError, setCityError] = useState(false);
   const listId = useId();
@@ -73,7 +78,7 @@ export function LocationControls() {
       neighborhood: neighborhood.trim() || null,
       source: "manual",
     });
-    setCity(match.name);
+    setCity(cityName(match, locale));
   }
 
   const loc = profile.location;
@@ -82,22 +87,22 @@ export function LocationControls() {
   return (
     <div className={styles.stack}>
       <div className={styles.group}>
-        <p className={styles.legend}>המיקום שלי</p>
+        <p className={styles.legend}>{t("myLocation")}</p>
         {loc ? (
           <div className={styles.statusRow} data-testid="location-summary">
             <Tag variant="matched">
               {loc.city
-                ? [loc.city, loc.neighborhood].filter(Boolean).join(", ")
+                ? [cityLabelFor(loc.city, locale), loc.neighborhood].filter(Boolean).join(", ")
                 : loc.source === "device"
-                  ? "מיקום המכשיר, מעוגל לשכונה"
-                  : "מיקום שמור, מעוגל לשכונה"}
+                  ? t("locationDevice")
+                  : t("locationSaved")}
             </Tag>
             <Button size="sm" variant="ghost" onClick={() => clearLocation()}>
-              הסרת המיקום
+              {t("removeLocation")}
             </Button>
           </div>
         ) : (
-          <p className={styles.status}>עוד לא הגדרת מיקום.</p>
+          <p className={styles.status}>{t("noLocation")}</p>
         )}
         <div className={styles.row}>
           <Button
@@ -106,22 +111,22 @@ export function LocationControls() {
             onClick={askDevice}
             disabled={geo === "asking"}
           >
-            {geo === "asking" ? "מבקשת מיקום…" : "אישור שימוש במיקום המכשיר"}
+            {geo === "asking" ? t("asking") : t("askDevice")}
           </Button>
           {!showManual ? (
             <Button variant="ghost" onClick={() => setManualOpen(true)}>
-              להזין עיר ושכונה במקום
+              {t("enterManual")}
             </Button>
           ) : null}
         </div>
         {geo === "denied" ? (
           <p className={styles.error} role="status">
-            לא קיבלנו הרשאת מיקום, וזה בסדר. אפשר להזין עיר ושכונה ולהמשיך.
+            {t("geoDenied")}
           </p>
         ) : null}
         {geo === "unavailable" ? (
           <p className={styles.error} role="status">
-            המכשיר לא מספק מיקום. אפשר להזין עיר ושכונה ולהמשיך.
+            {t("geoUnavailable")}
           </p>
         ) : null}
       </div>
@@ -131,7 +136,7 @@ export function LocationControls() {
           <div className={styles.row}>
             <div className={styles.field}>
               <label htmlFor={cityId} className={styles.label}>
-                עיר
+                {t("city")}
               </label>
               <input
                 id={cityId}
@@ -148,13 +153,13 @@ export function LocationControls() {
               />
               <datalist id={listId}>
                 {CITIES.map((c) => (
-                  <option key={c.name} value={c.name} />
+                  <option key={c.id} value={cityName(c, locale)} />
                 ))}
               </datalist>
             </div>
             <div className={styles.field}>
               <label htmlFor={hoodId} className={styles.label}>
-                שכונה (לא חובה)
+                {t("neighborhood")}
               </label>
               <input
                 id={hoodId}
@@ -167,39 +172,27 @@ export function LocationControls() {
           </div>
           {cityError ? (
             <p id={`${cityId}-err`} className={styles.error} role="alert">
-              לא מצאנו את העיר ברשימה. בחרי עיר מההצעות.
+              {t("cityNotFound")}
             </p>
           ) : null}
           <div>
             <Button size="sm" variant="secondary" onClick={saveManual}>
-              שמירת העיר
+              {t("saveCity")}
             </Button>
           </div>
         </div>
       ) : null}
 
       <RangeField
-        label="רדיוס חיפוש"
+        label={t("radius")}
         min={RADIUS_MIN_KM}
         max={RADIUS_MAX_KM}
         value={profile.radiusKm}
         onChange={(radiusKm) => updateProfile({ radiusKm })}
-        display={
-          <>
-            <span dir="ltr">{profile.radiusKm}</span> ק&quot;מ
-          </>
-        }
-        valueText={`${profile.radiusKm} קילומטרים`}
-        minLabel={
-          <>
-            <span dir="ltr">{RADIUS_MIN_KM}</span> ק&quot;מ
-          </>
-        }
-        maxLabel={
-          <>
-            <span dir="ltr">{RADIUS_MAX_KM}</span> ק&quot;מ
-          </>
-        }
+        display={<>{formatRich(t("radiusKm"), { n: <span dir="ltr">{profile.radiusKm}</span> })}</>}
+        valueText={t("radiusSpoken", { n: profile.radiusKm })}
+        minLabel={<>{formatRich(t("radiusKm"), { n: <span dir="ltr">{RADIUS_MIN_KM}</span> })}</>}
+        maxLabel={<>{formatRich(t("radiusKm"), { n: <span dir="ltr">{RADIUS_MAX_KM}</span> })}</>}
       />
     </div>
   );

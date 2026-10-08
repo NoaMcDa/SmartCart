@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
-import { PlaceholderPage } from "@/components/shell/PlaceholderPage";
+import { DocumentTitle } from "@/components/shell/PageChrome";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { appMessages } from "@/i18n/messages/app";
+import { OfflineScreen } from "./OfflineScreen";
 
-export const metadata: Metadata = { title: "אין חיבור", robots: { index: false } };
+export const metadata: Metadata = {
+  title: translate(appMessages, DEFAULT_LOCALE, "offlineTitle"),
+  robots: { index: false },
+};
 
 /**
  * Offline fallback. The service worker precaches this page and serves it for any navigation it
@@ -9,10 +16,9 @@ export const metadata: Metadata = { title: "אין חיבור", robots: { index:
  */
 export default function Page() {
   return (
-    <PlaceholderPage
-      title="אין חיבור לאינטרנט"
-      description="הרשימות שכבר פתחת זמינות גם בלי חיבור. המחירים יתעדכנו כשהחיבור יחזור."
-      owner="W4a"
-    />
+    <>
+      <DocumentTitle id="offlineTitle" />
+      <OfflineScreen />
+    </>
   );
 }

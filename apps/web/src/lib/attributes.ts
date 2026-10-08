@@ -5,86 +5,109 @@
  * unit goes through here. Anything not in a table is passed through unchanged, never guessed.
  */
 import type { AttributeTag } from "@/api/client";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { attributeMessages } from "@/i18n/messages/attributes";
 
-const KEY_LABELS: Record<string, string> = {
-  product_type: "סוג מוצר",
-  pack_size: "גודל אריזה",
-  unit: "יחידה",
-  brand: "מותג",
-  fat_pct: "אחוז שומן",
-  base: "בסיס",
-  kosher: "כשרות",
-  state: "מצב",
-  flavor: "טעם",
+type MessageKey = keyof (typeof attributeMessages)["he"];
+
+/** Code -> message key. The Hebrew and Arabic texts live in `messages/attributes.ts`. */
+const KEY_LABELS: Record<string, MessageKey> = {
+  product_type: "key_product_type",
+  pack_size: "key_pack_size",
+  unit: "key_unit",
+  brand: "key_brand",
+  fat_pct: "key_fat_pct",
+  base: "key_base",
+  kosher: "key_kosher",
+  state: "key_state",
+  flavor: "key_flavor",
 };
 
 /** Plant-milk bases and the like (`base` tag values). */
-const BASE_VALUES: Record<string, string> = {
-  soy: "סויה",
-  almond: "שקדים",
-  oat: "שיבולת שועל",
-  rice: "אורז",
-  coconut: "קוקוס",
+const BASE_VALUES: Record<string, MessageKey> = {
+  soy: "base_soy",
+  almond: "base_almond",
+  oat: "base_oat",
+  rice: "base_rice",
+  coconut: "base_coconut",
 };
 
-const STATE_VALUES: Record<string, string> = {
-  fresh: "טרי",
-  frozen: "קפוא",
-  dried: "מיובש",
-  canned: "משומר",
+const STATE_VALUES: Record<string, MessageKey> = {
+  fresh: "state_fresh",
+  frozen: "state_frozen",
+  dried: "state_dried",
+  canned: "state_canned",
 };
 
-/** The unit codes of `uom` and of pack sizes, in Hebrew (the abbreviations the shelf uses). */
-const UNITS: Record<string, string> = {
-  g: "ג׳",
-  ml: "מ״ל",
-  unit: "יח׳",
-  kg: "ק״ג",
-  l: "ל׳",
+/** The unit codes of `uom` and of pack sizes (the abbreviations the shelf uses). */
+const UNITS: Record<string, MessageKey> = {
+  g: "unit_g",
+  ml: "unit_ml",
+  unit: "unit_unit",
+  kg: "unit_kg",
+  l: "unit_l",
 };
 
 const UNIT_PATTERN = /(^|\s)(kg|ml|unit|g|l)$/i;
 
+/** A table lookup that ignores inherited object properties ("constructor" is not a code). */
+function lookup(table: Record<string, MessageKey>, code: string): MessageKey | undefined {
+  return Object.hasOwn(table, code) ? table[code] : undefined;
+}
+
 /** "g" -> "ג׳"; a code the table does not know, or text that is already Hebrew, is unchanged. */
-export function unitName(unit: string): string {
-  return UNITS[unit.trim().toLowerCase()] ?? unit;
+export function unitName(unit: string, locale: Locale = DEFAULT_LOCALE): string {
+  const key = lookup(UNITS, unit.trim().toLowerCase());
+  return key ? translate(attributeMessages, locale, key) : unit;
 }
 
 /**
  * A price unit (`uom`): "100g" -> "100 ג׳", "100ml" -> "100 מ״ל", "unit" -> "יח׳", "kg" -> "ק״ג".
  * A uom that is already Hebrew ("100 מ"ל") comes back as it was.
  */
-export function uomText(uom: string): string {
+export function uomText(uom: string, locale: Locale = DEFAULT_LOCALE): string {
   const m = /^(\d+(?:\.\d+)?)\s*(kg|ml|unit|g|l)$/i.exec(uom.trim());
-  if (m) return `${m[1]} ${unitName(m[2]!)}`;
-  return unitName(uom);
+  if (m) return `${m[1]} ${unitName(m[2]!, locale)}`;
+  return unitName(uom, locale);
 }
 
 /** "for 100 g": "ל-100 ג׳", "ליח׳", "לק״ג". */
-export function perUnitLabel(uom: string): string {
-  const text = uomText(uom);
-  return /^\d/.test(text) ? `ל-${text}` : `ל${text}`;
+export function perUnitLabel(uom: string, locale: Locale = DEFAULT_LOCALE): string {
+  const text = uomText(uom, locale);
+  return translate(attributeMessages, locale, /^\d/.test(text) ? "perUnitNumeric" : "perUnitWord", {
+    text,
+  });
 }
 
-export function attributeLabel(key: string): string {
-  return KEY_LABELS[key] ?? key;
+export function attributeLabel(key: string, locale: Locale = DEFAULT_LOCALE): string {
+  const messageKey = lookup(KEY_LABELS, key);
+  return messageKey ? translate(attributeMessages, locale, messageKey) : key;
 }
 
 /** The value of a tag, in Hebrew: a unit code at the end ("1000 g"), a base, a state, a fat percentage. */
-export function attributeValue(key: string, value: string | null | undefined): string | null {
+export function attributeValue(
+  key: string,
+  value: string | null | undefined,
+  locale: Locale = DEFAULT_LOCALE,
+): string | null {
   if (value === null || value === undefined || value === "") return null;
   const v = value.trim();
   switch (key) {
-    case "base":
-      return BASE_VALUES[v.toLowerCase()] ?? v;
-    case "state":
-      return STATE_VALUES[v.toLowerCase()] ?? v;
+    case "base": {
+      const k = lookup(BASE_VALUES, v.toLowerCase());
+      return k ? translate(attributeMessages, locale, k) : v;
+    }
+    case "state": {
+      const k = lookup(STATE_VALUES, v.toLowerCase());
+      return k ? translate(attributeMessages, locale, k) : v;
+    }
     case "unit":
-      return unitName(v);
+      return unitName(v, locale);
     case "pack_size":
       return v.replace(
         UNIT_PATTERN,
-        (_all, space: string, unit: string) => `${space}${unitName(unit)}`,
+        (_all, space: string, unit: string) => `${space}${unitName(unit, locale)}`,
       );
     case "fat_pct":
       return /^\d+(\.\d+)?$/.test(v) ? `${v}%` : v;
@@ -121,14 +144,19 @@ export function foldTags(tags: ReadonlyArray<AttributeTag>): AttributeTag[] {
  */
 export function attributeTagText(
   tag: AttributeTag,
-  options: { plainDiffers?: boolean } = {},
+  options: { plainDiffers?: boolean; locale?: Locale } = {},
 ): string {
-  const label = attributeLabel(tag.key);
-  const value = attributeValue(tag.key, tag.value);
-  if (tag.status === "unverified") return `${label}${value ? ` ${value}` : ""} · לא מאומת`;
-  if (tag.status === "differs") {
-    if (options.plainDiffers && !(tag.key in KEY_LABELS)) return value ?? label;
-    return value ? `${label}: ${value}` : label;
+  const locale = options.locale ?? DEFAULT_LOCALE;
+  const label = attributeLabel(tag.key, locale);
+  const value = attributeValue(tag.key, tag.value, locale);
+  if (tag.status === "unverified") {
+    return translate(attributeMessages, locale, "tagUnverified", {
+      text: `${label}${value ? ` ${value}` : ""}`,
+    });
   }
-  return value ? `${label}, ${value}` : label;
+  if (tag.status === "differs") {
+    if (options.plainDiffers && !Object.hasOwn(KEY_LABELS, tag.key)) return value ?? label;
+    return value ? translate(attributeMessages, locale, "tagDiffers", { label, value }) : label;
+  }
+  return value ? translate(attributeMessages, locale, "tagMatched", { label, value }) : label;
 }

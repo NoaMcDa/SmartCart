@@ -2,7 +2,9 @@
 
 import { Button } from "@/components/ui/Button";
 import { IconCheck } from "@/components/ui/icons";
-import { CHAINS, clubLabel } from "../chains";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { profileMessages } from "@/i18n/messages/profile";
+import { CHAINS, chainLetter, chainName, clubLabel } from "../chains";
 import { adoptNearestHomeStore, toggleClub, updateProfile, useProfile } from "../profileState";
 import styles from "./controls.module.css";
 
@@ -12,16 +14,16 @@ import styles from "./controls.module.css";
  * the accent-soft background, so selection never relies on color alone.
  */
 export function ChainControls() {
+  const t = useT(profileMessages);
+  const { locale } = useLocale();
   const profile = useProfile();
   return (
     <div className={styles.stack}>
       <div className={styles.group} role="group" aria-labelledby="home-chain-legend">
         <p id="home-chain-legend" className={styles.legend}>
-          הסופר שלי
+          {t("homeChain")}
         </p>
-        <p className={styles.hint}>
-          החיסכון שנציג הוא תמיד מול החנות שבחרת כאן, אחרי נסיעה. בחירה אחת.
-        </p>
+        <p className={styles.hint}>{t("homeChainHint")}</p>
         <div className={styles.cards} data-testid="home-chain-cards">
           {CHAINS.map((chain) => {
             const selected = profile.homeChainId === chain.id;
@@ -31,7 +33,7 @@ export function ChainControls() {
                 type="button"
                 className={styles.card}
                 aria-pressed={selected}
-                aria-label={`הסופר שלי: ${chain.name}`}
+                aria-label={t("homeChainAria", { name: chainName(chain, locale) })}
                 onClick={() => {
                   updateProfile({ homeChainId: selected ? null : chain.id, homeStoreId: null });
                   // The chain becomes a concrete store: the nearest one to the profile's location.
@@ -39,9 +41,9 @@ export function ChainControls() {
                 }}
               >
                 <span className={styles.badge} aria-hidden="true">
-                  {chain.letter}
+                  {chainLetter(chain, locale)}
                 </span>
-                <span className={styles.cardName}>{chain.name}</span>
+                <span className={styles.cardName}>{chainName(chain, locale)}</span>
                 <span className={styles.tick} aria-hidden="true">
                   <IconCheck size={16} />
                 </span>
@@ -56,21 +58,21 @@ export function ChainControls() {
               variant="ghost"
               onClick={() => updateProfile({ homeChainId: null, homeStoreId: null })}
             >
-              ניקוי הבחירה
+              {t("clearChoice")}
             </Button>
           </div>
         ) : (
           <p className={styles.hint} data-testid="baseline-hint">
-            בלי חנות בסיס לא נוכל להראות חיסכון נטו. אפשר לבחור אותה בכל שלב בפרופיל.
+            {t("baselineHint")}
           </p>
         )}
       </div>
 
       <div className={styles.group} role="group" aria-labelledby="clubs-legend">
         <p id="clubs-legend" className={styles.legend}>
-          מועדונים שאני חברה בהם
+          {t("clubsLegend")}
         </p>
-        <p className={styles.hint}>מבצעי מועדון יוצגו רק לחברי המועדון. אפשר לבחור כמה.</p>
+        <p className={styles.hint}>{t("clubsHint")}</p>
         <div className={styles.cards} data-testid="club-cards">
           {CHAINS.map((chain) => {
             const selected = profile.clubs.includes(chain.name);
@@ -80,13 +82,13 @@ export function ChainControls() {
                 type="button"
                 className={styles.card}
                 aria-pressed={selected}
-                aria-label={clubLabel(chain.name)}
+                aria-label={clubLabel(chain.name, locale)}
                 onClick={() => updateProfile({ clubs: toggleClub(profile, chain.name) })}
               >
                 <span className={styles.badge} aria-hidden="true">
-                  {chain.letter}
+                  {chainLetter(chain, locale)}
                 </span>
-                <span className={styles.cardName}>{clubLabel(chain.name)}</span>
+                <span className={styles.cardName}>{clubLabel(chain.name, locale)}</span>
                 <span className={styles.tick} aria-hidden="true">
                   <IconCheck size={16} />
                 </span>

@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useT } from "@/i18n/LocaleProvider";
+import { uiMessages } from "@/i18n/messages/ui";
 import { IconClose } from "./icons";
 import styles from "./BottomSheet.module.css";
 
@@ -38,6 +40,7 @@ export function BottomSheet({
   hideCloseButton,
   className,
 }: BottomSheetProps) {
+  const t = useT(uiMessages);
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -121,7 +124,12 @@ export function BottomSheet({
             </h2>
           </div>
           {hideCloseButton ? null : (
-            <button type="button" className={styles.close} onClick={onClose} aria-label="סגירה">
+            <button
+              type="button"
+              className={styles.close}
+              onClick={onClose}
+              aria-label={t("sheetClose")}
+            >
               <IconClose size={18} />
             </button>
           )}
