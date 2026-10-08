@@ -12,7 +12,8 @@ name: Geocode stores
 #
 # Nominatim's usage policy applies (docs/geocoding.md): descriptive User-Agent with a contact, 1
 # request per second, no repeated requests (the cache is committed so the next run starts from it),
-# no bulk re-runs. Set the repository variable (or secret) NOMINATIM_CONTACT to an address or URL
+# no bulk re-runs. The repository variable (or secret) NOMINATIM_CONTACT overrides the default contact
+# (this repository's issues page); set it to an address or URL
 # where the operator can be reached. Output is © OpenStreetMap contributors (ODbL).
 
 on:
@@ -52,7 +53,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      NOMINATIM_CONTACT: ${{ vars.NOMINATIM_CONTACT || secrets.NOMINATIM_CONTACT }}
+      # Defaults to this repository's issues page, a URL where the operator can be reached.
+      NOMINATIM_CONTACT: ${{ vars.NOMINATIM_CONTACT || secrets.NOMINATIM_CONTACT || format('{0}/{1}/issues', github.server_url, github.repository) }}
       MAX_STORES: ${{ inputs.max_stores || 150 }}
       RESOURCE_ID: ${{ inputs.localities_resource_id || '' }}
     steps:

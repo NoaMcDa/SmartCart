@@ -504,7 +504,13 @@ def test_diff_for_a_change_shows_only_that_entry(packet, small_data, catalog, tm
     assert "-  critical_attrs: {fat_pct: 5}" in report.diff
     assert "+  critical_attrs: {fat_pct: 3}" in report.diff
     assert "milk-fresh-3" not in report.diff
-    assert report.problems == []
+    # A critical-attribute change must reach the Arabic names too (#73): the seed validation flags
+    # every Arabic name that still states the old fat percentage, and nothing else.
+    assert report.problems
+    assert all(
+        p.startswith("cottage-5: names_ar ") and p.endswith("must state the fat percentage 3%")
+        for p in report.problems
+    ), report.problems
     assert (small_data / "canonicals.yaml").read_bytes() == before  # never applied
 
 

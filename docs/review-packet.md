@@ -160,6 +160,9 @@ The sign-off file is evidence; the list changes only when a person applies it.
 
 1. Apply the decisions to `data/canonicals.yaml` by hand from the diff, and the follow-ups from the
    printed list. Keep the ranks `1..N`.
+   A change to a critical attribute (fat percentage, fresh or frozen, plant base) must also be made
+   in that canonical's Arabic names (`names_ar`): the import lists every Arabic name that still
+   states the old value as a problem, and `seed --check` refuses the file until they agree.
 2. `uv run smartcart-catalog seed --check`, then `seed`.
 3. `uv run smartcart-catalog evaluate --fail-below 0.98` (a changed canonical can move the gold
    set's numbers; report precision per flexibility level, `CLAUDE.md`).
