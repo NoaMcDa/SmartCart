@@ -25,6 +25,10 @@ const ALLOWED_HOSTS = new Set([
   "www.openstreetmap.org", // attribution link
   "schema.org", // JSON-LD @context identifier on the SEO pages, a name and never fetched
   "smartcart.example", // placeholder public origin for canonical URLs and the sitemap (no request)
+  // Mock-only placeholder for the chains' online-store addresses in src/mocks (#72). A reserved
+  // .example host: never requested. No real chain host is in the web code: the real addresses live
+  // in the database (chains.online_url) and reach the browser as links from GET /chains/online.
+  "chain-shop.example",
 ]);
 
 function walk(dir: string, out: string[] = []): string[] {

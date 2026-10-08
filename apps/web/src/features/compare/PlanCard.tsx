@@ -13,6 +13,7 @@ import {
   Price,
   UpdatedAt,
 } from "@/components/ui";
+import { PlanHandoff } from "@/features/handoff/PlanHandoff";
 import { formatDistance } from "@/lib/format";
 import { planPromos, planSubstitutions, planUpdatedAt } from "@/state/comparison";
 import styles from "./Results.module.css";
@@ -222,6 +223,8 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
             ) : null}
           </span>
         ) : null}
+
+        <PlanHandoff plan={plan} />
       </div>
 
       {missing.length && showMissing ? (

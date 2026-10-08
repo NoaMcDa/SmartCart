@@ -136,16 +136,53 @@ function finish(
 }
 
 /**
- * Finish-round stubs (#61, #68, #72) so the web workstreams build against the contract. The photo
- * and handoff workstreams replace these with fuller mocks.
+ * Finish-round stub for the photo workstream (#61), and the mock for `GET /chains/online` (#72),
+ * which follows services/api `routes/chains.py`: every chain row, `enabled` only when the chain is
+ * in CART_HANDOFF_CHAINS and has an address. The addresses are placeholders on a reserved
+ * `.example` host (never requested); the chain ids are the ones the mock stores use (fixtures.ts).
+ * `shufersal` carries a referral so the label is visible in the demo; `victory` has an address
+ * but is not enabled, `osher_ad` has no site search, and the numeric id has no address.
  */
+const MOCK_SHOP = "https://chain-shop.example";
 const MOCK_CHAINS_ONLINE: ChainOnline[] = [
+  {
+    chain_id: "rami_levy",
+    chain_name: "רמי לוי",
+    online_url: `${MOCK_SHOP}/rami`,
+    search_url_template: `${MOCK_SHOP}/rami/search?q={q}`,
+    enabled: true,
+    referral: false,
+  },
+  {
+    chain_id: "shufersal",
+    chain_name: "שופרסל",
+    online_url: `${MOCK_SHOP}/shufersal`,
+    search_url_template: `${MOCK_SHOP}/shufersal/search?text={q}`,
+    enabled: true,
+    referral: true,
+  },
+  {
+    chain_id: "osher_ad",
+    chain_name: "אושר עד",
+    online_url: `${MOCK_SHOP}/osherad`,
+    search_url_template: null,
+    enabled: true,
+    referral: false,
+  },
+  {
+    chain_id: "victory",
+    chain_name: "ויקטורי",
+    online_url: `${MOCK_SHOP}/victory`,
+    search_url_template: `${MOCK_SHOP}/victory/search?q={q}`,
+    enabled: false,
+    referral: false,
+  },
   {
     chain_id: "7290027600007",
     chain_name: "שופרסל",
     online_url: null,
     search_url_template: null,
-    enabled: true,
+    enabled: false,
     referral: false,
   },
 ];

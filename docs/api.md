@@ -572,3 +572,34 @@ request and is not on the compare or optimize path.
 | File | What |
 |---|---|
 | `20261010100000_phase3.sql` | `profiles.monthly_budget numeric(10,2)`; `spend_entries` with own-rows RLS (forced), grants to `smartcart_app` and, on Supabase, `authenticated` |
+
+## Cart handoff to chain online stores (#72)
+
+### GET /chains/online
+
+One row per chain: `chain_id`, `chain_name`, `online_url`, `search_url_template`, `enabled`,
+`referral` (the `ChainOnline` schema). Public (no auth) and sent with
+`Cache-Control: public, max-age=3600`.
+
+- `enabled` is the per-chain feature flag: the chain id is in `CART_HANDOFF_CHAINS` (comma separated
+  env var, default empty, so every row is disabled) **and** the chain has an `online_url`.
+- `online_url` and `search_url_template` come from `chains` (https only; the template must contain
+  `{q}`, checked by the database). They are links for the user's browser to open. The API never
+  requests them (CLAUDE.md: no scraping of chain online stores). `referral` is `chains.online_referral`.
+- Ranking never reads any of this: `/compare` and `/optimize` are byte-identical with the flag and the
+  referral flags on or off (`tests/test_api_handoff_independence.py`).
+
+See [cart-transfer.md](cart-transfer.md) for the seeded addresses (all unverified), why this is not
+scraping and what an official cart-prefill integration needs.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `CART_HANDOFF_CHAINS` | empty | chain ids whose handoff is on |
+
+### Migration
+
+| File | What |
+|---|---|
+| `20261011100100_chain_online.sql` | `chains.online_url`, `chains.search_url_template` (CHECK: https and `{q}`), `chains.online_referral boolean NOT NULL DEFAULT false`; `chain_online_seed` and a `BEFORE INSERT` trigger on `chains` that fills seeded addresses into rows the ingest loader creates later |
+
+Tests: `test_api_chains.py`, `test_api_handoff_independence.py`.
