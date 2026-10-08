@@ -11,6 +11,15 @@ other, and the evidence sections are pasted from the generator, never typed by h
 Chains measured: the ten of `docs/decisions.md` D13 (eight if the tie-break rule drops King Store
 and Machsanei Hashuk, in which case say so here and run with `--only-chains`).
 
+## Rehearsal on today's files (not evidence)
+
+[phase-0-exit-dry-run.md](phase-0-exit-dry-run.md) is a rehearsal of this report: the real files of
+seven chains (one day, 2026-10-08) and the synthetic set, loaded through the production path into
+throwaway databases, with the generator's output for each. It shows which criteria can pass today,
+which cannot yet (14 days, store coordinates, a checked promo sample) and the exact commands to run
+on the VPS. **It is not the exit validation**: nothing in it may be pasted into the sections below,
+and the decision stays NO-GO. Regenerate it with `scripts/exit_dry_run/run.sh`.
+
 ## How to regenerate
 
 Set the window and the database once. The window is the two weeks (14 days or more, inclusive)
