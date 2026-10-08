@@ -58,6 +58,17 @@ export type EventProps = {
   swap_dismissed: { flex_level?: FlexLevel };
   list_shared: { role?: "editor" | "viewer" };
   share_accepted: { role?: "editor" | "viewer" };
+  /**
+   * Voice list input (#65). Counts and fixed strings only: never the transcript. `voice_started`
+   * is always sent before the matching `voice_completed`; `engine` is "web_speech" for the
+   * browser's Web Speech API.
+   */
+  voice_started: { engine?: "web_speech" | "server" | "manual" };
+  voice_completed: {
+    outcome: "parsed" | "empty" | "cancelled" | "error";
+    duration_ms?: number;
+    item_count?: number;
+  };
 };
 
 type ScanEngine = "native" | "zxing" | "manual";

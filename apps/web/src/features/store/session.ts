@@ -53,6 +53,8 @@ export type ShoppingSession = {
   missingCount: number;
   /** Travel and extra-stop cost attributed to this store's trip, ILS (D7). Null without a home store. */
   overhead: number | null;
+  /** Whether this checklist is a whole basket ("single") or one store's part of a split (issue #70). */
+  plan?: "single" | "split";
   /** True once every item has a department (from the result, or looked up with /search). */
   departmentsResolved: boolean;
   items: ShopItem[];
@@ -107,6 +109,8 @@ export type BuildOptions = {
   /** Restrict to these canonicals (the split's current assignment). Default: every item of the store. */
   canonicalIds?: number[];
   overhead?: number | null;
+  /** "split" when this store's part of a two-store plan; default "single". */
+  plan?: "single" | "split";
   now?: Date;
 };
 
@@ -168,6 +172,7 @@ export function buildSession(
     pricesUpdatedAt: store.prices_updated_at,
     missingCount: store.missing.length,
     overhead: options.overhead ?? null,
+    plan: options.plan ?? "single",
     departmentsResolved: items.every((i) => i.department !== "other"),
     items,
   };

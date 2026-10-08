@@ -1,0 +1,100 @@
+/* Voice sheet (issue #65). Tokens and logical properties only. */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+.lead {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.privacy {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sc-muted);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dot {
+  inline-size: 12px;
+  block-size: 12px;
+  flex-shrink: 0;
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-accent);
+}
+
+.live {
+  min-block-size: 72px;
+  padding: var(--sc-space-3);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-subtle);
+  font-size: 16px;
+  line-height: 1.6;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.liveInterim {
+  color: var(--sc-muted);
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.draft {
+  inline-size: 100%;
+  min-block-size: 120px;
+  padding: var(--sc-space-3);
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.draft:focus-visible {
+  outline: 2px solid var(--sc-accent-fg);
+  outline-offset: 1px;
+}
+
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn-fg);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.callout > svg {
+  flex-shrink: 0;
+  margin-block-start: 2px;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+
+.footer > * {
+  flex: 1 1 auto;
+}

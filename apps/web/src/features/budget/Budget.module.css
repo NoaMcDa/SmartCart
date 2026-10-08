@@ -1,0 +1,207 @@
+/* Monthly budget and spend (issue #70). Tokens and logical properties only. */
+
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.subTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.muted {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.note {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sc-muted);
+}
+
+.warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-2);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--sc-warn-fg);
+}
+
+.warn > svg {
+  flex-shrink: 0;
+  margin-block-start: 2px;
+}
+
+/* "נותר החודש" on the results and the split */
+
+.remaining {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+}
+
+.remainingMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--sc-space-2);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--sc-space-2);
+  font-size: 14px;
+}
+
+/* Profile section */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sc-space-3);
+  margin: 0;
+}
+
+.facts dt {
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entries li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px var(--sc-space-3);
+  padding-block: var(--sc-space-2);
+  border-block-end: 1px solid var(--sc-divider);
+  font-size: 14px;
+}
+
+.entries li:last-child {
+  border-block-end: 0;
+}
+
+/* Chart */
+
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  margin: 0;
+}
+
+.chartSvg {
+  inline-size: 100%;
+  block-size: 120px;
+  display: block;
+  overflow: visible;
+}
+
+.baseline {
+  stroke: var(--sc-border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.bar {
+  fill: var(--sc-muted);
+}
+
+.barNow {
+  fill: var(--sc-accent);
+}
+
+.budgetLine {
+  stroke: var(--sc-warn-fg);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.axis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  text-align: center;
+  font-size: 11px;
+  color: var(--sc-muted);
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  font-size: 12px;
+  color: var(--sc-muted);
+}
+
+.swatchLine {
+  inline-size: 20px;
+  block-size: 0;
+  border-block-start: 2px dashed var(--sc-warn-fg);
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tableCaption {
+  padding-block-end: var(--sc-space-1);
+  text-align: start;
+  font-size: 12px;
+  color: var(--sc-muted);
+}
+
+.table th,
+.table td {
+  padding-block: 6px;
+  border-block-start: 1px solid var(--sc-divider);
+  text-align: start;
+  font-weight: 400;
+}
+
+.table td {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 200% zoom on a phone: the month names would collide, the table below names every month. */
+@media (max-width: 260px) {
+  .axis {
+    display: none;
+  }
+}

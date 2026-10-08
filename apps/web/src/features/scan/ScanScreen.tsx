@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { lookupBarcode, type BarcodeLookupResponse } from "@/api/client";
 import { Button, Card, Skeleton } from "@/components/ui";
 import { IconBarcode, IconClose, IconInfo } from "@/components/ui/icons";
@@ -37,13 +38,33 @@ export function outcomeOf(result: BarcodeLookupResponse): ScanOutcome {
  * Barcode scanning (issue #39). Camera behind an explicit "turn on" (the permission is asked only
  * after the explanation), native BarcodeDetector or the zxing fallback, manual entry always on
  * screen, the store the shopper is in, and the result card. Images never leave the video element.
+ *
+ * `/scan?code=<ean>` runs the lookup without the camera, as if the code had been typed (deep links
+ * and the full-stack suite). A code that fails the check digit shows the manual-entry error and
+ * makes no request.
  */
 export function ScanScreen() {
+  return (
+    <Suspense fallback={<div aria-busy="true" />}>
+      <ScanScreenInner />
+    </Suspense>
+  );
+}
+
+function ScanScreenInner() {
   const shopper = useShopper();
   const stores = useScanStores(shopper);
+  // The hook is null outside a Next router (component tests), which simply means "no code".
+  const params = useSearchParams() as ReturnType<typeof useSearchParams> | null;
+  const urlCode = params?.get("code")?.trim() || null;
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
-  const [manual, setManual] = useState("");
-  const [manualError, setManualError] = useState<string | null>(null);
+  const [manual, setManual] = useState(urlCode ?? "");
+  const [manualError, setManualError] = useState<string | null>(() => {
+    if (!urlCode) return null;
+    const check = checkBarcode(urlCode);
+    return check.ok ? null : BARCODE_ERRORS[check.reason];
+  });
+  const urlHandled = useRef<string | null>(null);
   const manualId = useId();
   const storeSelectId = useId();
 
@@ -138,6 +159,27 @@ export function ScanScreen() {
     streamRef.current = cam.stream;
     setPhase({ kind: "scanning" });
   }
+
+  // A code in the URL is looked up once the shopper and the nearby stores are known, so the lookup
+  // names the store the shopper is in. No camera, no permission prompt.
+  const ready = Boolean(shopper) && !stores.loading;
+  useEffect(() => {
+    if (!urlCode || !ready) return;
+    let cancelled = false;
+    // Deferred a tick: the lookup sets state, and an effect must not do that synchronously.
+    queueMicrotask(() => {
+      if (cancelled || urlHandled.current === urlCode) return;
+      urlHandled.current = urlCode;
+      const check = checkBarcode(urlCode);
+      if (!check.ok) return; // the error is already on the manual field
+      startedAt.current = performance.now();
+      openAttempt("manual");
+      void lookup(check.code, "manual");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [urlCode, ready, lookup, openAttempt]);
 
   // While scanning, the detector reads the video; the first valid code ends the camera.
   const scanning = phase.kind === "scanning";

@@ -135,6 +135,32 @@ export function reportShareAccepted(): void {
   trackEvent("share_accepted");
 }
 
+// ---------------------------------------------------------------------------------------------
+// Voice list input (#65). The transcript, the items and their names never go into an event.
+
+/** parsed = the dictated list was added; empty = nothing was heard; error = denied, no microphone, failure. */
+export type VoiceOutcome = "parsed" | "empty" | "cancelled" | "error";
+
+/** The person tapped "start recording" in the voice sheet; the Web Speech API is the engine here. */
+export function reportVoiceStarted(): void {
+  trackEvent("voice_started", { engine: "web_speech" });
+}
+
+/** One voice attempt ended. `itemCount` is the number of rows /parse-list returned (outcome `parsed`). */
+export function reportVoiceCompleted(info: {
+  outcome: VoiceOutcome;
+  durationMs?: number;
+  itemCount?: number;
+}): void {
+  trackEvent("voice_completed", {
+    outcome: info.outcome,
+    ...(info.durationMs !== undefined
+      ? { duration_ms: clampInt(info.durationMs, MAX_DURATION_MS) }
+      : {}),
+    ...(info.itemCount !== undefined ? { item_count: clampInt(info.itemCount, MAX_ITEMS) } : {}),
+  });
+}
+
 /** Test hook: forget the paste clock. */
 export function resetBetaEventsForTests(): void {
   pastedAt = null;

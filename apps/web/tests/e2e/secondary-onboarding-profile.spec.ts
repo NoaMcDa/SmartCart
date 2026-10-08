@@ -298,8 +298,19 @@ test.describe("home store from the chain", () => {
     await page.getByRole("link", { name: "השווי" }).click();
     await page.getByTestId("plan-single").waitFor();
     await expect(page.getByTestId("plan-single")).toContainText("לעומת יוחננוף");
+    // The first results page after onboarding already has the net saving: a concrete baseline
+    // store, no "what is your store?" prompt, and the app never needed /split to adopt one
+    // (docs/fullstack.md gap 1, closed in #101).
+    await expect(page.getByTestId("no-home-store")).toHaveCount(0);
+    await expect(page.getByTestId("plan-single-saving")).toContainText(/חוסך\s*₪/);
+    expect(page.url()).not.toContain("/split");
     const optimize = calls.filter((c) => c.path === "/optimize").at(-1);
     expect(optimize?.body).toMatchObject({ home_store_id: 104 });
+    expect(
+      calls
+        .filter((c) => c.path === "/optimize")
+        .every((c) => (c.body as { home_store_id?: number }).home_store_id === 104),
+    ).toBe(true);
   });
 
   test("a chain without a store in the API stays selected, with no saving shown", async ({
