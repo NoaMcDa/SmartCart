@@ -10,7 +10,7 @@ fixed before recruiting starts: when the maintainer accepts or edits section 4, 
 in the pull request or here, and in `BETA_THRESHOLDS` (`services/catalog/smartcart_catalog/cli_seo.py`),
 before the first invitation goes out.
 
-**What exists today.** The `events` table and the metric views, `POST /events` with its allowlist and
+**What exists today.** The invite, join and feedback tooling (section 9), the `events` table and the metric views, `POST /events` with its allowlist and
 rate limit, the client function `trackEvent`, the `beta-report` command, and this plan. **What does not
 exist and needs people:** the beta itself (recruiting 20 to 50 users), the consent screen, and the calls to
 `trackEvent` inside the screens (W4b and W5, section 5).
@@ -211,3 +211,80 @@ Limits (the report repeats them): an actor is a user id or a browser session id,
 bound and an installed iOS PWA is a separate actor from the Safari tab; `app_opened` has no platform, so
 platform shares are among actors who fired a tagged event; there is no "push prompt shown" event, so
 opt-in is a floor; opens are client-reported. No event carries an id, a name, a price or free text.
+
+## 9. Running the beta
+
+The tooling for sections 2 to 6 exists; what is left for the owner is recruiting people and confirming
+the thresholds (section 9). Tables and views: `supabase/migrations/20261011100700_beta.sql`. Routes:
+`POST /beta/join`, `GET` and `DELETE /me/beta`, `POST /beta/feedback` (`routes/beta.py`, `docs/api.md`).
+
+**Before the first invitation.** Apply the migrations to the production database (Provision check with
+`apply_migrations`, `docs/unblock.md`), deploy the API and the web app built with
+`NEXT_PUBLIC_BETA_EVENTS=1`, and confirm the thresholds (section 9). `API_PUBLIC_WEB_URL` must be the
+public web origin, or the links point at localhost.
+
+**1. Make codes, one per person per segment.**
+
+```bash
+export DATABASE_URL=...            # the service connection (SUPABASE_DB_URL)
+export API_PUBLIC_WEB_URL=https://<your web origin>
+uv run smartcart-catalog beta-invite --segment large_family --count 10 --max-uses 1
+uv run smartcart-catalog beta-invite --segment kosher       --count 10 --max-uses 1
+uv run smartcart-catalog beta-invite --segment periphery    --count 10 --max-uses 1
+uv run smartcart-catalog beta-invite --segment general      --count 10 --max-uses 1
+```
+
+It prints `CODE<TAB>link` per line, for example `K7MQ2-9XHTA  https://.../beta/join/K7MQ2-9XHTA`. Codes
+are 10 characters of a 32-letter alphabet without 0, 1, I and O, expire after 60 days (`--expires-days`,
+0 = never) and are stored in `beta_invites`, which no app role can read. `--max-uses 1` makes the count
+exact (section 2): one code is one person. The segments are `large_family`, `kosher`, `periphery` and
+`general`; the quotas in section 2 are proposals.
+
+**2. Send the links.** One link per person, by message, from the person who knows them. Opening the link
+joins nobody: the page explains the beta (what is measured, the usage-events consent, what is stored, how to
+leave) and joins on a tap, after sign-in and after the consent screen. A code used up or expired shows a
+plain message; make another. The join page is `noindex`. A person who left does not free their place: make
+a new code if they come back.
+
+**3. Watch the report.** `uv run smartcart-catalog beta-report [--since YYYY-MM-DD]`, or the GitHub
+workflow Beta report (Mondays 05:43 UTC and on demand; it prints "set SUPABASE_DB_URL to run the beta
+report" and exits 0 until that secret exists). It prints the three metrics against the proposed thresholds
+exactly as before, then a **By segment** section: who is in (codes, places, joined, active), the rejection
+rate per segment and flexibility level, and paste-to-results per segment, each with its sample size n and a
+"small" flag under the thresholds' minimum samples (100 substitutions shown, 30 results). A segment has no
+verdict of its own: the thresholds apply to the overall rates, and a small n says nothing yet. Only events
+of signed-in members count by segment (`events.user_id` joined to `beta_members.segment`); signed-out
+visitors and people who left are in the overall table and in no segment. The same numbers are the views
+`beta_rejection_rate_by_segment`, `beta_paste_to_results_by_segment` and `beta_segment_overview`.
+
+**4. Read the feedback.** The app shows "משוב על הבטא" to members only (a 1 to 5 rating and up to 1000
+characters). It is stored with the segment and no user id, so it cannot be tied to a person from the
+database, and it follows that a person cannot ask for it to be deleted (the sheet and the join page say
+so, and tell people not to write personal details). Read it with
+`uv run smartcart-catalog beta-feedback --since YYYY-MM-DD [--segment kosher] [--limit 200]`: average rating
+per segment, then the newest first. Only the maintainer sees the text.
+
+**5. Leaving and deleting.** A member can leave at any time on the join page (`/beta` for members): "יציאה
+מהבטא" deletes their `beta_members` row and turns usage events off in the browser. Their past `events` rows
+stay as anonymous statistics (they no longer belong to a segment). To delete everything the user id is on,
+the person uses "מחקי את הנתונים שלי" in the profile (`DELETE /me`), which also removes the member row. Stored
+about a member: user id, the code used, the segment, the join time; nothing else (no name, email, phone).
+
+## 10. What the owner still decides
+
+Nothing below can be settled by code.
+
+1. **The thresholds** (section 4, `BETA_THRESHOLDS`): exact at most 2%, any brand at most 5%, close at most
+   15%, each judged from 100 substitutions shown; median paste-to-results 5 s and p90 10 s from 30 results;
+   40% returning. They are proposals. Accept or edit them, record the final numbers here and in
+   `BETA_THRESHOLDS` before the first invitation (AC 1 of #40). The segment report uses the same numbers.
+2. **The segment quotas and total** (section 2: 8, 8, 8 and up to 20; 30 to 40 total, 20 to 50 allowed), and
+   how many codes to make per segment.
+3. **Who to invite**, and the screening form. Recruiting is personal outreach and is not automated.
+4. **The consent wording and the retention** (six months after the end of the beta): the text has not had a
+   legal review, and the retention is a proposal.
+5. **The length of the beta** (two to four weeks is a proposal) and what happens at the end: launch, extend,
+   or change a threshold with the reason written down (section 1).
+6. **Secrets and switches**: `SUPABASE_DB_URL` for the Beta report workflow, `NEXT_PUBLIC_BETA_EVENTS=1` in
+   the web build, `API_PUBLIC_WEB_URL` for the links, and whether to put the "משוב על הבטא" entry in the
+   shell (mounting note in the pull request).

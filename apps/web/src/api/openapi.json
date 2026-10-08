@@ -192,6 +192,79 @@
         "title": "BasketItem",
         "type": "object"
       },
+      "BetaFeedbackIn": {
+        "additionalProperties": false,
+        "properties": {
+          "rating": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "type": "integer"
+          },
+          "text": {
+            "default": "",
+            "description": "Free text; stored with the segment only, never with the user",
+            "maxLength": 1000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rating"
+        ],
+        "title": "BetaFeedbackIn",
+        "type": "object"
+      },
+      "BetaJoinRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "Invite code from a join link (case does not matter)",
+            "maxLength": 32,
+            "minLength": 6,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "BetaJoinRequest",
+        "type": "object"
+      },
+      "BetaMembership": {
+        "additionalProperties": false,
+        "properties": {
+          "member": {
+            "title": "Member",
+            "type": "boolean"
+          },
+          "segment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "large_family",
+                  "kosher",
+                  "periphery",
+                  "general"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when not a member",
+            "title": "Segment"
+          }
+        },
+        "required": [
+          "member"
+        ],
+        "title": "BetaMembership",
+        "type": "object"
+      },
       "Body_parse_image_parse_image_post": {
         "properties": {
           "image": {
@@ -3654,6 +3727,133 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/beta/feedback": {
+      "post": {
+        "operationId": "post_feedback_beta_feedback_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BetaFeedbackIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "not a beta member"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send feedback on the beta (members only)",
+        "tags": [
+          "beta"
+        ]
+      }
+    },
+    "/beta/join": {
+      "post": {
+        "operationId": "join_beta_beta_join_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BetaJoinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetaMembership"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "unknown code"
+          },
+          "410": {
+            "description": "expired or used up"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Join the closed beta with an invite code",
+        "tags": [
+          "beta"
+        ]
+      }
+    },
     "/chains/online": {
       "get": {
         "operationId": "chains_online_chains_online_get",
@@ -4435,6 +4635,102 @@
         "summary": "Update Alert",
         "tags": [
           "alerts"
+        ]
+      }
+    },
+    "/me/beta": {
+      "delete": {
+        "operationId": "leave_beta_me_beta_delete",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Leave the closed beta",
+        "tags": [
+          "beta"
+        ]
+      },
+      "get": {
+        "operationId": "my_beta_me_beta_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetaMembership"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Am I in the closed beta?",
+        "tags": [
+          "beta"
         ]
       }
     },

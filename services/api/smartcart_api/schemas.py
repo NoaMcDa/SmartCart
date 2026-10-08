@@ -621,3 +621,25 @@ class PromoCycleChain(_Model):
 class PromoCycleResponse(_Model):
     canonical_id: int
     chains: list[PromoCycleChain]
+
+
+# --- closed beta (issue #40): invite codes, membership, feedback -----------------------------
+
+BetaSegment = Literal["large_family", "kosher", "periphery", "general"]
+
+
+class BetaJoinRequest(_Model):
+    code: str = Field(
+        min_length=6, max_length=32, pattern=r"^[A-Za-z0-9-]+$",
+        description="Invite code from a join link (case does not matter)",
+    )
+
+
+class BetaMembership(_Model):
+    member: bool
+    segment: BetaSegment | None = Field(default=None, description="null when not a member")
+
+
+class BetaFeedbackIn(_Model):
+    rating: int = Field(ge=1, le=5)
+    text: str = Field(default="", max_length=1000, description="Free text; stored with the segment only, never with the user")
