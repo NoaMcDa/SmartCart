@@ -223,5 +223,5 @@ the fixes are listed so the next run of the suite can tighten its assertions.
 4. **Raw attribute tags and units** (fixed): the API folds the pack-size unit into the `pack_size` tag
    ("1000 g") instead of emitting `unit` as a tag of its own (`services/api/smartcart_api/basket.py`,
    `_tags`), and the web renders tag keys, values and units in Hebrew (`apps/web/src/lib/attributes.ts`).
-5. **`/scan` takes no code in the URL** (open); the test types the barcode into the manual field, which
-   runs the same lookup as the camera.
+5. **`/scan` takes no code in the URL** (fixed, unblock round): `/scan?code=<ean>` runs the lookup without
+   the camera; the real-API test still types into the manual field, which is the same lookup.
