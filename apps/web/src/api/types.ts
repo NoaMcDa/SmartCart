@@ -402,6 +402,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Month Spend */
+        get: operations["month_spend_me_spend_get"];
+        put?: never;
+        /** Create Spend */
+        post: operations["create_spend_me_spend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/spend/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Spend
+         * @description Every spend entry of the user, oldest first, and the budget.
+         */
+        get: operations["export_spend_me_spend_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/spend/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Spend
+         * @description Replace an entry, e.g. with the actual checkout total.
+         */
+        put: operations["update_spend_me_spend__entry_id__put"];
+        post?: never;
+        /** Delete Spend */
+        delete: operations["delete_spend_me_spend__entry_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/optimize": {
         parameters: {
             query?: never;
@@ -447,6 +506,40 @@ export interface paths {
         put?: never;
         /** Parse List */
         post: operations["parse_list_parse_list_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parse-recipe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Parse Recipe */
+        post: operations["parse_recipe_parse_recipe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/promo-cycles/{canonical_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Promo Cycles */
+        get: operations["get_promo_cycles_promo_cycles__canonical_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -621,7 +714,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted";
+            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted" | "voice_started" | "voice_completed";
             /**
              * Props
              * @description Allowlisted keys per event name, values are integers or members of a fixed set; anything else is rejected with 422 (no free text, no personal data). See docs/beta-plan.md.
@@ -872,6 +965,44 @@ export interface components {
             generated_at: string;
             /** Rows */
             rows: components["schemas"]["ParsedRow"][];
+        };
+        /** ParseRecipeRequest */
+        ParseRecipeRequest: {
+            /**
+             * Servings
+             * @description Scale the amounts to this many servings (needs the recipe's own yield)
+             */
+            servings?: number | null;
+            /**
+             * Text
+             * @description A pasted recipe, Hebrew
+             */
+            text?: string | null;
+            /**
+             * Url
+             * @description A recipe page (http or https). Only this page is fetched: 5 s timeout, 2 MB cap
+             */
+            url?: string | null;
+        };
+        /** ParseRecipeResponse */
+        ParseRecipeResponse: {
+            /**
+             * Items
+             * @description One row per ingredient, resolved like /parse-list; quantity counts packs (rounded up to the canonical's typical pack size) or kg when unit is kg
+             */
+            items: components["schemas"]["ParsedRow"][];
+            /**
+             * Servings
+             * @description The servings the quantities are for; null when the recipe's yield is unknown (then nothing was scaled)
+             */
+            servings: number | null;
+            /** Title */
+            title: string | null;
+            /**
+             * Unresolved
+             * @description Ingredient lines left to the user: not a supermarket product, to taste, optional, or not found in the catalog
+             */
+            unresolved: string[];
         };
         /** ParsedRow */
         ParsedRow: {
@@ -1180,6 +1311,11 @@ export interface components {
              */
             max_stores: number;
             /**
+             * Monthly Budget
+             * @description Monthly grocery budget, ILS (#70). Omitted keeps the stored value; null clears it
+             */
+            monthly_budget?: string | null;
+            /**
              * Neighborhood Lat
              * @description Stored rounded to 3 decimals (about 100 m)
              */
@@ -1242,6 +1378,11 @@ export interface components {
              */
             max_stores: number;
             /**
+             * Monthly Budget
+             * @description Monthly grocery budget, ILS (#70). Omitted keeps the stored value; null clears it
+             */
+            monthly_budget?: number | string | null;
+            /**
              * Neighborhood Lat
              * @description Stored rounded to 3 decimals (about 100 m)
              */
@@ -1279,6 +1420,53 @@ export interface components {
             promo_description: string;
             /** Saving */
             saving: string;
+        };
+        /** PromoCycleChain */
+        PromoCycleChain: {
+            /**
+             * Advice
+             * @description A hint, never a promise; unknown below the gate
+             * @enum {string}
+             */
+            advice: "buy_now" | "wait" | "unknown";
+            /** Chain Id */
+            chain_id: string;
+            /** Chain Name */
+            chain_name: string;
+            /**
+             * Confidence
+             * @description cycles_seen / (cycles_seen + 1.5) x max(0, 1 - coefficient of variation of the gaps)
+             */
+            confidence: number;
+            /**
+             * Cycles Seen
+             * @description Gaps between consecutive promo windows observed
+             */
+            cycles_seen: number;
+            /**
+             * Last Promo Ends
+             * @description End of the latest promo window seen
+             */
+            last_promo_ends: string | null;
+            /**
+             * Median Gap Days
+             * @description Median days from one promo start to the next; null with no gap
+             */
+            median_gap_days: number | null;
+            /**
+             * Next Expected From
+             * @description null unless the prediction passes the gate (3 cycles, confidence 0.6)
+             */
+            next_expected_from: string | null;
+            /** Next Expected To */
+            next_expected_to: string | null;
+        };
+        /** PromoCycleResponse */
+        PromoCycleResponse: {
+            /** Canonical Id */
+            canonical_id: number;
+            /** Chains */
+            chains: components["schemas"]["PromoCycleChain"][];
         };
         /** PromoWindow */
         PromoWindow: {
@@ -1426,6 +1614,93 @@ export interface components {
             items?: components["schemas"]["ListItemIn"][];
             /** Name */
             name: string;
+        };
+        /** SpendEntry */
+        SpendEntry: {
+            /**
+             * Date
+             * Format: date
+             * @description The shopping day
+             */
+            date: string;
+            /** Id */
+            id: number;
+            /** Item Count */
+            item_count: number;
+            /**
+             * Plan
+             * @enum {string}
+             */
+            plan: "single" | "split";
+            /** Store Id */
+            store_id: number;
+            /** Store Name */
+            store_name: string;
+            /**
+             * Total
+             * @description ILS; the user's actual total overrides the app's estimate
+             */
+            total: string;
+        };
+        /** SpendEntryIn */
+        SpendEntryIn: {
+            /**
+             * Date
+             * Format: date
+             * @description The shopping day
+             */
+            date: string;
+            /** Item Count */
+            item_count: number;
+            /**
+             * Plan
+             * @enum {string}
+             */
+            plan: "single" | "split";
+            /** Store Id */
+            store_id: number;
+            /** Store Name */
+            store_name: string;
+            /**
+             * Total
+             * @description ILS; the user's actual total overrides the app's estimate
+             */
+            total: number | string;
+        };
+        /** SpendExport */
+        SpendExport: {
+            /** Budget */
+            budget: string | null;
+            /**
+             * Entries
+             * @description Every entry of the user, oldest first
+             */
+            entries: components["schemas"]["SpendEntry"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+        };
+        /** SpendMonth */
+        SpendMonth: {
+            /**
+             * Budget
+             * @description profiles.monthly_budget; null when not set
+             */
+            budget: string | null;
+            /**
+             * Entries
+             * @description Oldest first
+             */
+            entries: components["schemas"]["SpendEntry"][];
+            /**
+             * Month
+             * @description YYYY-MM
+             */
+            month: string;
+            /** Total */
+            total: string;
         };
         /** StoreAssignment */
         StoreAssignment: {
@@ -2594,6 +2869,174 @@ export interface operations {
             };
         };
     };
+    month_spend_me_spend_get: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM; default the current month (UTC) */
+                month?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendMonth"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_spend_me_spend_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpendEntryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_spend_me_spend_export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendExport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_spend_me_spend__entry_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entry_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpendEntryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_spend_me_spend__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entry_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     optimize_optimize_post: {
         parameters: {
             query?: never;
@@ -2682,6 +3125,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ParseListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    parse_recipe_parse_recipe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParseRecipeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParseRecipeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_promo_cycles_promo_cycles__canonical_id__get: {
+        parameters: {
+            query?: {
+                /** @description Clubs the user marked; club-only promos count only for these */
+                clubs?: string[] | null;
+            };
+            header?: never;
+            path: {
+                canonical_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromoCycleResponse"];
                 };
             };
             /** @description Validation Error */

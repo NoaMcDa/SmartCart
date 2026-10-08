@@ -1,0 +1,173 @@
+{
+  "_comment": "Ten Hebrew recipes for POST /parse-recipe (issue #71), resolved against the seeded MVP catalog (data/*.yaml). Written by hand for the test, not copied from a site. 'html' recipes are served by a fake fetcher. Expected items: [canonical display name, quantity, unit, needs_confirmation]; quantity counts packs of the canonical's typical pack size (soft_attrs.pack_size), or kg when unit is kg. Unit conversions use the estimated tables in smartcart_catalog/recipe.py.",
+  "recipes": [
+    {
+      "name": "chocolate cake, headers, fractions, a pack unit, to taste",
+      "request": {"text": "עוגת שוקולד בחושה\n12 מנות\nמצרכים:\n2 כוסות קמח\n1½ כוסות סוכר\n½ כוס שמן קנולה\n4 ביצים\n1 כוס חלב\n100 גרם שוקולד מריר\n1 שקית אבקת אפייה\nקורט מלח\n\nאופן ההכנה:\nמערבבים את כל המצרכים בקערה גדולה.\nאופים 40 דקות ב-180 מעלות."},
+      "expect": {
+        "title": "עוגת שוקולד בחושה",
+        "servings": 12,
+        "items": [
+          ["קמח לבן", "1", null, false],
+          ["סוכר לבן", "1", null, false],
+          ["שמן קנולה", "1", null, false],
+          ["ביצים L", "1", null, false],
+          ["חלב טרי 3%", "1", null, true],
+          ["שוקולד מריר", "1", null, false],
+          ["אבקת אפייה", "1", null, false]
+        ],
+        "unresolved": ["קורט מלח"]
+      }
+    },
+    {
+      "name": "shakshuka, no headers, cloves and pieces to kg, scaled 4 to 8",
+      "request": {"text": "שקשוקה\n4 מנות\n6 עגבניות בשלות\n2 שיני שום\n1 בצל\n4 ביצים\n2 כפות שמן זית\n1 כפית פפריקה\nמלח ופלפל לפי הטעם", "servings": 8},
+      "expect": {
+        "title": "שקשוקה",
+        "servings": 8,
+        "items": [
+          ["עגבניות", "1.60", "kg", false],
+          ["שום", "0.05", "kg", false],
+          ["בצל יבש", "0.30", "kg", false],
+          ["ביצים L", "1", null, false],
+          ["שמן זית כתית מעולה", "1", null, false],
+          ["פפריקה מתוקה", "1", null, false]
+        ],
+        "unresolved": ["מלח ופלפל לפי הטעם"]
+      }
+    },
+    {
+      "name": "creamy pasta, servings in the header, a range, word amounts, two packs after scaling",
+      "request": {"text": "פסטה ברוטב שמנת ופטריות\nמצרכים (4 מנות):\n500 גרם ספגטי\n1 גביע שמנת מתוקה\n250 גרם פטריות שמפיניון טריות\n2-3 שיני שום\nחצי כוס גבינה מגורדת\nמלח לפי הטעם\nאופן הכנה:\nמבשלים את הפסטה לפי ההוראות על האריזה.", "servings": 8},
+      "expect": {
+        "title": "פסטה ברוטב שמנת ופטריות",
+        "servings": 8,
+        "items": [
+          ["ספגטי", "2", null, false],
+          ["שמנת מתוקה 32%", "2", null, true],
+          ["פטריות שמפיניון טריות", "2", null, false],
+          ["שום", "0.05", "kg", false],
+          ["גבינה מגורדת (מוצרלה)", "1", null, false]
+        ],
+        "unresolved": ["מלח לפי הטעם"]
+      }
+    },
+    {
+      "name": "hummus page with JSON-LD Recipe",
+      "request": {"url": "https://recipes.example/hummus", "html": "<!doctype html><html><head><title>חומוס ביתי - מתכון</title><script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"WebSite\",\"name\":\"מתכונים\"},{\"@type\":\"Recipe\",\"name\":\"חומוס ביתי\",\"recipeYield\":\"6 מנות\",\"recipeIngredient\":[\"2 כוסות גרגרי חומוס יבשים\",\"½ כוס טחינה גולמית\",\"1 לימון\",\"2 שיני שום\",\"1 כפית כמון\",\"מים קרים לפי הצורך\",\"מלח לפי הטעם\"]}]}</script></head><body><h1>חומוס ביתי</h1><p>מצרכים: ...</p></body></html>"},
+      "expect": {
+        "title": "חומוס ביתי",
+        "servings": 6,
+        "items": [
+          ["גרגרי חומוס יבשים", "1", null, false],
+          ["טחינה גולמית", "1", null, false],
+          ["לימונים", "0.10", "kg", false],
+          ["שום", "0.05", "kg", false],
+          ["כמון", "1", null, false]
+        ],
+        "unresolved": ["מים קרים לפי הצורך", "מלח לפי הטעם"]
+      }
+    },
+    {
+      "name": "oat cookies page without JSON-LD: the text under the ingredients header",
+      "request": {"url": "https://recipes.example/oat-cookies", "html": "<!doctype html><html><head><title>עוגיות שיבולת שועל</title><style>li{color:red}</style></head><body><nav><ul><li>דף הבית</li><li>2 כוסות של פרסומות</li></ul></nav><h1>עוגיות שיבולת שועל</h1><p>עוגיות פריכות לכל המשפחה, יוצאות כ-30 עוגיות.</p><h2>מצרכים</h2><ul><li>2 כוסות שיבולת שועל</li><li>1 כוס קמח</li><li>100 גרם חמאה רכה</li><li>½ כוס סוכר חום</li><li>1 ביצה</li><li>1 כפית סוכר וניל</li></ul><h2>אופן ההכנה</h2><ol><li>מערבבים את החמאה עם הסוכר.</li><li>מוסיפים 2 כוסות שיבולת שועל ומערבבים.</li></ol><script>var x = '3 כוסות סוכר';</script></body></html>"},
+      "expect": {
+        "title": "עוגיות שיבולת שועל",
+        "servings": null,
+        "items": [
+          ["שיבולת שועל", "1", null, false],
+          ["קמח לבן", "1", null, false],
+          ["חמאה", "1", null, false],
+          ["סוכר חום", "1", null, false],
+          ["ביצים L", "1", null, false],
+          ["סוכר וניל", "1", null, false]
+        ],
+        "unresolved": []
+      }
+    },
+    {
+      "name": "meatballs: kilograms, a weight in parentheses, a sub-header, water",
+      "request": {"text": "קציצות בשר ברוטב עגבניות\nמצרכים:\n1 ק\"ג בשר בקר טחון טרי\n1 בצל גדול (כ-200 גרם)\n1 ביצה\n3 כפות פירורי לחם\nלרוטב:\n1 קופסת רסק עגבניות\n2 כוסות מים\n1 כפית פפריקה מתוקה\nמלח ופלפל שחור"},
+      "expect": {
+        "title": "קציצות בשר ברוטב עגבניות",
+        "servings": null,
+        "items": [
+          ["בשר בקר טחון טרי", "1.00", "kg", false],
+          ["בצל יבש", "0.20", "kg", false],
+          ["ביצים L", "1", null, false],
+          ["פירורי לחם", "1", null, false],
+          ["רסק עגבניות", "1", null, false],
+          ["פפריקה מתוקה", "1", null, false]
+        ],
+        "unresolved": ["2 כוסות מים", "מלח ופלפל שחור"]
+      }
+    },
+    {
+      "name": "israeli salad: amounts after the name, a bunch, lemon juice is not in the catalog",
+      "request": {"text": "סלט ישראלי\nמצרכים:\nעגבניות - 4\nמלפפונים - 4\nפטרוזיליה - צרור\nשמן זית - 3 כפות\nמיץ לימון - 2 כפות\nמלח לפי הטעם"},
+      "expect": {
+        "title": "סלט ישראלי",
+        "servings": null,
+        "items": [
+          ["עגבניות", "0.55", "kg", false],
+          ["מלפפונים", "0.40", "kg", false],
+          ["פטרוזיליה", "1", null, false],
+          ["שמן זית כתית מעולה", "1", null, false]
+        ],
+        "unresolved": ["מלח לפי הטעם", "מיץ לימון - 2 כפות"]
+      }
+    },
+    {
+      "name": "challah: a kilogram of flour, a yeast pack, 'and a half' amounts, plain oil is ambiguous",
+      "request": {"text": "חלה מתוקה\nמצרכים:\n1 ק\"ג קמח\n1 חבילת שמרים יבשים\n½ כוס סוכר\n2 ביצים + 1 חלמון למריחה\n⅔ כוס שמן\n1 וחצי כפיות מלח\n1¾ כוסות מים פושרים\nשומשום לקישוט"},
+      "expect": {
+        "title": "חלה מתוקה",
+        "servings": null,
+        "items": [
+          ["קמח לבן", "1", null, false],
+          ["שמרים יבשים", "1", null, false],
+          ["סוכר לבן", "1", null, false],
+          ["ביצים L", "1", null, false],
+          ["*שמן", "1", null, true],
+          ["מלח", "1", null, false]
+        ],
+        "unresolved": ["1¾ כוסות מים פושרים", "שומשום לקישוט"]
+      }
+    },
+    {
+      "name": "roast chicken: servings from 'ל-4 סועדים', scaled to 2, a head of garlic, honey by the spoon",
+      "request": {"text": "עוף בתנור עם תפוחי אדמה\nל-4 סועדים\nמצרכים:\n1.5 ק\"ג כרעיים עוף\n1 ק\"ג תפוחי אדמה\n3 גזרים\n1 ראש שום\n3 כפות שמן זית\n2 כפות דבש\n1 כפית כורכום", "servings": 2},
+      "expect": {
+        "title": "עוף בתנור עם תפוחי אדמה",
+        "servings": 2,
+        "items": [
+          ["כרעיים עוף טריים", "0.75", "kg", false],
+          ["תפוחי אדמה", "0.50", "kg", false],
+          ["גזר", "0.15", "kg", false],
+          ["שום", "0.05", "kg", false],
+          ["שמן זית כתית מעולה", "1", null, false],
+          ["דבש", "1", null, false],
+          ["כורכום", "1", null, false]
+        ],
+        "unresolved": []
+      }
+    },
+    {
+      "name": "cheese pie: fat percentages, products the catalog does not have stay unresolved",
+      "request": {"text": "פשטידת גבינות\nמצרכים:\n250 גרם גבינה לבנה 5%\n200 גרם גבינה בולגרית 5%\n3 ביצים\n1 גביע שמנת חמוצה\n3 כפות קמח\n100 גרם גבינה צהובה מגורדת\n1 כפית סודה לשתייה\n2 כפות אגוזי מלך קצוצים\nשמן לשימון התבנית"},
+      "expect": {
+        "title": "פשטידת גבינות",
+        "servings": null,
+        "items": [
+          ["גבינה לבנה 5%", "1", null, false],
+          ["גבינה בולגרית 5%", "1", null, false],
+          ["ביצים L", "1", null, false],
+          ["שמנת חמוצה 15%", "1", null, false],
+          ["קמח לבן", "1", null, false],
+          ["גבינה מגורדת (מוצרלה)", "1", null, false]
+        ],
+        "unresolved": ["שמן לשימון התבנית", "1 כפית סודה לשתייה", "2 כפות אגוזי מלך קצוצים"]
+      }
+    }
+  ]
+}

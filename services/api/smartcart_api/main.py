@@ -9,6 +9,9 @@
 | ``POST /feedback/substitution``, ``POST /feedback/gap`` | routes/feedback.py |
 | ``GET/PUT /me/profile``, ``/me/lists`` CRUD (Supabase JWT, RLS) | routes/me.py |
 | ``POST /events`` first-party beta events (allowlisted, rate limited) | routes/events.py |
+| ``POST /parse-recipe`` (phase 3, #71) | routes/recipe.py |
+| ``GET/POST /me/spend`` budget and spend (phase 3, #70) | routes/spend.py |
+| ``GET /promo-cycles/{canonical_id}`` (phase 3, #69) | routes/promo_cycles.py |
 
 See docs/api.md.
 """
@@ -33,8 +36,11 @@ from smartcart_api.routes import (
     me,
     me_delete,
     optimize,
+    promo_cycles,
+    recipe,
     search,
     shares,
+    spend,
     stores,
     swaps,
 )
@@ -83,6 +89,10 @@ app.include_router(alerts.router)
 app.include_router(shares.router)
 app.include_router(barcode.router)
 app.include_router(swaps.router)
+# Phase 3 routers.
+app.include_router(recipe.router)
+app.include_router(spend.router)
+app.include_router(promo_cycles.router)
 
 
 def run() -> None:
