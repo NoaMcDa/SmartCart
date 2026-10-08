@@ -7,7 +7,31 @@
 #
 # Port 5432 taken by another Postgres? Set SMARTCART_DB_PORT=55432 and use that port in
 # DATABASE_URL. The password is a local development default, not a secret.
+#
+# The whole stack in containers (profile "app": the API and web images of docs/deploy.md). A plain
+# `up -d` still starts only the database. With the demo's synthetic data (docs/fullstack.md):
+#
+#   docker compose -f infra/docker-compose.yml up -d db
+#   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres DEMO_API_PORT=8010 \
+#     scripts/demo/up.sh && scripts/demo/down.sh --keep-db    # fill the database, stop that API
+#   export SUPABASE_JWT_SECRET="$(. "${TMPDIR:-/tmp}/smartcart-demo/env"; echo "$SUPABASE_JWT_SECRET")"
+#   docker compose -f infra/docker-compose.yml --profile app up -d --build
+#   DEMO_API_BASE_URL=http://127.0.0.1:8000 uv run python scripts/demo/smoke.py
+#
+# On an empty database the `migrate` service applies the migrations and the API starts with no
+# data. Web: http://localhost:3000 (SMARTCART_WEB_PORT), API: http://localhost:8000
+# (SMARTCART_API_PORT). The web image inlines the API origin at build time, so rebuild it
+# (`--build`) after changing SMARTCART_API_PORT.
 name: smartcart
+
+x-api-env: &api-env
+  DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+  SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
+  API_CORS_ORIGINS: http://localhost:${SMARTCART_WEB_PORT:-3000},http://127.0.0.1:${SMARTCART_WEB_PORT:-3000}
+  API_PUBLIC_WEB_URL: http://localhost:${SMARTCART_WEB_PORT:-3000}
+  VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+  VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+  VAPID_SUBJECT: ${VAPID_SUBJECT:-}
 
 services:
   db:
@@ -23,6 +47,85 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
+
+  # One-shot: apply supabase/migrations (idempotent), then exit 0.
+  migrate:
+    profiles: ["app"]
+    image: ${SMARTCART_API_IMAGE:-smartcart/api:local}
+    build:
+      context: ..
+      dockerfile: services/api/Dockerfile
+    command: ["smartcart-ingest", "migrate"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    profiles: ["app"]
+    image: ${SMARTCART_API_IMAGE:-smartcart/api:local}
+    build:
+      context: ..
+      dockerfile: services/api/Dockerfile
+    environment:
+      <<: *api-env
+      PORT: "8000"
+    ports:
+      - "${SMARTCART_API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    profiles: ["app"]
+    image: ${SMARTCART_WEB_IMAGE:-smartcart/web:local}
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+      args:
+        # The browser calls the API on the host's port, so the origin is localhost, not "api".
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:${SMARTCART_API_PORT:-8000}
+        NEXT_PUBLIC_SITE_URL: http://localhost:${SMARTCART_WEB_PORT:-3000}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+    environment:
+      PORT: "3000"
+    ports:
+      - "${SMARTCART_WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Batch jobs on demand, as the VPS timers run them:
+  #   docker compose -f infra/docker-compose.yml --profile jobs run --rm precompute
+  #   docker compose -f infra/docker-compose.yml --profile jobs run --rm alerts
+  precompute:
+    profiles: ["jobs"]
+    image: ${SMARTCART_API_IMAGE:-smartcart/api:local}
+    build:
+      context: ..
+      dockerfile: services/api/Dockerfile
+    command: ["smartcart-api", "precompute"]
+    environment: *api-env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  alerts:
+    profiles: ["jobs"]
+    image: ${SMARTCART_API_IMAGE:-smartcart/api:local}
+    build:
+      context: ..
+      dockerfile: services/api/Dockerfile
+    command: ["smartcart-api", "alerts-run"]
+    environment: *api-env
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   smartcart-db:

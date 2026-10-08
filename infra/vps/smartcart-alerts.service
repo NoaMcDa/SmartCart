@@ -1,0 +1,35 @@
+[Unit]
+Description=SmartCart: price-drop alerts and web push (smartcart-api alerts-run)
+Documentation=https://github.com/NoaMcDa/SmartCart/blob/main/docs/deploy.md
+Wants=network-online.target
+After=network-online.target smartcart-precompute.service
+
+[Service]
+Type=oneshot
+User=smartcart
+Group=smartcart
+WorkingDirectory=/var/lib/smartcart
+
+# "--dry-run" records deliveries as 'log' and sends no push.
+Environment="SMARTCART_ALERTS_ARGS="
+# The job reads every user's alerts, so it needs a connection that bypasses RLS (docs/api.md,
+# alerts): put it in jobs.env, which overrides the other two files. VAPID_* come from api.env.
+EnvironmentFile=/etc/smartcart/ingest.env
+EnvironmentFile=-/etc/smartcart/api.env
+EnvironmentFile=-/etc/smartcart/jobs.env
+
+# Skip this tick (exit 0) when the previous run is still going.
+RuntimeDirectory=smartcart
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/flock --nonblock --conflict-exit-code 0 /run/smartcart/alerts.lock /opt/smartcart/.venv/bin/smartcart-api alerts-run $SMARTCART_ALERTS_ARGS
+TimeoutStartSec=50min
+
+StandardOutput=append:/var/log/smartcart/alerts.log
+StandardError=append:/var/log/smartcart/alerts.log
+SyslogIdentifier=smartcart-alerts
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/smartcart /var/log/smartcart

@@ -1,0 +1,42 @@
+[Unit]
+Description=SmartCart API (FastAPI, smartcart-api serve) on 127.0.0.1:8000
+Documentation=https://github.com/NoaMcDa/SmartCart/blob/main/docs/deploy.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+User=smartcart
+Group=smartcart
+# Not the checkout: pydantic-settings reads a .env from the working directory, and there is none
+# here. Configuration comes only from the environment files below.
+WorkingDirectory=/var/lib/smartcart
+
+# Loopback only; the reverse proxy (Caddy, set up by setup.sh when SMARTCART_API_DOMAIN is given)
+# terminates TLS on 443. Override in /etc/smartcart/api.env. WEB_CONCURRENCY is read by uvicorn
+# as its number of worker processes (docs/deploy.md, sizing).
+Environment="SMARTCART_API_HOST=127.0.0.1" "SMARTCART_API_PORT=8000" "WEB_CONCURRENCY=2"
+# The ingestion units' file first (DATABASE_URL and the shared names), then the API's own file,
+# whose values win: the API's DATABASE_URL (service connection), SUPABASE_JWT_SECRET,
+# API_CORS_ORIGINS, API_PUBLIC_WEB_URL, VAPID_*, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+EnvironmentFile=/etc/smartcart/ingest.env
+EnvironmentFile=-/etc/smartcart/api.env
+ExecStart=/opt/smartcart/.venv/bin/smartcart-api serve --host ${SMARTCART_API_HOST} --port ${SMARTCART_API_PORT}
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+StandardOutput=append:/var/log/smartcart/api.log
+StandardError=append:/var/log/smartcart/api.log
+SyslogIdentifier=smartcart-api
+
+# Sandboxing, as the ingestion units: outbound network (database, web push, Supabase Admin API),
+# its own state and log directories, nothing else.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/smartcart /var/log/smartcart
+
+[Install]
+WantedBy=multi-user.target
