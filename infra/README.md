@@ -2,7 +2,9 @@
 
 Scripts and a Terraform skeleton for the phase 0 infrastructure: the Supabase database (#14), the
 Israeli-IP ingestion VPS and the raw-archive bucket (#22). The procedure, expected outputs and the
-policies (roles, connections, backups, secrets) are in `docs/infra-provisioning.md`; start there.
+policies (roles, connections, backups, secrets) are in `docs/infra-provisioning.md`; start there. Going
+live once provisioned is `docs/deploy.md`; the one-secret provisioning path and the manual workflows
+are `docs/unblock.md`.
 
 Nothing here contains secrets. Every script reads environment variables; the names are catalogued in
 the repo root `.env.example`.
@@ -12,6 +14,10 @@ the repo root `.env.example`.
 | `vps/setup.sh` | Idempotent VPS setup: Python 3.12, uv, the `smartcart` user, the ingest environment, systemd units, log rotation, baseline hardening. Run as root. |
 | `vps/smartcart-ingest-full.{service,timer}` | Daily full sync, 06:00 and 08:30 Israel time, calls `smartcart-ingest`. |
 | `vps/smartcart-ingest-delta.{service,timer}` | Hourly delta poll at minute 20, calls `smartcart-ingest`. |
+| `vps/smartcart-api.service` | The FastAPI service on 127.0.0.1:8000 (Caddy in front when `SMARTCART_API_DOMAIN` is set). |
+| `vps/smartcart-precompute.{service,timer}` | Nightly effective-price precompute at 09:30 Israel time, after the full sync. |
+| `vps/smartcart-alerts.{service,timer}` | Hourly price-drop alerts job at minute 45. |
+| `docker-compose.yml` | Local database by default; `--profile app` adds migrate, api and web; `--profile jobs` the timers' jobs. |
 | `smoke/check_israeli_ip.sh` | Geolocates the public IP with two services; exits non-zero unless both say IL. |
 | `smoke/check_portals.sh` | Reachability of the transparency portals plus a real laibcatalog download. |
 | `smoke/bucket_roundtrip.py` | Upload, read back and delete one object with the least-privilege token (boto3, R2 or S3). |

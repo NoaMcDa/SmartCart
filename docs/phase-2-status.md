@@ -1,7 +1,9 @@
 # Status of phases 0, 1 and 2, and the owner runbook
 
-Written 2026-10-07 on `phase-2-base` (commit `c36d6b3`) and updated the same day on `mvp-complete`, after
-PR #100 (phases 0 to 2) and the MVP completion round (#101, #102, #16, #12 and the full-stack suite). It
+Written 2026-10-07 on `phase-2-base` (commit `c36d6b3`), updated the same day on `mvp-complete` after
+PR #100 (phases 0 to 2) and the MVP completion round (#101, #102, #16, #12 and the full-stack suite), and
+on 2026-10-08 after the unblock round (manual workflows on GitHub runners, deploy packaging, phase 3
+features that need no real data; see [unblock.md](unblock.md) and [deploy.md](deploy.md)). It
 answers two questions: what is done, and what only the owner can do next. Sources: the status comments on
 issues #1 to #7, the bodies of PR #82 (phase 0), PR #100 (phases 0 to 2) and the MVP completion PR, and
 the docs named in each row.
@@ -27,9 +29,9 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 |---|---|---|---|
 | #1 | Epic: data foundation | blocked | Every child is built; #14, #22 and #60 wait on provisioning and two weeks of real nightly loads, and #32, #53, #57 and #81 wait on real files. |
 | #9 | Chain list (8 to 10 chains) | done by tests | Decision D13, no code. The chain size tiers are an estimate: replace with a sourced figure before any public coverage claim. |
-| #14 | Supabase vs self-hosted, provision the database | blocked | The project does not exist. Owner creates it (`docs/infra-provisioning.md` section 2). The PostGIS and pgvector smoke tests already pass in CI on the Supabase image. The restore test record (section 4.4) is also the owner's. |
+| #14 | Supabase vs self-hosted, provision the database | blocked | The project does not exist. One token: `scripts/unblock/supabase_provision.py` creates it and enables the extensions (`infra-provisioning.md` section 9.1); then set `SUPABASE_DB_URL` and run the "Provision check" workflow. The restore test record (section 4.4) waits for real rows. |
 | #17 | Monorepo scaffold and CI | done by tests | All five items met. The last one, "a failing test turns CI red", was exercised once on the throwaway branch `ci/red-check` (commit `fba9fd7`, never merged): run https://github.com/NoaMcDa/SmartCart/actions/runs/37621263324 ended `failure` in the Test step on Python 3.12 and 3.13, with Lint green. Delete the branch with `git push origin --delete ci/red-check` if it still exists (the build environment could not). |
-| #22 | Israeli-IP VPS and object storage | blocked | Owner provisions the VPS and bucket, then runs the three smoke scripts. Scripts and Terraform are written but were never run against a live service. |
+| #22 | Israeli-IP VPS and object storage | blocked | Owner buys the VPS and bucket (about one person-hour, estimate), sets `VPS_SSH_HOST`, `VPS_SSH_KEY` and the `S3_*` secrets, and runs "Provision check", which runs the three smoke scripts against the live services. The deploy workflow then installs ingestion, the API and its timers (`deploy.md`). |
 | #27 | Schema v1 | done by tests | Six of six criteria pass in CI on `supabase/postgres:17.11`. |
 | #32 | Adapter framework, one adapter per chain | done with synthetic data | Eight adapters on synthetic fixtures. Real files need the VPS (`fetch_fixtures`). Archiving raw files to the bucket is not wired into the adapters. |
 | #37 | Idempotent downloads, full before delta | done by tests | The real portals are unchecked until the VPS runs. |
@@ -38,7 +40,7 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 | #49 | Hourly deltas for the main chains | done by tests | Delta polling still has to be watched against the real portals on the VPS. |
 | #53 | Online-store record and channel tag | done with synthetic data | Every per-chain rule and the placeholder store codes are provisional until real Stores files confirm them. Osher Ad is listed as having no online record (to confirm). |
 | #57 | Dual schema (v1 and v2) | done with synthetic data | `PROVISIONAL_V2_MARKER` is a placeholder. A real file in the authority's new model is needed to confirm it. |
-| #60 | Phase 0 exit validation | blocked | Two weeks of nightly loads on the VPS. The report generator and basket query are tested on synthetic data; go/no-go stays NO-GO (`docs/phase-0-exit-report.md`). |
+| #60 | Phase 0 exit validation | blocked | Fourteen consecutive nightly loads on the VPS after #14 and #22. Meanwhile "Portal probe" runs daily from a GitHub runner: on 2026-10-08 seven of ten chains (Shufersal, Rami Levy, Mega/Carrefour, Tiv Taam, Osher Ad, Yohananof, King Store) handed over real Stores and PriceFull files; Victory and Machsanei Hashuk timed out and Hazi Hinam answered 403 to the non-Israeli IP. Go/no-go stays NO-GO. |
 | #81 | Adapters for Machsanei Hashuk and King Store | done with synthetic data | Both adapters are built on synthetic fixtures (laibcatalog JSON and Bina layouts) and covered by the quality-gate adapter test; all ten D13 chains load in `scripts/demo/up.sh`. Real files need the VPS (`fetch_fixtures`). |
 
 ## Phase 1, MVP (milestone 2)
@@ -53,26 +55,26 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 | #10 | Taxonomy v1 | done by tests | 203 nodes. The 19 departments are our own list, not Hazol's (the research does not list Hazol's categories). The reviewer should compare. |
 | #11 | Next.js PWA scaffold | done by tests | Install on a real Android Chrome and iOS Safari device by hand (steps in `docs/web.md`). |
 | #12 | Trust signals | done by tests | Promo confidence is recorded by every adapter (`promos.raw.confidence`, rubric in `docs/adapters.md`) and shown when present. The substitution card carries the checkout disclaimer; every substitute is labeled. |
-| #15 | 150 to 300 canonical products | blocked | 245 canonicals are committed. A domain-aware reviewer must sign them off (checklist in `docs/catalog.md` section 2). The rank is an estimate: replace with a measured one. |
+| #15 | 150 to 300 canonical products | blocked | Person-hours: a domain-aware reviewer signs off the 245 canonicals (`catalog.md` section 2). The rank is an estimate until real data loads. |
 | #16 | Report-a-gap button | done by tests | UI and `POST /feedback/gap`; gap reports feed the quality checks (`gap_report_pressure`, the `quality_gap_reports_7d` view, a soft ingest warning that never quarantines, a dashboard panel). The threshold `GAP_REPORT_PRESSURE_MIN=3` is a placeholder. |
 | #18 | Onboarding | done by tests | Eye check of dark theme at 390 px. |
 | #20 | Rule normalization | done with synthetic data | 50 table cases with realistic, not real, names. Turn the issue list from `smartcart-catalog normalize` on real loads into test cases. |
 | #21 | Methodology page and quality metric | done with synthetic data | The published metric comes from the synthetic gold set and is labeled so. Links from results and the substitution card are open (#91). Structured data has not been run through an external validator. |
 | #24 | List builder | done by tests | Against the mock API. The estimate's reaction to a flexibility change needs the real API. |
-| #25 | LLM attribute extraction | blocked | `ANTHROPIC_API_KEY` and loaded items for the model comparison and the first cost run. The extractor runs on hand-written fixtures. |
-| #26 | Accessibility audit (Israeli standard 5568) | blocked | The screen-reader pass in Hebrew (VoiceOver, TalkBack) needs a person. Also open: top bar overflow by 7 px at 195 px, no non-drag path in the split view yet, a legal read of the statement, and a contact detail on the statement page. Automated coverage is complete; it is not a conformance claim. |
-| #29 | BGE-M3 embeddings, blocking, HNSW | blocked | BGE-M3 has not run (Hugging Face was unreachable from the build environment). The 0.9988 recall@10 is on the synthetic gold set with a hash embedder. |
-| #30 | Privacy by design | blocked | `DELETE /me` (#90) and a legal review of the privacy text. |
+| #25 | LLM attribute extraction | blocked | One secret: set `ANTHROPIC_API_KEY` and run the "Extraction pilot" workflow (default 200 synthetic items, about 0.40 to 0.60 USD, estimate). Then read the comparison and confirm or change D14. The full-catalog cost run waits for loaded items. |
+| #26 | Accessibility audit (Israeli standard 5568) | blocked | Human only: the Hebrew screen-reader pass (VoiceOver, TalkBack) and a legal read of the statement. The 195 px overflow is closed (#101); the non-drag split path and a contact detail on the statement page remain as small engineering items. Automated coverage is complete; it is not a conformance claim. |
+| #29 | BGE-M3 embeddings, blocking, HNSW | done with synthetic data | BGE-M3 ran on a GitHub runner on 2026-10-08 ("BGE-M3 evaluation" workflow, full synthetic gold set): any-brand precision 1.00, any-brand recall 0.92 (hash embedder: 0.81), retrieval recall@10 0.998. Synthetic numbers; the thresholds are hash-calibrated. The real-data recall needs real labels (#38) and the search switch to `API_QUERY_EMBEDDER=bge-m3` follows the real embed. |
+| #30 | Privacy by design | blocked | Legal review of the privacy text only (`DELETE /me` is done, #90). |
 | #31 | Flexibility bottom sheet | done by tests | Soft-attribute checkboxes are stored on the row; the API has no field for them yet, so they do not change matching. |
 | #33 | Match judge with hard rules | done with synthetic data | The LLM judge is wired and tested but never measured (no key). Compare it with the rule judge on the real gold set. |
-| #35 | Static SEO pages | blocked | A deployed domain, `NEXT_PUBLIC_SITE_URL`, real prices (product pages have no offers yet), and a decision on `INDEX_UNPRICED`. Then submit the sitemap. |
+| #35 | Static SEO pages | blocked | A domain and host (owner), `NEXT_PUBLIC_SITE_URL`, a decision on `INDEX_UNPRICED`, then the sitemap in Search Console. The web container and the Vercel config are ready (`deploy.md`). Offers need real prices. |
 | #36 | Comparison results screen | done by tests | Against the mock API (the mock prices every flexibility level the same). |
 | #38 | Review UI, gold set, evaluation harness | done with synthetic data | The CI gate passes at 1.00 any-brand precision on 2,419 synthetic pairs (recall 0.81). Real labels and the human review of the 300 best-sellers are pending. |
-| #40 | Closed beta, 20 to 50 users | blocked | People to recruit; the owner's confirmation of the proposed thresholds; consent screen; the screens must call `trackEvent` (#91). |
+| #40 | Closed beta, 20 to 50 users | blocked | Confirm the thresholds, a legal review of the consent text, recruit 20 to 50 people. Needs real prices first. |
 | #41 | Cart split view | done by tests | Touch drag onto the other tab is to verify on a device. Keyboard and button paths are in e2e. |
 | #43 | Feedback loop | done by tests | Context columns and RLS are in the phase 2 migration; see #92. No rejection rate exists until the beta. |
 | #44 | Monthly basket index | done with synthetic data | No month can be published until real prices load. Basket composition and check thresholds are estimates. |
-| #47 | Nightly effective-price precompute | done with synthetic data | 675,000 rows in 52 s was measured on synthetic data only. Scheduling it on the VPS is still open (the repo ships no timer for it). Promo reward semantics are provisional until real promo files are seen. |
+| #47 | Nightly effective-price precompute | done with synthetic data | 675,000 rows in 52 s on the small synthetic world and 144,380 rows in 27 to 33 s on the scaled one (`optimizer.md`), synthetic data only. The VPS timer exists (`infra/vps/smartcart-precompute.timer`, 09:30 Israel time after the full sync). Promo reward semantics are provisional until real promo files are seen. |
 | #48 | Substitution card | done by tests | Against the mock API; the original's price at the substitute's store is not in the API response. |
 | #50 | Product detail | done by tests | Promo confidence needs the API field (#90). Visual check of RTL, themes and targets. |
 | #51 | POST /parse-list | done with synthetic data | Resolves against the synthetic catalog; re-check on the real one. |
@@ -105,8 +107,8 @@ and real users.
 | #34 | Shared family lists in real time | done with synthetic data | Invite link, accept, members, revoke by `share_id`, per-item `checked`, offline queue, Supabase Realtime with a polling fallback. Realtime itself needs the real project. |
 | #39 | Barcode scanning in the PWA | done by tests | BarcodeDetector with a ZXing fallback and a manual field; the lookup joins to effective prices in the radius. Device check of the camera flow remains. `/scan` reads no code from the URL yet. |
 | #45 | Smart cart: single best swap | done by tests | Swap suggestions, apply, undo and dismiss (dismissal holds until the saving changes by ₪1 and 25%); verdicts stored as catalog feedback with `source=swap`; a dismissal never flags the mapping for review. |
-| #52 | Catalog expansion with active learning | blocked | Needs real labeled pairs from the review UI and the beta's rejected substitutions. |
-| #56 | Native app decision | blocked | Needs retention data from real users (after the beta and launch). Not a build task. |
+| #52 | Catalog expansion with active learning | blocked | Real labeled pairs (review UI and the beta's rejections). Time-bound. |
+| #56 | Native app decision | blocked | Retention data from real users. Time-bound. Not a build task. |
 
 ## MVP completion round (2026-10-07)
 
@@ -117,6 +119,23 @@ Four parallel workstreams on `mvp-complete`, merged in one PR to `main`.
 | #101 | Phase 2 follow-ups, web | done by tests | "שיתוף" entry point; swap undo and dismiss; every route fits at 195 px (`docs/a11y-report.md`); onboarding resolves the home store through `GET /stores/nearest` so the first results page shows the net saving; pending-invite revoke; `checked` flag with an offline queue ("ממתין לסנכרון"); scan, alert, swap and share events; links from results to the split view and product detail; checkout disclaimer on the substitution card; Hebrew labels for attribute tags and units. |
 | #102 | Phase 2 follow-ups, API and catalog | done with synthetic data | `GET /me/lists` returns owned then shared lists (`shared`, `role`); `share_id` on members and `DELETE /me/lists/{id}/shares/{share_id}`; `base` is a critical attribute of the plant drinks (three canonicals changed, 104 gold pairs added, precision 1.00 at every level on the synthetic set); SEO snapshot regenerated; query vectors compared only with embeddings of the same model (`API_QUERY_EMBEDDER`); `routes/feedback.py` writes through `record_feedback`; adapters record promo confidence. Optimizer timings on real files remain. |
 | — | Full-stack run and suite | done with synthetic data | `scripts/demo/up.sh` builds the whole pipeline on the synthetic fixtures through the real loader and gates, `smoke.py` checks the real API, `npm run e2e:fullstack` drives the real app against the real API, and the "Full stack" workflow runs it in CI. `docs/fullstack.md` lists the counts and the gaps it found. |
+
+## Unblock round (2026-10-08)
+
+Blocked items that only needed network or a secret became manual GitHub workflows (`unblock.md`); the
+stack became deployable (`deploy.md`); and the phase 3 features that need no real data were built.
+
+| Issue | Title | Status | What landed |
+|---|---|---|---|
+| #65 | Voice list input | done by tests | Web Speech API (`he-IL`) with a confirm step before parsing, feature-detected; events `voice_started`, `voice_completed`. The server speech-to-text fallback and the per-device check of `he-IL` on iOS Safari and Android Chrome remain. |
+| #70 | Monthly budget and spend tracking | done by tests | `profiles.monthly_budget`, `spend_entries` with RLS, `POST`/`GET`/`PUT`/`DELETE /me/spend`, export; "נותר החודש" on results and split, "סיימתי לקנות" records the plan total; six-month chart on Profile. Correct-a-total and per-entry delete exist in the API, not yet in the UI. |
+| #71 | Recipe to list | done with synthetic data | `POST /parse-recipe` with a rule-based Hebrew ingredient parser, JSON-LD recipe extraction for URLs, servings scaling; "ממתכון" in the list builder. Resolved against the synthetic catalog; re-check on the real one. |
+| #69 | Promo cycle prediction | done with synthetic data | `GET /promo-cycles/{canonical_id}`, advice only with 3 cycles and confidence 0.6 (`promo-cycles.md`). Synthetic backtest: hit rate 0.88, false alarms 0.02; no real history exists yet. |
+| #61, #68 | Receipt and handwritten-list photo | open, phase 3 | Need server-side OCR with Hebrew and real receipts to test on. |
+| #72 | Cart transfer to chain online stores | open, phase 3 | Needs the chains' online-store integration; never scraped. |
+| #73 | Arabic UI | open, phase 3 | A full second locale; the MVP keeps Hebrew copy as literal text (conventions). |
+| — | Deploy packaging | done by tests | API and web containers built and run here, VPS units and timers, `deploy.yml` (images to GHCR always; deploy only when secrets exist), scaled load test (`optimizer.md`, `deploy.md`). |
+| — | Manual workflows | done by tests | "BGE-M3 evaluation" (ran: see #29), "Portal probe" (ran: see #60; `commit_fixtures` pushes real regression fixtures), "Extraction pilot" (waits on the key), "Provision check" (waits on secrets). |
 
 ## Owner runbook
 
@@ -213,7 +232,7 @@ catalog. The bill is the source of truth. Compare the output with the rule extra
 ### 5. Embed with BGE-M3 and match
 
 ```bash
-uv sync --extra embed
+uv sync --all-packages --extra embed
 export EMBEDDER=bge-m3                      # EMBEDDING_MODEL defaults to BAAI/bge-m3
 uv run smartcart-catalog embed --target all
 uv run smartcart-catalog judge --judge rule
@@ -251,6 +270,9 @@ Have a domain-aware reviewer sign off the 245 canonicals using the checklist in 
 review every mapped item until all 300 are human-reviewed; that is the launch criterion (#38).
 
 ### 8. Deploy the web app and the API
+
+The containers, VPS units, timers and the `deploy.yml` workflow exist now; the step-by-step is in
+[deploy.md](deploy.md). What follows is the original outline.
 
 The repo has no deployment config; use the host you choose. Build-time variables (inlined by Next.js, so set
 them before `npm run build`):

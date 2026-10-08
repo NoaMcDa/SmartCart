@@ -68,8 +68,7 @@ sentence-transformers model). Locally, on a fresh migrated database:
 reproduces the flow without torch. Two cautions when reading the first BGE-M3 numbers:
 `sim_floor`/`sim_ceil` are calibrated for the hash embedder, so a change in precision or in the
 review band can be calibration rather than retrieval; and recall@10 is the number that speaks to
-the embedder itself. No BGE-M3 result is recorded here until the workflow has run; paste the
-table from its summary with the run link when it has.
+the embedder itself. First run, 2026-10-08, full synthetic gold set (857 items, 2,523 pairs), rule judge, k = 10: any-brand precision 1.0000 and recall 0.9241 (hash embedder on the same items: 1.0000 / 0.8125), retrieval recall@10 0.9976. Synthetic numbers with hash-calibrated thresholds; not evidence until the real gold set exists.
 
 **Model name (issue #102).** Every embedder exposes `model_name: str` (the `Embedder` protocol in
 `models.py`; no separate `name` attribute was added). It names the vector space, and it is the
