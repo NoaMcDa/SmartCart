@@ -114,6 +114,18 @@ class CanonicalProduct(_Frozen):
     reference_barcodes: tuple[str, ...] = ()
     """Barcodes that are this canonical exactly (``canonical_products.reference_barcodes``);
     an item with one of them matches at ``exact`` (decision D4)."""
+    names_ar: tuple[str, ...] = ()
+    """1-3 Arabic names as Arab-Israeli shoppers write them, each stating the critical attributes
+    (``canonical_products.names_ar``; issue #73). Machine drafted, needs native-speaker review."""
+
+    @field_validator("names_ar", mode="before")
+    @classmethod
+    def _names_as_tuple(cls, value: Any) -> Any:
+        if value is None:
+            return ()
+        if isinstance(value, str):
+            value = [value]
+        return tuple(str(v).strip() for v in value)
 
     @field_validator("reference_barcodes", mode="before")
     @classmethod

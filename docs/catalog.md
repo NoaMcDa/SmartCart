@@ -199,6 +199,37 @@ attributes are soft keys, slugs unique, ranks 1..N, every product type has a can
 canonicals share product type and critical values** (they would be indistinguishable at "any brand"),
 and a critical value a type implies (`implied: {base: soy}`) is carried by one of its canonicals.
 
+### Arabic names (#73)
+
+Every canonical lists `names_ar`: 1 to 3 names as Arab-Israeli shoppers write them, stored in
+`canonical_products.names_ar` (migration `20261011100600`) and read by Arabic search only
+(`docs/matching.md`, "Arabic queries"). **Machine drafted: the whole list needs a native-speaker
+review** before it is shown to users; the file header says so. A name may be Modern Standard
+(`جبنة بيضاء`), Levantine colloquial (`بندورة` and `طماطم`, `زبادي`) or the Hebrew loanword when that is
+what people say (`كوتيج`, `لبنة`, `بمبا`, `فرجيوت`); the colloquial and loanword names are the likeliest
+to be wrong or regional.
+
+Rules, enforced by `seed.validate_names_ar` (so `smartcart-catalog seed --check` and CI fail on a
+mistake):
+
+- 1 to 3 names, each with Arabic letters; none starts with the article ال (matching strips it from
+  the query; an article inside a name, `دوار الشمس`, is fine).
+- No two canonicals share a name after folding (tashkeel, alef forms, ة/ه, digits and the rest of
+  `fold_ar`), and a canonical does not repeat a name. Two canonicals that differ in a critical
+  attribute have names that state it, so their folded names differ; identical names are always
+  a mistake.
+- Every name states the critical attributes it can state in Arabic, with the same lexicons the
+  API's hard checks use (`normalize.ar_attributes`): the fat percentage (`حليب 3%`), frozen or canned
+  (`مجمد`, `معلب`), the plant base (`لوز`, `صويا`, `شوفان`), and fresh, dry or the flavor whenever a
+  sibling of the same product type differs (`طازج` when a frozen sibling exists, `فراولة` against
+  `خوخ`). A name may not contradict them either. Add a short name next to a long one when
+  shoppers drop a word (`انتريكوت` for `انتريكوت بقر طازج`), but not for a state that a sibling
+  changes: `صدر دجاج` alone must stay ambiguous between fresh and frozen.
+
+To add or review a name: edit `data/canonicals.yaml`, run `smartcart-catalog seed --check`, then
+`smartcart-catalog evaluate-ar` (a new name can make another canonical's line ambiguous). Fix the
+name, not the check.
+
 ### Base units
 
 `100ml` for liquids, `100g` for packaged solids, `unit` for counted goods (eggs, pita, rolls, toilet
@@ -270,6 +301,31 @@ too); re-run `smartcart-catalog normalize` on the first real loads and turn its 
 cases. Note that `prices.unit_price` is already filled by the ingest loader from the chains' own
 published unit price; the name-based helper here is for the effective-price precompute and for items
 whose published unit price is missing or wrong.
+
+### Arabic normalization (#73)
+
+`normalize.py` also holds the pure Arabic helpers (item names from chains are Hebrew, so the item
+normalizer above is untouched):
+
+- `fold_ar(text)`: NFKC; alef with hamza or madda and alef wasla to `ا`; `ى` to `ي`; `ة` to `ه`; `ؤ`
+  to `و`; `ئ` to `ي`; hamza, tatweel, tashkeel and bidirectional marks removed (`بيضاء` and `بيضا`
+  meet); Arabic-Indic and Persian digits to Latin; `٪ ٫ ، ؛ ؟` to `% . , ; ?`; Persian `ک ی` and loan
+  letters `ڤ پ` to `ك ي ف ب`; punctuation to single spaces. `search_norm_ar()` in Postgres does the
+  same (a test compares them on 400 random strings and every name).
+- `normalize_ar(text)`: `fold_ar` plus the rewrites a query needs: `%3`, `3 %` and `3 بالمية`/`بالمئة`/
+  `بالمائة`/`في المية` become `3%`, number words before them too (`ثلاثة بالمية`, `واحد ونص بالمية`).
+- `ar_variants(token)`: the token and its forms without the prefixes ال, و, وال and the
+  preposition-plus-article بال, لل ("with the", "for the"), when three letters remain (`ورق` stays).
+- `ar_unit(word)`: kilo, gram, litre, millilitre and count nouns in their spelling variants
+  (`كيلو كغم كجم غرام غم لتر ليتر مل علبة حبة قطعة كيس باكيت زجاجة ...`), the dual (`علبتين` = 2,
+  `كيلوين` = 2) and a flag for plurals that are only units after a number (`اكياس`).
+- `ar_attributes(text)` and `ar_conflicts(...)`: the fat percentages, states, plant bases and flavors a
+  text states, and the critical attributes of a canonical that a query contradicts (see
+  `docs/matching.md`). `ar_clean_query` drops brands, soft descriptors, politeness, bare numbers and
+  pack sizes from a query.
+
+Tests: `tests/test_arabic_normalize.py` (120 cases, 52 of them unit spellings), `test_arabic_seed.py`,
+`test_arabic_fold_sql.py`.
 
 ## 4. Attribute extraction (step B)
 
@@ -361,6 +417,8 @@ uv run smartcart-catalog promo-backtest [--synthetic] [--min-windows N] [--days 
 
 Other modules add commands through `register(app)` in a module listed in `cli.EXTENSIONS`
 (`smartcart_catalog.cli_matching` is listed already and is skipped until it exists).
+`smartcart_catalog.cli_arabic` (`evaluate-ar`, issue #73) is not listed yet: add it to `EXTENSIONS`
+to get `smartcart-catalog evaluate-ar`.
 
 ## 6. Open items
 
