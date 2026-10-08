@@ -300,3 +300,77 @@ with `smartcart-catalog cost-report`.
 Items are sent to an external API: they are public price-file data with no user data, so D11 is not
 affected. The model name, effort and batch size are configuration, so the comparison can switch them
 without code changes. Details: `catalog.md` section 4.
+
+## D15 (proposal, owner to confirm before the data is seen): native-app criteria
+
+**Date.** 2026-10-08 (issue #56). **Status:** proposal. The criteria below are written before any
+retention data exists, as the issue asks. Every threshold is an **estimate**: a planning choice, not a
+research fact (the research gives no retention benchmark for a Hebrew grocery PWA). The owner confirms or
+changes them before `smartcart-catalog native-report` is run on real data; after that they are frozen for
+the decision, and moving one afterwards has to be recorded here with the reason. This record is the
+criteria, not the decision: the decision is a later record that cites the data and says which numbers
+were measured and which assumed.
+
+**Context.** D1 shipped a web-first PWA and deferred the native question to the retention data. What
+native could add, in order of how much it matters here: web push on iOS, which works only from an
+installed PWA (iOS 16.4 and later, D1) and so reaches only users who install it; a camera scanner that
+does not depend on a JavaScript fallback (the browser `BarcodeDetector` is not available in Safari, the
+PWA falls back to a software decoder); in-store mode that survives a locked screen and can use the
+location in the background; presence in the app stores. What native costs: store review cycles, two
+release channels, a second UI codebase if React Native. Flutter and Flutter Web stay rejected (D1).
+
+**What is measured, from first-party events (D11, no ad SDK), all with their sample sizes.** Migration
+`20261011100300_retention.sql` adds views over `events`; `smartcart-catalog native-report` prints them.
+
+| Input | Source | Gap, stated now |
+|---|---|---|
+| Cohort retention D1, D7, D30 by the week of the first `app_opened` | `native_cohort_retention` | An actor is a user id or a browser session id: one person on two browsers is two actors, and an installed iOS PWA keeps its storage apart from Safari's. Retention is a lower bound. |
+| Installs by platform | `pwa_installed {platform}`, `native_installs_by_platform` | `app_opened` carries no platform, so the share of iOS among all active users is unknown; iOS share is taken among actors who fired a platform-tagged event. |
+| Push opt-in, push open rate | `push_opt_in`, `push_opened`, `alert_deliveries` | No "prompt shown" event: opt-in is a share of active users, a floor, not a share of people who were asked. Opens are client-reported. |
+| Store-mode use | `store_mode_used {plan, platform}` | The share of sessions that are in-store is approximated by the share of active user-weeks with a store-mode open. |
+| Barcode scan success | `scan_started`, `scan_completed {outcome}`, found over completed (cancelled excluded) | In the PWA only; a native scanner's rate is unknown until a pilot. |
+
+Filling the first two gaps (a `platform` on `app_opened`; a `push_prompt_shown` event) is a one-line
+change in the event allowlist and the web client and makes the iOS numbers a rate over all active users.
+It is not done here; until it is, C2 to C4 below are read as estimates about engaged users.
+
+**Decision (proposal): the criteria.** Each needs its minimum sample, else it is "inconclusive", never a
+pass: a small beta must not decide a native app.
+
+| | Criterion | Threshold (estimate) | Minimum sample |
+|---|---|---|---|
+| C1 | D30 retention, cohorts of the last 12 weeks pooled; an actor counts once day 30 is over | at least 15% | 100 eligible actors |
+| C2 | iOS share of actors with a platform-tagged event | at least 30% | 50 actors |
+| C3 | iOS actors who never installed the PWA (so cannot receive web push) | at least 50% | 30 iOS actors |
+| C4 | Push open rate, opens over pushes sent | at least 15% | 100 pushes sent |
+| C5 | Store-mode share of active user-weeks | at least 20% | 100 user-weeks |
+| C6 | Barcode scan success in the PWA | below 80% means a native camera is worth it | 50 completed scans |
+
+The rules, in order:
+
+1. **C1 not met: stay PWA.** People who do not come back are not fixed by a store listing, and the
+   evidence that a native shell raises retention is not in hand. File the PWA gaps the report shows.
+2. **C1, C2, C3 and C4 met: pilot a Capacitor wrapper** (same Next.js code, push and camera plugins).
+   Many iOS users cannot be reached by push, and the pushes that do reach people are opened.
+3. **C1 met, push case not made (C2, C3 or C4 not met): stay PWA** and file the gaps (for example iOS
+   install prompts, if C3 is high but C4 is low).
+4. **C5 and C6 shape the pilot, they do not start one.** A high C5 is a reason to test background
+   location and wake-lock behaviour in the pilot; C6 below 80% is a reason to compare the plugin's
+   scan rate with the PWA's.
+5. **React Native is never the outcome of these numbers alone.** Per D1 it shares the language but not
+   the UI code, so it is justified only by a Capacitor pilot that fails a requirement the wrapped PWA
+   cannot meet: scan success still under 80% with the native camera plugin, a need for background
+   location or offline sync that a WebView cannot provide, or a measured interaction cost of the
+   WebView that users feel. The pilot's own numbers are then the evidence, recorded in the decision.
+
+**Alternatives rejected.** A single retention threshold and nothing else: it cannot tell "people leave"
+from "people cannot be reached". Deciding after the numbers are seen: the issue forbids it. Thresholds
+copied from consumer-app benchmarks: none is in the research, and they would pass for the wrong
+reasons. Going to React Native first: it spends the code reuse D1 was chosen for before any evidence
+that a wrapper falls short.
+
+**Consequences.** `native-report` prints the table with the observed value, the sample and the status of
+C1 to C6 and the outcome by the rules above; it decides nothing. When the later decision is written it
+cites that output, the date range and the sample sizes, lists the measured and the assumed numbers, and
+updates D1's consequences to point to it. If native is chosen, an epic is filed for the chosen path;
+if not, the PWA gaps found are filed as issues (issue #56 acceptance).

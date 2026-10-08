@@ -12,12 +12,15 @@ dependencies = [
   "structlog>=24.4,<25",
   "pyyaml>=6.0,<7",
   "anthropic>=1.11,<2",
-  "streamlit>=1.50,<2",
   "jsonschema>=4.20,<5",
 ]
 
 [project.optional-dependencies]
 embed = ["sentence-transformers>=3.0", "torch"]
+# The Streamlit review UI (`smartcart-catalog review`). Streamlit brings pandas, pyarrow, altair and
+# pydeck, which the API image does not need, so it is an extra: `uv sync --extra review`, or depend
+# on `smartcart-catalog[review]` (the internal dashboard does).
+review = ["streamlit>=1.50,<2"]
 
 [project.scripts]
 smartcart-catalog = "smartcart_catalog.cli:app"

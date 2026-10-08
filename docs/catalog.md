@@ -25,6 +25,7 @@ data/canonicals.yaml ─┘
 | Configuration | `services/catalog/smartcart_catalog/settings.py` |
 | Command line | `smartcart-catalog` (`cli.py`) |
 | Recipe parser (phase 3, #71) | `services/catalog/smartcart_catalog/recipe.py`, section 7 |
+| Expansion backlog and active learning (#52) | `services/catalog/smartcart_catalog/active.py`, `cli_growth.py`, `supabase/queries/catalog_backlog.sql`, section 9 |
 | Promo cycles (phase 3, #69) | `services/catalog/smartcart_catalog/promo_cycles.py`, `cli_promo.py`, section 8 and [promo-cycles.md](promo-cycles.md) |
 | Tables | `supabase/migrations/20261007100000_catalog_v1.sql` |
 
@@ -344,6 +345,8 @@ uv run smartcart-catalog extract [--extractor rule|claude] [--chain ID] [--limit
 uv run smartcart-catalog cost-report [--runs N]      # tokens and estimated USD per model batch
 uv run smartcart-catalog promo-cycles CANONICAL [--club NAME ...] [--as-of YYYY-MM-DD] [--json]
 uv run smartcart-catalog promo-backtest [--synthetic] [--min-windows N] [--days N]
+uv run smartcart-catalog backlog [--top N] [--days N] [--min-similarity X]   # what to add next (section 9)
+uv run smartcart-catalog native-report [--weeks N] [--out FILE]              # decision D15 numbers (#56)
 ```
 
 | Variable | Default | |
@@ -444,3 +447,96 @@ thresholds (all estimates), the synthetic backtest numbers and the limits are in
 `synthetic_history` and `irregular_history` generate deterministic windows from a seed;
 `seed_promo_history` writes windows as promos for tests and demos. Tests:
 `services/catalog/tests/test_promo_cycles.py` and the API's `test_promo_cycles_route.py`.
+
+## 9. Expansion backlog and active learning (#52)
+
+The catalog grows from demand, not from the 170,000 SKUs in the chains' files: what people search
+for and do not find, and what the shelves stock that no canonical covers. Human review time goes
+to the pairs where a label changes the most.
+
+### Demand signal: `search_misses`
+
+Migration `20261011100200_search_misses.sql`. One row each time a query found nothing the parser
+accepts (the parser floor, confidence 0.35, `routes/search.py`): `GET /search` with no hit above
+the floor, a `POST /parse-list` row that comes back `not_found`, a `POST /parse-recipe` ingredient
+that goes to `unresolved` (under 0.70, the recipe floor), and later `POST /parse-image`
+(`source = 'parse_image'`, through the same helper `smartcart_api.misses.record_miss`).
+
+| Column | |
+|---|---|
+| `query_norm` | the **normalized** query (lower case, no punctuation, final letters folded), 1 to 120 characters |
+| `source` | `search`, `parse_list`, `parse_recipe`, `parse_image` |
+| `best_confidence` | the best hit that was found but not accepted; NULL when nothing was found |
+| `seen_at` | rounded down to the hour |
+
+There is no user id, session id, IP or raw text (decision D11). Before a query is stored it is
+dropped when it looks like personal data: an `@` or a link, a phone number or any run of seven or
+more digits (a barcode, an identity or card number, a number written with spaces or dashes), a
+string with no letter, or one longer than 120 characters (a pasted sentence). A name written in
+words cannot be recognised by rules; what protects it is that nothing links a row to a person or
+to a moment finer than the hour. Rows older than 180 days are deleted by every insert (a few
+hundred at a time) and by `purge_search_misses()` for a quiet database. Writing a miss runs in a
+savepoint and never fails the request. The signal is aggregate by construction; the table is not
+readable through the Supabase data API. `GET /search` fires per query, so a typing box that
+searches on every keystroke logs the prefixes that found nothing; the clustering below merges them.
+
+### The ranking: `supabase/queries/catalog_backlog.sql`
+
+`smartcart-catalog backlog --top 20` prints two lists; they are ranked separately because their
+units differ.
+
+1. **Missed queries**, last 30 days: deduplicated by normalized form, clustered by trigram
+   similarity (0.5 by default, `--min-similarity`), ranked by number of misses, then by number of
+   distinct spellings. A query joins the most frequent query it is similar to (ties: the shorter,
+   then alphabetical) and that cluster's head is followed once more, so a chain of spellings
+   collapses into one demand. The representative is the most frequent spelling.
+2. **Uncovered products**: items in the loaded price files (touched by a load in the last 60 days)
+   with no row in `item_canonical` at all, human rejections ignored (an item waiting in the review
+   queue already has a candidate). Grouped by barcode across chains; ranked by how many stores
+   carry them (a chain base price counts every physical store of the chain, a per-store price
+   counts that store; one chain counts once per product), then by number of chains.
+
+Use: take the top of both lists weekly, write the next batch of canonicals into
+`data/canonicals.yaml` (and `data/taxonomy.yaml` if a category is missing), run `seed`,
+`extract`, `embed`, `judge`, then the gold-set evaluation (`docs/matching.md`) before the batch
+goes live. The cut line (how many rows per batch) is the owner's: the query ranks, it does not
+decide. Coverage (the share of list items and searches that resolve to a canonical) is not
+measured yet: it needs a denominator, and `search_misses` holds misses only, on purpose; the
+`events` table's `list_pasted.item_count` counts the rows parsed from lists. Agree the measurement
+with the owner before setting a coverage target. The ranking is a plain query, so it can be
+run by hand with psql (see `supabase/queries/README.md`). Tests:
+`services/catalog/tests/test_catalog_backlog.py` (clustering needs a UTF-8 database for pg_trgm,
+see the `db_utf8` fixture) and `services/api/tests/test_api_search_misses.py`.
+
+### Uncertainty-first review queue
+
+`active.select_for_review` fills the review UI's queue (`review_app.review_queue`). The order is
+lexicographic:
+
+1. **user reports**: `substitution_feedback` rows with verdict `not_good` for the pair, most first;
+2. **closeness to the accept threshold**: `|confidence - 0.90|` ascending, in bands of 0.02 (a
+   choice) so that the next keys can break ties;
+3. **embedder disagreement**: when the item and the canonical have vectors of the same learned
+   model (not the hash model), `|cosine of the learned vectors - cosine of the names under the
+   hash embedder|`, rounded to three decimals; pairs with only hash vectors count as 0 (one
+   embedder, nothing to disagree);
+4. **basket rank**: `canonical_products.rank` ascending.
+
+Pairs a human rejected are never queued. `item_embeddings` keeps one vector per item, so "the other
+embedder" is recomputed from the names; when several models' vectors are kept per item, replace that
+step with a comparison of the stored vectors.
+
+### Labels per hour
+
+`active.labels_per_hour(conn, days=7)` and the review UI's sidebar. From `item_canonical.reviewed_at`
+(`source = 'human'`) per reviewer: labels divided by active time, where active time sums the gaps
+between consecutive labels shorter than 10 minutes (a longer gap is a break) plus one typical gap
+(the reviewer's median) per session for the first label. A re-decision overwrites `reviewed_at`,
+so a pair is counted once, at its latest decision, and a re-map writes two rows. The unit of the
+metric is the number to compare across weeks, not an absolute speed. The target (labels per hour
+needed to keep up with the backlog) is not set yet: measure two weeks of real review first.
+
+Regression gate unchanged: the gold-set evaluation (`docs/matching.md`) decides whether a batch
+ships, and "any brand" precision under 98% blocks it. Selection changes which pairs a human sees,
+not what the judge writes, so it cannot move the evaluation numbers (verified: identical after
+this change).
