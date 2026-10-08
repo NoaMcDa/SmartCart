@@ -142,6 +142,7 @@ jobs:
             NEXT_PUBLIC_BETA_EVENTS=${{ vars.NEXT_PUBLIC_BETA_EVENTS }}
             NEXT_PUBLIC_CONTACT_EMAIL=${{ vars.NEXT_PUBLIC_CONTACT_EMAIL }}
             NEXT_PUBLIC_CONTACT_NAME=${{ vars.NEXT_PUBLIC_CONTACT_NAME }}
+            NEXT_PUBLIC_CONTACT_PHONE=${{ vars.NEXT_PUBLIC_CONTACT_PHONE }}
             NEXT_PUBLIC_INDEX_UNPRICED=${{ vars.NEXT_PUBLIC_INDEX_UNPRICED }}
             SEO_STRICT_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL && '1' || '' }}
           cache-from: type=gha,scope=web

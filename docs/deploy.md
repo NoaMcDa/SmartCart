@@ -158,7 +158,7 @@ browser: nothing secret belongs here.
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | for web push | the public half of the VAPID pair |
 | `NEXT_PUBLIC_BETA_EVENTS` | beta build only | `1` turns on the consented beta events (docs/web.md) |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | no | contact address on the accessibility statement |
-| `NEXT_PUBLIC_CONTACT_NAME` | no | the accessibility coordinator's name on the statement |
+| `NEXT_PUBLIC_CONTACT_NAME`, `NEXT_PUBLIC_CONTACT_PHONE` | no | the accessibility coordinator's name and phone on the statement |
 | `NEXT_PUBLIC_INDEX_UNPRICED` | no | `0` keeps product pages without a price out of the index (`noindex`, not in the sitemap); default on (docs/seo.md) |
 | `SEO_STRICT_SITE_URL` | build only | `1` fails the build unless `NEXT_PUBLIC_SITE_URL` is an absolute https URL; `deploy.yml` sets it whenever the site URL variable is set |
 | `NEXT_PUBLIC_API_MOCK`, `NEXT_PUBLIC_DISABLE_SW` | never in production | test switches (mock API, no service worker) |
