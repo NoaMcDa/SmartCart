@@ -1000,3 +1000,84 @@ first results page after onboarding and that `/split` was never needed. A11y: `t
 One unrelated finding fixed on the way: checked rows in store mode were dimmed with `opacity: 0.6`,
 which put the tags and the update time below 4.5:1; they now keep their color and the name and price
 turn muted.
+
+## Photo to list (#61, #68)
+
+The web half of receipt scanning and handwritten list photos. "מצילום" in the list builder (next to
+"ממתכון") opens `features/photo/PhotoSheet.tsx`; the server half (`POST /parse-image`, the OCR
+providers, the monthly cap) is a separate workstream, so everything here runs against the mock in
+`src/mocks/handlers.phase3.ts`.
+
+**Flow.** choose, then consent (once), then reading, then preview, then the list.
+
+1. **Choose.** Two cards, "קבלה" and "רשימה בכתב יד", each with "צילום" (a file input with
+   `accept="image/*" capture="environment"`, which opens the back camera on a phone) and "בחירת קובץ"
+   (the same input without `capture`). The inputs are hidden and sit outside the dialog, so the sheet's
+   focus trap never counts them.
+2. **Checks on the device** (`imageFile.ts`). A file that is not an image, or is over 8 MB (the
+   server's limit), is refused with a message and no request. Anything whose longest side is over
+   2400 px is redrawn on a canvas as a JPEG (quality 0.85, white background) before the upload, which
+   keeps phone photos small; a format the server does not take (HEIC, GIF) goes
+   through the same redraw when the browser can decode it, and a JPEG, PNG or WebP the browser cannot
+   decode is sent as it is. The size logic (`checkImageFile`, `fitWithin`, `prepareImage`) is tested
+   without a canvas behind an `ImageIO` seam, and an e2e test checks that a 4000 x 3000 photo reaches
+   the server as 2400 x 1800.
+3. **Consent** (`features/consent/imageConsent.ts`). The first upload asks: the image is read on our
+   server and deleted right away, the text is not kept, nothing is shared; "מסכים/ה" stores the
+   answer, "לא עכשיו" closes the sheet. **No consent, no request**: the sheet checks it before
+   `parseImage`, and `parseImage` refuses to send without it (`X-Image-Consent: 1` is sent only
+   then). A 403 from the server (it disagrees) sends the person back to the consent step.
+   Withdrawable in Profile, "פרטיות ונתונים" (`ImageConsentToggle`, a switch); turning it off removes
+   the key at once and the next photo asks again. Delete-my-data removes it too.
+4. **Reading.** A progress state with "ביטול"; cancelling aborts the request and drops a late answer.
+5. **Preview** (`PhotoPreview.tsx`, the recipe preview's pattern). Matches the server is sure about
+   are listed and ticked; matches with `needs_confirmation` are in an amber group "לאישור" (the list's
+   amber), unticked, each with "נקרא: <the line as read>"; the lines in `unresolved` are in "לא זוהו",
+   each an editable field with a checkbox (typing ticks it). A receipt adds a summary: chain (named
+   from the chain id, with the store hint), the printed total and the number of lines. The photo is
+   shown small, from an object URL on this device only, so what was read can be checked against what
+   was written. "התמונה נמחקה מהשרת" is shown when `deleted`. **Nothing joins the list until
+   "הוסיפי N פריטים לרשימה"**; then the ticked matches are added as they came (an uncertain match
+   keeps its normal amber confirmation in the list), an unresolved line the person rewrote goes through
+   `/parse-list` once more (and joins as typed if that fails), and one left as read joins as a
+   not-found row in the list's "לא זוהו" group.
+6. **Failures** (`photoErrors.ts`), each with its own message and "להקליד במקום" (closes the sheet and
+   puts the cursor in the list input): 403 consent (back to the consent step), 413 and 415 (another
+   photo), 429 ("הגענו למכסה החודשית, נסו שוב בחודש הבא", no retry), 501 and 503 (no OCR provider,
+   retry), a dropped connection (retry), anything else (retry). An image with nothing readable has its
+   own state.
+
+**Events.** `image_parsed {kind, outcome, item_count?, duration_ms?}` once per attempt that reached a
+decision: `parsed`, `empty`, `refused` (not an image, over 8 MB, 403, 413, 415, 429) or `error`. Counts
+and fixed strings only; never the text, the file name or the image. Declining the consent step is not
+an event.
+
+**API helper.** `parseImage(kind, file, consent, { signal })` in `src/api/client.ts` sends
+`multipart/form-data` through `api.POST` with a `bodySerializer` that builds the `FormData`, so the
+bearer-token middleware (`ensureApiAuth`) and the mock transport apply like for every other helper;
+openapi-fetch drops its JSON content type for a `FormData` body, so the browser sets the boundary. The
+generated body type says `image: string`, so the file is cast once, in that function.
+
+**Mock** (`POST /parse-image`). Without `X-Image-Consent: 1` it answers 403. File names pick the case:
+`x-413.png` too large, `x-415.png` type, `x-429.png` monthly cap, `x-503.png` no OCR provider,
+`x-500.png` failure, `empty.png` nothing read, `slow.png` waits 1.5 s. The real limits apply as well
+(not JPEG, PNG or WebP is 415, over 8 MB is 413, no image part is 422). A `list` upload returns three
+matches (one uncertain) and two unresolved lines; a `receipt` returns four matches (one uncertain), two
+unresolved lines and a summary (Shufersal, "שופרסל דיל מודיעין", total 187.40, six lines).
+
+| Key | Owner |
+|---|---|
+| `sc-image-consent-v1` | `features/consent/imageConsent.ts`; `"1"` means agreed. In `CORE_DATA_KEYS`, so "מחקי את הנתונים שלי" removes it and `useImageConsent` hears the `storage` event |
+
+Copy is in `src/i18n/messages/photo.ts` (`ar` is a copy of the Hebrew under a `// TODO ar`, #73).
+
+Not built: the on-screen crop that #68 mentions (the preview shows the photo beside what was read, but
+there is no crop step), and the accuracy and cost evaluations the issues ask for (they need the server
+half and real photos). Receipts are never stored: the file lives in memory in the sheet until it closes.
+
+Tests: `features/photo/imageFile.test.ts` (checks, `fitWithin`, `prepareImage`),
+`features/photo/photo.test.tsx` (entry, consent gate, preview, errors, events, token, Profile switch),
+`features/consent/imageConsent.test.ts`, `mocks/handlers.photo.test.ts` (node environment, the magic
+names), `i18n/messages/photo.test.ts`; `tests/e2e/photo.spec.ts` (with `photo-helpers.ts`, which answers
+`/parse-image` with the real multipart body because `mockApi` rewrites bodies as JSON) and
+`tests/a11y/photo.spec.ts`.

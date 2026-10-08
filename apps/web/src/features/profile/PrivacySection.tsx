@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { UsageEventsControl } from "@/features/consent/UsageEventsControl";
+import { ImageConsentToggle } from "@/features/photo/ImageConsentToggle";
 import { deleteMyData, type DeleteResult } from "./deleteData";
 import { loadSavings } from "./savingsHistory";
 import { clearLocation, getProfile, updateProfile, useProfile } from "./profileState";
@@ -63,6 +64,8 @@ export function PrivacySection() {
       />
 
       <UsageEventsControl />
+
+      <ImageConsentToggle />
 
       <div className={profileStyles.actions}>
         <Button

@@ -1,0 +1,305 @@
+/* Photo to list sheet (issues #61 and #68). Tokens and logical properties only. */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+.lead {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.lead:focus,
+.stageTitle:focus,
+.callout:focus {
+  outline: none;
+}
+
+.hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sc-muted);
+}
+
+.stageTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn-fg);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.callout > svg {
+  flex-shrink: 0;
+  margin-block-start: 2px;
+}
+
+/* Footer actions: wrap instead of overflowing at 195 px. */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+
+.actions > * {
+  flex: 1 1 auto;
+}
+
+/* Step 1: the two kinds */
+
+.kindCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  padding: var(--sc-space-3);
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+}
+
+.kindTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.kindActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+
+.kindActions > * {
+  flex: 1 1 110px;
+}
+
+/* Step 3: reading */
+
+.progress {
+  position: relative;
+  block-size: 6px;
+  overflow: hidden;
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-subtle);
+}
+
+.progressBar {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 40%;
+  border-radius: var(--sc-radius-pill);
+  background: var(--sc-accent);
+  animation: photo-slide 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes photo-slide {
+  from {
+    inset-inline-start: 0;
+  }
+
+  to {
+    inset-inline-start: 60%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressBar {
+    animation: none;
+    inline-size: 100%;
+    opacity: 0.5;
+  }
+}
+
+/* Step 4: preview */
+
+.previewHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+}
+
+.thumb {
+  inline-size: 56px;
+  block-size: 56px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: var(--sc-radius-small);
+  border: 1px solid var(--sc-border);
+}
+
+.summary {
+  padding: var(--sc-space-3);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-subtle);
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: var(--sc-space-2) 0 0;
+  font-size: 14px;
+}
+
+.facts > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--sc-space-2);
+}
+
+.facts dt {
+  color: var(--sc-muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  border-block-end: 1px solid var(--sc-divider);
+}
+
+.row:last-child {
+  border-block-end: 0;
+}
+
+.rowLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-3);
+  min-block-size: var(--sc-touch);
+  padding-block: var(--sc-space-2);
+  cursor: pointer;
+}
+
+.check {
+  inline-size: 24px;
+  block-size: 24px;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--sc-accent);
+}
+
+.rowText {
+  display: flex;
+  flex: 1 1 0;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rowLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--sc-space-2);
+  font-size: 15px;
+}
+
+.qty {
+  min-inline-size: 2.5em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.name {
+  flex: 1 1 100px;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.read {
+  font-size: 12.5px;
+  color: var(--sc-muted);
+  overflow-wrap: anywhere;
+}
+
+/* Matches that need a yes: the list's amber step. */
+
+.amber {
+  padding: var(--sc-space-3);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-warn-bg);
+  color: var(--sc-warn-fg);
+}
+
+.amber .read {
+  color: var(--sc-warn-fg);
+}
+
+.amberHint {
+  margin-block: 4px var(--sc-space-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.amber .row {
+  border-color: currentcolor;
+}
+
+/* Lines that were read but not matched */
+
+.lineRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  min-block-size: var(--sc-touch);
+  padding-block: 4px;
+}
+
+.field {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  min-block-size: var(--sc-touch);
+  padding-inline: var(--sc-space-3);
+  border: 1.5px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.field:focus-visible,
+.check:focus-visible {
+  outline: 2px solid var(--sc-accent-fg);
+  outline-offset: 1px;
+}
+
+.deleted {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sc-muted);
+}
