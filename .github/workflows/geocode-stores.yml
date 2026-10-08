@@ -34,6 +34,11 @@ on:
         required: false
         default: ""
         type: string
+      wikidata_property:
+        description: "Wikidata property id of the CBS locality code, e.g. P1234 (empty: find it by label)"
+        required: false
+        default: ""
+        type: string
       nominatim_for_localities:
         description: "Place localities that the list gives no coordinates for by Nominatim name lookup"
         required: false
@@ -57,6 +62,7 @@ jobs:
       NOMINATIM_CONTACT: ${{ vars.NOMINATIM_CONTACT || secrets.NOMINATIM_CONTACT || format('{0}/{1}/issues', github.server_url, github.repository) }}
       MAX_STORES: ${{ inputs.max_stores || 150 }}
       RESOURCE_ID: ${{ inputs.localities_resource_id || '' }}
+      WIKIDATA_PROPERTY: ${{ inputs.wikidata_property || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -77,13 +83,19 @@ jobs:
             exit 1
           fi
 
-      - name: Locality table (data.gov.il)
+      # Sources, preferred first: data.gov.il CKAN, Wikidata SPARQL, Nominatim by name. Each prints a
+      # "SOURCE ..." line (HTTP statuses and row count) to the log and the job summary. The step fails
+      # (exit 1, ::error::) when no source returned a single row; a failing source alone does not.
+      - name: Locality table (data.gov.il, Wikidata, Nominatim)
         if: inputs.fetch_localities
         run: |
+          set -o pipefail
           args=()
           if [ -n "$RESOURCE_ID" ]; then args+=(--resource-id "$RESOURCE_ID"); fi
+          if [ -n "$WIKIDATA_PROPERTY" ]; then args+=(--wikidata-property "$WIKIDATA_PROPERTY"); fi
           if [ "${{ inputs.nominatim_for_localities }}" = "true" ]; then args+=(--nominatim-for-missing); fi
-          uv run --no-sync python scripts/geo/fetch_localities.py "${args[@]}" | tee localities.log
+          rc=0
+          uv run --no-sync python scripts/geo/fetch_localities.py "${args[@]}" 2>&1 | tee localities.log || rc=$?
           {
             echo "## Locality table"
             echo
@@ -91,6 +103,7 @@ jobs:
             cat localities.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
 
       - name: Geocode the store addresses (Nominatim, 1 request per second)
         run: |
