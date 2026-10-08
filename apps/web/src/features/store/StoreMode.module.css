@@ -170,14 +170,18 @@
   overflow-wrap: anywhere;
 }
 
-/* Checked: strikethrough as well as dimming, so it never relies on color alone. */
+/*
+ * Checked: strikethrough as well as a quieter color, so it never relies on color alone. The color
+ * change replaces the old 0.6 opacity on the whole text block, which pushed the tags and the
+ * update time below 4.5:1 (axe color-contrast, found while testing the finish sheet).
+ */
 .item[data-checked="true"] .itemName {
   text-decoration: line-through;
+  color: var(--sc-muted);
 }
 
-.item[data-checked="true"] .itemText,
 .item[data-checked="true"] .itemPrice {
-  opacity: 0.6;
+  color: var(--sc-muted);
 }
 
 .itemPrice {

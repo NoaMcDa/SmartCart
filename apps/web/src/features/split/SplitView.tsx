@@ -10,6 +10,7 @@ import { Price } from "@/components/ui/Price";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tag } from "@/components/ui/Tag";
 import { IconCheck, IconClock, IconInfo } from "@/components/ui/icons";
+import { BudgetRemaining } from "@/features/budget/BudgetRemaining";
 import { reportSplitViewed } from "@/features/consent/betaEvents";
 import { ReportGapButton } from "@/features/feedback/GapReportSheet";
 import { buildSession, startSession } from "@/features/store/session";
@@ -183,6 +184,7 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
     const session = buildSession(col.store, result, {
       canonicalIds: col.items.map((i) => i.canonical_id),
       overhead,
+      plan: "split",
     });
     startSession(session);
     router.push(`/store-mode?store=${col.store.store_id}`);
@@ -252,6 +254,8 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
           ) : null}
         </dl>
       </Card>
+
+      <BudgetRemaining planTotal={view.total} updatedAt={updatedAt} />
 
       {w ? <Waterfall data={w} homeName={model.homeName ?? "החנות שלי"} /> : null}
 

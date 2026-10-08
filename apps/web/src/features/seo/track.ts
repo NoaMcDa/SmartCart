@@ -58,6 +58,16 @@ export type EventProps = {
   swap_dismissed: { flex_level?: FlexLevel };
   list_shared: { role?: "editor" | "viewer" };
   share_accepted: { role?: "editor" | "viewer" };
+  /**
+   * Voice list input (#65, unblock round). Counts and a fixed outcome only: never the transcript.
+   * `voice_started` is always sent before the matching `voice_completed`.
+   */
+  voice_started: Record<string, never>;
+  voice_completed: {
+    outcome: "added" | "cancelled" | "denied" | "no_speech" | "error";
+    duration_ms?: number;
+    item_count?: number;
+  };
 };
 
 type ScanEngine = "native" | "zxing" | "manual";
@@ -65,8 +75,12 @@ type ScanEngine = "native" | "zxing" | "manual";
 export type EventName = keyof EventProps;
 
 // Compile-time check that this file and the API contract list the same events.
+// `PendingContractName` lists events this file sends before `src/api/types.ts` is regenerated from
+// an `openapi.json` whose `EventIn.name` enum includes them (unblock round: voice_started and
+// voice_completed). Once the regenerated types list them, delete the union member and this type.
+type PendingContractName = "voice_started" | "voice_completed";
 type ContractName = components["schemas"]["EventIn"]["name"];
-type _SameNames = [EventName] extends [ContractName]
+type _SameNames = [EventName] extends [ContractName | PendingContractName]
   ? [ContractName] extends [EventName]
     ? true
     : never

@@ -94,10 +94,12 @@ for (const viewport of [
       await again.getByRole("button", { name: /^כן/ }).click();
       await expect(again).toBeHidden();
 
-      const mic = page.getByRole("button", { name: "הכתבה קולית" });
-      await expect(mic).toHaveAttribute("aria-disabled", "true");
-      await mic.hover();
-      await expect(page.getByRole("tooltip", { name: "בקרוב" })).toBeVisible();
+      // The mic is live where the browser can recognize speech and replaced by a hint where it
+      // cannot (phase3.spec.ts has the flow); the old disabled "בקרוב" placeholder is gone.
+      await expect(
+        page.getByTestId("voice-open").or(page.getByTestId("voice-unsupported")),
+      ).toHaveCount(1);
+      await expect(page.getByRole("tooltip", { name: "בקרוב" })).toHaveCount(0);
     });
   });
 }

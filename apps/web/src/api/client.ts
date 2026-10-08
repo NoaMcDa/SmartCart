@@ -6,7 +6,7 @@
  * components. They throw ApiError on non-2xx. `api` is the raw openapi-fetch client for anything
  * the helpers do not cover.
  */
-import createClient from "openapi-fetch";
+import createClient, { type Client } from "openapi-fetch";
 import { API_BASE_URL, API_MOCK } from "./config";
 import type { components, paths } from "./types";
 
@@ -327,4 +327,100 @@ export async function nearestStore(chainId: string, lat: number, lon: number): P
   return unwrap(
     await api.GET("/stores/nearest", { params: { query: { chain_id: chainId, lat, lon } } }),
   );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 3 (unblock round): spend tracking (#70) and recipe to list (#71).
+//
+// until types.ts is regenerated: these two routes are not in src/api/openapi.json yet, so their
+// request and response types are written here, in the shape services/api will publish. When the
+// regenerated `types.ts` has `/me/spend` and `/parse-recipe`, replace `Phase3Paths` and the types
+// below with `Schemas[...]` and call `api` directly; nothing else changes.
+
+/** One recorded shop. `total` is the sum of the prices the app showed, not a receipt. */
+export type SpendEntry = {
+  /** Client-generated id; `POST /me/spend` is idempotent on it. */
+  id: string;
+  /** Local (Israel) date of the shop, `YYYY-MM-DD`. */
+  date: string;
+  store_id: number;
+  store_name: string;
+  /** ILS. The server may send a decimal string. */
+  total: number | string;
+  item_count: number;
+  plan: "single" | "split";
+};
+
+/** `GET /me/spend?month=YYYY-MM`. `total` is the month's sum; `budget` the monthly budget or null. */
+export type SpendMonthResponse = {
+  month: string;
+  entries: SpendEntry[];
+  total: number | string;
+  budget: number | string | null;
+};
+
+export type ParseRecipeRequest = { text?: string; url?: string; servings?: number };
+/** `items` are `/parse-list` rows for `servings` portions; `unresolved` are lines nothing matched. */
+export type ParseRecipeResponse = {
+  title: string;
+  servings: number;
+  items: ParsedRow[];
+  unresolved: string[];
+};
+
+type JsonOk<T> = { headers: { [name: string]: unknown }; content: { "application/json": T } };
+type NoParams = { query?: never; header?: never; path?: never; cookie?: never };
+type Phase3Paths = {
+  "/me/spend": {
+    parameters: NoParams;
+    get: {
+      parameters: { query: { month: string }; header?: never; path?: never; cookie?: never };
+      requestBody?: never;
+      responses: { 200: JsonOk<SpendMonthResponse> };
+    };
+    post: {
+      parameters: NoParams;
+      requestBody: { content: { "application/json": SpendEntry } };
+      responses: { 200: JsonOk<SpendEntry> };
+    };
+    put?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/parse-recipe": {
+    parameters: NoParams;
+    get?: never;
+    put?: never;
+    post: {
+      parameters: NoParams;
+      requestBody: { content: { "application/json": ParseRecipeRequest } };
+      responses: { 200: JsonOk<ParseRecipeResponse> };
+    };
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+};
+
+// Same transport and middleware (bearer token) as `api`; only the path types differ.
+const api3 = api as unknown as Client<Phase3Paths>;
+
+/** `POST /me/spend`: needs the bearer token; idempotent on `entry.id`. */
+export async function postSpend(entry: SpendEntry): Promise<SpendEntry> {
+  return unwrap(await api3.POST("/me/spend", { body: entry }));
+}
+
+/** `GET /me/spend?month=YYYY-MM`: the signed-in user's entries for one month. */
+export async function getSpend(month: string): Promise<SpendMonthResponse> {
+  return unwrap(await api3.GET("/me/spend", { params: { query: { month } } }));
+}
+
+/** `POST /parse-recipe`: pasted recipe text or a URL to rows in the `/parse-list` shape. */
+export async function parseRecipe(body: ParseRecipeRequest): Promise<ParseRecipeResponse> {
+  return unwrap(await api3.POST("/parse-recipe", { body }));
 }

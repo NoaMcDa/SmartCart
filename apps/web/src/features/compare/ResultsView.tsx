@@ -17,10 +17,12 @@ import {
 import {
   buildOptimizeInput,
   homeStore,
+  planUpdatedAt,
   plansOf,
   responseUpdatedAt,
   useOptimize,
 } from "@/state/comparison";
+import { BudgetRemaining } from "@/features/budget/BudgetRemaining";
 import { reportResultsShown, reportSubstitutionsShown } from "@/features/consent/betaEvents";
 import { MethodologyLink } from "@/features/seo/components";
 import { setFlash, useFlash } from "@/state/flash";
@@ -63,6 +65,7 @@ export function ResultsContent({
         ))}
       </div>
 
+      <BudgetRemaining planTotal={recommended.total} updatedAt={planUpdatedAt(recommended)} />
       <SmartCartCard plan={recommended} />
       <SubstitutionsSection res={res} plan={recommended} />
       <BasketDetails plan={recommended} names={names} />

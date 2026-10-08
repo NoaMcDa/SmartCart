@@ -1,10 +1,11 @@
 "use client";
 
 import { useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { parseList } from "@/api/client";
+import { parseList, type ParsedRow } from "@/api/client";
 import {
   Button,
   Card,
+  IconBook,
   IconClipboard,
   IconInfo,
   IconMic,
@@ -13,6 +14,9 @@ import {
   UpdatedAt,
 } from "@/components/ui";
 import { reportListPasted } from "@/features/consent/betaEvents";
+import { RecipeSheet } from "@/features/recipe/RecipeSheet";
+import { VoiceSheet } from "@/features/voice/VoiceSheet";
+import { useVoiceSupported } from "@/features/voice/useVoiceInput";
 import { buildCompareInput, useCompareEstimate } from "@/state/comparison";
 import { basketItems, groupByDepartment, listActions, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
@@ -36,11 +40,14 @@ export function ListBuilder() {
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [flexItemId, setFlexItemId] = useState<string | null>(null);
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [recipeOpen, setRecipeOpen] = useState(false);
+  // null before hydration: neither the mic nor the "not supported" hint is rendered then.
+  const voiceSupported = useVoiceSupported();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   // Set by a paste into the box or the clipboard button; read by the next successful parse.
   const pastedRef = useRef(false);
   const inputId = useId();
-  const micTipId = useId();
 
   const basket = useMemo(() => basketItems(state), [state]);
   const compareInput = useMemo(
@@ -60,6 +67,17 @@ export function ListBuilder() {
   const recognized = state.items.length - notFound.length;
   const flexItem = state.items.find((i) => i.id === flexItemId) ?? null;
 
+  /** The one path from text to list rows (typed, pasted, or dictated): `/parse-list`, then add. */
+  async function parseInto(value: string): Promise<number | null> {
+    try {
+      const res = await parseList({ text: value, flex_defaults: state.flexDefaults });
+      listActions.add(res.rows);
+      return res.rows.length;
+    } catch {
+      return null;
+    }
+  }
+
   async function submit(raw: string) {
     const value = raw.trim();
     if (!value || parsing) return;
@@ -68,16 +86,33 @@ export function ListBuilder() {
     setParsing(true);
     setError(null);
     setHint(null);
-    try {
-      const res = await parseList({ text: value, flex_defaults: state.flexDefaults });
-      listActions.add(res.rows);
-      if (wasPasted) reportListPasted(res.rows.length);
-      setText("");
-    } catch {
+    const added = await parseInto(value);
+    if (added === null) {
       setError("לא הצלחנו לזהות את הרשימה. בדקי את החיבור ונסי שוב.");
-    } finally {
-      setParsing(false);
+    } else {
+      if (wasPasted) reportListPasted(added);
+      setText("");
     }
+    setParsing(false);
+  }
+
+  /** Confirmed dictation: same call as a pasted list, and the same amber confirmation afterwards. */
+  async function addDictated(value: string): Promise<number | null> {
+    const added = await parseInto(value);
+    if (added !== null) {
+      setError(null);
+      setHint(`נוספו ${added} פריטים מההכתבה. בדקי את הפריטים שמסומנים לאישור.`);
+    }
+    return added;
+  }
+
+  function addRecipe(rows: ParsedRow[], info: { title: string; servings: number }) {
+    listActions.add(rows);
+    setRecipeOpen(false);
+    setError(null);
+    setHint(
+      `נוספו ${rows.length} פריטים מהמתכון "${info.title}" ל-${info.servings} מנות. בדקי את הפריטים שמסומנים לאישור.`,
+    );
   }
 
   function onSubmit(e: FormEvent) {
@@ -163,22 +198,18 @@ export function ListBuilder() {
               aria-describedby={error || hint ? `${inputId}-msg` : undefined}
               enterKeyHint="done"
             />
-            <span className={styles.tipWrap}>
+            {voiceSupported ? (
               <button
                 type="button"
                 className={styles.inputButton}
                 aria-label="הכתבה קולית"
-                aria-disabled="true"
-                aria-describedby={micTipId}
-                title="בקרוב"
-                onClick={(e) => e.preventDefault()}
+                aria-haspopup="dialog"
+                onClick={() => setVoiceOpen(true)}
+                data-testid="voice-open"
               >
                 <IconMic size={22} />
               </button>
-              <span role="tooltip" id={micTipId} className={styles.tooltip}>
-                בקרוב
-              </span>
-            </span>
+            ) : null}
             <button
               type="button"
               className={styles.inputButton}
@@ -191,6 +222,23 @@ export function ListBuilder() {
               הוסיפי
             </Button>
           </form>
+          <div className={styles.sources}>
+            <Button
+              variant="ghost"
+              size="sm"
+              iconStart={<IconBook size={16} />}
+              onClick={() => setRecipeOpen(true)}
+              aria-haspopup="dialog"
+              data-testid="recipe-open"
+            >
+              ממתכון
+            </Button>
+          </div>
+          {voiceSupported === false ? (
+            <p className={styles.hint} data-testid="voice-unsupported">
+              הכתבה קולית לא זמינה בדפדפן הזה. אפשר להקליד או להדביק את הרשימה.
+            </p>
+          ) : null}
           {error || hint ? (
             <p
               id={`${inputId}-msg`}
@@ -302,6 +350,9 @@ export function ListBuilder() {
           newestPrice={newestPrice}
         />
       </div>
+
+      <VoiceSheet open={voiceOpen} onClose={() => setVoiceOpen(false)} onAdd={addDictated} />
+      <RecipeSheet open={recipeOpen} onClose={() => setRecipeOpen(false)} onAdd={addRecipe} />
 
       <FlexibilitySheet
         item={flexItem}
