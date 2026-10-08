@@ -39,28 +39,28 @@ describe("voice events", () => {
   it("send the outcome, the duration and the item count, rounded to integers", async () => {
     setTrackingConsent(true);
     reportVoiceStarted();
-    reportVoiceCompleted({ outcome: "added", durationMs: 8421.7, itemCount: 4 });
-    reportVoiceCompleted({ outcome: "denied", durationMs: 120 });
+    reportVoiceCompleted({ outcome: "parsed", durationMs: 8421.7, itemCount: 4 });
+    reportVoiceCompleted({ outcome: "empty", durationMs: 120 });
     reportVoiceCompleted({ outcome: "cancelled" });
     expect((await sent()).map((e) => [e.name, e.props])).toEqual([
-      ["voice_started", {}],
-      ["voice_completed", { outcome: "added", duration_ms: 8422, item_count: 4 }],
-      ["voice_completed", { outcome: "denied", duration_ms: 120 }],
+      ["voice_started", { engine: "web_speech" }],
+      ["voice_completed", { outcome: "parsed", duration_ms: 8422, item_count: 4 }],
+      ["voice_completed", { outcome: "empty", duration_ms: 120 }],
       ["voice_completed", { outcome: "cancelled" }],
     ]);
   });
 
   it("cap the numbers at the API's ranges", async () => {
     setTrackingConsent(true);
-    reportVoiceCompleted({ outcome: "added", durationMs: 9_999_999, itemCount: 5_000 });
+    reportVoiceCompleted({ outcome: "parsed", durationMs: 9_999_999, itemCount: 5_000 });
     const [event] = await sent();
-    expect(event!.props).toEqual({ outcome: "added", duration_ms: 600_000, item_count: 200 });
+    expect(event!.props).toEqual({ outcome: "parsed", duration_ms: 600_000, item_count: 200 });
   });
 
   it("send nothing without consent", async () => {
     setTrackingConsent(false);
     reportVoiceStarted();
-    reportVoiceCompleted({ outcome: "added", durationMs: 1, itemCount: 1 });
+    reportVoiceCompleted({ outcome: "parsed", durationMs: 1, itemCount: 1 });
     expect(await sent()).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
   });

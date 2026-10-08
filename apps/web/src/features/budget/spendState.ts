@@ -4,9 +4,10 @@
  *
  * An entry holds the date, the store, the total of the prices the app showed, the number of items
  * and whether it was one store or a split. It never holds item names, a list name or a location.
- * `pending` lists the ids not yet confirmed by `POST /me/spend`; it is only ever non-empty for a
- * signed-in user whose request failed (see `sync.ts`). Totals are "לפי המחירים שהוצגו": the prices
- * the app showed at the time, not a receipt, so they are estimates (D10).
+ * Ids are local strings. `server_id` is the numeric id `POST /me/spend` returned (set once the
+ * entry reached the account); `pending` lists the local ids still to be sent, only ever non-empty
+ * for a signed-in user (see `sync.ts`). Totals are "לפי המחירים שהוצגו": the prices the app showed
+ * at the time, not a receipt, so they are estimates (D10).
  */
 import { useSyncExternalStore } from "react";
 import type { SpendEntry } from "@/api/client";
@@ -20,8 +21,18 @@ import {
 } from "@/features/profile/storage";
 import { israelDate, monthOf } from "./month";
 
-/** A stored entry: the API shape with `total` always a number of shekels. */
-export type SpendRow = Omit<SpendEntry, "total"> & { total: number };
+/** A stored entry: the API's fields with a local id, and `total` as a number of shekels. */
+export type SpendRow = {
+  id: string;
+  /** The account's id for this entry, once it has one. */
+  server_id?: number;
+  date: string;
+  store_id: number;
+  store_name: string;
+  total: number;
+  item_count: number;
+  plan: "single" | "split";
+};
 
 export type SpendStore = { version: 1; entries: SpendRow[]; pending: string[] };
 
@@ -29,28 +40,36 @@ const EMPTY: SpendStore = { version: 1, entries: [], pending: [] };
 
 const cents = (n: number) => Math.round(n * 100);
 
-/** Reads an API entry (the total may be a decimal string); null when it is not a usable entry. */
-export function toRow(raw: SpendEntry): SpendRow | null {
+type Loose = Partial<Record<keyof SpendRow, unknown>>;
+
+/** A usable row from stored or server data; null when a field is missing or out of range. */
+function rowFrom(raw: Loose, id: string, serverId: number | undefined): SpendRow | null {
   const total = Number(raw.total);
+  const storeId = Number(raw.store_id);
   if (
-    typeof raw.id !== "string" ||
-    !raw.id ||
+    typeof raw.date !== "string" ||
     !/^\d{4}-\d{2}-\d{2}$/.test(raw.date) ||
     !Number.isFinite(total) ||
     total < 0 ||
-    !Number.isFinite(raw.store_id)
+    !Number.isFinite(storeId)
   ) {
     return null;
   }
   return {
-    id: raw.id,
+    id,
+    ...(serverId !== undefined ? { server_id: serverId } : {}),
     date: raw.date,
-    store_id: raw.store_id,
+    store_id: storeId,
     store_name: String(raw.store_name ?? ""),
     total: cents(total) / 100,
     item_count: Math.max(0, Math.round(Number(raw.item_count) || 0)),
     plan: raw.plan === "split" ? "split" : "single",
   };
+}
+
+/** An entry the account returned (the total is a decimal string). */
+export function rowFromServer(entry: SpendEntry): SpendRow | null {
+  return rowFrom(entry, `srv${entry.id}`, entry.id);
 }
 
 function sanitize(raw: unknown): SpendStore {
@@ -59,7 +78,13 @@ function sanitize(raw: unknown): SpendStore {
   const seen = new Set<string>();
   const entries: SpendRow[] = [];
   for (const e of Array.isArray(r.entries) ? r.entries : []) {
-    const row = toRow(e as SpendEntry);
+    const loose = e as Loose;
+    const id = typeof loose.id === "string" ? loose.id : "";
+    const serverId =
+      typeof loose.server_id === "number" && Number.isInteger(loose.server_id)
+        ? loose.server_id
+        : undefined;
+    const row = id ? rowFrom(loose, id, serverId) : null;
     if (row && !seen.has(row.id)) {
       seen.add(row.id);
       entries.push(row);
@@ -138,22 +163,31 @@ export function recordSpend(input: SpendInput): SpendRow {
   return row;
 }
 
-/** Marks entries as accepted by the server. */
-export function markSynced(ids: string[]): void {
+/** The account accepted these entries: remember their server ids and stop queueing them. */
+export function markSynced(accepted: ReadonlyArray<{ id: string; serverId: number }>): void {
+  if (accepted.length === 0) return;
   const store = loadSpend();
-  const next = store.pending.filter((id) => !ids.includes(id));
-  if (next.length !== store.pending.length) save({ ...store, pending: next });
+  const serverIds = new Map(accepted.map((a) => [a.id, a.serverId]));
+  save({
+    ...store,
+    entries: store.entries.map((e) =>
+      serverIds.has(e.id) ? { ...e, server_id: serverIds.get(e.id) } : e,
+    ),
+    pending: store.pending.filter((id) => !serverIds.has(id)),
+  });
 }
 
-/** Adds entries the server has and this device does not (another device's shops). */
-export function mergeServerEntries(incoming: SpendEntry[]): number {
+/** Adds entries the account has and this device does not (another device's shops). */
+export function mergeServerEntries(incoming: ReadonlyArray<SpendEntry>): number {
   const store = loadSpend();
-  const known = new Set(store.entries.map((e) => e.id));
+  const known = new Set(
+    store.entries.flatMap((e) => (e.server_id !== undefined ? [e.server_id] : [])),
+  );
   const added: SpendRow[] = [];
   for (const raw of incoming) {
-    const row = toRow(raw);
-    if (row && !known.has(row.id)) {
-      known.add(row.id);
+    const row = rowFromServer(raw);
+    if (row && !known.has(raw.id)) {
+      known.add(raw.id);
       added.push(row);
     }
   }

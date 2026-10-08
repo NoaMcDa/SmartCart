@@ -20,7 +20,7 @@ import {
   monthlyTotals,
   recordSpend,
   spentInMonth,
-  toRow,
+  rowFromServer,
 } from "./spendState";
 import { pullSpendMonths, pushPendingSpend, syncSpend } from "./sync";
 
@@ -214,7 +214,7 @@ describe("merging the account's entries", () => {
   it("adds entries this device lacks, once, and reads decimal-string totals", () => {
     const mine = shop();
     const theirs: SpendEntry = {
-      id: "other-device",
+      id: 77,
       date: "2026-10-03",
       store_id: 103,
       store_name: "שופרסל דיל · מודיעין",
@@ -222,19 +222,38 @@ describe("merging the account's entries", () => {
       item_count: 4,
       plan: "single",
     };
-    expect(mergeServerEntries([theirs, { ...mine }])).toBe(1);
+    expect(mergeServerEntries([theirs])).toBe(1);
     expect(mergeServerEntries([theirs])).toBe(0);
-    expect(loadSpend().entries.map((e) => [e.id, e.total])).toEqual([
-      [mine.id, 371.4],
-      ["other-device", 120.5],
+    expect(loadSpend().entries.map((e) => [e.id, e.server_id, e.total])).toEqual([
+      [mine.id, undefined, 371.4],
+      ["srv77", 77, 120.5],
     ]);
     // Merged entries come from the server, so they are never queued to be sent back.
     expect(loadSpend().pending).toEqual([]);
   });
 
+  it("an entry this device already sent is recognised by its server id", () => {
+    const mine = shop({ pending: true });
+    markSynced([{ id: mine.id, serverId: 5 }]);
+    expect(
+      mergeServerEntries([
+        {
+          id: 5,
+          date: mine.date,
+          store_id: mine.store_id,
+          store_name: mine.store_name,
+          total: "371.40",
+          item_count: mine.item_count,
+          plan: mine.plan,
+        },
+      ]),
+    ).toBe(0);
+    expect(loadSpend().entries).toHaveLength(1);
+  });
+
   it("ignores an entry that is not usable", () => {
-    expect(toRow({ id: "x", date: "bad" } as unknown as SpendEntry)).toBeNull();
-    expect(mergeServerEntries([{ id: "x", date: "bad" } as unknown as SpendEntry])).toBe(0);
+    expect(rowFromServer({ id: 1, date: "bad" } as unknown as SpendEntry)).toBeNull();
+    expect(mergeServerEntries([{ id: 1, date: "bad" } as unknown as SpendEntry])).toBe(0);
   });
 });
 
@@ -243,9 +262,21 @@ describe("sync", () => {
     const queued = shop({ pending: true });
     const local = shop(); // recorded signed out: stays on the device
     expect(await pushPendingSpend()).toBe(1);
-    expect(mockSpendEntries().map((e) => e.id)).toEqual([queued.id]);
-    expect(mockSpendEntries()[0]).toEqual(queued);
+    // The account got the fields of the entry (no local id) and answered with its own number.
+    expect(mockSpendEntries()).toEqual([
+      {
+        id: 1,
+        date: queued.date,
+        store_id: queued.store_id,
+        store_name: queued.store_name,
+        total: "371.40",
+        item_count: queued.item_count,
+        plan: queued.plan,
+      },
+    ]);
     expect(loadSpend().pending).toEqual([]);
+    expect(loadSpend().entries.find((e) => e.id === queued.id)?.server_id).toBe(1);
+    expect(loadSpend().entries.find((e) => e.id === local.id)?.server_id).toBeUndefined();
     expect(loadSpend().entries.map((e) => e.id)).toContain(local.id);
     expect(await pushPendingSpend()).toBe(0);
   });
@@ -276,18 +307,23 @@ describe("sync", () => {
   });
 
   it("pulls months from the account into the device copy", async () => {
-    await postSpend({
-      id: "from-phone",
+    const fromPhone = await postSpend({
       date: "2026-10-05",
       store_id: 102,
       store_name: "אושר עד · מודיעין",
-      total: 88.8,
+      total: "88.80",
       item_count: 3,
       plan: "single",
     });
     expect(await pullSpendMonths(["2026-09", "2026-10"])).toBe(1);
-    expect(loadSpend().entries.map((e) => e.id)).toEqual(["from-phone"]);
+    expect(loadSpend().entries.map((e) => e.server_id)).toEqual([fromPhone.id]);
     expect(await pullSpendMonths(["2026-10"])).toBe(0);
+  });
+
+  it("pushing and then pulling the same month does not duplicate the device's own shop", async () => {
+    shop({ pending: true, now: new Date("2026-10-08T09:00:00Z") });
+    await syncSpend(["2026-10"]);
+    expect(loadSpend().entries).toHaveLength(1);
   });
 
   it("a month that fails does not block the others, and nothing throws offline", async () => {

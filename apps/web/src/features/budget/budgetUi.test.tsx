@@ -341,7 +341,15 @@ describe("סיימתי לקנות in store mode", () => {
     await user.click(screen.getByTestId("finish-confirm"));
     await waitFor(() => expect(mockSpendEntries()).toHaveLength(1));
     const [sent] = mockSpendEntries();
-    expect(sent).toEqual(loadSpend().entries[0]);
+    const local = loadSpend().entries[0]!;
+    expect(sent).toMatchObject({
+      date: local.date,
+      store_id: 101,
+      total: local.total.toFixed(2),
+      item_count: local.item_count,
+      plan: "single",
+    });
     await waitFor(() => expect(loadSpend().pending).toEqual([]));
+    expect(loadSpend().entries[0]!.server_id).toBe(sent!.id);
   });
 });

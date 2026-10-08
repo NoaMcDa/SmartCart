@@ -19,9 +19,7 @@ export type VoiceSheetProps = {
 };
 
 function outcomeOf(failure: VoiceFailure): VoiceOutcome {
-  if (failure === "denied") return "denied";
-  if (failure === "no-speech") return "no_speech";
-  return "error";
+  return failure === "no-speech" ? "empty" : "error";
 }
 
 /**
@@ -85,7 +83,7 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
       setAddFailed(true);
       return;
     }
-    closeAttempt("added", count);
+    closeAttempt("parsed", count);
     voice.reset();
     setDraft(null);
     onClose();

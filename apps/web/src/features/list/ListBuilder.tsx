@@ -106,12 +106,13 @@ export function ListBuilder() {
     return added;
   }
 
-  function addRecipe(rows: ParsedRow[], info: { title: string; servings: number }) {
+  function addRecipe(rows: ParsedRow[], info: { title: string; servings: number | null }) {
     listActions.add(rows);
     setRecipeOpen(false);
     setError(null);
+    const portions = info.servings ? ` ל-${info.servings} מנות` : "";
     setHint(
-      `נוספו ${rows.length} פריטים מהמתכון "${info.title}" ל-${info.servings} מנות. בדקי את הפריטים שמסומנים לאישור.`,
+      `נוספו ${rows.length} פריטים מהמתכון "${info.title}"${portions}. בדקי את הפריטים שמסומנים לאישור.`,
     );
   }
 

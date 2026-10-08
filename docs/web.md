@@ -855,3 +855,148 @@ Escape), `SubstitutionView.test.tsx` and `ResultsView.test.tsx` (disclaimer, Heb
 E2E: `phase2-share-swaps.spec.ts` (share entry, revoke, checkbox across two devices, offline queue,
 swap undo after a reload), `secondary-onboarding-profile.spec.ts` (home store to results),
 `core-compare.spec.ts` and `core-substitution.spec.ts`. A11y: `tests/a11y/zoom-195.spec.ts`.
+
+## Phase 3 (unblock round)
+
+Web features that need no real data: voice list input (#65), monthly budget and spend (#70), the
+scan page reading its code from the URL, and the UI half of recipe to list (#71). They were built
+against `src/mocks/handlers.phase3.ts` and then reconciled with the real routes of `services/api`
+(`routes/spend.py`, `routes/recipe.py`) and the regenerated `types.ts`. Nothing here reads real
+prices; every number in the tests is a mock value.
+
+### Voice list (#65)
+
+`features/voice/`: `speech.ts` (the typed seam over `SpeechRecognition` / `webkitSpeechRecognition`,
+error mapping, transcript assembly), `useVoiceInput.ts` (the state machine, `useVoiceSupported`),
+`VoiceSheet.tsx` (the sheet), mounted by `ListBuilder`.
+
+- **Detection at run time.** `getRecognizerCtor()` looks for the constructor; the answer is `null`
+  until hydration, so the server and the first client render agree. Supported: the microphone
+  button (`voice-open`) sits in the input row. Not supported: the button is not rendered and a hint
+  ("הכתבה קולית לא זמינה בדפדפן הזה. אפשר להקליד או להדביק את הרשימה.", `voice-unsupported`) takes
+  its place. Whether `he-IL` actually works per browser and OS is **not verified here**; the
+  per-browser results the issue asks for (iOS Safari installed PWA, Android Chrome) are a manual
+  check that is still open.
+- **Permission flow, like `/scan`.** The sheet explains first (what to say, that SmartCart records and
+  stores no audio, that the recognition itself runs in the browser's speech service, in Chrome on
+  Google's servers) and the recognizer is created only on "התחלת הקלטה", so the browser's microphone
+  prompt follows the tap. Denied, no microphone, no speech, network, language not supported and
+  failure each have their own Hebrew message that points back to typing; the typed input is never
+  disabled.
+- **Recognition.** `lang = "he-IL"`, `continuous`, `interimResults`. The sheet shows the phrases
+  while listening; one phrase per pause becomes one line.
+- **Confirm step.** After "סיימתי לדבר" (or the recognizer ending) an editable textarea shows what was
+  heard. Nothing is parsed until "הוסיפי לרשימה": the text then goes through the same `parseList`
+  call as a pasted list (`ListBuilder.parseInto`), so quantities, flexibility and the amber
+  confirmations behave identically. A failed request keeps the text.
+- **Events** (`features/consent/betaEvents.ts`, `track.ts`): `voice_started {engine: "web_speech"}`
+  on the tap, `voice_completed {outcome, duration_ms, item_count}` once per attempt, always after a
+  start. `outcome`: `parsed` (rows added, `item_count` = rows), `empty` (nothing heard), `cancelled`
+  (sheet closed, re-record, leaving the page), `error` (denied, no microphone, network, failure). No
+  transcript, no text. Same consent gate as every event.
+- Not built: the server speech-to-text fallback, its cost per minute and monthly cap, and the audit
+  that audio is deleted (the app never holds audio, so there is nothing to delete). Those are the
+  open acceptance criteria of #65.
+
+### Monthly budget and spend (#70)
+
+`features/budget/`: `month.ts` (Israel calendar), `budgetState.ts`, `spendState.ts`, `sync.ts`,
+`BudgetRemaining.tsx`, `MonthlyBudgetSection.tsx`, `SpendChart.tsx`.
+
+| Key | Holds |
+|---|---|
+| `sc-budget-v1` | `{ "monthly": 2500 }`, whole ILS from 1 to 1,000,000 (invalid or damaged reads as no budget) |
+| `sc-spend-v1` | `{ version: 1, entries: SpendRow[], pending: string[] }` |
+
+Both are in `LOCAL_DATA_KEYS`, so "מחקי את הנתונים שלי" removes them.
+
+- **Budget.** Profile ("תקציב חודשי", anchor `#budget`) sets, changes and clears it. It travels with
+  the profile: `ProfileSync` reads `monthly_budget` on sign-in (the account's value replaces the
+  device's; a device budget the account lacks is offered once) and then sends `monthly_budget` in
+  `PUT /me/profile` **only when the person changed it** (omitted keeps the stored value, an explicit
+  `null` clears it). Other profile saves never carry it.
+- **Spend entry.** "סיימתי לקנות" (the finish button of store mode) opens the summary sheet, which has
+  a switch "לרשום בתקציב החודשי" (on by default). On "סיום וניקוי" one entry is written: Israel
+  date, `store_id`, `store_name`, `total`, `item_count`, `plan` (`single`, or `split` for a store's
+  part of a split; `ShoppingSession.plan`). `total` is the sum of the lines the person ticked, or,
+  when nothing was ticked, of the whole store basket; the sheet says which. Never item names, a list
+  name or a location.
+- **Trust.** Totals are "לפי המחירים שהוצגו", not receipts: said in the finish sheet, under "נותר
+  החודש", in the Profile section and in the chart caption. Net saving stays versus the person's own
+  store and is shown with the same number as "החיסכון שלי".
+- **Screens.** `BudgetRemaining` ("נותר החודש" against the budget, "אחרי הקנייה הזו" for the plan on
+  screen, with that plan's price time) renders under the plans on `/compare` and under the summary on
+  `/split`. Without a budget it renders nothing. Over budget it is amber with the overage, never a
+  clamp and never red. The Profile section adds spent and remaining this month, this month's shops, and a
+  six-month bar chart (`SpendChart`, plain SVG, oldest month on the right as in the price history, a
+  dashed budget line, the drawing `aria-hidden` and a table of every month under it; month names under
+  the bars are hidden at 195 px).
+- **Account sync** (signed in only; `sync.ts`). Entries recorded while signed in are `pending` and
+  sent with `POST /me/spend` (body `SpendEntryIn`, 201 with the numeric `id`, kept as `server_id`);
+  Profile pulls the last six months with `GET /me/spend?month=` and adds entries the device lacks
+  (local id `srv<id>`). Failures are swallowed and the entry stays pending. Entries recorded signed
+  out stay on the device. A shop whose `POST` succeeded but whose response was lost would be added
+  again by the next pull; that edge is accepted.
+- Not built: correcting a total (`PUT /me/spend/{id}`), deleting one entry, the export
+  (`GET /me/spend/export`) and per-category spend are API-only for now. Server rows are removed by the
+  account deletion on the API side.
+
+### Scan by URL
+
+`/scan?code=<ean>` runs the lookup as if the code were typed into the manual field, without the
+camera (`getUserMedia` is not called). It waits for the shopper and the nearby stores, so the lookup
+names the store the person is in; the code is also put in the manual field. A code that fails the
+EAN check digit shows the manual-entry error and makes no request. Reported as a manual scan
+(`scan_started {engine: "manual"}`). `docs/fullstack.md` gap 5 can be closed; `tests/fullstack` was not
+touched and can now use the URL.
+
+### Recipe to list (#71)
+
+`features/recipe/`: `RecipeSheet.tsx`, `scale.ts`. "ממתכון" under the input opens a sheet with two
+sources, pasted text or a link, and `POST /parse-recipe {text} | {url}` (exactly one; the sheet
+checks that a link is http(s) before any request). The answer is a preview: the title, a servings
+stepper (when `servings` is not null), the items with scaled quantities, and the lines left
+unresolved. Quantities scale **in the browser** from the recipe's servings: weighed goods smoothly
+in 50 g steps, anything bought by the piece or pack rounded up to whole ones. "הוסיפי N פריטים"
+adds the rows to the list, where uncertain matches (`needs_confirmation`) show the list's normal amber
+confirmation; unresolved lines are added as rows in the "לא זוהו" group, where they can be edited or
+removed. With `servings: null` nothing can be scaled and the sheet says so. The link goes to the
+server, which fetches the page; the sheet says so.
+
+### Mocked routes and shapes
+
+`src/mocks/handlers.phase3.ts`, answered by `mockApi` in e2e and by `NEXT_PUBLIC_API_MOCK=1`. They
+follow `services/api`; `GET /me/spend` returns `budget: null` in the mock (the budget is on the
+profile) and `PUT`/`DELETE /me/spend/{id}` and `GET /me/spend/export` are not mocked.
+
+| Route | Request | Response |
+|---|---|---|
+| `POST /me/spend` | `SpendEntryIn` `{date: "YYYY-MM-DD", store_id, store_name, total, item_count, plan: "single"\|"split"}` | 201 `SpendEntry` (the same fields, `id: number`, `total: "371.40"`) |
+| `GET /me/spend?month=YYYY-MM` | month optional (default the current one) | `SpendMonth` `{month, entries (oldest first), total: "300.30", budget: string\|null}` |
+| `POST /parse-recipe` | `{text?, url?, servings?}`, exactly one of text and url | `{title: string\|null, servings: number\|null, items: ParsedRow[], unresolved: string[]}` |
+| `PUT /me/profile` | `monthly_budget` optional (omit keeps, null clears) | `Profile.monthly_budget: "2500.00"\|null` (already in `handlers.ts`) |
+
+Also in this round: `src/mocks/parseRow.ts` (the mock list parser, moved out of `handlers.ts`
+which still exports it) and `IconBook`.
+
+### Storage keys and events added
+
+| Key | Owner |
+|---|---|
+| `sc-budget-v1`, `sc-spend-v1` | `features/budget` |
+
+Events: `voice_started`, `voice_completed` (above).
+
+### Tests (this section)
+
+Unit: `voice/speech.test.ts`, `voice/voice.test.tsx` (the sheet against a fake recognizer, the events,
+the list builder path), `consent/voiceEvents.test.ts`, `budget/budget.test.ts` (calendar, budget,
+spend state, arithmetic, sync), `budget/budgetUi.test.tsx` (the card on results and split, the Profile
+section and chart, the finish sheet), `profile/budgetSync.test.tsx` (`monthly_budget` omitted, set,
+cleared), `recipe/recipe.test.tsx`, `mocks/handlers.phase3.test.ts`, `scan/scanUrl.test.tsx`. The fake
+recognizer is `tests/unit/fakeSpeech.ts`. E2E: `phase3.spec.ts` injects a fake `SpeechRecognition`
+(`phase3-helpers.ts`); `secondary-onboarding-profile.spec.ts` now also asserts the net saving on the
+first results page after onboarding and that `/split` was never needed. A11y: `tests/a11y/phase3.spec.ts`.
+One unrelated finding fixed on the way: checked rows in store mode were dimmed with `opacity: 0.6`,
+which put the tags and the update time below 4.5:1; they now keep their color and the name and price
+turn muted.

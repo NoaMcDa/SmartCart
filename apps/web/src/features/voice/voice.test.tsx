@@ -156,10 +156,10 @@ describe("the voice sheet", () => {
 });
 
 describe("voice events", () => {
-  it("voice_started then voice_completed added, with the duration and the item count, never the text", async () => {
+  it("voice_started then voice_completed parsed, with the duration and the item count, never the text", async () => {
     const { user } = sheet(vi.fn(async () => 3));
     await user.click(screen.getByTestId("voice-start"));
-    expect(events()).toEqual([["voice_started", undefined]]);
+    expect(events()).toEqual([["voice_started", { engine: "web_speech" }]]);
     act(() => {
       FakeRecognizer.last().begin();
       FakeRecognizer.last().hear({ text: "חלב" });
@@ -169,13 +169,13 @@ describe("voice events", () => {
     await waitFor(() => expect(track).toHaveBeenCalledTimes(2));
     expect(events()[1]).toEqual([
       "voice_completed",
-      { outcome: "added", duration_ms: expect.any(Number), item_count: 3 },
+      { outcome: "parsed", duration_ms: expect.any(Number), item_count: 3 },
     ]);
     expect(JSON.stringify(track.mock.calls)).not.toContain("חלב");
   });
 
   it.each([
-    ["not-allowed", "denied"],
+    ["not-allowed", "error"],
     ["audio-capture", "error"],
     ["network", "error"],
   ])("a %s failure completes as %s", async (code, outcome) => {
@@ -186,12 +186,12 @@ describe("voice events", () => {
     expect(track.mock.calls[1]![1]).toMatchObject({ outcome });
   });
 
-  it("silence completes as no_speech", async () => {
+  it("silence completes as empty", async () => {
     const { user } = sheet();
     await user.click(screen.getByTestId("voice-start"));
     act(() => FakeRecognizer.last().finish());
     await waitFor(() => expect(track).toHaveBeenCalledTimes(2));
-    expect(track.mock.calls[1]![1]).toMatchObject({ outcome: "no_speech" });
+    expect(track.mock.calls[1]![1]).toMatchObject({ outcome: "empty" });
   });
 
   it("closing mid-attempt completes once as cancelled; a re-record cancels the first attempt", async () => {

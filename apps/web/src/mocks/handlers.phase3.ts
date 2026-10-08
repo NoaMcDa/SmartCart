@@ -1,13 +1,14 @@
 /**
- * MSW handlers for the phase 3 routes built in the unblock round: spend tracking (#70) and recipe
- * to list (#71). Written before services/api has them; the shapes are the agreed contract:
+ * MSW handlers for the phase 3 routes of the unblock round: spend tracking (#70) and recipe to
+ * list (#71). They follow services/api (`routes/spend.py`, `routes/recipe.py`):
  *
- *   POST /me/spend          body SpendEntry                   -> SpendEntry (idempotent on `id`)
- *   GET  /me/spend?month=   month `YYYY-MM`                   -> { month, entries, total, budget }
- *   POST /parse-recipe      { text?, url?, servings? }        -> { title, servings, items, unresolved }
+ *   POST /me/spend          SpendEntryIn (no id)                -> 201 SpendEntry (numeric `id`)
+ *   GET  /me/spend?month=   `YYYY-MM`, default the current one  -> { month, entries, total, budget }
+ *   POST /parse-recipe      { text?, url?, servings? }          -> { title, servings, items, unresolved }
  *
- * Types are in src/api/client.ts ("until types.ts is regenerated"). The spend store is in memory
- * and shared by every caller of the handlers in one process; `resetPhase3Mock()` clears it.
+ * Money is a string with two decimals. The spend store is in memory and shared by every caller of
+ * the handlers in one process; `resetPhase3Mock()` clears it. `budget` is always null here: the
+ * budget travels with the profile (`monthly_budget` on `PUT /me/profile`, see handlers.ts).
  */
 import { delay, http, HttpResponse } from "msw";
 import { API_BASE_URL } from "@/api/config";
@@ -16,18 +17,20 @@ import type {
   ParseRecipeResponse,
   ParsedRow,
   SpendEntry,
-  SpendMonthResponse,
+  SpendMonth,
 } from "@/api/client";
 import { parseRow } from "./parseRow";
 
 const url = (path: string) => `${API_BASE_URL}${path}`;
 const latency = () => delay(process.env.NODE_ENV === "test" ? 0 : 250);
 
-const spend = new Map<string, SpendEntry>();
+const spend = new Map<number, SpendEntry>();
+let nextId = 1;
 
 /** Test hook: forget every spend entry the mock holds. */
 export function resetPhase3Mock(): void {
   spend.clear();
+  nextId = 1;
 }
 
 /** Test hook: what `POST /me/spend` stored, oldest first. */
@@ -38,12 +41,19 @@ export function mockSpendEntries(): SpendEntry[] {
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-function validSpend(body: unknown): body is SpendEntry {
+type SpendBody = {
+  date: string;
+  store_id: number;
+  store_name: string;
+  total: number | string;
+  item_count: number;
+  plan: "single" | "split";
+};
+
+function validSpend(body: unknown): body is SpendBody {
   if (typeof body !== "object" || body === null) return false;
   const e = body as Record<string, unknown>;
   return (
-    typeof e.id === "string" &&
-    e.id.length > 0 &&
     typeof e.date === "string" &&
     DATE.test(e.date) &&
     typeof e.store_id === "number" &&
@@ -67,7 +77,7 @@ function scaleQuantity(row: ParsedRow, factor: number): ParsedRow {
   return { ...row, quantity: String(Math.round(q * 100) / 100) };
 }
 
-function recipeFromText(text: string, servings: number | undefined): ParseRecipeResponse {
+function recipeFromText(text: string, servings: number | null | undefined): ParseRecipeResponse {
   const lines = text
     .split(/\n+/u)
     .map((l) => l.replace(BULLET, "").trim())
@@ -82,7 +92,7 @@ function recipeFromText(text: string, servings: number | undefined): ParseRecipe
     first !== undefined &&
     !/^\d/u.test(first) &&
     first.split(/\s+/u).length >= 3;
-  const title = firstIsTitle && first ? first.replace(/:$/u, "") : "מתכון";
+  const title = firstIsTitle && first ? first.replace(/:$/u, "") : null;
   const body = (firstIsTitle ? lines.slice(1) : lines).filter(
     (l) => !/:$/u.test(l) && !/מנות/u.test(l) && !/^(מצרכים|אופן ההכנה)/u.test(l),
   );
@@ -90,14 +100,15 @@ function recipeFromText(text: string, servings: number | undefined): ParseRecipe
   const unresolved: string[] = [];
   for (const line of body) {
     const row = parseRow(line.replace(LEADING_AMOUNT, ""));
+    // Like the real route: every item has a product, a line without one is left to the person.
     if (row.not_found) unresolved.push(line);
-    else items.push(row);
+    else items.push({ ...row, input_text: line });
   }
   return finish(title, recipeServings, items, unresolved, servings);
 }
 
 /** What the mock "finds" at any URL: a fixed pasta recipe, so the flow can be built and tested. */
-function recipeFromUrl(servings: number | undefined): ParseRecipeResponse {
+function recipeFromUrl(servings: number | null | undefined): ParseRecipeResponse {
   const items = ["פסטה", "2 רסק עגבניות", "עגבניות", "שמן זית כתית מעולה", "3 ביצים"].map((l) =>
     parseRow(l),
   );
@@ -105,13 +116,13 @@ function recipeFromUrl(servings: number | undefined): ParseRecipeResponse {
 }
 
 function finish(
-  title: string,
+  title: string | null,
   recipeServings: number,
   items: ParsedRow[],
   unresolved: string[],
-  wanted: number | undefined,
+  wanted: number | null | undefined,
 ): ParseRecipeResponse {
-  // `servings` in the request asks the server to scale; the response says what the quantities are for.
+  // `servings` in the request asks for scaling; the response says what the quantities are for.
   const target = wanted && wanted > 0 ? wanted : recipeServings;
   const factor = target / recipeServings;
   return {
@@ -129,31 +140,39 @@ export const phase3Handlers = [
     if (!validSpend(body)) {
       return HttpResponse.json({ detail: "invalid spend entry" }, { status: 422 });
     }
-    const stored: SpendEntry = { ...body, total: Number(body.total) };
-    spend.set(stored.id, stored); // same id again replaces: the POST is idempotent
-    return HttpResponse.json(stored);
+    const stored: SpendEntry = { ...body, id: nextId, total: Number(body.total).toFixed(2) };
+    nextId += 1;
+    spend.set(stored.id, stored);
+    return HttpResponse.json(stored, { status: 201 });
   }),
 
   http.get(url("/me/spend"), async ({ request }) => {
-    const month = new URL(request.url).searchParams.get("month") ?? "";
+    const asked = new URL(request.url).searchParams.get("month");
+    const month = asked ?? new Date().toISOString().slice(0, 7);
     await latency();
     if (!MONTH.test(month)) {
       return HttpResponse.json({ detail: "month must be YYYY-MM" }, { status: 422 });
     }
     const entries = [...spend.values()]
       .filter((e) => e.date.startsWith(`${month}-`))
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
     const total = Math.round(entries.reduce((acc, e) => acc + Number(e.total) * 100, 0)) / 100;
-    return HttpResponse.json({ month, entries, total, budget: null } satisfies SpendMonthResponse);
+    return HttpResponse.json({
+      month,
+      entries,
+      total: total.toFixed(2),
+      budget: null,
+    } satisfies SpendMonth);
   }),
 
   http.post(url("/parse-recipe"), async ({ request }) => {
     const body = (await request.json()) as ParseRecipeRequest;
     await latency();
-    const text = body.text?.trim();
-    const link = body.url?.trim();
-    if (!text && !link) {
-      return HttpResponse.json({ detail: "send text or url" }, { status: 422 });
+    const text = body.text?.trim() || undefined;
+    const link = body.url?.trim() || undefined;
+    // Exactly one of the two, like the real route.
+    if ((text === undefined) === (link === undefined)) {
+      return HttpResponse.json({ detail: "send text or url, not both" }, { status: 422 });
     }
     if (link && !/^https?:\/\/\S+$/iu.test(link)) {
       return HttpResponse.json({ detail: "url must be http or https" }, { status: 422 });

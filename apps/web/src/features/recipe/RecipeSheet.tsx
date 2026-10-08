@@ -25,7 +25,7 @@ export type RecipeSheetProps = {
   open: boolean;
   onClose: () => void;
   /** Adds the scaled rows (and the unmatched lines as "not found" rows) to the list. */
-  onAdd: (rows: ParsedRow[], info: { title: string; servings: number }) => void;
+  onAdd: (rows: ParsedRow[], info: { title: string; servings: number | null }) => void;
 };
 
 function errorText(err: unknown, mode: Mode): string {
@@ -53,7 +53,13 @@ export function RecipeSheet({ open, onClose, onAdd }: RecipeSheetProps) {
   const [servings, setServings] = useState(4);
 
   const scaled = useMemo(
-    () => (recipe ? scaleRows(recipe.items, recipe.servings, servings) : []),
+    // A recipe whose yield is unknown (servings null) cannot be scaled: its quantities stay as read.
+    () =>
+      recipe
+        ? recipe.servings
+          ? scaleRows(recipe.items, recipe.servings, servings)
+          : recipe.items
+        : [],
     [recipe, servings],
   );
 
@@ -84,7 +90,7 @@ export function RecipeSheet({ open, onClose, onAdd }: RecipeSheetProps) {
         return;
       }
       setRecipe(res);
-      setServings(Math.min(MAX_SERVINGS, Math.max(MIN_SERVINGS, res.servings)));
+      setServings(Math.min(MAX_SERVINGS, Math.max(MIN_SERVINGS, res.servings ?? 4)));
     } catch (err) {
       setError(errorText(err, mode));
     } finally {
@@ -95,7 +101,7 @@ export function RecipeSheet({ open, onClose, onAdd }: RecipeSheetProps) {
   function add() {
     if (!recipe) return;
     const rows = [...scaled, ...recipe.unresolved.map(unresolvedRow)];
-    onAdd(rows, { title: recipe.title, servings });
+    onAdd(rows, { title: recipe.title ?? "מתכון", servings: recipe.servings ? servings : null });
     setRecipe(null);
     setError(null);
     setText("");
@@ -109,19 +115,25 @@ export function RecipeSheet({ open, onClose, onAdd }: RecipeSheetProps) {
       {recipe ? (
         <div className={styles.body}>
           <h3 className={styles.recipeTitle} data-testid="recipe-title">
-            {recipe.title}
+            {recipe.title ?? "מתכון"}
           </h3>
-          <div className={styles.servingsRow}>
-            <span className={styles.label}>למי מכינים?</span>
-            <Stepper
-              label="מנות"
-              unit="מנות"
-              value={servings}
-              min={MIN_SERVINGS}
-              max={MAX_SERVINGS}
-              onChange={setServings}
-            />
-          </div>
+          {recipe.servings ? (
+            <div className={styles.servingsRow}>
+              <span className={styles.label}>למי מכינים?</span>
+              <Stepper
+                label="מנות"
+                unit="מנות"
+                value={servings}
+                min={MIN_SERVINGS}
+                max={MAX_SERVINGS}
+                onChange={setServings}
+              />
+            </div>
+          ) : (
+            <p className={styles.hint} data-testid="recipe-no-servings">
+              לא כתוב במתכון לכמה מנות הוא מיועד, ולכן הכמויות הן כפי שנקראו ואי אפשר לשנות מנות.
+            </p>
+          )}
           <ul className={styles.items} aria-label="מצרכים" data-testid="recipe-items">
             {scaled.map((row, i) => (
               <li key={`${row.input_text}-${i}`} className={styles.item} data-testid="recipe-item">
