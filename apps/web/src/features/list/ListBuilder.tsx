@@ -14,6 +14,7 @@ import {
   UpdatedAt,
 } from "@/components/ui";
 import { reportListPasted } from "@/features/consent/betaEvents";
+import { PhotoEntry } from "@/features/photo/PhotoEntry";
 import { RecipeSheet } from "@/features/recipe/RecipeSheet";
 import { VoiceSheet } from "@/features/voice/VoiceSheet";
 import { useVoiceSupported } from "@/features/voice/useVoiceInput";
@@ -234,6 +235,13 @@ export function ListBuilder() {
             >
               ממתכון
             </Button>
+            <PhotoEntry
+              onAdded={(message) => {
+                setError(null);
+                setHint(message);
+              }}
+              onTypeInstead={() => inputRef.current?.focus()}
+            />
           </div>
           {voiceSupported === false ? (
             <p className={styles.hint} data-testid="voice-unsupported">

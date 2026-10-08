@@ -135,9 +135,91 @@ function finish(
   };
 }
 
+// --- photos (receipts #61, handwritten lists #68) -------------------------------------------------
+
+/** The server's limit (`Body_parse_image_parse_image_post`): JPEG, PNG or WebP, 8 MB. */
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+
+/** A file part of the form. Not `instanceof File`: Node and jsdom each have their own `File`. */
+function isUpload(value: FormDataEntryValue | null): value is File {
+  return typeof value === "object" && value !== null;
+}
+
 /**
- * Finish-round stub for the photo workstream (#61), and the mock for `GET /chains/online` (#72),
- * which follows services/api `routes/chains.py`: every chain row, `enabled` only when the chain is
+ * Magic file names stand in for server conditions, so a test picks the case with the name of the
+ * file it uploads: `…-413.jpg` too large, `…-415.jpg` unsupported type, `…-429.jpg` monthly cap,
+ * `…-503.jpg` no OCR provider, `…-500.jpg` failure, `empty…` nothing read, `slow…` waits 1.5 s.
+ * The real limits (a type that is not JPEG, PNG or WebP, over 8 MB) answer 415 and 413 as well.
+ * A missing `X-Image-Consent: 1` header is a 403 whatever the name.
+ */
+function imageRefusal(
+  image: FormDataEntryValue | null,
+  name: string,
+): { status: number; detail: string } | null {
+  if (!isUpload(image)) return { status: 422, detail: "image is required" };
+  if (name.includes("-413") || image.size > IMAGE_MAX_BYTES) {
+    return { status: 413, detail: "image is larger than 8 MB" };
+  }
+  if (name.includes("-415") || (image.type !== "" && !IMAGE_TYPES.has(image.type))) {
+    return { status: 415, detail: "only JPEG, PNG or WebP" };
+  }
+  if (name.includes("-429")) return { status: 429, detail: "the monthly image cap is reached" };
+  if (name.includes("-503")) return { status: 503, detail: "no OCR provider is configured" };
+  if (name.includes("-500")) return { status: 500, detail: "internal error" };
+  return null;
+}
+
+/**
+ * What the mock "reads": a fixed handwritten list or receipt, with one uncertain match
+ * (`שמן זית`, the amber confirmation) and lines it could not match (`unresolved`).
+ */
+function imageResult(kind: "receipt" | "list", name: string): ParseImageResponse {
+  if (name.includes("empty")) {
+    return {
+      kind,
+      provider: "fake",
+      items: [],
+      unresolved: [],
+      receipt:
+        kind === "receipt" ? { chain_hint: null, store_hint: null, total: null, lines: [] } : null,
+      deleted: true,
+    };
+  }
+  if (kind === "list") {
+    return {
+      kind,
+      provider: "fake",
+      items: ["חלב", "2 רסק עגבניות", "שמן זית"].map((l) => parseRow(l)),
+      unresolved: ["חופן בזיליקום", "סבון כלים"],
+      receipt: null,
+      deleted: true,
+    };
+  }
+  return {
+    kind,
+    provider: "fake",
+    items: ["חלב", "3 פסטה", "עגבניות", "שמן זית"].map((l) => parseRow(l)),
+    unresolved: ["הנחת מועדון", "מע״מ 17%"],
+    receipt: {
+      chain_hint: "7290027600007",
+      store_hint: "שופרסל דיל מודיעין",
+      total: "187.40",
+      lines: [
+        { text: "חלב 3% 1 ליטר", price: "6.90", quantity: "1" },
+        { text: "פסטה ספגטי 500 גרם", price: "14.70", quantity: "3" },
+        { text: "עגבניות", price: "9.80", quantity: "1.2" },
+        { text: "שמן זית", price: "38.90", quantity: "1" },
+        { text: "הנחת מועדון", price: "-5.00", quantity: null },
+        { text: "מע״מ 17%", price: null, quantity: null },
+      ],
+    },
+    deleted: true,
+  };
+}
+
+/**
+ * The mock for `GET /chains/online` (#72), which follows services/api `routes/chains.py`: every chain row, `enabled` only when the chain is
  * in CART_HANDOFF_CHAINS and has an address. The addresses are placeholders on a reserved
  * `.example` host (never requested); the chain ids are the ones the mock stores use (fixtures.ts).
  * `shufersal` carries a referral so the label is visible in the demo; `victory` has an address
@@ -189,21 +271,19 @@ const MOCK_CHAINS_ONLINE: ChainOnline[] = [
 
 export const phase3Handlers = [
   http.post(url("/parse-image"), async ({ request }) => {
-    await latency();
+    const form = await request.formData();
+    const image = form.get("image");
+    const name = isUpload(image) ? image.name : "";
+    // "slow" keeps the progress state on screen long enough to test it.
+    await (name.includes("slow") ? delay(1500) : latency());
     if (request.headers.get("X-Image-Consent") !== "1") {
       return HttpResponse.json({ detail: "receipt processing needs consent" }, { status: 403 });
     }
-    const form = await request.formData();
-    const kind = form.get("kind") === "receipt" ? "receipt" : "list";
-    return HttpResponse.json({
-      kind,
-      provider: "fake",
-      items: [parseRow("חלב 3%")],
-      unresolved: [],
-      receipt:
-        kind === "receipt" ? { chain_hint: null, store_hint: null, total: null, lines: [] } : null,
-      deleted: true,
-    } satisfies ParseImageResponse);
+    const refusal = imageRefusal(image, name);
+    if (refusal) return HttpResponse.json({ detail: refusal.detail }, { status: refusal.status });
+    return HttpResponse.json(
+      imageResult(form.get("kind") === "receipt" ? "receipt" : "list", name),
+    );
   }),
 
   http.get(url("/chains/online"), async () => {

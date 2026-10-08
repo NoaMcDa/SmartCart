@@ -357,3 +357,36 @@ export async function parseRecipe(body: ParseRecipeRequest): Promise<ParseRecipe
 export type ParseImageResponse = Schemas["ParseImageResponse"];
 export type ReceiptSummary = Schemas["ReceiptSummary"];
 export type ChainOnline = Schemas["ChainOnline"];
+
+/**
+ * `POST /parse-image` (multipart): a receipt or a handwritten list photo to `/parse-list` rows.
+ *
+ * `consent` must be true: it sends `X-Image-Consent: 1`, and without it no request is made (the
+ * server would answer 403). The file goes as a `FormData` body through `api.POST` with a
+ * `bodySerializer`, which keeps the auth middleware and the mock transport and drops the JSON
+ * content type, so the browser sets the multipart boundary. Throws ApiError on non-2xx (403 no
+ * consent, 413 too large, 415 type, 429 monthly cap, 503 no OCR provider), and a TypeError when
+ * the network fails.
+ */
+export async function parseImage(
+  kind: ParseImageResponse["kind"],
+  file: Blob,
+  consent: boolean,
+  options: { signal?: AbortSignal } = {},
+): Promise<ParseImageResponse> {
+  if (!consent) throw new ApiError(403, { detail: "image processing needs consent" });
+  return unwrap(
+    await api.POST("/parse-image", {
+      // The generated body type says `image: string`; the serializer sends the file itself.
+      body: { kind, image: file as unknown as string },
+      bodySerializer: () => {
+        const form = new FormData();
+        form.append("kind", kind);
+        form.append("image", file, file instanceof File ? file.name : "photo.jpg");
+        return form;
+      },
+      headers: { "X-Image-Consent": "1" },
+      signal: options.signal,
+    }),
+  );
+}

@@ -89,6 +89,34 @@ Manual and still open for these screens: the screen reader pass (VoiceOver, Talk
 sheet and the chart table, and whether `he-IL` speech recognition works on iOS Safari (installed
 PWA) and Android Chrome.
 
+## Photo to list sheet (finish round, #61 and #68)
+
+`tests/a11y/photo.spec.ts` (24 tests): axe (`wcag2a`, `wcag2aa`, serious or critical fails) in each
+state of the sheet at 390 and 1280 px in both themes, 195 px overflow, 44 px targets, keyboard only. No
+violation. Not a conformance claim; the manual items below still apply.
+
+| Screen or state | axe, 390 and 1280 px, light and dark | 195 px (200% zoom) | Keyboard |
+|---|---|---|---|
+| List builder with the "מצילום" entry | no violation | fits | a 44 px button reached by Tab; opens with Enter |
+| Sheet: the two kinds, each with camera and file | no violation; every button 44 px or more | fits | focus moves in on open and stays in (Tab x8); Escape closes and focus returns to "מצילום" |
+| Refused file (not an image, over 8 MB) | no violation | fits | the message is `role="alert"` and takes focus |
+| Consent step | no violation | fits | focus lands on the heading; "מסכים/ה" and "לא עכשיו" by Enter |
+| Reading | no violation | fits | the status line takes focus; the bar is `aria-hidden` and its animation is switched off by a `prefers-reduced-motion` rule (CSS, not tested) |
+| Receipt preview, list preview with an edited line | no violation; checkbox rows and text fields 44 px or more | fits, also with a long edited line | focus lands on the heading; Space ticks a row (the amber group starts unticked); "הוסיפי" by Enter, and focus returns to the entry |
+| Failure (monthly cap, no OCR provider) and an empty read | no violation | fits | the message is `role="alert"` and takes focus; retry and "להקליד במקום" are buttons in the sheet's tab order |
+| Profile with the consent switch | no violation | fits | a `role="switch"` with a visible label and description |
+
+Notes: each step of the sheet moves focus to its own heading or message, because the control that was
+focused (a button) is replaced when the step changes; without that a keyboard user would fall back to
+the page and the sheet's trap would lose its place. The hidden file inputs are outside the dialog on
+purpose: the sheet's focus trap lists every `input`, including hidden ones, and would wrap at an element
+nobody can reach. The amber group never relies on color: it has the "לאישור" tag with an icon and a
+sentence that says what to do. The photo thumbnail has the alt text "התמונה שצילמת".
+
+Manual and still open for this screen: the screen reader pass (VoiceOver, TalkBack) on the sheet, the
+real camera and file picker on iOS Safari (installed PWA) and Android Chrome (the tests answer the
+browser's file dialog with a file), and a read of the Arabic copy, which is still the Hebrew (#73).
+
 ## What remains manual
 
 1. **Screen reader pass in Hebrew RTL**, not done. Do it with VoiceOver (iOS Safari) and TalkBack
