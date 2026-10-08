@@ -164,3 +164,13 @@ from them: breadcrumb links, list rows and footer links get 44 px targets; table
 column and row header scopes and scroll inside their own wrapper; the basket-index disclosures use native
 `details` and `summary` (keyboard and screen-reader operable without scripting); prices are LTR islands;
 estimated values carry a text tag, not only color; the accessibility statement says what was not checked.
+
+## Accessibility-tree snapshots (finish round)
+
+`tests/a11y/aria-flows.spec.ts` pins the names, roles and order a screen reader announces in the core
+flows (shell, onboarding, list, flexibility sheet, results, basket details, substitution card, store
+mode, delete-data dialog, split view before and after a move) against committed snapshots in
+`tests/a11y/aria-snapshots/`. A change in what a screen reader hears fails CI; update deliberately
+with `ARIA_SNAPSHOTS=update npm run a11y -- aria-flows`. This catches regressions; it does not replace
+the Hebrew screen-reader pass on real devices (`docs/screen-reader-test-plan.md`).
+
