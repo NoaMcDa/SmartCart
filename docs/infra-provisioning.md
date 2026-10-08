@@ -9,6 +9,9 @@ exist yet, and the author of this document could not create them. Everything bel
 plus scripts that were written without being run against live services. Where a step depends on the
 current behavior of a vendor product, the text says so and tells you what to confirm.
 
+After provisioning, going live (the API service and its timers on this VPS, the web app, the deploy
+workflow, rollback and sizing) is [deploy.md](deploy.md).
+
 Evidence labels follow the research: **verified** (stated in the research or in the project docs, with
 the source), **estimate** (the author's or the research's estimate), **unverified** (a vendor fact from
 general knowledge that this document could not check; confirm it in the vendor's dashboard or docs

@@ -1,0 +1,37 @@
+[Unit]
+Description=SmartCart: nightly effective-price precompute (smartcart-api precompute)
+Documentation=https://github.com/NoaMcDa/SmartCart/blob/main/docs/deploy.md
+Wants=network-online.target
+After=network-online.target smartcart-ingest-full.service
+
+[Service]
+Type=oneshot
+User=smartcart
+Group=smartcart
+WorkingDirectory=/var/lib/smartcart
+
+# Extra arguments, e.g. "--chain 7290027600007"; empty means every chain, as of now.
+Environment="SMARTCART_PRECOMPUTE_ARGS="
+# The precompute deletes effective_prices rows of the chains it processed, which the ingest role
+# may not do (docs/infra-provisioning.md section 3.1). Put the jobs' connection (the owner or a
+# role with delete on effective_prices) in jobs.env; it overrides the other two files.
+EnvironmentFile=/etc/smartcart/ingest.env
+EnvironmentFile=-/etc/smartcart/api.env
+EnvironmentFile=-/etc/smartcart/jobs.env
+
+# Never while an ingestion run holds the shared lock: waits for it (the 08:30 second pass can run
+# long), so the prices it reads are a finished load.
+RuntimeDirectory=smartcart
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/flock --timeout 7200 /run/smartcart/ingest.lock /opt/smartcart/.venv/bin/smartcart-api precompute $SMARTCART_PRECOMPUTE_ARGS
+TimeoutStartSec=3h
+
+StandardOutput=append:/var/log/smartcart/precompute.log
+StandardError=append:/var/log/smartcart/precompute.log
+SyslogIdentifier=smartcart-precompute
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/smartcart /var/log/smartcart

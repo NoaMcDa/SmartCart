@@ -1,0 +1,16 @@
+# Build context filter for apps/web/Dockerfile (context: apps/web). BuildKit uses this file
+# because it sits next to the Dockerfile.
+node_modules
+.next
+out
+.vercel
+.env
+.env.*
+playwright-report*
+test-results
+blob-report
+.lighthouseci*
+coverage
+*.tsbuildinfo
+Dockerfile
+Dockerfile.dockerignore

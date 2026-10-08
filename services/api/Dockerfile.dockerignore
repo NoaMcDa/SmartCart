@@ -1,0 +1,19 @@
+# Build context filter for services/api/Dockerfile (the context is the repository root). BuildKit
+# uses this file instead of a root .dockerignore because it sits next to the Dockerfile.
+# Allow-list: everything is excluded, then only what the image copies is let back in.
+*
+!pyproject.toml
+!services/ingest/pyproject.toml
+!services/ingest/smartcart_ingest
+!services/catalog/pyproject.toml
+!services/catalog/smartcart_catalog
+!services/api/pyproject.toml
+!services/api/smartcart_api
+!services/dashboard/pyproject.toml
+!supabase/migrations
+!supabase/queries
+!data/taxonomy.yaml
+!data/canonicals.yaml
+!data/product_type_rules.yaml
+**/__pycache__
+**/*.pyc
