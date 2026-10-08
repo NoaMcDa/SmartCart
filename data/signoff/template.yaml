@@ -1,0 +1,33 @@
+# Empty canonical sign-off (issue #15). Format: data/signoff/FORMAT.md.
+# `smartcart-catalog review-import` writes a filled copy as canonicals-<YYYY-MM-DD>.yaml.
+# Copy this file only if you need to write a sign-off by hand.
+version: 1
+kind: canonical-signoff
+issue: 15
+status: partial            # complete: every canonical has a decision; partial: some are pending
+reviewer: ""               # the reviewer's name
+reviewed_on: ""            # YYYY-MM-DD, also the file name
+note: ""                   # role, scope, anything the record should say
+source:
+  canonicals_file: data/canonicals.yaml
+  canonicals_sha256_12: ""  # first 12 hex digits of the sha256 of data/canonicals.yaml
+  canonicals_total: 0
+  review_csv: ""
+  csv_encoding: utf-8
+summary: {ok: 0, change: 0, remove: 0, add: 0, pending: 0}
+decisions: []
+# - slug: milk-fresh-3
+#   decision: ok                   # ok | change | remove
+# - slug: yellow-cheese-sliced-28
+#   decision: change
+#   comment: "the common sliced cheese is 9%, not 28%"
+#   proposed:                      # optional, only for change; machine-readable edits
+#     display_name_he: גבינה צהובה פרוסה 9%
+#     critical_attrs: {fat_pct: 9}
+#     soft_attrs: {pack_size: 200, unit: g}
+#     base_unit: 100g
+#     rank: 12
+additions: []
+# - display_name_he: גבינת מוצרלה מגורדת
+#   comment: "bought weekly for pizza; missing"
+pending: []
