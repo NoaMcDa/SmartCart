@@ -40,6 +40,7 @@ so the review UI shows the judge's own words instead of recomputing them.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
@@ -153,6 +154,132 @@ def _fmt(v: Any) -> str:
     return str(v)
 
 
+# --- name guards: derived forms, preparations, baby, diet ---------------------------------------
+#
+# First audit of the real chain items (docs/matching.md, "Real items, first audit") found that the
+# product word of a canonical often appears in an item that is something else: a tomato nectar,
+# beans in sauce, a baby soap, a bar flavored with honey. The extractor picks the product type from
+# a keyword, so the judge re-checks the name against the canonical it is about to serve. These
+# are hard rules like the critical veto: the item's own words say it is a different product form.
+#
+# A word is exempt when the canonical's own display name has a word that starts like it (a
+# canonical called "מיץ ענבים" is a juice, "טונה בשמן" is in oil), so the tables only list words
+# that turn a product into another one. They are lists of Hebrew words as chains write them.
+
+_TOKEN = re.compile(r"[א-תA-Za-z][א-תA-Za-z'\"]*")
+_PREFIX_LETTERS = "בהולמשכו"
+
+# The product is a derived form of the word that follows or precedes it (a snack, a sauce, a
+# nectar, candy, a dough, flour of something); the canonical must be that form itself.
+DERIVED_HEADS: frozenset[str] = frozenset({
+    "חטיף", "חטיפי", "חטיפים", "רוטב", "רטבים", "נקטר", "ג'לי", "סוכריות", "סוכרייה",
+    "קורנפלקס", "בצק", "קמח", "חליטת", "מחית", "מיץ", "אבקת", "מקמח",
+    "דגני", "דגן", "עוגת", "עוגיות", "ריבת", "קראנצי",
+})  # fmt: skip
+
+# The item is prepared, preserved, smoked or free of an animal ingredient: not the base product.
+FORM_MODIFIERS: frozenset[str] = frozenset({
+    "מעושן", "מעושנת", "מעושנים", "מעושנות", "בעישון", "מיובש", "מיובשת", "מיובשים",
+    "מיובשות", "כבוש", "כבושים", "כבושה", "ברוטב", "בשמן", "בחומץ", "פולפה", "מרוסק",
+    "מרוסקת", "מרוסקים", "מרוסקות", "רסק", "ממולא", "ממולאים", "מטוגן", "מטוגנים",
+})  # fmt: skip
+PLANT_BASED_MODIFIERS: frozenset[str] = frozenset({
+    "צמחוני", "צמחונית", "צמחוניים", "טבעוני", "טבעונית", "טבעוניים", "vegan", "ביונד",
+})  # fmt: skip
+BABY_MODIFIERS: frozenset[str] = frozenset({
+    "לתינוק", "לתינוקות", "תינוק", "תינוקות", "בייבי", "baby", "לפעוטות",
+})  # fmt: skip
+# Phrases (matched in the name as written, after abbreviation expansion) that make a diet
+# variant of the product: a close substitute at most, never "any brand". They name one family
+# (diet, zero, light, no sugar): a canonical that carries any word of the family in its own name
+# is that variant ("קולה זירו" for a "קולה דיאט"), and a fat claim ("לייט", "דל שומן") next to a
+# canonical split by fat percentage is already decided by the fat percentage.
+DIET_PHRASES: tuple[str, ...] = (
+    "דיאט", "לייט", "light", "זירו", "zero", "ללא סוכר", "ללא תוספת סוכר", "דל שומן",
+    "דל סוכר", "דל קלוריות", "ללא שומן",
+)  # fmt: skip
+FAT_CLAIMS: frozenset[str] = frozenset({"לייט", "light", "דל שומן", "ללא שומן"})
+OTHER_DIET_PHRASES: tuple[str, ...] = ("ללא גלוטן",)
+_ANIMAL_ROOTS = ("meat", "fish", "dairy", "deli", "frozen")
+_FLAVOR_MARK = "בטעם"
+
+
+def _name_tokens(text: str) -> list[str]:
+    return [t.replace("'", "").replace('"', "").lower() for t in _TOKEN.findall(text or "")]
+
+
+def _stem(token: str) -> str:
+    return token[:3]
+
+
+def _has_stem(tokens: Sequence[str], word: str) -> bool:
+    w = word.replace("'", "").lower()
+    return any(t == w or (len(t) >= 3 and len(w) >= 3 and _stem(t) == _stem(w)) for t in tokens)
+
+
+def _in_tokens(tokens: Sequence[str], word: str) -> bool:
+    """``word`` is a token of the name, or the token with one prefix letter (ב, ה, ל, ...)."""
+    w = word.replace("'", "").lower()
+    return any(t == w or (len(t) > len(w) and t[1:] == w and t[0] in _PREFIX_LETTERS)
+               for t in tokens)  # fmt: skip
+
+
+def name_guard(name: str, canonical: Any) -> tuple[list[str], list[str]]:
+    """``(vetoes, soft differences)`` of a cleaned item name against a canonical.
+
+    Veto reasons say which word turns the item into another product; a soft difference is a
+    diet variant. Both are empty when the canonical's own name accounts for the word."""
+    tokens = _name_tokens(name)
+    canon_tokens = _name_tokens(canonical.display_name_he)
+    root = (canonical.taxonomy_id or "").split(".")[0]
+    veto: list[str] = []
+    soft: list[str] = []
+    for head in sorted(DERIVED_HEADS):
+        if _in_tokens(tokens, head) and not _has_stem(canon_tokens, head):
+            veto.append(f"name has {head!r} (a derived product), canonical is {canonical.display_name_he!r}")
+            break
+    for mod in sorted(FORM_MODIFIERS):
+        if _in_tokens(tokens, mod) and not _has_stem(canon_tokens, mod):
+            veto.append(f"name has {mod!r} (prepared or preserved), canonical is not")
+            break
+    if root in _ANIMAL_ROOTS and "base" not in canonical.critical_attrs:
+        for mod in sorted(PLANT_BASED_MODIFIERS):
+            if _in_tokens(tokens, mod) and not _has_stem(canon_tokens, mod):
+                veto.append(f"name has {mod!r} (plant-based), canonical is {canonical.display_name_he!r}")
+                break
+    if root != "baby":
+        for mod in sorted(BABY_MODIFIERS):
+            if _in_tokens(tokens, mod) and not _has_stem(canon_tokens, mod):
+                veto.append(f"name has {mod!r} (a baby product), canonical is not")
+                break
+    if _FLAVOR_MARK in tokens:
+        head_tokens: list[str] = []
+        for t in tokens:
+            if t == _FLAVOR_MARK:
+                break
+            head_tokens.append(t)
+        content = [t for t in canon_tokens if len(t) >= 3]
+        if content and head_tokens and not any(_has_stem(head_tokens, t) for t in content):
+            veto.append("the canonical's words come only after 'בטעם' (a flavor, not the product)")
+    text = " ".join(tokens)
+    canon_text = " ".join(canon_tokens)
+    family_in_canon = any(p.lower() in canon_text for p in DIET_PHRASES)
+    for phrase in (*DIET_PHRASES, *OTHER_DIET_PHRASES):
+        p = phrase.lower()
+        if not re.search(rf"(?<![א-תa-z]){re.escape(p)}", text):
+            continue
+        if phrase in OTHER_DIET_PHRASES:
+            exempt = p in canon_text
+        else:
+            exempt = family_in_canon or (
+                phrase in FAT_CLAIMS and "fat_pct" in canonical.critical_attrs
+            )
+        if not exempt:
+            soft.append(f"diet variant {phrase!r}")
+            break
+    return veto, soft
+
+
 # --- assessment of one candidate ----------------------------------------------------------------
 
 
@@ -260,9 +387,16 @@ class RuleJudge:
             else:
                 a.mismatched.append(f"{key} {_fmt(iv)} vs {_fmt(cv)}")
 
+        guard_soft: list[str] = []
+        if normalized is not None:
+            name = normalized.clean_name or normalized.raw_name or ""
+            guard_veto, guard_soft = name_guard(name, canon)
+            a.mismatched.extend(guard_veto)
+
         if a.mismatched:
             a.eligible = False
             return a
+        a.soft_diff.extend(guard_soft)
 
         soft = rule.soft_keys if rule else tuple(canon.soft_attrs)
         for key in soft:

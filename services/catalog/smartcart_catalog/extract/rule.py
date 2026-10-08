@@ -17,6 +17,7 @@ from functools import lru_cache
 
 from smartcart_catalog.extract.base import Result
 from smartcart_catalog.models import Attributes, ExtractionError, NormalizedItem
+from smartcart_catalog.normalize import is_full_width, is_truncated
 from smartcart_catalog.seed import Catalog, load_catalog
 
 MAX_CONFIDENCE = 0.8
@@ -79,6 +80,8 @@ _FLAVOR_WORDS: tuple[tuple[str, str], ...] = (
 _FLAVOR_BY_TYPE: dict[str, tuple[tuple[str, str], ...]] = {
     "chocolate_bar": (("מריר", "dark"), ("לבן", "white"), ("חלב", "milk")),
 }
+# Flavor words that are the product itself or too common to make a bar a different bar.
+_NOT_A_SECOND_FLAVOR = frozenset({"chocolate", "plain", "milk", "dark", "white"})
 _EXTRA_INGREDIENT = re.compile(rf"(?<!{_LETTER})(?:עם|בתוספת|ממולא)(?!{_LETTER})")
 
 # Plant drinks (issues #92, #102): the base is a critical key of the plant drink types, so soy
@@ -108,7 +111,8 @@ _VARIETY_WORDS: tuple[tuple[str, str], ...] = (
 )
 
 _KOSHER_WORDS: tuple[tuple[str, str], ...] = (
-    ("כשר לפסח", "כשר לפסח"), ('בד"ץ', 'בד"ץ'), ("בדץ", 'בד"ץ'), ("מהדרין", "מהדרין"),
+    ("כשר לפסח", "כשר לפסח"), ('בד"ץ', 'בד"ץ'), ('בד"צ', 'בד"ץ'), ("בדץ", 'בד"ץ'),
+    ("מהדרין", "מהדרין"),
 )
 _DIET_WORDS: tuple[tuple[str, str], ...] = (
     ("ללא גלוטן", "gluten_free"), ("ללא לקטוז", "lactose_free"), ("דל לקטוז", "lactose_free"),
@@ -196,10 +200,21 @@ class RuleExtractor:
 
     @staticmethod
     def flavor(name: str, product_type: str | None) -> str | None:
-        for table in (_FLAVOR_BY_TYPE.get(product_type or "", ()), _FLAVOR_WORDS):
+        by_type = _FLAVOR_BY_TYPE.get(product_type or "", ())
+        for table in (by_type, _FLAVOR_WORDS):
             found = [(m.start(), fl) for word, fl in table if (m := _find(word, name))]
             if found:
-                return min(found)[1]
+                value = min(found)[1]
+                if table is by_type:
+                    # "dark chocolate with sea salt" is not the plain dark bar: a second flavor
+                    # (or an "עם ..." filling) makes a compound value that no plain canonical has.
+                    extra = sorted({fl for word, fl in _FLAVOR_WORDS
+                                    if fl not in _NOT_A_SECOND_FLAVOR and _find(word, name)})
+                    if extra:
+                        value += "+" + "+".join(extra)
+                    elif _EXTRA_INGREDIENT.search(name):
+                        value += "+other"
+                return value
         if _EXTRA_INGREDIENT.search(name):
             return "other"
         return None
@@ -264,13 +279,29 @@ class RuleExtractor:
 
     # --- whole item ------------------------------------------------------------------------------
 
-    def extract_one(self, item: NormalizedItem) -> Result:
+    @staticmethod
+    def words_of(item: NormalizedItem) -> str:
+        """The part of the name whose words can be trusted. A chain that cuts item names at a
+        fixed width (``normalize.NAME_LIMITS``) leaves the last word of a full-width name as a
+        fragment ("חלב" from "חלבון"), so that word is not matched; a number there is kept."""
         name = item.clean_name
-        if not name.strip():
+        if not is_full_width(item.chain_id, item.raw_name):
+            return name
+        head, _, tail = name.rstrip().rpartition(" ")
+        return head if head and not any(ch.isdigit() for ch in tail) else name
+
+    def extract_one(self, item: NormalizedItem) -> Result:
+        full_name = item.clean_name
+        if not full_name.strip():
             return ExtractionError(item_id=item.item_id, reason="empty name", retryable=False)
+        truncated = is_truncated(item.chain_id, item.raw_name)
+        name = self.words_of(item)
         pt = self.product_type(name)
         extra = self.catalog.extras.get(pt) if pt else None
-        implied = extra.implied if extra else {}
+        # What a product type implies ("milk without עמיד is fresh") is not known for a name the
+        # chain cut: the missing words may say otherwise. The value stays unknown, so the judge
+        # sends the item to review instead of serving it.
+        implied = {} if truncated else (extra.implied if extra else {})
         rule = self.catalog.rules.get(pt) if pt else None
         keys = set(rule.critical_keys) | set(rule.soft_keys) if rule else set()
 
@@ -278,7 +309,9 @@ class RuleExtractor:
         flavor = self.flavor(name, pt) if (not rule or "flavor" in keys) else None
         if flavor is None and "flavor" in implied:
             flavor = implied["flavor"]
-        brand, private = self.brand(name, item.chain_id, item.manufacturer)
+        # a percent sign on a vinegar (9%) or a beer (5%) is acidity or alcohol, not fat
+        fat_pct = self.fat_pct(full_name) if (not rule or "fat_pct" in keys) else None
+        brand, private = self.brand(full_name, item.chain_id, item.manufacturer)
         pack_size = None if item.is_weighed else item.total_quantity
         unit = None if item.is_weighed else item.unit
 
@@ -288,7 +321,7 @@ class RuleExtractor:
             product_type=pt,
             brand=brand,
             is_private_label=private,
-            fat_pct=self.fat_pct(name),
+            fat_pct=fat_pct,
             state=state,
             flavor=flavor,
             kosher=self.kosher(name),

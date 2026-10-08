@@ -430,6 +430,146 @@ exit 0): exact 1.0000 / 1.0000 (104 served of 104), any_brand 1.0000 / 0.8125 (5
 unmapped; review-queue-accepted any_brand precision 0.9940. Identical to the table above, as
 expected: the selector orders the review queue and writes nothing the judge reads.
 
+## Real items, first audit
+
+First look at the rule pipeline on **real chain items** (issues #2, #20, #33, #38). Labels follow
+`docs/README.md`: **measured** is read from a run of the repository, **estimate** is a judgement.
+
+> **This is a machine audit, not a gold set.** One reader (Claude) judged each accepted mapping once,
+> from the item name, the extracted attributes and the canonical. No human labeled anything, nobody
+> checked the labels, and the reader who found the errors also wrote the rules that fix them, so the
+> "after" numbers are optimistic by construction. They show what the pipeline does with real names and
+> where it fails. They are **not** an estimate of precision on real data: that needs the
+> human-labeled gold set (#38), see "What the human reviewer should check first" below.
+
+**What was run.** `smartcart-catalog audit-real` (`audit_real.py`) runs the rule pipeline in memory
+(normalize, `RuleExtractor`, block, hash embedder, `RuleJudge`; no key, no database) over the 1,400
+items of the committed real price-file fixtures (`services/ingest/tests/fixtures/<chain>/real`, 200
+rows for each of 7 chains, fetched 2026-10-08) and writes `data/audit/real-<date>.csv`: name, chain,
+extracted attributes, canonical, level, confidence, `needs_review`, the judge's reason, and the
+machine verdict. The verdicts live in `data/audit/machine_verdicts.csv` (one row per accepted
+mapping: `correct`, `wrong` or `unsure` plus a one-line reason). `--relabel FILE` re-applies them
+to an earlier audit file, which is how the baseline below was scored after the fact.
+`real-2026-10-08-baseline.csv` is the pipeline before this work, `real-2026-10-08.csv` after.
+
+**Counts (measured).**
+
+| | Before | After |
+|---|---|---|
+| Real items | 1,400 | 1,400 |
+| Mapped to a canonical | 327 | 269 |
+| Served (accepted, no review flag) | 99 | 92 |
+| Mapped, in the review queue | 228 | 177 |
+| Unmapped | 1,073 | 1,131 |
+
+Only 92 of 1,400 items (6.6%) are served, because 245 canonicals do not cover most of a supermarket
+and truncated names go to review. What is served is mostly produce, spices, oils and household goods,
+the easy part of the catalog (measured: 27 pantry, 18 produce, 10 cleaning, 8 beverages, 7 meat; 2
+dairy of 25 dairy mappings). Dairy, where fat percentage and state matter, is almost all in the
+review queue or unmapped. Tiv Taam has no served row at all; Osher Ad 29, Mega 24, King Store 17. No
+item was served at `exact` (no real barcode equals a reference barcode).
+
+**Precision on the accepted mappings (machine audit).** `correct / (correct + wrong)`, `unsure`
+excluded and counted separately.
+
+| Level | Before: served | correct | wrong | unsure | precision | After: served | correct | wrong | unsure | precision |
+|---|---|---|---|---|---|---|---|---|---|---|
+| any brand | 64 | 54 | 4 | 6 | 0.931 | 59 | 53 | 0 | 6 | 1.000 |
+| close substitute | 35 | 31 | 2 | 2 | 0.939 | 33 | 31 | 0 | 2 | 1.000 |
+| all served | 99 | 85 | 6 | 8 | 0.934 | 92 | 84 | 0 | 8 | 1.000 |
+
+Read the "after" column with three cautions. (1) It is not independent, see the box above. (2) 53
+correct and no wrong at "any brand" cannot show the 98% target: with zero errors, a 95% upper bound
+on the error rate is about 3 divided by the number of labels (the rule of three), so 53 labels
+only support "precision above about 0.94", and it takes about 150 error-free labels to support 0.98
+(**estimate**, a standard statistical rule, not a research number). (3) The 8 `unsure` rows are
+excluded; if half were wrong the any-brand precision would be about 0.95.
+
+**The six wrong accepted mappings (before)**, all fixed by rules below: a tomato nectar served as
+tomatoes (Osher Ad); cut tomato pulp, i.e. canned crushed tomatoes, served as fresh tomatoes (Rami
+Levy); white beans in sauce served as dry beans (Mega); paprika in oil, a paste, served as the dry
+spice (Rami Levy); dark chocolate with salt served as the plain dark bar (Shufersal); a baby liquid
+soap served as adult hand soap (Tiv Taam).
+
+**Top error classes** (the six above plus my reading of the changed review-queue rows; the review
+queue was not labeled row by row, so these counts are rough, **estimate**):
+
+| Class | Real examples | Rows | Rule |
+|---|---|---|---|
+| A derived product named after its ingredient (snack, sauce, nectar, jelly, cereal, candy, dough, flour, infusion) | חטיף שיבולת שועל (a bar) mapped to oats, נקטר ספרינג עגבניות, ג'לי תנובה אפרסק, קורנפלקס דבש, סוכריות חמאה, קמח פיצה | about 28 | `DERIVED_HEADS` |
+| Prepared or preserved form served as the base product | smoked drumsticks and cold-smoked salmon as fresh, dried mango as fresh, beans in sauce, paprika in oil, tomato pulp | 7 | `FORM_MODIFIERS` |
+| Product-type words of another product (yaml) | green tea mapped to jasmine rice, a chocolate bar (טבלת שוקו) to chocolate milk, wheat beer to lager, yeast roll to yeast, watermelon seeds to watermelon, corn kernels to sunflower seeds, chickpeas to hummus salad | about 12 | `exclude` lists, one keyword |
+| A word after "בטעם" is a flavor, not the product | משקה מוגז בטעם קולה served as cola, snacks flavored like corn | 3 | `name_guard` flavor marker |
+| Baby products as the adult product | baby soap, baby shampoo (2), talc with corn starch | 4 | `BABY_MODIFIERS` |
+| Plant-based as the animal product | vegetarian nuggets (2), Beyond burger | 3 | `PLANT_BASED_MODIFIERS` |
+| Name cut by the chain: the last word is a fragment, or the implied state is unknown | קליפות הדרים בשוקולד served as a chocolate bar, a cut ענבי טל served as fresh grapes | about 5 | truncation rules |
+| A second flavor on a bar | dark chocolate with salt | 1 | compound flavor |
+| Unknown type, mapped by name similarity only | ירכיים עוף to chicken breast, אוכמניות טריות to mushrooms | still open, review queue only | none yet |
+
+Of the 57 mappings the rules dropped (7 served, 50 review), I read about 2 as correct that are now
+lost (a canned corn and a plain yogurt, both truncated names); the rest were wrong or unsupported.
+
+**Rules added** (each has a unit test built from the real example that motivated it, in
+`test_judge_real.py`, `test_extract_real.py`, `test_normalize_real.py`, `test_real_audit.py`):
+
+1. **Truncated names** (`normalize.NAME_LIMITS`, `is_truncated`, `is_full_width`). Measured longest
+   name per chain: 20 characters for Carrefour/Mega, Osher Ad, Rami Levy and Yohananof, 24 for Shufersal,
+   40 for Tiv Taam; King Store is not cut (55). That is six of seven chains, not five: Tiv Taam's longest
+   name is exactly 40 with eight names at that length (**measured**; the 40 is the least certain). A
+   name at the width, or one under it (a cut right after a space is stripped), counts as cut. For a cut
+   name the extractor (a) does not match the last word of a name that is exactly full width, since it
+   may be the start of a longer word, (b) does not apply what a product type implies (milk without
+   "עמיד" is fresh), so the value stays unknown and the judge, which caps unknown critical values at
+   the review band, sends it to review. The audit CSV has a `name_truncated` column.
+2. **Name guards in the judge** (`judge.name_guard`), hard rules next to the critical veto, so they also
+   protect the Claude extractor and the database path. An item is refused for a canonical when its own
+   words say it is another form: a derived-product head word, a preparation word, a plant-based word on an
+   animal product, a baby word on a non-baby product, or the canonical's words only after "בטעם". A word is
+   exempt when the canonical's own name has it ("מיץ ענבים", "טונה בשמן", "סלמון מעושן פרוס").
+3. **Diet variants are `close`, never `any_brand`** (`DIET_PHRASES`): דיאט, לייט, זירו, ללא סוכר, ללא
+   תוספת סוכר, דל שומן, ללא גלוטן. A canonical that carries a word of the family ("קולה זירו") is that variant; a
+   fat claim next to a fat-percentage canonical ("קוטג' לייט 3%") is decided by the percentage.
+4. **Compound flavor for bars**: dark chocolate with another flavor or "עם ..." is `dark+salted` or
+   `dark+other`, which no plain canonical has, so the critical veto applies.
+5. **Percent sign is fat only on fat types**: vinegar 9% and beer 5% no longer get a fat percentage.
+6. **Abbreviations** common in the chain files: ללת"ס and לל"ס (sugar claims), חד"פ, and the dotted
+   first words שוק., חט., תח., מ.כביסה, נ.כלים; בד"צ is read as בד"ץ. The rest of the list the task
+   named (ש"ס, גר', ק"ג, יח', מ"ל, ל', %) was already handled by `normalize` or is not in the real
+   files (**measured**: ק"ג, מ"ל, גר', יח', ג', תפו"א, ס"מ, מ" are the frequent ones; ש"ס does not occur).
+7. **Product type exclusions** in `data/product_type_rules.yaml`: tea excludes soap and fruit;
+   jasmine rice excludes tea; lager excludes wheat beer; chocolate milk excludes bars; yeast excludes
+   rolls; watermelon excludes seeds; sunflower seeds exclude corn and watermelon; peanut butter
+   excludes pretzels and "filled"; hummus salad excludes the spelling גרגירי; chickpeas gain the
+   spelling גרגירי חומוס.
+
+Not changed: `data/canonicals.yaml` (a reviewer signs it off). Proposals for it, from this audit,
+are in `data/audit/proposed_canonical_changes.csv`.
+
+**Synthetic checks, unchanged by the rules (measured, same commands as `matching-eval.yml`).**
+Hebrew gold set: any brand precision 1.0000 / recall 0.8125 (546 of 672), close 1.0000 / 0.7611 (634
+of 833), exact 1.0000 / 1.0000 (104 of 104), recall@10 0.9988, identical to before. Arabic list lines
+(`evaluate-ar`): any brand 0.9970 (337 of 338), all 0.9974, also identical. The gold set does not go
+through the rule extractor (it uses the lexicon fallback), so these numbers could not catch a
+regression in the rules above; the real-item audit and the unit tests do. A first version of the diet
+rule moved nine served gold items (cottage 3% light, light yellow cheese, diet cola) from `any_brand` to
+`close` (any brand recall 0.7991, still 1.0000 precision); the family and fat-claim exemptions in
+rule 3 restore them.
+
+**What the human reviewer should check first.**
+
+1. The 8 `unsure` rows in `machine_verdicts.csv` (peanut butter with pieces, a burekas whose frozen
+   state is not in the name, a filled chocolate bar, no-sugar peanut butter, a challah baguette, a
+   laundry gel with softener): each needs a decision on the canonical, not on the item.
+2. The 92 served rows, truncated ones first (`name_truncated = yes`): about two thirds. The visible
+   words decided them; the cut part was never seen.
+3. The review queue rows whose canonical is a dairy, meat or state-dependent product, since
+   those carry the critical attributes that matter most (fat percentage, fresh or frozen).
+4. Then label a random sample of the **unmapped** rows too: a missed match is cheap, but the 1,131
+   unmapped rows may hide a canonical that is simply missing (see the proposals file).
+5. Replace this audit with a human-labeled gold set (#38): sample at least 150 served rows for any
+   brand, stratified by chain and department, two labelers on a subset, and report precision per level
+   with its interval. Until then the only real-data number in this repository is the machine audit above.
+
 ## Fine-tuning trigger
 
 Retrieval is the recall ceiling: the judge can only accept what top-k returns. On the **real**
@@ -455,6 +595,7 @@ phase 1 (#29).
 | `review [--port 8502]` | Streamlit review UI |
 | `evaluate-ar [--fail-below 0.98] [--queries] [--floor] [--no-seed] [--json]` | Arabic list lines through `/parse-list`, precision and recall per level (`cli_arabic`; add it to `cli.EXTENSIONS`, or run `python -m smartcart_catalog.cli_arabic evaluate-ar`) |
 
+| `audit-real [--out FILE] [--date D] [--require-verdicts] [--relabel FILE]` | Machine audit of the rule pipeline on the real fixtures, writes `data/audit/real-<date>.csv` and prints precision per level (`audit_real`, see "Real items, first audit") |
 | `review [--port 8502]` | Streamlit review UI (needs the `review` extra) |
 | `backlog [--top N] [--days N]` | the expansion backlog: missed queries and uncovered products ([catalog.md](catalog.md) section 9) |
 
