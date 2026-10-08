@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useT } from "@/i18n/LocaleProvider";
 import { shellMessages } from "@/i18n/messages/shell";
 import { ConsentGate } from "@/features/consent/ConsentSheet";
@@ -15,6 +16,9 @@ import styles from "./AppShell.module.css";
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const t = useT(shellMessages);
+  // The beta join page explains the beta before it asks for event consent (it shows the sheet
+  // itself as part of joining), so the app-wide gate stays off there.
+  const onBetaPage = (usePathname() ?? "").startsWith("/beta");
   return (
     <div className={styles.shell}>
       <a href="#main" className="skip-link">
@@ -25,7 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <BottomNav />
-      <ConsentGate />
+      {onBetaPage ? null : <ConsentGate />}
     </div>
   );
 }

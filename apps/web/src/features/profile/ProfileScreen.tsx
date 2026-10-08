@@ -2,6 +2,7 @@
 
 import { DocumentTitle } from "@/components/shell/PageChrome";
 import { ThemePreferenceControl } from "@/components/theme/ThemePreferenceControl";
+import { LocaleSwitch } from "@/i18n/LocaleSwitch";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Price } from "@/components/ui/Price";
@@ -163,6 +164,7 @@ export function ProfileScreen() {
             {t("themeHeading")}
           </h2>
           <ThemePreferenceControl />
+          <LocaleSwitch />
         </Card>
 
         <Card as="section" aria-labelledby="privacy-heading">

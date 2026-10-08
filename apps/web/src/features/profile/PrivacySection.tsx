@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { UsageEventsControl } from "@/features/consent/UsageEventsControl";
+import { BetaFeedbackEntry } from "@/features/beta";
 import { ImageConsentToggle } from "@/features/photo/ImageConsentToggle";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { profileMessages } from "@/i18n/messages/profile";
@@ -67,6 +68,8 @@ export function PrivacySection() {
       />
 
       <UsageEventsControl />
+
+      <BetaFeedbackEntry />
 
       <ImageConsentToggle />
 
