@@ -357,3 +357,28 @@ export async function parseRecipe(body: ParseRecipeRequest): Promise<ParseRecipe
 export type ParseImageResponse = Schemas["ParseImageResponse"];
 export type ReceiptSummary = Schemas["ReceiptSummary"];
 export type ChainOnline = Schemas["ChainOnline"];
+
+// --- closed beta (#40): invite codes, membership, feedback -------------------------------------
+export type BetaMembership = Schemas["BetaMembership"];
+export type BetaSegment = NonNullable<BetaMembership["segment"]>;
+export type BetaFeedbackInput = Opt<Schemas["BetaFeedbackIn"], "text">;
+
+/** `POST /beta/join`: turns an invite code into a membership. 404 unknown, 410 expired or used up. */
+export async function joinBeta(code: string): Promise<BetaMembership> {
+  return unwrap(await api.POST("/beta/join", { body: { code } }));
+}
+
+/** `GET /me/beta`: am I a member, and of which segment. Needs the bearer token. */
+export async function getBetaMembership(): Promise<BetaMembership> {
+  return unwrap(await api.GET("/me/beta"));
+}
+
+/** `DELETE /me/beta`: leave the beta (deletes the member row; idempotent). */
+export async function leaveBeta(): Promise<Ack> {
+  return unwrap(await api.DELETE("/me/beta"));
+}
+
+/** `POST /beta/feedback` (201, members only): a 1 to 5 rating and up to 1000 characters. */
+export async function postBetaFeedback(body: BetaFeedbackInput): Promise<Ack> {
+  return unwrap(await api.POST("/beta/feedback", { body: { text: "", ...body } }));
+}

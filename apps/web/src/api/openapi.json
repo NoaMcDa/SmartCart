@@ -178,7 +178,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -190,6 +189,79 @@
           "quantity"
         ],
         "title": "BasketItem",
+        "type": "object"
+      },
+      "BetaFeedbackIn": {
+        "additionalProperties": false,
+        "properties": {
+          "rating": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "type": "integer"
+          },
+          "text": {
+            "default": "",
+            "description": "Free text; stored with the segment only, never with the user",
+            "maxLength": 1000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rating"
+        ],
+        "title": "BetaFeedbackIn",
+        "type": "object"
+      },
+      "BetaJoinRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "Invite code from a join link (case does not matter)",
+            "maxLength": 32,
+            "minLength": 6,
+            "pattern": "^[A-Za-z0-9-]+$",
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "BetaJoinRequest",
+        "type": "object"
+      },
+      "BetaMembership": {
+        "additionalProperties": false,
+        "properties": {
+          "member": {
+            "title": "Member",
+            "type": "boolean"
+          },
+          "segment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "large_family",
+                  "kosher",
+                  "periphery",
+                  "general"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when not a member",
+            "title": "Segment"
+          }
+        },
+        "required": [
+          "member"
+        ],
+        "title": "BetaMembership",
         "type": "object"
       },
       "Body_parse_image_parse_image_post": {
@@ -388,7 +460,6 @@
           "home_store_total": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -526,7 +597,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -575,7 +645,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -681,7 +750,6 @@
           },
           "quantity": {
             "default": "1",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Quantity",
             "type": "string"
           },
@@ -751,7 +819,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -912,7 +979,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -1272,7 +1338,6 @@
           },
           "quantity": {
             "default": "1",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Quantity",
             "type": "string"
           },
@@ -1358,14 +1423,12 @@
             "type": "integer"
           },
           "total": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total",
             "type": "string"
           },
           "travel_cost": {
             "default": "0",
             "description": "Round-trip travel to this plan's stores, ILS",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Travel Cost",
             "type": "string"
           }
@@ -1430,7 +1493,6 @@
             "type": "integer"
           },
           "threshold_unit_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Threshold Unit Price",
             "type": "string"
           }
@@ -1481,7 +1543,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -1592,7 +1653,6 @@
           "shelf_price": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -1614,7 +1674,6 @@
             "title": "Store Id"
           },
           "unit_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Unit Price",
             "type": "string"
           }
@@ -1647,7 +1706,6 @@
           "club_offer_discount": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -1691,7 +1749,6 @@
             "type": "string"
           },
           "effective_unit_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Effective Unit Price",
             "type": "string"
           },
@@ -1710,7 +1767,6 @@
             "type": "integer"
           },
           "line_total": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Line Total",
             "type": "string"
           },
@@ -1733,7 +1789,6 @@
           "promo_add_qty": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -1746,7 +1801,6 @@
           "promo_add_saving": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -1790,7 +1844,6 @@
           "promo_min_qty": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -1801,12 +1854,10 @@
             "title": "Promo Min Qty"
           },
           "quantity": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Quantity",
             "type": "string"
           },
           "shelf_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Shelf Price",
             "type": "string"
           },
@@ -1855,7 +1906,6 @@
           },
           "cost_per_km": {
             "default": "1.2",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Cost Per Km",
             "type": "string"
           },
@@ -1873,7 +1923,6 @@
           },
           "extra_stop_value": {
             "default": "25",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Extra Stop Value",
             "type": "string"
           },
@@ -1921,7 +1970,6 @@
           "monthly_budget": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
                 "type": "string"
               },
               {
@@ -2020,7 +2068,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -2042,7 +2089,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -2097,7 +2143,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
                 "type": "string"
               },
               {
@@ -2171,7 +2216,6 @@
           "add_qty": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2191,7 +2235,6 @@
             "type": "string"
           },
           "saving": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Saving",
             "type": "string"
           }
@@ -2455,7 +2498,6 @@
           "price": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2468,7 +2510,6 @@
           "quantity": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2526,7 +2567,6 @@
           "total": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2545,23 +2585,19 @@
         "properties": {
           "basket_saving": {
             "description": "Home store total minus this plan's basket total",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Basket Saving",
             "type": "string"
           },
           "extra_stop_cost": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Extra Stop Cost",
             "type": "string"
           },
           "net_saving": {
             "description": "basket_saving - travel_cost - extra_stop_cost; the hero number",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Net Saving",
             "type": "string"
           },
           "travel_cost": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Travel Cost",
             "type": "string"
           }
@@ -2834,7 +2870,6 @@
           },
           "total": {
             "description": "ILS; the user's actual total overrides the app's estimate",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
             "title": "Total",
             "type": "string"
           }
@@ -2904,7 +2939,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2929,7 +2963,6 @@
           "budget": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2966,7 +2999,6 @@
           "budget": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -2991,7 +3023,6 @@
             "type": "string"
           },
           "total": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total",
             "type": "string"
           }
@@ -3102,7 +3133,6 @@
             "title": "Promo Description"
           },
           "shelf_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Shelf Price",
             "type": "string"
           },
@@ -3125,7 +3155,6 @@
             "title": "Tags"
           },
           "unit_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Unit Price",
             "type": "string"
           },
@@ -3313,7 +3342,6 @@
           "saving_vs_home": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3336,7 +3364,6 @@
             "type": "integer"
           },
           "total": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total",
             "type": "string"
           }
@@ -3481,7 +3508,6 @@
           },
           "saving": {
             "description": "For the requested quantity, ILS",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Saving",
             "type": "string"
           },
@@ -3543,7 +3569,6 @@
             ]
           },
           "total_saving": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Saving",
             "type": "string"
           }
@@ -3567,7 +3592,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -3582,7 +3606,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -3653,6 +3676,133 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/beta/feedback": {
+      "post": {
+        "operationId": "post_feedback_beta_feedback_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BetaFeedbackIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "not a beta member"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send feedback on the beta (members only)",
+        "tags": [
+          "beta"
+        ]
+      }
+    },
+    "/beta/join": {
+      "post": {
+        "operationId": "join_beta_beta_join_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BetaJoinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetaMembership"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "unknown code"
+          },
+          "410": {
+            "description": "expired or used up"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Join the closed beta with an invite code",
+        "tags": [
+          "beta"
+        ]
+      }
+    },
     "/chains/online": {
       "get": {
         "operationId": "chains_online_chains_online_get",
@@ -4434,6 +4584,102 @@
         "summary": "Update Alert",
         "tags": [
           "alerts"
+        ]
+      }
+    },
+    "/me/beta": {
+      "delete": {
+        "operationId": "leave_beta_me_beta_delete",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Leave the closed beta",
+        "tags": [
+          "beta"
+        ]
+      },
+      "get": {
+        "operationId": "my_beta_me_beta_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetaMembership"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Am I in the closed beta?",
+        "tags": [
+          "beta"
         ]
       }
     },

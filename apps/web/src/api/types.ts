@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/beta/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send feedback on the beta (members only) */
+        post: operations["post_feedback_beta_feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/beta/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join the closed beta with an invite code */
+        post: operations["join_beta_beta_join_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chains/online": {
         parameters: {
             query?: never;
@@ -209,6 +243,24 @@ export interface paths {
         post?: never;
         /** Delete Alert */
         delete: operations["delete_alert_me_alerts__alert_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/beta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Am I in the closed beta? */
+        get: operations["my_beta_me_beta_get"];
+        put?: never;
+        post?: never;
+        /** Leave the closed beta */
+        delete: operations["leave_beta_me_beta_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -682,6 +734,35 @@ export interface components {
             flex_level: "exact" | "any_brand" | "close";
             /** Quantity */
             quantity: number | string;
+        };
+        /** BetaFeedbackIn */
+        BetaFeedbackIn: {
+            /** Rating */
+            rating: number;
+            /**
+             * Text
+             * @description Free text; stored with the segment only, never with the user
+             * @default
+             */
+            text: string;
+        };
+        /** BetaJoinRequest */
+        BetaJoinRequest: {
+            /**
+             * Code
+             * @description Invite code from a join link (case does not matter)
+             */
+            code: string;
+        };
+        /** BetaMembership */
+        BetaMembership: {
+            /** Member */
+            member: boolean;
+            /**
+             * Segment
+             * @description null when not a member
+             */
+            segment?: ("large_family" | "kosher" | "periphery" | "general") | null;
         };
         /** Body_parse_image_parse_image_post */
         Body_parse_image_parse_image_post: {
@@ -2096,6 +2177,97 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    post_feedback_beta_feedback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BetaFeedbackIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ack"];
+                };
+            };
+            /** @description not a beta member */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    join_beta_beta_join_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BetaJoinRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BetaMembership"];
+                };
+            };
+            /** @description unknown code */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description expired or used up */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     chains_online_chains_online_get: {
         parameters: {
             query?: never;
@@ -2533,6 +2705,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_beta_me_beta_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BetaMembership"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leave_beta_me_beta_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ack"];
+                };
             };
             /** @description Validation Error */
             422: {

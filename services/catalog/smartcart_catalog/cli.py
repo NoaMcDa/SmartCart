@@ -37,6 +37,7 @@ EXTENSIONS: tuple[str, ...] = (
     "smartcart_catalog.cli_matching",
     "smartcart_catalog.cli_seo",
     "smartcart_catalog.cli_promo",
+    "smartcart_catalog.beta_admin",  # after cli_seo: its beta-report adds the by-segment section
 )
 
 
