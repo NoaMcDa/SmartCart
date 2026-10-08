@@ -114,21 +114,39 @@ def http_status(url: str, timeout: float) -> int:
     return code
 
 
-def ftp_login(host: str, user: str, timeout: float) -> str:
-    """``ok`` when an FTP-over-TLS login as ``user`` (empty password) succeeds, the way the
-    upstream Cerberus engine logs in; otherwise ``failed: <reason>``. Lists nothing."""
+def _ftp_try(host: str, user: str, timeout: float, context: ssl.SSLContext | None) -> str | None:
+    """None when the FTP-over-TLS login works with ``context``, else the error."""
     try:
-        ftp = ftplib.FTP_TLS(host, timeout=timeout, context=ssl.create_default_context())
+        # ftplib.FTP_TLS(host, user, passwd) connects, sends AUTH TLS and logs in, as upstream.
+        ftp = ftplib.FTP_TLS(host, user, "", timeout=timeout, context=context)
         try:
-            ftp.login(user, "")
-            ftp.prot_p()
+            ftp.voidcmd("NOOP")  # upstream sends no PROT P either; it lists over the clear channel
         finally:
             try:
                 ftp.quit()
             except (ftplib.Error, OSError):
                 ftp.close()
     except (ftplib.Error, OSError, EOFError) as exc:
-        return f"failed: {type(exc).__name__}: {str(exc)[:120]}"
+        return f"{type(exc).__name__}: {str(exc)[:160]}"
+    return None
+
+
+def ftp_login(host: str, user: str, timeout: float) -> str:
+    """``ok`` when the Cerberus login works the way the upstream scraper logs in, otherwise
+    ``failed: <reason>``. Lists nothing.
+
+    Upstream (``il_supermarket_scarper.utils.network.connection._open_ftp_tls``) opens
+    ``ftplib.FTP_TLS(host, user, password)`` with no context, which makes ftplib use
+    ``ssl._create_stdlib_context()``, an unverified context: the certificate is neither checked
+    against a CA nor against the host name. The portal's certificate does not match
+    ``url.retail.publishedprices.co.il`` (seen from a GitHub runner, 2026-10-08), so a verifying
+    client fails where the scraper succeeds. The login check therefore uses upstream's mode, and
+    a second, verifying handshake only annotates the result."""
+    err = _ftp_try(host, user, timeout, None)
+    if err:
+        return f"failed: {err}"
+    if _ftp_try(host, user, timeout, ssl.create_default_context()):
+        return "ok (certificate not verified, as upstream; it fails verification)"
     return "ok"
 
 
@@ -190,7 +208,8 @@ def probe(out: Path, slugs: Sequence[str], timeout: float, skip_downloads: bool)
         if not skip_downloads:
             for kind in KINDS:
                 row["downloads"][kind] = fetch_one(slug, kind, work, files, timeout)
-                print(f"  {kind:10} {json.dumps(row['downloads'][kind])[:300]}", flush=True)
+                print(f"  {kind:10} {json.dumps(row['downloads'][kind], ensure_ascii=False)}",
+                      flush=True)  # fmt: skip
         result["chains"][slug] = row
     shutil.rmtree(work, ignore_errors=True)
     result["finished_at"] = datetime.now(UTC).isoformat(timespec="seconds")
@@ -276,6 +295,29 @@ def parse_summary(adapter, path: Path) -> dict:  # noqa: ANN001
     }
 
 
+def result_line(slug: str, kind: str, entry: dict) -> str:
+    """One untruncated log line per file: what the adapter read and what the gates decided."""
+    p, g = entry.get("parse", {}), entry.get("gate", {})
+    fields = {
+        "chain": slug,
+        "kind": kind,
+        "file": entry.get("file"),
+        "bytes": entry.get("bytes"),
+        "published_at": entry.get("published_at"),
+        "schema": p.get("schema") or g.get("schema"),
+        "stores": p.get("stores"),
+        "online_stores": p.get("online_stores"),
+        "items": p.get("items"),
+        "prices": p.get("prices"),
+        "parse_error": p.get("error"),
+        "status": g.get("status"),
+        "gates": ",".join(g.get("gates") or []) or None,
+        "reason": g.get("reason") or g.get("error"),
+    }
+    return "RESULT " + json.dumps({k: v for k, v in fields.items() if v is not None},
+                                  ensure_ascii=False)  # fmt: skip
+
+
 def _logs_to_stderr() -> None:
     """Pipeline logs (structlog) at warning level on stderr, so stdout carries the report."""
     import logging
@@ -353,11 +395,12 @@ def gate(files: Path, slugs: Sequence[str], now: datetime | None) -> dict:
                         entry["gate"] = {"status": row[1], "reason": row[2], "gates": gates,
                                          "schema": row[3]}  # fmt: skip
                     results[kind] = entry
+                    print(result_line(slug, kind, entry), file=sys.stderr, flush=True)
                 out[slug] = results
     finally:
         shutil.rmtree(raw_dir, ignore_errors=True)
     return {"files": out, "alerts": [{"chain_id": a.chain_id, "kind": a.kind,
-                                      "message": a.message[:300]} for a in sink.alerts]}  # fmt: skip
+                                      "message": a.message} for a in sink.alerts]}  # fmt: skip
 
 
 # --- report --------------------------------------------------------------------------------------------
@@ -477,6 +520,82 @@ def render(probe_result: dict | None, gate_result: dict, slugs: Sequence[str]) -
     return "\n".join(lines) + "\n"
 
 
+# --- real fixtures ---------------------------------------------------------------------------------------
+
+
+def build_fixtures(files: Path, gate_json: dict, out: Path, max_items: int) -> dict[str, list]:
+    """Write ``out/<slug>/real/`` for every file the adapter parsed in the gate step: Stores
+    files whole, PriceFull files trimmed to their first ``max_items`` rows
+    (``fetch_fixtures.trim_price_file``), each re-parsed through the adapter, and a
+    ``MANIFEST.json`` per chain. Files the adapter rejected are not written. Returns the
+    manifests by slug."""
+    import hashlib
+
+    from smartcart_ingest.adapters.fetch_fixtures import adapters_by_slug, trim_price_file
+
+    adapters = adapters_by_slug()
+    downloads = {
+        slug: row.get("downloads", {})
+        for slug, row in ((gate_json.get("probe") or {}).get("chains") or {}).items()
+    }
+    manifests: dict[str, list] = {}
+    for slug, kinds in sorted((gate_json.get("files") or {}).items()):
+        if slug not in adapters or not isinstance(kinds, dict):
+            continue
+        adapter = adapters[slug]()
+        entries = []
+        for kind in KINDS:
+            entry = kinds.get(kind)
+            if not entry or "error" in entry.get("parse", {"error": "missing"}):
+                continue
+            src = files / slug / entry["file"]
+            data = src.read_bytes()
+            record: dict = {
+                "file": entry["file"],
+                "kind": kind,
+                "source_file": entry["file"],
+                "sha256_original": hashlib.sha256(data).hexdigest(),
+                "bytes_original": len(data),
+                "published_at": entry.get("published_at"),
+                "fetched_at": downloads.get(slug, {}).get(kind, {}).get("fetched_at"),
+                "schema": entry["parse"].get("schema"),
+                "gate": {k: entry.get("gate", {}).get(k) for k in ("status", "gates", "reason")},
+            }
+            try:
+                if kind == "price_full":
+                    body, before, after = trim_price_file(data, max_items)
+                    record["items_original"], record["items_trimmed"] = before, after
+                else:
+                    body = data
+                    record["stores"] = entry["parse"].get("stores")
+                parsed = adapter.parse(adapter.raw_file_for(src.name, body), body)
+            except Exception as exc:  # noqa: BLE001 - a file that does not trim cleanly is skipped
+                print(f"FIXTURE skipped {slug}/{src.name}: {type(exc).__name__}: {exc}",
+                      file=sys.stderr)  # fmt: skip
+                continue
+            if kind == "price_full" and len(parsed.prices) != record["items_trimmed"]:
+                print(f"FIXTURE note {slug}/{src.name}: {len(parsed.prices)} prices parsed from "
+                      f"{record['items_trimmed']} rows", file=sys.stderr)  # fmt: skip
+            record["sha256"] = hashlib.sha256(body).hexdigest()
+            record["bytes"] = len(body)
+            record["parsed"] = {"stores": len(parsed.stores), "items": len(parsed.items),
+                                "prices": len(parsed.prices)}  # fmt: skip
+            dest = out / slug / "real"
+            dest.mkdir(parents=True, exist_ok=True)
+            (dest / src.name).write_bytes(body)
+            entries.append(record)
+            print("FIXTURE " + json.dumps({"chain": slug, **record}, ensure_ascii=False),
+                  file=sys.stderr)  # fmt: skip
+        if entries:
+            (out / slug / "real" / "MANIFEST.json").write_text(
+                json.dumps({"chain_id": adapter.chain_id, "max_items": max_items,
+                            "files": entries}, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )  # fmt: skip
+            manifests[slug] = entries
+    return manifests
+
+
 # --- main ----------------------------------------------------------------------------------------------
 
 
@@ -496,11 +615,21 @@ def main(argv: list[str] | None = None) -> int:
                    help="ISO time for the gates' clock (tests only; default: the real clock)")  # fmt: skip
     g.add_argument("--out", type=Path, default=None, help="Markdown table (default stdout)")
     g.add_argument("--json-out", type=Path, default=None)
+    f = sub.add_parser("fixtures", help="write <slug>/real/ regression fixtures (no database)")
+    f.add_argument("--files", type=Path, required=True, help="directory of <slug>/<file>")
+    f.add_argument("--gate-json", type=Path, required=True, help="--json-out of the gate step")
+    f.add_argument("--out", type=Path, required=True, help="e.g. a copy of tests/fixtures")
+    f.add_argument("--max-items", type=int, default=200, help="rows kept per PriceFull")
     args = ap.parse_args(argv)
-    slugs = args.chain or [p.slug for p in PORTALS]
+    slugs = args.chain if getattr(args, "chain", None) else [p.slug for p in PORTALS]
 
     if args.cmd == "probe":
         probe(args.out, slugs, args.timeout, args.skip_downloads)
+        return 0
+    if args.cmd == "fixtures":
+        gate_json = json.loads(args.gate_json.read_text(encoding="utf-8"))
+        made = build_fixtures(args.files, gate_json, args.out, args.max_items)
+        print(f"fixtures written for {len(made)} chain(s): {', '.join(made) or 'none'}")
         return 0
 
     if not os.environ.get("DATABASE_URL"):

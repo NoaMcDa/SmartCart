@@ -293,11 +293,42 @@ The job summary is one table: chain, portal reachable (HTTP status), login (Cerb
 Stores and PriceFull file (name, size, publication time), what the adapter parsed (stores and
 online stores; items and prices), the gate result (`loaded`, `quarantined (<gates>)`, `failed
 (<reason>)`) and the schema the adapter detected (v1 or v2; v2 depends on the provisional marker,
-#57). Download errors and alerts follow in collapsed sections. Artifacts: `portal-probe-files`
-(the raw files, 7 days) and `portal-probe-report` (table and JSON, 30 days). A real file that
-parses can be promoted to a regression fixture as `fetch_fixtures.py` describes. Inputs: `chains`
-(space-separated slugs, default all ten) and `timeout` (seconds per download, default 180). The
-job only fails if the script itself breaks; unreachable portals are a result. In one fresh
+#57). Download errors and alerts follow in collapsed sections. The same table is also printed to
+the job log, and the gate step logs one untruncated `RESULT {...}` JSON line per file (chain,
+kind, file, size, publication time, schema, stores, items, prices, parse error, status, gates,
+reason), so the outcome can be read without downloading an artifact. Artifacts:
+`portal-probe-files` (the raw files, 7 days) and `portal-probe-report` (table and JSON, 30 days).
+Inputs: `chains` (space-separated slugs, default all ten), `timeout` (seconds per download,
+default 180) and `commit_fixtures` (below). The job only fails if the script itself breaks;
+unreachable portals are a result.
+
+The Cerberus login (Rami Levy, Tiv Taam, Osher Ad, Yohananof) is checked the way the upstream
+scraper connects: `ftplib.FTP_TLS(host, user, "")` on `url.retail.publishedprices.co.il` with no
+SSL context, which in ftplib means an unverified one (no CA and no host-name check). The portal's
+certificate does not match that host name (seen from a runner on 2026-10-08), so a verifying login
+fails while the scraper downloads normally; the result then reads `ok (certificate not verified,
+as upstream; ...)`. This is the upstream package's behaviour for public price data, recorded here,
+not changed.
+
+**Committing real fixtures (`commit_fixtures`, #32).** With the input set, the probe job runs
+`portal_probe.py fixtures` after the gates: every file the adapter accepted is written to
+`<chain>/real/`, Stores whole and PriceFull trimmed to its first 200 rows by
+`fetch_fixtures.trim_price_file` (decoded and parsed with the adapters' own `xmlutil`, no entity
+resolution; header, XML declaration, encoding, BOM and outer gzip or zip kept; a numeric `Count`
+on the container updated), then re-parsed through the adapter. Each chain gets a `MANIFEST.json`:
+source file name, sha256 and size of the original and of the committed file, publication and
+fetch times, rows before and after trimming, what the adapter parsed, the schema and the gate
+result seen on the runner. A separate job, the only one with `contents: write`, copies the
+artifact into `services/ingest/tests/fixtures/<chain>/real/` (`scripts/unblock/copy_fixtures.sh`
+accepts only `<known chain>/real/<plain file name>`), commits as `github-actions[bot]` and pushes
+the branch `probe/fixtures-<YYYYMMDD>` (with the run id appended if that branch exists). No pull
+request is opened, and a push with the workflow token does not start other workflows, so CI runs
+when the pull request is opened. `tests/test_adapters.py` then picks the files up: each must parse
+through its adapter with a schema, a publication time and (PriceFull) a store code, items, prices
+with a store code and every price above zero; and per chain the files go through the Scheduler
+path with the clock one hour after the newest file and must load, or be quarantined only by the quality
+gates above that their `MANIFEST.json` recorded. The synthetic fixtures are unchanged
+and stay the regression set for the edge cases. In one fresh
 database a PriceFull has no earlier file, so the item-count and price-jump gates cannot trip;
 stale date and zero price can.
 
