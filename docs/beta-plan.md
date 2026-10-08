@@ -194,3 +194,24 @@ pages (issue #35) goes in the same report.
 | Every rejected substitution stored with context and reviewed in the review UI | Storage and queue exist (`substitution_feedback`, `needs_review`); review happens during the beta |
 | Beta report states whether the threshold was met and what was fixed | Template in `beta-report`; written at the end |
 | Public launch gated on the threshold | Rule in section 1 |
+
+## 8. Native-decision views (#56)
+
+The events already collected answer the native-app question (decision D15, `decisions.md`) through six
+more views, migration `20261011100300_retention.sql`. Like the beta views they are over `events`, use
+Israel-time weeks starting Monday and `security_invoker`, and are not readable through the Supabase data
+API. `smartcart-catalog native-report` prints them with their sample sizes and the D15 criteria.
+
+| View | One row per | Answers |
+|---|---|---|
+| `native_events` | event | the five events below with week, day and actor (`app_opened`, `pwa_installed`, `push_opt_in`, `push_opened`, `store_mode_used`) |
+| `native_cohort_retention` | cohort week (first `app_opened`) | cohort size and D1, D7, D30: eligible, retained, rate. Dn counts an actor only once day n is over; a rate is NULL, not 0, with no eligible actor |
+| `native_installs_by_platform` | week and platform | `pwa_installed` events, distinct installers, active users that week |
+| `native_push_engagement` | week | active users, push opt-in users and rate, pushes sent (`alert_deliveries.channel = 'push'`), `push_opened`, open rate |
+| `native_store_mode_usage` | week | active users, store-mode users and share, opens by plan, opens per store-mode user (weeks with no use are listed with 0) |
+| `native_platform_funnel` | platform (all time) | actors seen on a platform-tagged event, installers, push opt-ins and opens, store-mode users, share who never installed |
+
+Limits (the report repeats them): an actor is a user id or a browser session id, so retention is a lower
+bound and an installed iOS PWA is a separate actor from the Safari tab; `app_opened` has no platform, so
+platform shares are among actors who fired a tagged event; there is no "push prompt shown" event, so
+opt-in is a floor; opens are client-reported. No event carries an id, a name, a price or free text.

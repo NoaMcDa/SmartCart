@@ -133,7 +133,7 @@
 
 /* Theme-independent tokens: layout, radii, type. */
 :root {
-  --sc-font: var(--font-heebo), "Heebo", system-ui, sans-serif;
+  --sc-font: var(--font-heebo), var(--font-noto-arabic), "Heebo", system-ui, sans-serif;
   --sc-touch: 44px;
   --sc-gutter: 20px;
   --sc-gutter-desktop: 24px;

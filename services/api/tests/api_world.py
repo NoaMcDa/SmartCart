@@ -13,6 +13,8 @@ from decimal import Decimal
 
 import jwt
 import psycopg
+import psycopg.sql
+import pytest
 from psycopg.types.json import Jsonb
 
 from smartcart_api.embedding import query_embedder, to_pgvector
@@ -254,3 +256,36 @@ def seed_world(db: psycopg.Connection) -> World:
     return w
 
 
+# --- the API's least-privilege role (migration 20261011100500) ---------------------------------
+
+API_TEST_ROLE = "smartcart_api_t"
+
+
+def make_api_role(db: psycopg.Connection, name: str = API_TEST_ROLE) -> str:
+    """A throwaway role with exactly the grants of ``smartcart_api`` (migration 20261011100500).
+
+    It is made inside the test's transaction, so it disappears with the rollback. NOINHERIT as in
+    the migration, so smartcart_app's rights are reachable only through SET ROLE. Skips the test
+    when the database does not let the migrating role grant on the ``auth`` schema (Supabase's
+    own), because the API cannot work there without it either."""
+    ident = psycopg.sql.Identifier(name)
+    db.execute(psycopg.sql.SQL("CREATE ROLE {} NOLOGIN NOINHERIT").format(ident))
+    if db.info.server_version >= 160000:  # the creator may administer the role, not SET to it
+        db.execute(psycopg.sql.SQL("GRANT {} TO CURRENT_USER WITH SET TRUE").format(ident))
+    db.execute("SELECT smartcart_grant_api_role(%s)", (name,))
+    if not db.execute("SELECT has_schema_privilege(%s, 'auth', 'USAGE')", (name,)).fetchone()[0]:
+        pytest.skip("this database does not let the migrating role grant on the auth schema")
+    return name
+
+
+def assume_role(db: psycopg.Connection, role: str) -> None:
+    """Run what follows as ``role``. SET SESSION AUTHORIZATION (superuser) survives the RESET ROLE
+    that the user routes end with; without superuser, SET ROLE has to do."""
+    superuser = db.execute("SELECT rolsuper FROM pg_roles WHERE rolname = current_user").fetchone()[0]
+    stmt = "SET SESSION AUTHORIZATION {}" if superuser else "SET ROLE {}"
+    db.execute(psycopg.sql.SQL(stmt).format(psycopg.sql.Identifier(role)))
+
+
+def release_role(db: psycopg.Connection) -> None:
+    db.execute("RESET SESSION AUTHORIZATION")
+    db.execute("RESET ROLE")

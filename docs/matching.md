@@ -203,10 +203,17 @@ to review, which is the safe failure.
 uv run smartcart-catalog review        # or: uv run streamlit run services/catalog/smartcart_catalog/review_app.py
 ```
 
-Needs `DATABASE_URL` with write access to `item_canonical` and `gold_pairs`. Tabs:
+Needs `DATABASE_URL` with write access to `item_canonical` and `gold_pairs`, and Streamlit, which
+is the optional `review` extra of `smartcart-catalog` (`uv sync --extra review --package
+smartcart-catalog`, or `uv sync --all-packages`); without it `review` prints that hint and exits 2.
+The API image does not install it. Tabs:
 
-- **Review queue**: every `needs_review` mapping, items users reported as "not a good
-  substitute" first (marked), then by canonical `rank` (best sellers first), then confidence.
+- **Review queue**: every `needs_review` mapping, most uncertain first (`active.select_for_review`,
+  issue #52): items users reported as "not a good substitute" (marked, most reports first), then
+  those closest to the accept threshold (|confidence - 0.90|, in bands of 0.02), then those where
+  the learned embedder and the hash embedder disagree, then by canonical `rank` (best sellers
+  first). The sidebar shows labels per hour over the last 7 days, from the reviewers' own
+  timestamps. Ordering, the metric and their limits: [catalog.md](catalog.md) section 9.
   Each row shows the item name, chain, barcode, extracted attributes and their source, the block,
   the top candidates with similarity and the judge's reason for each (vetoes included).
   Actions: **Accept** (optionally at another level), **Reject**, **Re-map** to another candidate.
@@ -222,7 +229,8 @@ rejections" above). `gold_pairs` is used for evaluation only: it no longer decid
 may write. The queue shows the stored judge reason; `explain` re-runs retrieval only to list the
 candidates a reviewer can re-map to (rejected canonicals excluded). The query and command
 functions (`review_queue`, `explain`, `bestseller_status`, `accept`, `reject`, `remap`) are
-tested without Streamlit in `tests/test_match_review.py`.
+tested without Streamlit in `tests/test_match_review.py`; the selection order and the labels-per-hour
+metric in `tests/test_active_selection.py`.
 
 ## Feedback loop (#43)
 
@@ -303,6 +311,96 @@ from the same generator; the hash embedder benefits from template names sharing 
 canonical names; and real chain names are messier (truncation, internal codes, typos). Treat
 them as a regression baseline for the pipeline, not as the D5 target being met.
 
+## Arabic queries (#73)
+
+Arabic shoppers type list lines, not chain item names, so Arabic matching starts at the list: a
+line with more Arabic than Hebrew letters (`normalize.script_of`) takes the Arabic path; Hebrew
+and Latin-only text never does, so Hebrew behavior is byte-identical (the Hebrew list-parsing
+cases are pinned by `services/api/tests/test_api_arabic_parse.py`, the Hebrew gold evaluation is
+unchanged). Display names stay Hebrew in the API for now (`CanonicalRef.display_name_he`); each
+canonical carries 1-3 Arabic names (`names_ar`, machine drafted, **needs native-speaker review**;
+see `docs/catalog.md`, "Arabic names").
+
+**List entry** (`smartcart_api/listparse.py`). Newline, `،`, `;`, `؛` and bullets separate items; a
+comma between digits is a decimal mark (`1,5 كيلو`). `و` ("and") between items splits the way the
+Hebrew vav does: attached (`حليب وخبز`) or standalone (`حليب و خبز`), only when each part resolves
+at least as well as the whole (`منديل ورق` stays one item), and never inside a quantity
+(`كيلو ونص بندورة`). Quantities: digits in any script, number words (`ثلاث`), `نص`/`ربع` and
+`ونص`/`وربع`, units kilo/gram (`كيلو`, `كغم`, `غرام`, `غم`, ...) become kilograms, count nouns
+(`علبة`, `حبة`, `كيس`, ...) are counts, duals are 2 (`علبتين`, `كيلوين`), litres are packs when whole
+(`2 لتر` = 2), `500 مل` is a size. Trailing quantities need a marker or a unit (`بندورة 2 كيلو`,
+`حليب 3 علب`, `حليب x3`, `بيض عدد 2`); a bare trailing number, grams and a lone `علبة` stay in the text,
+as in Hebrew. A bare plural noun (`اكياس زبالة`) is the product, not a unit.
+
+**Retrieval** (`smartcart_api/search.py`, `_hybrid_search_ar`). Same three retrievers and the same RRF
+and confidence; trigram and full text read `canonical_products.names_ar` through
+`search_norm_ar()` (migration `20261011100600`, identical to `normalize.fold_ar`, checked by
+`test_arabic_fold_sql.py`): alef forms, `ى`, `ة`, `ؤ`, `ئ`, hamza, tashkeel, tatweel, digits,
+`٪`. The query is cleaned first (brands such as تنوفا, soft descriptors `كبير`/`عائلي`, politeness, bare
+numbers and pack sizes are dropped), then tried with and without the article ال, the conjunction و
+and بال/لل. The vector retriever is unchanged and is **recall only** for Arabic: a hit found
+by vectors alone is shown as a candidate, capped at 0.60, never answered.
+
+**Precision rules** (all in the Arabic path only):
+
+1. Hard checks drop a canonical whose critical attribute the query contradicts: fat percentage
+   (compared as a number, so 3% is never 30% or 38%), fresh/frozen/canned/dry (a query that says
+   "dry" does not contradict the catalog's fresh dry onion), plant base (soy, almond, oat) and a
+   sibling's flavor (`بوريكس بطاطا` is not cheese burekas). The lexicons live in `normalize.py` and
+   the seed validates the names with the same lexicons.
+2. A match found only by the beginning of a word counts 0.8, words up to three letters must be equal
+   (`لبن`, yogurt, is not `لبنة`, labneh; `موز` is not `موزاريلا`; `طحين` flour counts less for `طحينة`).
+3. Confidence is capped at 0.70 when the query covers less than 80% of the best name's words (an
+   unstated qualifier: `حليب 2%` against "milk without lactose 2%") or states a percentage the name
+   lacks (`حليب لوز 3%`), and at 0.60 when the words are in another order (`حليب شوكولاتة` is the
+   drink, `شوكولاتة حليب` the bar).
+4. A line with fewer than two letters returns nothing.
+
+**Evaluation** (`evaluate_ar.py`; `smartcart-catalog evaluate-ar --fail-below 0.98`, or
+`uv run python -m smartcart_catalog.cli_arabic evaluate-ar` until `cli.py` lists
+`smartcart_catalog.cli_arabic` in `EXTENSIONS`). It seeds the canonicals with their Arabic names,
+sends each line of `data/gold/arabic_queries.yaml` through `POST /parse-list` (the API's own code,
+flexibility level set for every taxonomy node) and reports precision and recall per level. A line is
+*served* when its row has a canonical and confidence at least 0.75 (`CONFIRM_BELOW`, where the app
+stops asking the user); lower rows are suggestions the user confirms. A served line is correct when it
+is the expected slug; a served line whose expectation is `none` (not in the catalog, too general, or
+an attribute no canonical has) is wrong. `--fail-below` gates any_brand precision.
+
+**Measured on the synthetic Arabic set** (554 lines: 403 written while the rules were tuned, 151
+held out; hash embedder; 2026-10-08). **The set is synthetic, written by the same drafter as the names
+and not reviewed by a native speaker: not evidence of real precision**, only a regression baseline:
+
+| Level | Precision | Recall | Served | Lines | Lines that expect a slug |
+|---|---|---|---|---|---|
+| exact (brand in the line) | 1.0000 | 0.8889 | 24 | 34 | 27 |
+| any_brand | 1.0000 | 0.9363 | 338 | 490 | 361 |
+| close (soft descriptors) | 1.0000 | 1.0000 | 23 | 30 | 23 |
+| all | 1.0000 | 0.9367 | 385 | 554 | 411 |
+
+Held-out lines, written after the rules were tuned (151 lines): precision 1.0000, recall 0.7917
+(76 served). The first run of each held-out batch, before any fix, had one wrong answer: among 36
+served, `لبن` (yogurt) resolved to labneh by prefix; among 46 served, `عصير برتقال طبيعي` resolved
+to the chilled juice. The short-word rule and the 0.8 coverage threshold fix them, so the held-out
+numbers above are no longer clean either; the third batch (exact and close lines, 48 lines) had
+no wrong answer on its first run. Recall counting suggestions the user would confirm: 0.9416; precision of everything the
+app *shows* (confidence at least 0.35, including suggestions to confirm) is only 0.72, which is the
+ambiguity rule doing its job (`حليب` shows milk 3% with 1% beside it and asks). Recall is lower than
+precision on purpose: spelling variants, extra adjectives (`طماطم حمراء`), brands that are not in the
+list (`كلوروكس`, `بيبسي`) and typos end in a confirmation.
+
+What would make this evidence: real list lines from consenting Arabic-speaking users, labeled by a
+native speaker, with the 98% any_brand target of D5 re-measured; and a native-speaker review of the
+names (they are the ceiling of recall). `names_ar` are not embedded: with BGE-M3 the vector retriever
+sees only the Hebrew names, so `embed_canonicals` should also embed the Arabic names before vectors
+are expected to help Arabic recall.
+
+**Re-run after the active-learning change (issue #52), 2026-10-08.** Same set, same settings
+(fresh database with a UTF-8 ctype, `EMBEDDER=hash`, `cli_matching evaluate --fail-below 0.98`,
+exit 0): exact 1.0000 / 1.0000 (104 served of 104), any_brand 1.0000 / 0.8125 (546 of 672), close
+1.0000 / 0.7611 (634 of 833), recall@10 0.9988, 857 items, 634 auto-accepted, 198 to review, 25
+unmapped; review-queue-accepted any_brand precision 0.9940. Identical to the table above, as
+expected: the selector orders the review queue and writes nothing the judge reads.
+
 ## Fine-tuning trigger
 
 Retrieval is the recall ceiling: the judge can only accept what top-k returns. On the **real**
@@ -326,6 +424,10 @@ phase 1 (#29).
 | `judge [--judge rule\|llm] [--k 10] [--item-id N ...] [--dry-run] [--gold-lexicon]` | Match embedded items, write `item_canonical` |
 | `evaluate [--fail-below 0.98] [--embedder] [--judge] [--k] [--gold-dir] [--no-load] [--json]` | Gold-set metrics, saved to `match_runs` |
 | `review [--port 8502]` | Streamlit review UI |
+| `evaluate-ar [--fail-below 0.98] [--queries] [--floor] [--no-seed] [--json]` | Arabic list lines through `/parse-list`, precision and recall per level (`cli_arabic`; add it to `cli.EXTENSIONS`, or run `python -m smartcart_catalog.cli_arabic evaluate-ar`) |
+
+| `review [--port 8502]` | Streamlit review UI (needs the `review` extra) |
+| `backlog [--top N] [--days N]` | the expansion backlog: missed queries and uncovered products ([catalog.md](catalog.md) section 9) |
 
 The database is `$DATABASE_URL`; the embedder defaults to `$EMBEDDER` (`hash` when unset).
 

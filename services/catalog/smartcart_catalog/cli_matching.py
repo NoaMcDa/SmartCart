@@ -10,6 +10,7 @@ and BGE-M3's model name to ``$EMBEDDING_MODEL``.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -150,7 +151,15 @@ def evaluate(
 def review(
     port: Annotated[int, typer.Option(help="Streamlit port.")] = 8502,
 ) -> None:
-    """Open the Streamlit review UI."""
+    """Open the Streamlit review UI (needs the `review` extra)."""
+    if importlib.util.find_spec("streamlit") is None:
+        typer.echo(
+            "The review UI needs Streamlit, which is the optional 'review' extra of "
+            "smartcart-catalog.\nInstall it with:  uv sync --extra review --package "
+            "smartcart-catalog   (or: uv sync --all-packages)",
+            err=True,
+        )
+        raise typer.Exit(2)
     app_path = Path(__file__).with_name("review_app.py")
     raise typer.Exit(subprocess.call([sys.executable, "-m", "streamlit", "run", str(app_path),
                                       "--server.port", str(port)]))  # fmt: skip

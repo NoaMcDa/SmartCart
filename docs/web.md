@@ -1061,3 +1061,78 @@ accessibility statement shows a coordinator line from `NEXT_PUBLIC_CONTACT_NAME`
 
 `tests/a11y/text-scaling.spec.ts`, results in `docs/a11y-report.md`. Two CSS fixes came out of it
 (`Product.module.css`, `StoreMode.module.css`).
+
+## Cart handoff (#72)
+
+"המשך באתר הרשת" on every store card (the plan cards of the results, through `PlanHandoff`, and each
+column of the split view) when `GET /chains/online` says that store's chain is `enabled` and has an
+address. It opens a sheet (`features/handoff/HandoffAction.tsx`) with the list for that store as
+`name × quantity` lines (copy, with the select-the-text fallback of the share sheet, and native share
+where the browser has it), a link to the chain's site, and per-item "חיפוש באתר" links built from
+`search_url_template` with the display name URL-encoded (`links.ts`; https only). All links are
+`target="_blank" rel="noopener noreferrer"`. The page fetches nothing from the chain; see
+[cart-transfer.md](cart-transfer.md).
+
+- The disclaimer (online prices, availability and delivery fees may differ; the price at checkout
+  governs) is always visible in the sheet. With `referral` true every link carries "קישור שותפים" and
+  the sheet says the links do not affect ranking, prices or savings.
+- A disabled chain renders nothing. A failed or slow `/chains/online` renders nothing and cannot break
+  the results (`useChainsOnline` is a shared cache, errors are swallowed to "no action").
+- Copy: all new strings are in `src/i18n/messages/handoff.ts` (`ar` is a copy of the Hebrew under a
+  `// TODO ar`, #73). Events: `cart_handoff` with `action` `copy`, `share`, `open_site`, `open_item`;
+  no names or URLs are sent.
+- Independence: the handoff is imported only by `PlanCard` (one `<PlanHandoff />` line) and
+  `SplitView`; it reads no price or ranking field and no ranking module reads it
+  (`tests/unit/handoff-independence.test.ts`).
+- Mock: `GET /chains/online` in `src/mocks/handlers.phase3.ts` enables `rami_levy`, `shufersal`
+  (with a referral) and `osher_ad` (no site search) on the reserved `chain-shop.example` host, which is
+  the only host added to the privacy audit allow-list. `victory` is present but disabled.
+- Tests: `features/handoff/links.test.ts`, `features/handoff/HandoffAction.test.tsx`,
+  `tests/unit/handoff-independence.test.ts`, `tests/e2e/handoff.spec.ts` (phone and desktop, results and
+  split view, failure hides the action, no request to the chain host, axe on the sheet).
+
+## Arabic locale (#73)
+
+Infrastructure for Arabic as the second interface language. The copy migration, the native-speaker
+review, Arabic search and the Arabic SEO pages are separate work (see the issue).
+
+- **Catalogs.** One module per feature under `src/i18n/messages/`, written with `defineMessages({ he, ar })`
+  (the compiler enforces identical keys). Components call `useT(catalog)`; non-React code calls
+  `translate(catalog, locale, key)`. Hebrew is the source and the fallback. A module whose Arabic is
+  a draft or unfinished carries a `// TODO ar` comment.
+- **Locale state.** `LocaleProvider` (root layout) keeps the locale in the `sc-locale` cookie and
+  `localStorage`, hydrates from the Hebrew server snapshot and then switches, and sets `<html lang>`.
+  `LOCALE_INIT_SCRIPT` sets `lang` before first paint. `dir` is `rtl` in both locales, so switching
+  never flips the layout. `INTL_LOCALE.ar` is `ar-IL-u-nu-latn`: Western digits, matching the shelf
+  labels (to be confirmed with users). Prices keep going through `Price` (an LTR island, `₪` + NBSP).
+- **Switch.** `src/i18n/LocaleSwitch.tsx` is a radio group (`SegmentedControl`) with "עברית" and
+  "العربية", each labeled in its own language with `lang`. It calls `setLocale` and fires
+  `trackEvent("locale_changed", { locale })`. **Mount it in Profile**, next to `ThemePreferenceControl`
+  (`<LocaleSwitch />`, no props needed). The choice is per browser: the profile schema has no locale
+  column, so there is a `TODO(#73)` to sync it when signed in.
+- **Font.** `Noto Sans Arabic` (SIL OFL) 400/500/600/700, self-hosted in `public/fonts/NotoSansArabic-*.woff2`
+  with `OFL-NotoSansArabic.txt`, fetched by `scripts/fetch-noto-arabic.sh` (same method as
+  `fetch-heebo.sh`; rerun only to update). `src/app/fonts.ts` loads it as `--font-noto-arabic`
+  (`preload: false`, so Hebrew page loads do not pay for it) and `--sc-font` is
+  `var(--font-heebo), var(--font-noto-arabic), "Heebo", system-ui, sans-serif`. Hebrew and Latin
+  glyphs render in Heebo; Arabic glyphs fall through to Noto per character. There is no per-locale
+  font swap, so there is no layout shift on switching. `heebo.variable` in `fonts.ts` carries both
+  variables, so the root layout needed no change.
+- **Mixed text.** `src/i18n/Bidi.tsx`: `<Bidi>Coca-Cola</Bidi>` is `dir="ltr" lang="en"` with
+  `unicode-bidi: isolate`; `<Bidi lang="ar">` / `lang="he"` marks a run of the other RTL language.
+  Use it for Latin brand names, units and codes inside Arabic or Hebrew copy; prices use `Price`.
+- **Guards.** Physical left/right CSS and JSX style properties are rejected by stylelint
+  (`.stylelintrc.json`) and ESLint (see "RTL rules and the guard"); there are none in `src/**/*.css`.
+  `src/i18n/messages.catalog.test.ts` checks, for every module under `messages/`, identical `he` and
+  `ar` keys (catches `as` casts), the same `{placeholders}`, no empty strings, and lists Arabic values
+  identical to the Hebrew (untranslated) as a printed warning; it fails only for modules not marked
+  `// TODO ar`.
+- **Tests.** Unit: `src/i18n/LocaleSwitch.test.tsx` (switch, event, `lang`, `Bidi`, `Price` inside
+  Arabic), `messages.catalog.test.ts`, `i18n.test.tsx`. E2E: `tests/e2e/locale-switch.spec.ts`
+  (switch, `<html lang>`, cookie, reload, the migrated nav in Arabic, Noto loads, no horizontal
+  scroll). A11y: `tests/a11y/locale-ar.spec.ts` (axe on the Arabic shell, light and dark, 390 and
+  1280 px). Both use the test-only page `/locale-test` (`src/app/(dev)/`: real shell, `noindex`, not
+  in the sitemap) until the switch is mounted in Profile.
+- **Still open** (issue #73): Arabic screenshots on real devices, native-speaker review of every
+  `ar` string, Arabic skip link and other literals not yet migrated to catalogs (the skip link in
+  `AppShell` is still Hebrew), the Western-versus-Eastern digits confirmation with users.

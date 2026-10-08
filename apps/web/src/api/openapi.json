@@ -440,6 +440,7 @@
               "voice_started",
               "voice_completed",
               "pwa_installed",
+              "push_prompt_shown",
               "push_opt_in",
               "push_opened",
               "store_mode_used",

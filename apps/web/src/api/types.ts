@@ -789,7 +789,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted" | "voice_started" | "voice_completed" | "pwa_installed" | "push_opt_in" | "push_opened" | "store_mode_used" | "image_parsed" | "cart_handoff" | "locale_changed";
+            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted" | "voice_started" | "voice_completed" | "pwa_installed" | "push_prompt_shown" | "push_opt_in" | "push_opened" | "store_mode_used" | "image_parsed" | "cart_handoff" | "locale_changed";
             /**
              * Props
              * @description Allowlisted keys per event name, values are integers or members of a fixed set; anything else is rejected with 422 (no free text, no personal data). See docs/beta-plan.md.

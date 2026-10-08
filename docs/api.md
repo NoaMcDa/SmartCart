@@ -530,6 +530,48 @@ fractions, ranges, word amounts, pack units, cloves, weights in parentheses, amo
 name, JSON-LD and plain-HTML pages, scaling up and down) against the seeded MVP catalog with
 hash embeddings, plus the fetch rules with an `httpx.MockTransport`.
 
+### POST /parse-image (#61, #68)
+
+A photo of a receipt or a handwritten list to rows. `multipart/form-data` with `kind`
+(`receipt` or `list`) and `image` (JPEG, PNG or WebP, at most 8 MB). Required header:
+`X-Image-Consent: 1` (the user agreed to photo processing; it is not in `openapi.json`).
+Response `{kind, provider, items: ParsedRow[], unresolved: string[], receipt, deleted: true}`;
+`receipt` is `{chain_hint, store_hint, total, lines: [{text, quantity, price}]}` for a receipt and
+null for a list. Full design, privacy guarantee, caps and evaluation: [ocr.md](ocr.md). Code:
+`routes/image.py`, `ocr/`, and the catalog's `receipt.py`.
+
+| Status | When |
+|---|---|
+| 200 | read; `items` resolved like `/parse-list` (low confidence carries `needs_confirmation`), `unresolved` are lines read but not matched (best hit under 0.70, never guessed) |
+| 403 | no `X-Image-Consent: 1`; the body is not read |
+| 413 | body over 8 MB, or an image over 25 megapixels |
+| 415 | not JPEG, PNG or WebP (by magic bytes, not the client's content type) |
+| 422 | the image cannot be decoded, is empty, or `kind` is invalid |
+| 429 | the monthly cap was reached (`OCR_MONTHLY_IMAGE_CAP`, default 2000, or `OCR_MONTHLY_USD_CAP`, default 20, estimated) |
+| 502 | the OCR provider failed or declined |
+| 503 | no OCR provider configured (`OCR_PROVIDER`: `auto`, `fake`, `tesseract`, `claude`) |
+
+The photo is rotated by its EXIF orientation and downscaled to 2400 px on the long side, read in
+memory, and never written to disk, logged or stored; `deleted: true` states it. Only a monthly
+count and cost estimate are kept (`ocr_usage`, no user id). Receipts: quantity is the printed one
+(`unit = "kg"` for weighed goods), repeated products merge, and a till's brand and pack size are
+tried with and without (the catalog is "any brand"). List photos read by Tesseract mark every row
+`needs_confirmation`. The web client sends the consent header only after the user's consent
+screen and shows what was read next to the photo.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OCR_PROVIDER` | `auto` | `auto` (claude when `ANTHROPIC_API_KEY` is set, else tesseract when installed with the `heb` data, else 503), `fake`, `tesseract`, `claude` |
+| `OCR_MONTHLY_IMAGE_CAP` | 2000 | images per calendar month (UTC) |
+| `OCR_MONTHLY_USD_CAP` | 20 | estimated dollars per month |
+| `OCR_CLAUDE_MODEL` | `claude-sonnet-5-5` | model of the vision provider |
+| `ANTHROPIC_API_KEY` | none | enables the Claude provider |
+
+Migration: `20261011100000_ocr_usage.sql` (`ocr_usage(month, provider, images, est_cost_usd)`, RLS
+on with no policy). Tests: `test_api_image.py` (consent, round trips, cap), `test_api_image_limits.py`,
+`test_api_image_privacy.py`, `test_api_image_providers.py`, `test_api_image_eval.py`, and the
+catalog's `test_receipt_structuring.py`.
+
 ### Budget and spend (/me/spend)
 
 - Entry: `{id, date, store_id, store_name, total, item_count, plan: "single" | "split"}`. `total`
@@ -572,3 +614,34 @@ request and is not on the compare or optimize path.
 | File | What |
 |---|---|
 | `20261010100000_phase3.sql` | `profiles.monthly_budget numeric(10,2)`; `spend_entries` with own-rows RLS (forced), grants to `smartcart_app` and, on Supabase, `authenticated` |
+
+## Cart handoff to chain online stores (#72)
+
+### GET /chains/online
+
+One row per chain: `chain_id`, `chain_name`, `online_url`, `search_url_template`, `enabled`,
+`referral` (the `ChainOnline` schema). Public (no auth) and sent with
+`Cache-Control: public, max-age=3600`.
+
+- `enabled` is the per-chain feature flag: the chain id is in `CART_HANDOFF_CHAINS` (comma separated
+  env var, default empty, so every row is disabled) **and** the chain has an `online_url`.
+- `online_url` and `search_url_template` come from `chains` (https only; the template must contain
+  `{q}`, checked by the database). They are links for the user's browser to open. The API never
+  requests them (CLAUDE.md: no scraping of chain online stores). `referral` is `chains.online_referral`.
+- Ranking never reads any of this: `/compare` and `/optimize` are byte-identical with the flag and the
+  referral flags on or off (`tests/test_api_handoff_independence.py`).
+
+See [cart-transfer.md](cart-transfer.md) for the seeded addresses (all unverified), why this is not
+scraping and what an official cart-prefill integration needs.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `CART_HANDOFF_CHAINS` | empty | chain ids whose handoff is on |
+
+### Migration
+
+| File | What |
+|---|---|
+| `20261011100100_chain_online.sql` | `chains.online_url`, `chains.search_url_template` (CHECK: https and `{q}`), `chains.online_referral boolean NOT NULL DEFAULT false`; `chain_online_seed` and a `BEFORE INSERT` trigger on `chains` that fills seeded addresses into rows the ingest loader creates later |
+
+Tests: `test_api_chains.py`, `test_api_handoff_independence.py`.

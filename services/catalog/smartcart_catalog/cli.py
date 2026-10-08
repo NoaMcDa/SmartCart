@@ -4,6 +4,8 @@
 * ``smartcart-catalog normalize [--chain ID]``     normalize items, report what did not parse
 * ``smartcart-catalog extract [--extractor ...]``  attribute extraction for pending items
 * ``smartcart-catalog cost-report``                tokens and estimated USD per model batch
+* ``smartcart-catalog backlog``                    what to add to the catalog next (cli_growth)
+* ``smartcart-catalog native-report``              the native-app decision numbers (cli_growth)
 
 Extending: other modules add commands to the same ``app`` through a ``register(app)`` function.
 Every module named in ``EXTENSIONS`` is imported at the bottom of this file and its
@@ -37,6 +39,8 @@ EXTENSIONS: tuple[str, ...] = (
     "smartcart_catalog.cli_matching",
     "smartcart_catalog.cli_seo",
     "smartcart_catalog.cli_promo",
+    "smartcart_catalog.cli_arabic",
+    "smartcart_catalog.cli_growth",
 )
 
 

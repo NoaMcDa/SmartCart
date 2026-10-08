@@ -25,6 +25,7 @@ data/canonicals.yaml ─┘
 | Configuration | `services/catalog/smartcart_catalog/settings.py` |
 | Command line | `smartcart-catalog` (`cli.py`) |
 | Recipe parser (phase 3, #71) | `services/catalog/smartcart_catalog/recipe.py`, section 7 |
+| Expansion backlog and active learning (#52) | `services/catalog/smartcart_catalog/active.py`, `cli_growth.py`, `supabase/queries/catalog_backlog.sql`, section 9 |
 | Promo cycles (phase 3, #69) | `services/catalog/smartcart_catalog/promo_cycles.py`, `cli_promo.py`, section 8 and [promo-cycles.md](promo-cycles.md) |
 | Tables | `supabase/migrations/20261007100000_catalog_v1.sql` |
 
@@ -199,6 +200,37 @@ attributes are soft keys, slugs unique, ranks 1..N, every product type has a can
 canonicals share product type and critical values** (they would be indistinguishable at "any brand"),
 and a critical value a type implies (`implied: {base: soy}`) is carried by one of its canonicals.
 
+### Arabic names (#73)
+
+Every canonical lists `names_ar`: 1 to 3 names as Arab-Israeli shoppers write them, stored in
+`canonical_products.names_ar` (migration `20261011100600`) and read by Arabic search only
+(`docs/matching.md`, "Arabic queries"). **Machine drafted: the whole list needs a native-speaker
+review** before it is shown to users; the file header says so. A name may be Modern Standard
+(`جبنة بيضاء`), Levantine colloquial (`بندورة` and `طماطم`, `زبادي`) or the Hebrew loanword when that is
+what people say (`كوتيج`, `لبنة`, `بمبا`, `فرجيوت`); the colloquial and loanword names are the likeliest
+to be wrong or regional.
+
+Rules, enforced by `seed.validate_names_ar` (so `smartcart-catalog seed --check` and CI fail on a
+mistake):
+
+- 1 to 3 names, each with Arabic letters; none starts with the article ال (matching strips it from
+  the query; an article inside a name, `دوار الشمس`, is fine).
+- No two canonicals share a name after folding (tashkeel, alef forms, ة/ه, digits and the rest of
+  `fold_ar`), and a canonical does not repeat a name. Two canonicals that differ in a critical
+  attribute have names that state it, so their folded names differ; identical names are always
+  a mistake.
+- Every name states the critical attributes it can state in Arabic, with the same lexicons the
+  API's hard checks use (`normalize.ar_attributes`): the fat percentage (`حليب 3%`), frozen or canned
+  (`مجمد`, `معلب`), the plant base (`لوز`, `صويا`, `شوفان`), and fresh, dry or the flavor whenever a
+  sibling of the same product type differs (`طازج` when a frozen sibling exists, `فراولة` against
+  `خوخ`). A name may not contradict them either. Add a short name next to a long one when
+  shoppers drop a word (`انتريكوت` for `انتريكوت بقر طازج`), but not for a state that a sibling
+  changes: `صدر دجاج` alone must stay ambiguous between fresh and frozen.
+
+To add or review a name: edit `data/canonicals.yaml`, run `smartcart-catalog seed --check`, then
+`smartcart-catalog evaluate-ar` (a new name can make another canonical's line ambiguous). Fix the
+name, not the check.
+
 ### Base units
 
 `100ml` for liquids, `100g` for packaged solids, `unit` for counted goods (eggs, pita, rolls, toilet
@@ -270,6 +302,31 @@ too); re-run `smartcart-catalog normalize` on the first real loads and turn its 
 cases. Note that `prices.unit_price` is already filled by the ingest loader from the chains' own
 published unit price; the name-based helper here is for the effective-price precompute and for items
 whose published unit price is missing or wrong.
+
+### Arabic normalization (#73)
+
+`normalize.py` also holds the pure Arabic helpers (item names from chains are Hebrew, so the item
+normalizer above is untouched):
+
+- `fold_ar(text)`: NFKC; alef with hamza or madda and alef wasla to `ا`; `ى` to `ي`; `ة` to `ه`; `ؤ`
+  to `و`; `ئ` to `ي`; hamza, tatweel, tashkeel and bidirectional marks removed (`بيضاء` and `بيضا`
+  meet); Arabic-Indic and Persian digits to Latin; `٪ ٫ ، ؛ ؟` to `% . , ; ?`; Persian `ک ی` and loan
+  letters `ڤ پ` to `ك ي ف ب`; punctuation to single spaces. `search_norm_ar()` in Postgres does the
+  same (a test compares them on 400 random strings and every name).
+- `normalize_ar(text)`: `fold_ar` plus the rewrites a query needs: `%3`, `3 %` and `3 بالمية`/`بالمئة`/
+  `بالمائة`/`في المية` become `3%`, number words before them too (`ثلاثة بالمية`, `واحد ونص بالمية`).
+- `ar_variants(token)`: the token and its forms without the prefixes ال, و, وال and the
+  preposition-plus-article بال, لل ("with the", "for the"), when three letters remain (`ورق` stays).
+- `ar_unit(word)`: kilo, gram, litre, millilitre and count nouns in their spelling variants
+  (`كيلو كغم كجم غرام غم لتر ليتر مل علبة حبة قطعة كيس باكيت زجاجة ...`), the dual (`علبتين` = 2,
+  `كيلوين` = 2) and a flag for plurals that are only units after a number (`اكياس`).
+- `ar_attributes(text)` and `ar_conflicts(...)`: the fat percentages, states, plant bases and flavors a
+  text states, and the critical attributes of a canonical that a query contradicts (see
+  `docs/matching.md`). `ar_clean_query` drops brands, soft descriptors, politeness, bare numbers and
+  pack sizes from a query.
+
+Tests: `tests/test_arabic_normalize.py` (120 cases, 52 of them unit spellings), `test_arabic_seed.py`,
+`test_arabic_fold_sql.py`.
 
 ## 4. Attribute extraction (step B)
 
@@ -344,6 +401,8 @@ uv run smartcart-catalog extract [--extractor rule|claude] [--chain ID] [--limit
 uv run smartcart-catalog cost-report [--runs N]      # tokens and estimated USD per model batch
 uv run smartcart-catalog promo-cycles CANONICAL [--club NAME ...] [--as-of YYYY-MM-DD] [--json]
 uv run smartcart-catalog promo-backtest [--synthetic] [--min-windows N] [--days N]
+uv run smartcart-catalog backlog [--top N] [--days N] [--min-similarity X]   # what to add next (section 9)
+uv run smartcart-catalog native-report [--weeks N] [--out FILE]              # decision D15 numbers (#56)
 ```
 
 | Variable | Default | |
@@ -361,6 +420,8 @@ uv run smartcart-catalog promo-backtest [--synthetic] [--min-windows N] [--days 
 
 Other modules add commands through `register(app)` in a module listed in `cli.EXTENSIONS`
 (`smartcart_catalog.cli_matching` is listed already and is skipped until it exists).
+`smartcart_catalog.cli_arabic` (`evaluate-ar`, issue #73) is not listed yet: add it to `EXTENSIONS`
+to get `smartcart-catalog evaluate-ar`.
 
 ## 6. Open items
 
@@ -444,3 +505,96 @@ thresholds (all estimates), the synthetic backtest numbers and the limits are in
 `synthetic_history` and `irregular_history` generate deterministic windows from a seed;
 `seed_promo_history` writes windows as promos for tests and demos. Tests:
 `services/catalog/tests/test_promo_cycles.py` and the API's `test_promo_cycles_route.py`.
+
+## 9. Expansion backlog and active learning (#52)
+
+The catalog grows from demand, not from the 170,000 SKUs in the chains' files: what people search
+for and do not find, and what the shelves stock that no canonical covers. Human review time goes
+to the pairs where a label changes the most.
+
+### Demand signal: `search_misses`
+
+Migration `20261011100200_search_misses.sql`. One row each time a query found nothing the parser
+accepts (the parser floor, confidence 0.35, `routes/search.py`): `GET /search` with no hit above
+the floor, a `POST /parse-list` row that comes back `not_found`, a `POST /parse-recipe` ingredient
+that goes to `unresolved` (under 0.70, the recipe floor), and later `POST /parse-image`
+(`source = 'parse_image'`, through the same helper `smartcart_api.misses.record_miss`).
+
+| Column | |
+|---|---|
+| `query_norm` | the **normalized** query (lower case, no punctuation, final letters folded), 1 to 120 characters |
+| `source` | `search`, `parse_list`, `parse_recipe`, `parse_image` |
+| `best_confidence` | the best hit that was found but not accepted; NULL when nothing was found |
+| `seen_at` | rounded down to the hour |
+
+There is no user id, session id, IP or raw text (decision D11). Before a query is stored it is
+dropped when it looks like personal data: an `@` or a link, a phone number or any run of seven or
+more digits (a barcode, an identity or card number, a number written with spaces or dashes), a
+string with no letter, or one longer than 120 characters (a pasted sentence). A name written in
+words cannot be recognised by rules; what protects it is that nothing links a row to a person or
+to a moment finer than the hour. Rows older than 180 days are deleted by every insert (a few
+hundred at a time) and by `purge_search_misses()` for a quiet database. Writing a miss runs in a
+savepoint and never fails the request. The signal is aggregate by construction; the table is not
+readable through the Supabase data API. `GET /search` fires per query, so a typing box that
+searches on every keystroke logs the prefixes that found nothing; the clustering below merges them.
+
+### The ranking: `supabase/queries/catalog_backlog.sql`
+
+`smartcart-catalog backlog --top 20` prints two lists; they are ranked separately because their
+units differ.
+
+1. **Missed queries**, last 30 days: deduplicated by normalized form, clustered by trigram
+   similarity (0.5 by default, `--min-similarity`), ranked by number of misses, then by number of
+   distinct spellings. A query joins the most frequent query it is similar to (ties: the shorter,
+   then alphabetical) and that cluster's head is followed once more, so a chain of spellings
+   collapses into one demand. The representative is the most frequent spelling.
+2. **Uncovered products**: items in the loaded price files (touched by a load in the last 60 days)
+   with no row in `item_canonical` at all, human rejections ignored (an item waiting in the review
+   queue already has a candidate). Grouped by barcode across chains; ranked by how many stores
+   carry them (a chain base price counts every physical store of the chain, a per-store price
+   counts that store; one chain counts once per product), then by number of chains.
+
+Use: take the top of both lists weekly, write the next batch of canonicals into
+`data/canonicals.yaml` (and `data/taxonomy.yaml` if a category is missing), run `seed`,
+`extract`, `embed`, `judge`, then the gold-set evaluation (`docs/matching.md`) before the batch
+goes live. The cut line (how many rows per batch) is the owner's: the query ranks, it does not
+decide. Coverage (the share of list items and searches that resolve to a canonical) is not
+measured yet: it needs a denominator, and `search_misses` holds misses only, on purpose; the
+`events` table's `list_pasted.item_count` counts the rows parsed from lists. Agree the measurement
+with the owner before setting a coverage target. The ranking is a plain query, so it can be
+run by hand with psql (see `supabase/queries/README.md`). Tests:
+`services/catalog/tests/test_catalog_backlog.py` (clustering needs a UTF-8 database for pg_trgm,
+see the `db_utf8` fixture) and `services/api/tests/test_api_search_misses.py`.
+
+### Uncertainty-first review queue
+
+`active.select_for_review` fills the review UI's queue (`review_app.review_queue`). The order is
+lexicographic:
+
+1. **user reports**: `substitution_feedback` rows with verdict `not_good` for the pair, most first;
+2. **closeness to the accept threshold**: `|confidence - 0.90|` ascending, in bands of 0.02 (a
+   choice) so that the next keys can break ties;
+3. **embedder disagreement**: when the item and the canonical have vectors of the same learned
+   model (not the hash model), `|cosine of the learned vectors - cosine of the names under the
+   hash embedder|`, rounded to three decimals; pairs with only hash vectors count as 0 (one
+   embedder, nothing to disagree);
+4. **basket rank**: `canonical_products.rank` ascending.
+
+Pairs a human rejected are never queued. `item_embeddings` keeps one vector per item, so "the other
+embedder" is recomputed from the names; when several models' vectors are kept per item, replace that
+step with a comparison of the stored vectors.
+
+### Labels per hour
+
+`active.labels_per_hour(conn, days=7)` and the review UI's sidebar. From `item_canonical.reviewed_at`
+(`source = 'human'`) per reviewer: labels divided by active time, where active time sums the gaps
+between consecutive labels shorter than 10 minutes (a longer gap is a break) plus one typical gap
+(the reviewer's median) per session for the first label. A re-decision overwrites `reviewed_at`,
+so a pair is counted once, at its latest decision, and a re-map writes two rows. The unit of the
+metric is the number to compare across weeks, not an absolute speed. The target (labels per hour
+needed to keep up with the backlog) is not set yet: measure two weeks of real review first.
+
+Regression gate unchanged: the gold-set evaluation (`docs/matching.md`) decides whether a batch
+ships, and "any brand" precision under 98% blocks it. Selection changes which pairs a human sees,
+not what the judge writes, so it cannot move the evaluation numbers (verified: identical after
+this change).

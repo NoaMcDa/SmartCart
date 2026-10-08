@@ -10,10 +10,19 @@
 # share (product_type, critical_attrs). soft_attrs are typical values (pack_size in g, ml or
 # units). Values such as fat percentages describe the common Israeli SKU and still need the
 # domain-aware reviewer's sign-off.
+#
+# names_ar (issue #73): 1-3 Arabic names per canonical, as Arab-Israeli shoppers write them
+# (Modern Standard, Levantine colloquial, the Hebrew loanword when that is what people say, e.g.
+# كوتيج, لبنة), each stating the critical attributes (fat %, fresh or frozen, soy/almond/oat,
+# flavor). MACHINE-DRAFTED: every name needs a review by a native Arabic speaker (a colloquial
+# spelling or a loanword may be wrong or regional) before it is shown to users. Written without
+# the article ال (matching strips it from the query); the seed validates them
+# (smartcart_catalog.seed.validate_names_ar). They feed Arabic search only (smartcart_api.search).
 version: 1
 canonicals:
 - slug: milk-fresh-3
   display_name_he: חלב טרי 3%
+  names_ar: [حليب طازج 3%, حليب 3%]
   taxonomy_id: dairy.milk.fresh
   product_type: milk
   base_unit: 100ml
@@ -23,6 +32,7 @@ canonicals:
   is_mvp: true
 - slug: milk-fresh-1
   display_name_he: חלב טרי 1%
+  names_ar: [حليب طازج 1%, حليب 1%]
   taxonomy_id: dairy.milk.fresh
   product_type: milk
   base_unit: 100ml
@@ -32,6 +42,7 @@ canonicals:
   is_mvp: true
 - slug: cottage-5
   display_name_he: קוטג' 5%
+  names_ar: [كوتيج 5%, كوتج 5%, جبنة كوتج 5%]
   taxonomy_id: dairy.cheese.cottage
   product_type: cottage_cheese
   base_unit: 100g
@@ -41,6 +52,7 @@ canonicals:
   is_mvp: true
 - slug: white-cheese-5
   display_name_he: גבינה לבנה 5%
+  names_ar: [جبنة بيضاء 5%]
   taxonomy_id: dairy.cheese.white
   product_type: white_cheese
   base_unit: 100g
@@ -50,6 +62,7 @@ canonicals:
   is_mvp: true
 - slug: yellow-cheese-sliced-28
   display_name_he: גבינה צהובה פרוסה 28%
+  names_ar: [جبنة صفراء شرائح 28%, جبنة صفراء 28%, جبنة صفراء مقطعة 28%]
   taxonomy_id: dairy.cheese.yellow.sliced
   product_type: yellow_cheese
   base_unit: 100g
@@ -59,6 +72,7 @@ canonicals:
   is_mvp: true
 - slug: eggs-l
   display_name_he: ביצים L
+  names_ar: [بيض L, بيض لارج]
   taxonomy_id: dairy.eggs.chicken
   product_type: eggs_l
   base_unit: unit
@@ -68,6 +82,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-breast-fresh
   display_name_he: חזה עוף טרי
+  names_ar: [صدر دجاج طازج, صدور دجاج طازجة]
   taxonomy_id: meat.chicken.breast
   product_type: chicken_breast
   base_unit: kg
@@ -77,6 +92,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-thigh-boneless-fresh
   display_name_he: פרגיות טריות
+  names_ar: [فخذ دجاج بدون عظم طازج, فرجيوت طازجة]
   taxonomy_id: meat.chicken.thigh
   product_type: chicken_thigh_boneless
   base_unit: kg
@@ -86,6 +102,7 @@ canonicals:
   is_mvp: true
 - slug: hummus-plain
   display_name_he: חומוס (סלט)
+  names_ar: [سلطة حمص, حمص جاهز]
   taxonomy_id: deli.salads.hummus
   product_type: hummus_salad
   base_unit: 100g
@@ -95,6 +112,7 @@ canonicals:
   is_mvp: true
 - slug: tomato
   display_name_he: עגבניות
+  names_ar: [بندورة, طماطم]
   taxonomy_id: produce.vegetables.fruiting
   product_type: tomato
   base_unit: kg
@@ -104,6 +122,7 @@ canonicals:
   is_mvp: true
 - slug: cucumber
   display_name_he: מלפפונים
+  names_ar: [خيار]
   taxonomy_id: produce.vegetables.fruiting
   product_type: cucumber
   base_unit: kg
@@ -113,6 +132,7 @@ canonicals:
   is_mvp: true
 - slug: onion
   display_name_he: בצל יבש
+  names_ar: [بصل, بصل ناشف]
   taxonomy_id: produce.vegetables.root
   product_type: onion
   base_unit: kg
@@ -122,6 +142,7 @@ canonicals:
   is_mvp: true
 - slug: potato
   display_name_he: תפוחי אדמה
+  names_ar: [بطاطا, بطاطس]
   taxonomy_id: produce.vegetables.root
   product_type: potato
   base_unit: kg
@@ -131,6 +152,7 @@ canonicals:
   is_mvp: true
 - slug: banana
   display_name_he: בננות
+  names_ar: [موز]
   taxonomy_id: produce.fruit.tropical
   product_type: banana
   base_unit: kg
@@ -140,6 +162,7 @@ canonicals:
   is_mvp: true
 - slug: bread-standard
   display_name_he: לחם אחיד
+  names_ar: [خبز موحد, خبز عادي, خبز ابيض]
   taxonomy_id: bakery.bread.loaves
   product_type: bread_standard
   base_unit: 100g
@@ -149,6 +172,7 @@ canonicals:
   is_mvp: true
 - slug: pita
   display_name_he: פיתות
+  names_ar: [خبز بيتا, خبز عربي, بيتا]
   taxonomy_id: bakery.bread.flat
   product_type: pita
   base_unit: unit
@@ -158,6 +182,7 @@ canonicals:
   is_mvp: true
 - slug: rice-persian
   display_name_he: אורז פרסי
+  names_ar: [رز فارسي, ارز فارسي]
   taxonomy_id: pantry.rice.white
   product_type: rice_persian
   base_unit: 100g
@@ -167,6 +192,7 @@ canonicals:
   is_mvp: true
 - slug: pasta-spaghetti
   display_name_he: ספגטי
+  names_ar: [سباغيتي, معكرونة سباغيتي]
   taxonomy_id: pantry.pasta.long
   product_type: pasta_spaghetti
   base_unit: 100g
@@ -176,6 +202,7 @@ canonicals:
   is_mvp: true
 - slug: sugar-white
   display_name_he: סוכר לבן
+  names_ar: [سكر ابيض, سكر]
   taxonomy_id: pantry.baking.sugar
   product_type: sugar_white
   base_unit: 100g
@@ -185,6 +212,7 @@ canonicals:
   is_mvp: true
 - slug: canola-oil
   display_name_he: שמן קנולה
+  names_ar: [زيت كانولا]
   taxonomy_id: pantry.oils.vegetable
   product_type: canola_oil
   base_unit: 100ml
@@ -194,6 +222,7 @@ canonicals:
   is_mvp: true
 - slug: tuna-in-oil
   display_name_he: טונה בשמן
+  names_ar: [تونة بالزيت, تونا بالزيت]
   taxonomy_id: canned.fish.tuna
   product_type: tuna_in_oil
   base_unit: 100g
@@ -203,6 +232,7 @@ canonicals:
   is_mvp: true
 - slug: mineral-water
   display_name_he: מים מינרליים
+  names_ar: [مياه معدنية, مي معدنية, ماء معدني]
   taxonomy_id: beverages.water.still
   product_type: mineral_water
   base_unit: 100ml
@@ -212,6 +242,7 @@ canonicals:
   is_mvp: true
 - slug: bamba
   display_name_he: חטיף בוטנים (במבה)
+  names_ar: [بمبا, بمبا فول سوداني]
   taxonomy_id: snacks.salty.puffs
   product_type: peanut_puffs
   base_unit: 100g
@@ -221,6 +252,7 @@ canonicals:
   is_mvp: true
 - slug: toilet-paper
   display_name_he: נייר טואלט
+  names_ar: [ورق تواليت, ورق حمام]
   taxonomy_id: paper.tissue.toilet
   product_type: toilet_paper
   base_unit: unit
@@ -230,6 +262,7 @@ canonicals:
   is_mvp: true
 - slug: chocolate-milk
   display_name_he: שוקו
+  names_ar: [شوكو, حليب شوكو, مشروب شوكولاتة]
   taxonomy_id: dairy.milk.flavored
   product_type: chocolate_milk
   base_unit: 100ml
@@ -239,6 +272,7 @@ canonicals:
   is_mvp: true
 - slug: cottage-3
   display_name_he: קוטג' 3%
+  names_ar: [كوتيج 3%, كوتج 3%, جبنة كوتج 3%]
   taxonomy_id: dairy.cheese.cottage
   product_type: cottage_cheese
   base_unit: 100g
@@ -248,6 +282,7 @@ canonicals:
   is_mvp: true
 - slug: yogurt-plain-3
   display_name_he: יוגורט טבעי 3%
+  names_ar: [زبادي 3%, يوغورت 3%, زبادي طبيعي 3%]
   taxonomy_id: dairy.yogurt.plain
   product_type: yogurt
   base_unit: 100g
@@ -257,6 +292,7 @@ canonicals:
   is_mvp: true
 - slug: pudding-chocolate-cream
   display_name_he: מעדן שוקולד עם קצפת
+  names_ar: [ميلكي شوكولاتة بالكريمة, بودينغ شوكولاتة مع كريمة]
   taxonomy_id: dairy.yogurt.desserts
   product_type: pudding_with_cream
   base_unit: 100g
@@ -266,6 +302,7 @@ canonicals:
   is_mvp: true
 - slug: sour-cream-15
   display_name_he: שמנת חמוצה 15%
+  names_ar: [كريمة حامضة 15%, قشطة حامضة 15%]
   taxonomy_id: dairy.cream.sour
   product_type: sour_cream
   base_unit: 100g
@@ -275,6 +312,7 @@ canonicals:
   is_mvp: true
 - slug: whipping-cream-32
   display_name_he: שמנת מתוקה 32%
+  names_ar: [كريمة حلوة 32%, كريمة خفق 32%, قشطة حلوة 32%]
   taxonomy_id: dairy.cream.sweet
   product_type: whipping_cream
   base_unit: 100ml
@@ -284,6 +322,7 @@ canonicals:
   is_mvp: true
 - slug: butter
   display_name_he: חמאה
+  names_ar: [زبدة]
   taxonomy_id: dairy.cream.butter
   product_type: butter
   base_unit: 100g
@@ -293,6 +332,7 @@ canonicals:
   is_mvp: true
 - slug: eggs-m
   display_name_he: ביצים M
+  names_ar: [بيض M, بيض ميديوم]
   taxonomy_id: dairy.eggs.chicken
   product_type: eggs_m
   base_unit: unit
@@ -302,6 +342,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-schnitzel-fresh
   display_name_he: שניצל עוף טרי (חזה פרוס)
+  names_ar: [شنيتسل دجاج طازج, شنيزل دجاج طازج, شرائح صدر دجاج طازج]
   taxonomy_id: meat.chicken.breast
   product_type: chicken_breast_sliced
   base_unit: kg
@@ -311,6 +352,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-drumstick-fresh
   display_name_he: שוקיים עוף טריים
+  names_ar: [سيقان دجاج طازجة, دراموستيك دجاج طازج]
   taxonomy_id: meat.chicken.legs
   product_type: chicken_drumstick
   base_unit: kg
@@ -320,6 +362,7 @@ canonicals:
   is_mvp: true
 - slug: beef-ground-fresh
   display_name_he: בשר בקר טחון טרי
+  names_ar: [لحم بقر مفروم طازج, لحمة بقر مفرومة طازجة]
   taxonomy_id: meat.beef.ground
   product_type: beef_ground
   base_unit: kg
@@ -329,6 +372,7 @@ canonicals:
   is_mvp: true
 - slug: salmon-fillet-fresh
   display_name_he: פילה סלמון טרי
+  names_ar: [فيليه سلمون طازج, سلمون طازج]
   taxonomy_id: fish.fillets.salmon
   product_type: salmon_fillet
   base_unit: kg
@@ -338,6 +382,7 @@ canonicals:
   is_mvp: true
 - slug: turkey-pastrami
   display_name_he: פסטרמה הודו פרוסה
+  names_ar: [باستراما ديك رومي, باستراما رومي مقطعة]
   taxonomy_id: deli.cold_cuts.sliced
   product_type: turkey_breast_sliced
   base_unit: 100g
@@ -347,6 +392,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-hot-dogs
   display_name_he: נקניקיות עוף
+  names_ar: [نقانق دجاج, هوت دوج دجاج]
   taxonomy_id: deli.cold_cuts.sausages
   product_type: chicken_hot_dogs
   base_unit: 100g
@@ -356,6 +402,7 @@ canonicals:
   is_mvp: true
 - slug: cherry-tomato
   display_name_he: עגבניות שרי
+  names_ar: [بندورة شيري, طماطم شيري, بندورة كرزية]
   taxonomy_id: produce.vegetables.fruiting
   product_type: cherry_tomato
   base_unit: kg
@@ -365,6 +412,7 @@ canonicals:
   is_mvp: true
 - slug: carrot
   display_name_he: גזר
+  names_ar: [جزر]
   taxonomy_id: produce.vegetables.root
   product_type: carrot
   base_unit: kg
@@ -374,6 +422,7 @@ canonicals:
   is_mvp: true
 - slug: red-pepper
   display_name_he: פלפל אדום
+  names_ar: [فلفل احمر, فلفل حلو احمر]
   taxonomy_id: produce.vegetables.fruiting
   product_type: red_pepper
   base_unit: kg
@@ -383,6 +432,7 @@ canonicals:
   is_mvp: true
 - slug: lemon
   display_name_he: לימונים
+  names_ar: [ليمون, حامض]
   taxonomy_id: produce.fruit.citrus
   product_type: lemon
   base_unit: kg
@@ -392,6 +442,7 @@ canonicals:
   is_mvp: true
 - slug: avocado
   display_name_he: אבוקדו
+  names_ar: [افوكادو]
   taxonomy_id: produce.fruit.tropical
   product_type: avocado
   base_unit: kg
@@ -401,6 +452,7 @@ canonicals:
   is_mvp: true
 - slug: apple-red
   display_name_he: תפוחי עץ אדומים
+  names_ar: [تفاح احمر]
   taxonomy_id: produce.fruit.pome
   product_type: apple_red
   base_unit: kg
@@ -410,6 +462,7 @@ canonicals:
   is_mvp: true
 - slug: lettuce
   display_name_he: חסה
+  names_ar: [خس, خسة]
   taxonomy_id: produce.vegetables.leafy
   product_type: lettuce
   base_unit: unit
@@ -419,6 +472,7 @@ canonicals:
   is_mvp: true
 - slug: parsley
   display_name_he: פטרוזיליה
+  names_ar: [بقدونس, معدنوس]
   taxonomy_id: produce.herbs.fresh
   product_type: parsley
   base_unit: unit
@@ -428,6 +482,7 @@ canonicals:
   is_mvp: true
 - slug: bread-whole-wheat
   display_name_he: לחם מחיטה מלאה
+  names_ar: [خبز قمح كامل, خبز اسمر]
   taxonomy_id: bakery.bread.loaves
   product_type: bread_whole_wheat
   base_unit: 100g
@@ -437,6 +492,7 @@ canonicals:
   is_mvp: true
 - slug: challah
   display_name_he: חלה
+  names_ar: [خبز حلة, خلة]
   taxonomy_id: bakery.bread.challah
   product_type: challah
   base_unit: 100g
@@ -446,6 +502,7 @@ canonicals:
   is_mvp: true
 - slug: rice-basmati
   display_name_he: אורז בסמטי
+  names_ar: [رز بسمتي, ارز بسمتي]
   taxonomy_id: pantry.rice.white
   product_type: rice_basmati
   base_unit: 100g
@@ -455,6 +512,7 @@ canonicals:
   is_mvp: true
 - slug: pasta-penne
   display_name_he: פסטה פנה
+  names_ar: [بيني, معكرونة بيني, باستا بيني]
   taxonomy_id: pantry.pasta.short
   product_type: pasta_penne
   base_unit: 100g
@@ -464,6 +522,7 @@ canonicals:
   is_mvp: true
 - slug: ptitim
   display_name_he: פתיתים אפויים
+  names_ar: [بتيتيم, كسكس اسرائيلي]
   taxonomy_id: pantry.pasta.israeli
   product_type: ptitim
   base_unit: 100g
@@ -473,6 +532,7 @@ canonicals:
   is_mvp: true
 - slug: flour-white
   display_name_he: קמח לבן
+  names_ar: [طحين ابيض, طحين, دقيق ابيض]
   taxonomy_id: pantry.baking.flour
   product_type: flour_white
   base_unit: 100g
@@ -482,6 +542,7 @@ canonicals:
   is_mvp: true
 - slug: olive-oil
   display_name_he: שמן זית כתית מעולה
+  names_ar: [زيت زيتون بكر ممتاز, زيت زيتون]
   taxonomy_id: pantry.oils.olive
   product_type: olive_oil
   base_unit: 100ml
@@ -491,6 +552,7 @@ canonicals:
   is_mvp: true
 - slug: tahini-raw
   display_name_he: טחינה גולמית
+  names_ar: [طحينة خام, طحينة]
   taxonomy_id: pantry.spreads.tahini
   product_type: tahini_raw
   base_unit: 100g
@@ -500,6 +562,7 @@ canonicals:
   is_mvp: true
 - slug: chocolate-spread
   display_name_he: ממרח שוקולד
+  names_ar: [شوكولاتة للدهن, نوتيلا]
   taxonomy_id: pantry.spreads.sweet
   product_type: chocolate_spread
   base_unit: 100g
@@ -509,6 +572,7 @@ canonicals:
   is_mvp: true
 - slug: ketchup
   display_name_he: קטשופ
+  names_ar: [كاتشب, كتشب]
   taxonomy_id: pantry.condiments.sauces
   product_type: ketchup
   base_unit: 100g
@@ -518,6 +582,7 @@ canonicals:
   is_mvp: true
 - slug: mayonnaise
   display_name_he: מיונז
+  names_ar: [مايونيز, مايونيس]
   taxonomy_id: pantry.condiments.sauces
   product_type: mayonnaise
   base_unit: 100g
@@ -527,6 +592,7 @@ canonicals:
   is_mvp: true
 - slug: salt
   display_name_he: מלח
+  names_ar: [ملح, ملح طعام]
   taxonomy_id: pantry.condiments.spices
   product_type: salt
   base_unit: 100g
@@ -536,6 +602,7 @@ canonicals:
   is_mvp: true
 - slug: cornflakes
   display_name_he: קורנפלקס
+  names_ar: [كورن فليكس, رقائق ذرة]
   taxonomy_id: pantry.breakfast.cereal
   product_type: cornflakes
   base_unit: 100g
@@ -545,6 +612,7 @@ canonicals:
   is_mvp: true
 - slug: soup-powder-chicken
   display_name_he: אבקת מרק עוף
+  names_ar: [بودرة مرق دجاج, مرق دجاج مسحوق]
   taxonomy_id: pantry.condiments.soup
   product_type: soup_powder
   base_unit: 100g
@@ -554,6 +622,7 @@ canonicals:
   is_mvp: true
 - slug: sweet-corn-canned
   display_name_he: תירס מתוק בשימורים
+  names_ar: [ذرة حلوة معلبة, ذرة معلبة]
   taxonomy_id: canned.vegetables.legumes
   product_type: sweet_corn
   base_unit: 100g
@@ -563,6 +632,7 @@ canonicals:
   is_mvp: true
 - slug: pickled-cucumbers
   display_name_he: מלפפונים חמוצים
+  names_ar: [خيار مخلل, مخلل خيار]
   taxonomy_id: canned.vegetables.pickles
   product_type: pickled_cucumbers
   base_unit: 100g
@@ -572,6 +642,7 @@ canonicals:
   is_mvp: true
 - slug: tomato-paste
   display_name_he: רסק עגבניות
+  names_ar: [معجون بندورة, رب بندورة, معجون طماطم]
   taxonomy_id: canned.tomatoes.paste
   product_type: tomato_paste
   base_unit: 100g
@@ -581,6 +652,7 @@ canonicals:
   is_mvp: true
 - slug: breaded-schnitzel
   display_name_he: שניצל עוף מצופה קפוא
+  names_ar: [شنيتسل دجاج مقرمش مجمد, شنيتسل مجمد, شنيزل مجمد]
   taxonomy_id: frozen.ready.chicken
   product_type: breaded_schnitzel
   base_unit: 100g
@@ -590,6 +662,7 @@ canonicals:
   is_mvp: true
 - slug: cola
   display_name_he: קולה
+  names_ar: [كولا, كوكا كولا]
   taxonomy_id: beverages.soft_drinks.cola
   product_type: cola
   base_unit: 100ml
@@ -599,6 +672,7 @@ canonicals:
   is_mvp: true
 - slug: coffee-instant
   display_name_he: קפה נמס
+  names_ar: [قهوة سريعة, نسكافيه, قهوة فورية]
   taxonomy_id: beverages.hot.coffee
   product_type: coffee_instant
   base_unit: 100g
@@ -608,6 +682,7 @@ canonicals:
   is_mvp: true
 - slug: coffee-turkish
   display_name_he: קפה שחור טחון
+  names_ar: [قهوة تركية, قهوة سوداء مطحونة]
   taxonomy_id: beverages.hot.coffee
   product_type: coffee_turkish
   base_unit: 100g
@@ -617,6 +692,7 @@ canonicals:
   is_mvp: true
 - slug: tea-black
   display_name_he: תה שחור בשקיקים
+  names_ar: [شاي اسود اكياس, شاي اسود, شاي]
   taxonomy_id: beverages.hot.tea
   product_type: tea_black
   base_unit: unit
@@ -626,6 +702,7 @@ canonicals:
   is_mvp: true
 - slug: bisli-grill
   display_name_he: ביסלי גריל
+  names_ar: [بيسلي غريل, بيسلي شواء]
   taxonomy_id: snacks.salty.puffs
   product_type: wheat_snack
   base_unit: 100g
@@ -635,6 +712,7 @@ canonicals:
   is_mvp: true
 - slug: potato-chips-salted
   display_name_he: צ'יפס תפוחי אדמה בטעם מלח
+  names_ar: [رقائق بطاطا مملحة, شيبس بطاطا مملح, شيبس مملح]
   taxonomy_id: snacks.salty.chips
   product_type: potato_chips
   base_unit: 100g
@@ -644,6 +722,7 @@ canonicals:
   is_mvp: true
 - slug: chocolate-milk-bar
   display_name_he: שוקולד חלב
+  names_ar: [شوكولاتة حليب, شوكولاتة بالحليب]
   taxonomy_id: snacks.sweet.chocolate
   product_type: chocolate_bar
   base_unit: 100g
@@ -653,6 +732,7 @@ canonicals:
   is_mvp: true
 - slug: tea-biscuits
   display_name_he: ביסקוויטים (פתי בר)
+  names_ar: [بسكويت شاي, بتي بور]
   taxonomy_id: snacks.sweet.biscuits
   product_type: tea_biscuits
   base_unit: 100g
@@ -662,6 +742,7 @@ canonicals:
   is_mvp: true
 - slug: dish-soap
   display_name_he: נוזל כלים
+  names_ar: [سائل جلي, سائل غسيل صحون, صابون صحون]
   taxonomy_id: cleaning.dishes.liquid
   product_type: dish_soap
   base_unit: 100ml
@@ -671,6 +752,7 @@ canonicals:
   is_mvp: true
 - slug: laundry-gel
   display_name_he: ג'ל כביסה
+  names_ar: [جل غسيل ملابس, جل غسيل]
   taxonomy_id: cleaning.laundry.detergent
   product_type: laundry_gel
   base_unit: 100ml
@@ -680,6 +762,7 @@ canonicals:
   is_mvp: true
 - slug: fabric-softener
   display_name_he: מרכך כביסה
+  names_ar: [منعم ملابس, منعم غسيل, منعم اقمشة]
   taxonomy_id: cleaning.laundry.softener
   product_type: fabric_softener
   base_unit: 100ml
@@ -689,6 +772,7 @@ canonicals:
   is_mvp: true
 - slug: bleach
   display_name_he: אקונומיקה
+  names_ar: [كلور, اكونوميكا, مبيض كلور]
   taxonomy_id: cleaning.surfaces.bleach
   product_type: bleach
   base_unit: 100ml
@@ -698,6 +782,7 @@ canonicals:
   is_mvp: true
 - slug: garbage-bags
   display_name_he: שקיות אשפה
+  names_ar: [اكياس نفايات, اكياس زبالة, اكياس قمامة]
   taxonomy_id: cleaning.bags.garbage
   product_type: garbage_bags
   base_unit: unit
@@ -707,6 +792,7 @@ canonicals:
   is_mvp: true
 - slug: paper-towels
   display_name_he: מגבות נייר
+  names_ar: [مناشف ورقية, ورق مطبخ, مناديل مطبخ]
   taxonomy_id: paper.tissue.towels
   product_type: paper_towels
   base_unit: unit
@@ -716,6 +802,7 @@ canonicals:
   is_mvp: true
 - slug: milk-long-life-3
   display_name_he: חלב עמיד 3%
+  names_ar: [حليب عمر طويل 3%, حليب معقم 3%, حليب طويل امد 3%]
   taxonomy_id: dairy.milk.long_life
   product_type: milk_long_life
   base_unit: 100ml
@@ -725,6 +812,7 @@ canonicals:
   is_mvp: true
 - slug: milk-lactose-free-2
   display_name_he: חלב ללא לקטוז 2%
+  names_ar: [حليب بدون لاكتوز 2%, حليب خالي لاكتوز 2%]
   taxonomy_id: dairy.milk.lactose_free
   product_type: milk_lactose_free
   base_unit: 100ml
@@ -734,6 +822,7 @@ canonicals:
   is_mvp: true
 - slug: white-cheese-9
   display_name_he: גבינה לבנה 9%
+  names_ar: [جبنة بيضاء 9%]
   taxonomy_id: dairy.cheese.white
   product_type: white_cheese
   base_unit: 100g
@@ -743,6 +832,7 @@ canonicals:
   is_mvp: true
 - slug: cream-cheese-30-plain
   display_name_he: גבינת שמנת 30% טבעית
+  names_ar: [جبنة كريمة 30%, كريم تشيز 30%, جبنة كريمة 30% طبيعية]
   taxonomy_id: dairy.cheese.cream
   product_type: cream_cheese
   base_unit: 100g
@@ -752,6 +842,7 @@ canonicals:
   is_mvp: true
 - slug: yellow-cheese-sliced-9
   display_name_he: גבינה צהובה פרוסה 9%
+  names_ar: [جبنة صفراء شرائح 9%, جبنة صفراء 9%, جبنة صفراء مقطعة 9%]
   taxonomy_id: dairy.cheese.yellow.sliced
   product_type: yellow_cheese
   base_unit: 100g
@@ -761,6 +852,7 @@ canonicals:
   is_mvp: true
 - slug: grated-mozzarella
   display_name_he: גבינה מגורדת (מוצרלה)
+  names_ar: [جبنة موزاريلا مبشورة, موزاريلا, جبنة مبشورة]
   taxonomy_id: dairy.cheese.yellow.grated
   product_type: grated_cheese
   base_unit: 100g
@@ -770,6 +862,7 @@ canonicals:
   is_mvp: true
 - slug: bulgarian-cheese-5
   display_name_he: גבינה בולגרית 5%
+  names_ar: [جبنة بلغارية 5%]
   taxonomy_id: dairy.cheese.brined
   product_type: bulgarian_cheese
   base_unit: 100g
@@ -779,6 +872,7 @@ canonicals:
   is_mvp: true
 - slug: labane-5
   display_name_he: לבנה 5%
+  names_ar: [لبنة 5%]
   taxonomy_id: dairy.cheese.labane
   product_type: labane
   base_unit: 100g
@@ -788,6 +882,7 @@ canonicals:
   is_mvp: true
 - slug: yogurt-plain-1-5
   display_name_he: יוגורט טבעי 1.5%
+  names_ar: [زبادي 1.5%, يوغورت 1.5%, زبادي طبيعي 1.5%]
   taxonomy_id: dairy.yogurt.plain
   product_type: yogurt
   base_unit: 100g
@@ -797,6 +892,7 @@ canonicals:
   is_mvp: true
 - slug: yogurt-strawberry
   display_name_he: יוגורט תות
+  names_ar: [زبادي فراولة, يوغورت فراولة]
   taxonomy_id: dairy.yogurt.fruit
   product_type: yogurt_fruit
   base_unit: 100g
@@ -806,6 +902,7 @@ canonicals:
   is_mvp: true
 - slug: greek-yogurt-plain
   display_name_he: יוגורט יווני טבעי
+  names_ar: [زبادي يوناني, يوغورت يوناني, زبادي يوناني طبيعي]
   taxonomy_id: dairy.yogurt.greek
   product_type: greek_yogurt
   base_unit: 100g
@@ -815,6 +912,7 @@ canonicals:
   is_mvp: true
 - slug: cooking-cream-10
   display_name_he: שמנת לבישול 10%
+  names_ar: [كريمة طبخ 10%, قشطة طبخ 10%]
   taxonomy_id: dairy.cream.cooking
   product_type: cooking_cream
   base_unit: 100ml
@@ -824,6 +922,7 @@ canonicals:
   is_mvp: true
 - slug: eggs-xl
   display_name_he: ביצים XL
+  names_ar: [بيض XL, بيض اكس ال]
   taxonomy_id: dairy.eggs.chicken
   product_type: eggs_xl
   base_unit: unit
@@ -833,6 +932,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-breast-frozen
   display_name_he: חזה עוף קפוא
+  names_ar: [صدر دجاج مجمد, صدور دجاج مجمدة]
   taxonomy_id: meat.chicken.breast
   product_type: chicken_breast
   base_unit: 100g
@@ -842,6 +942,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-leg-fresh
   display_name_he: כרעיים עוף טריים
+  names_ar: [افخاذ دجاج طازجة, ارجل دجاج طازجة]
   taxonomy_id: meat.chicken.legs
   product_type: chicken_leg
   base_unit: kg
@@ -851,6 +952,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-whole-fresh
   display_name_he: עוף שלם טרי
+  names_ar: [دجاج كامل طازج, دجاجة كاملة طازجة]
   taxonomy_id: meat.chicken.whole
   product_type: chicken_whole
   base_unit: kg
@@ -860,6 +962,7 @@ canonicals:
   is_mvp: true
 - slug: beef-ground-frozen
   display_name_he: בשר בקר טחון קפוא
+  names_ar: [لحم بقر مفروم مجمد, لحمة بقر مفرومة مجمدة]
   taxonomy_id: meat.beef.ground
   product_type: beef_ground
   base_unit: 100g
@@ -869,6 +972,7 @@ canonicals:
   is_mvp: true
 - slug: salmon-fillet-frozen
   display_name_he: פילה סלמון קפוא
+  names_ar: [فيليه سلمون مجمد, سلمون مجمد]
   taxonomy_id: fish.fillets.salmon
   product_type: salmon_fillet
   base_unit: 100g
@@ -878,6 +982,7 @@ canonicals:
   is_mvp: true
 - slug: hake-fillet-frozen
   display_name_he: פילה מרלוזה קפוא
+  names_ar: [فيليه مرلوزا مجمد, مرلوزا مجمد]
   taxonomy_id: fish.fillets.white
   product_type: hake_fillet
   base_unit: 100g
@@ -887,6 +992,7 @@ canonicals:
   is_mvp: true
 - slug: tahini-salad
   display_name_he: סלט טחינה
+  names_ar: [سلطة طحينة]
   taxonomy_id: deli.salads.tahini
   product_type: tahini_salad
   base_unit: 100g
@@ -896,6 +1002,7 @@ canonicals:
   is_mvp: true
 - slug: matbucha
   display_name_he: מטבוחה
+  names_ar: [مطبوخة, سلطة مطبوخة, ماتبوخا]
   taxonomy_id: deli.salads.vegetable
   product_type: matbucha
   base_unit: 100g
@@ -905,6 +1012,7 @@ canonicals:
   is_mvp: true
 - slug: sweet-potato
   display_name_he: בטטה
+  names_ar: [بطاطا حلوة, بطاطس حلوة]
   taxonomy_id: produce.vegetables.root
   product_type: sweet_potato
   base_unit: kg
@@ -914,6 +1022,7 @@ canonicals:
   is_mvp: true
 - slug: eggplant
   display_name_he: חצילים
+  names_ar: [باذنجان, بتنجان]
   taxonomy_id: produce.vegetables.fruiting
   product_type: eggplant
   base_unit: kg
@@ -923,6 +1032,7 @@ canonicals:
   is_mvp: true
 - slug: zucchini
   display_name_he: קישואים
+  names_ar: [كوسا, كوسي]
   taxonomy_id: produce.vegetables.fruiting
   product_type: zucchini
   base_unit: kg
@@ -932,6 +1042,7 @@ canonicals:
   is_mvp: true
 - slug: garlic
   display_name_he: שום
+  names_ar: [ثوم]
   taxonomy_id: produce.vegetables.root
   product_type: garlic
   base_unit: kg
@@ -941,6 +1052,7 @@ canonicals:
   is_mvp: true
 - slug: apple-green
   display_name_he: תפוחי עץ ירוקים
+  names_ar: [تفاح اخضر]
   taxonomy_id: produce.fruit.pome
   product_type: apple_green
   base_unit: kg
@@ -950,6 +1062,7 @@ canonicals:
   is_mvp: true
 - slug: orange
   display_name_he: תפוזים
+  names_ar: [برتقال]
   taxonomy_id: produce.fruit.citrus
   product_type: orange
   base_unit: kg
@@ -959,6 +1072,7 @@ canonicals:
   is_mvp: true
 - slug: clementine
   display_name_he: קלמנטינות
+  names_ar: [كلمنتينا, يوسف افندي]
   taxonomy_id: produce.fruit.citrus
   product_type: clementine
   base_unit: kg
@@ -968,6 +1082,7 @@ canonicals:
   is_mvp: true
 - slug: watermelon
   display_name_he: אבטיח
+  names_ar: [بطيخ, بطيخ احمر]
   taxonomy_id: produce.fruit.melons
   product_type: watermelon
   base_unit: kg
@@ -977,6 +1092,7 @@ canonicals:
   is_mvp: true
 - slug: mushrooms-fresh
   display_name_he: פטריות שמפיניון טריות
+  names_ar: [فطر طازج, فطر شمبينيون طازج, مشروم طازج]
   taxonomy_id: produce.vegetables.mushrooms
   product_type: mushrooms
   base_unit: 100g
@@ -986,6 +1102,7 @@ canonicals:
   is_mvp: true
 - slug: coriander
   display_name_he: כוסברה
+  names_ar: [كزبرة]
   taxonomy_id: produce.herbs.fresh
   product_type: coriander
   base_unit: unit
@@ -995,6 +1112,7 @@ canonicals:
   is_mvp: true
 - slug: bread-rye
   display_name_he: לחם שיפון
+  names_ar: [خبز جاودار, خبز شيلم]
   taxonomy_id: bakery.bread.loaves
   product_type: bread_rye
   base_unit: 100g
@@ -1004,6 +1122,7 @@ canonicals:
   is_mvp: true
 - slug: bread-multigrain
   display_name_he: לחם דגנים
+  names_ar: [خبز حبوب, خبز متعدد الحبوب]
   taxonomy_id: bakery.bread.loaves
   product_type: bread_multigrain
   base_unit: 100g
@@ -1013,6 +1132,7 @@ canonicals:
   is_mvp: true
 - slug: rolls
   display_name_he: לחמניות
+  names_ar: [لحمانيات, خبز صمون]
   taxonomy_id: bakery.bread.rolls
   product_type: rolls
   base_unit: unit
@@ -1022,6 +1142,7 @@ canonicals:
   is_mvp: true
 - slug: pasta-fusilli
   display_name_he: פסטה פוזילי
+  names_ar: [فوزيلي, معكرونة فوزيلي, باستا فوزيلي]
   taxonomy_id: pantry.pasta.short
   product_type: pasta_fusilli
   base_unit: 100g
@@ -1031,6 +1152,7 @@ canonicals:
   is_mvp: true
 - slug: couscous
   display_name_he: קוסקוס
+  names_ar: [كسكس]
   taxonomy_id: pantry.pasta.israeli
   product_type: couscous
   base_unit: 100g
@@ -1040,6 +1162,7 @@ canonicals:
   is_mvp: true
 - slug: egg-noodles
   display_name_he: אטריות ביצים
+  names_ar: [نودلز بيض, شعيرية بالبيض]
   taxonomy_id: pantry.pasta.israeli
   product_type: egg_noodles
   base_unit: 100g
@@ -1049,6 +1172,7 @@ canonicals:
   is_mvp: true
 - slug: red-lentils
   display_name_he: עדשים כתומות
+  names_ar: [عدس احمر, عدس مجروش]
   taxonomy_id: pantry.legumes.dry
   product_type: red_lentils
   base_unit: 100g
@@ -1058,6 +1182,7 @@ canonicals:
   is_mvp: true
 - slug: quinoa
   display_name_he: קינואה
+  names_ar: [كينوا, كينوة]
   taxonomy_id: pantry.legumes.grains
   product_type: quinoa
   base_unit: 100g
@@ -1067,6 +1192,7 @@ canonicals:
   is_mvp: true
 - slug: breadcrumbs
   display_name_he: פירורי לחם
+  names_ar: [فتات خبز, بقسماط]
   taxonomy_id: pantry.baking.aids
   product_type: breadcrumbs
   base_unit: 100g
@@ -1076,6 +1202,7 @@ canonicals:
   is_mvp: true
 - slug: sunflower-oil
   display_name_he: שמן חמניות
+  names_ar: [زيت دوار الشمس, زيت عباد الشمس]
   taxonomy_id: pantry.oils.vegetable
   product_type: sunflower_oil
   base_unit: 100ml
@@ -1085,6 +1212,7 @@ canonicals:
   is_mvp: true
 - slug: peanut-butter
   display_name_he: חמאת בוטנים
+  names_ar: [زبدة فول سوداني, زبدة فستق]
   taxonomy_id: pantry.spreads.sweet
   product_type: peanut_butter
   base_unit: 100g
@@ -1094,6 +1222,7 @@ canonicals:
   is_mvp: true
 - slug: honey
   display_name_he: דבש
+  names_ar: [عسل, عسل نحل]
   taxonomy_id: pantry.spreads.sweet
   product_type: honey
   base_unit: 100g
@@ -1103,6 +1232,7 @@ canonicals:
   is_mvp: true
 - slug: soy-sauce
   display_name_he: רוטב סויה
+  names_ar: [صلصة صويا, صوص صويا]
   taxonomy_id: pantry.condiments.sauces
   product_type: soy_sauce
   base_unit: 100ml
@@ -1112,6 +1242,7 @@ canonicals:
   is_mvp: true
 - slug: black-pepper
   display_name_he: פלפל שחור
+  names_ar: [فلفل اسود]
   taxonomy_id: pantry.condiments.spices
   product_type: black_pepper
   base_unit: 100g
@@ -1121,6 +1252,7 @@ canonicals:
   is_mvp: true
 - slug: sweet-paprika
   display_name_he: פפריקה מתוקה
+  names_ar: [بابريكا حلوة, بابريكا]
   taxonomy_id: pantry.condiments.spices
   product_type: sweet_paprika
   base_unit: 100g
@@ -1130,6 +1262,7 @@ canonicals:
   is_mvp: true
 - slug: rolled-oats
   display_name_he: שיבולת שועל
+  names_ar: [شوفان, شوفان مجروش, رقائق شوفان]
   taxonomy_id: pantry.breakfast.cereal
   product_type: rolled_oats
   base_unit: 100g
@@ -1139,6 +1272,7 @@ canonicals:
   is_mvp: true
 - slug: granola
   display_name_he: גרנולה
+  names_ar: [غرانولا, جرانولا]
   taxonomy_id: pantry.breakfast.cereal
   product_type: granola
   base_unit: 100g
@@ -1148,6 +1282,7 @@ canonicals:
   is_mvp: true
 - slug: jam-strawberry
   display_name_he: ריבת תות
+  names_ar: [مربى فراولة, مربى فريز]
   taxonomy_id: pantry.spreads.sweet
   product_type: jam
   base_unit: 100g
@@ -1157,6 +1292,7 @@ canonicals:
   is_mvp: true
 - slug: chickpeas-dry
   display_name_he: גרגרי חומוס יבשים
+  names_ar: [حمص ناشف, حمص يابس, حمص حب ناشف]
   taxonomy_id: pantry.legumes.dry
   product_type: chickpeas
   base_unit: 100g
@@ -1166,6 +1302,7 @@ canonicals:
   is_mvp: true
 - slug: tuna-in-water
   display_name_he: טונה במים
+  names_ar: [تونة بالماء, تونا بالماء, تونة بالمي]
   taxonomy_id: canned.fish.tuna
   product_type: tuna_in_water
   base_unit: 100g
@@ -1175,6 +1312,7 @@ canonicals:
   is_mvp: true
 - slug: chickpeas-canned
   display_name_he: גרגרי חומוס בשימורים
+  names_ar: [حمص معلب, حمص حب معلب]
   taxonomy_id: canned.vegetables.legumes
   product_type: chickpeas
   base_unit: 100g
@@ -1184,6 +1322,7 @@ canonicals:
   is_mvp: true
 - slug: olives-green
   display_name_he: זיתים ירוקים
+  names_ar: [زيتون اخضر]
   taxonomy_id: canned.vegetables.pickles
   product_type: olives_green
   base_unit: 100g
@@ -1193,6 +1332,7 @@ canonicals:
   is_mvp: true
 - slug: crushed-tomatoes
   display_name_he: עגבניות מרוסקות
+  names_ar: [بندورة مهروسة, بندورة معلبة, طماطم مهروسة]
   taxonomy_id: canned.tomatoes.paste
   product_type: crushed_tomatoes
   base_unit: 100g
@@ -1202,6 +1342,7 @@ canonicals:
   is_mvp: true
 - slug: peas-frozen
   display_name_he: אפונה קפואה
+  names_ar: [بازلاء مجمدة, بازيلا مجمدة]
   taxonomy_id: frozen.vegetables.single
   product_type: peas
   base_unit: 100g
@@ -1211,6 +1352,7 @@ canonicals:
   is_mvp: true
 - slug: french-fries-frozen
   display_name_he: צ'יפס קפוא
+  names_ar: [بطاطا مقلية مجمدة, بطاطس مقلية مجمدة, فرايز مجمد]
   taxonomy_id: frozen.vegetables.potato
   product_type: french_fries
   base_unit: 100g
@@ -1220,6 +1362,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-nuggets
   display_name_he: נאגטס עוף
+  names_ar: [ناجتس دجاج, ناغتس دجاج]
   taxonomy_id: frozen.ready.chicken
   product_type: chicken_nuggets
   base_unit: 100g
@@ -1229,6 +1372,7 @@ canonicals:
   is_mvp: true
 - slug: burekas-cheese
   display_name_he: בורקס גבינה קפוא
+  names_ar: [بوريكس جبنة, بوريكاس جبنة مجمد]
   taxonomy_id: frozen.ready.dough
   product_type: burekas
   base_unit: 100g
@@ -1238,6 +1382,7 @@ canonicals:
   is_mvp: true
 - slug: soda-water
   display_name_he: מים מוגזים (סודה)
+  names_ar: [صودا, ماء صودا]
   taxonomy_id: beverages.water.sparkling
   product_type: soda_water
   base_unit: 100ml
@@ -1247,6 +1392,7 @@ canonicals:
   is_mvp: true
 - slug: cola-zero
   display_name_he: קולה זירו
+  names_ar: [كولا زيرو, كوكا كولا زيرو, كولا دايت]
   taxonomy_id: beverages.soft_drinks.cola
   product_type: cola_zero
   base_unit: 100ml
@@ -1256,6 +1402,7 @@ canonicals:
   is_mvp: true
 - slug: orange-juice-chilled
   display_name_he: מיץ תפוזים טבעי (מקורר)
+  names_ar: [عصير برتقال طبيعي مبرد, عصير برتقال طازج]
   taxonomy_id: beverages.juice.chilled
   product_type: orange_juice_chilled
   base_unit: 100ml
@@ -1265,6 +1412,7 @@ canonicals:
   is_mvp: true
 - slug: raspberry-concentrate
   display_name_he: תרכיז פטל
+  names_ar: [شراب توت, عصير توت مركز]
   taxonomy_id: beverages.juice.concentrate
   product_type: raspberry_concentrate
   base_unit: 100ml
@@ -1274,6 +1422,7 @@ canonicals:
   is_mvp: true
 - slug: soy-drink
   display_name_he: משקה סויה
+  names_ar: [مشروب صويا, حليب صويا]
   taxonomy_id: beverages.plant_drinks.soy
   product_type: soy_drink
   base_unit: 100ml
@@ -1283,6 +1432,7 @@ canonicals:
   is_mvp: true
 - slug: almond-drink
   display_name_he: משקה שקדים
+  names_ar: [مشروب لوز, حليب لوز]
   taxonomy_id: beverages.plant_drinks.almond
   product_type: almond_drink
   base_unit: 100ml
@@ -1292,6 +1442,7 @@ canonicals:
   is_mvp: true
 - slug: oat-drink
   display_name_he: משקה שיבולת שועל
+  names_ar: [مشروب شوفان, حليب شوفان]
   taxonomy_id: beverages.plant_drinks.oat
   product_type: oat_drink
   base_unit: 100ml
@@ -1301,6 +1452,7 @@ canonicals:
   is_mvp: true
 - slug: pretzels
   display_name_he: בייגלה
+  names_ar: [بريتزل, بيغلة]
   taxonomy_id: snacks.salty.chips
   product_type: pretzels
   base_unit: 100g
@@ -1310,6 +1462,7 @@ canonicals:
   is_mvp: true
 - slug: chocolate-dark-bar
   display_name_he: שוקולד מריר
+  names_ar: [شوكولاتة داكنة, شوكولاتة مرة]
   taxonomy_id: snacks.sweet.chocolate
   product_type: chocolate_bar
   base_unit: 100g
@@ -1319,6 +1472,7 @@ canonicals:
   is_mvp: true
 - slug: wafers-chocolate
   display_name_he: ופלים בטעם שוקולד
+  names_ar: [ويفر شوكولاتة, بسكويت ويفر شوكولاتة]
   taxonomy_id: snacks.sweet.biscuits
   product_type: wafers
   base_unit: 100g
@@ -1328,6 +1482,7 @@ canonicals:
   is_mvp: true
 - slug: rice-cakes
   display_name_he: פריכיות אורז
+  names_ar: [كعكات رز منفوخة, اقراص رز مقرمشة]
   taxonomy_id: snacks.crackers.all
   product_type: rice_cakes
   base_unit: 100g
@@ -1337,6 +1492,7 @@ canonicals:
   is_mvp: true
 - slug: wet-wipes
   display_name_he: מגבונים לחים
+  names_ar: [مناديل مبللة, مناديل رطبة]
   taxonomy_id: baby.hygiene.wipes
   product_type: wet_wipes
   base_unit: unit
@@ -1346,6 +1502,7 @@ canonicals:
   is_mvp: true
 - slug: dishwasher-tablets
   display_name_he: טבליות למדיח כלים
+  names_ar: [اقراص جلاية, اقراص غسالة صحون, اقراص جلاية صحون]
   taxonomy_id: cleaning.dishes.dishwasher
   product_type: dishwasher_tablets
   base_unit: unit
@@ -1355,6 +1512,7 @@ canonicals:
   is_mvp: true
 - slug: sponges
   display_name_he: ספוגי כלים
+  names_ar: [اسفنج جلي, اسفنج صحون]
   taxonomy_id: cleaning.dishes.sponges
   product_type: sponges
   base_unit: unit
@@ -1364,6 +1522,7 @@ canonicals:
   is_mvp: true
 - slug: floor-cleaner
   display_name_he: נוזל לניקוי רצפות
+  names_ar: [سائل تنظيف ارضيات, منظف ارضيات]
   taxonomy_id: cleaning.surfaces.floor
   product_type: floor_cleaner
   base_unit: 100ml
@@ -1373,6 +1532,7 @@ canonicals:
   is_mvp: true
 - slug: aluminum-foil
   display_name_he: נייר כסף
+  names_ar: [ورق المنيوم, ورق قصدير, قصدير]
   taxonomy_id: paper.kitchen.foil
   product_type: aluminum_foil
   base_unit: unit
@@ -1382,6 +1542,7 @@ canonicals:
   is_mvp: true
 - slug: toothpaste
   display_name_he: משחת שיניים
+  names_ar: [معجون اسنان]
   taxonomy_id: toiletries.oral.toothpaste
   product_type: toothpaste
   base_unit: 100ml
@@ -1391,6 +1552,7 @@ canonicals:
   is_mvp: true
 - slug: shampoo
   display_name_he: שמפו
+  names_ar: [شامبو, شمبو]
   taxonomy_id: toiletries.hair.shampoo
   product_type: shampoo
   base_unit: 100ml
@@ -1400,6 +1562,7 @@ canonicals:
   is_mvp: true
 - slug: hand-soap
   display_name_he: סבון ידיים נוזלי
+  names_ar: [صابون ايدي سائل, صابون سائل للايدي]
   taxonomy_id: toiletries.body.soap
   product_type: hand_soap
   base_unit: 100ml
@@ -1409,6 +1572,7 @@ canonicals:
   is_mvp: true
 - slug: milk-long-life-1
   display_name_he: חלב עמיד 1%
+  names_ar: [حليب عمر طويل 1%, حليب معقم 1%, حليب طويل امد 1%]
   taxonomy_id: dairy.milk.long_life
   product_type: milk_long_life
   base_unit: 100ml
@@ -1418,6 +1582,7 @@ canonicals:
   is_mvp: true
 - slug: white-cheese-3
   display_name_he: גבינה לבנה 3%
+  names_ar: [جبنة بيضاء 3%]
   taxonomy_id: dairy.cheese.white
   product_type: white_cheese
   base_unit: 100g
@@ -1427,6 +1592,7 @@ canonicals:
   is_mvp: true
 - slug: bulgarian-cheese-24
   display_name_he: גבינה בולגרית 24%
+  names_ar: [جبنة بلغارية 24%]
   taxonomy_id: dairy.cheese.brined
   product_type: bulgarian_cheese
   base_unit: 100g
@@ -1436,6 +1602,7 @@ canonicals:
   is_mvp: true
 - slug: safed-cheese-5
   display_name_he: גבינה צפתית 5%
+  names_ar: [جبنة صفدية 5%, جبنة صفد 5%]
   taxonomy_id: dairy.cheese.brined
   product_type: safed_cheese
   base_unit: 100g
@@ -1445,6 +1612,7 @@ canonicals:
   is_mvp: true
 - slug: yogurt-peach
   display_name_he: יוגורט אפרסק
+  names_ar: [زبادي خوخ, يوغورت خوخ]
   taxonomy_id: dairy.yogurt.fruit
   product_type: yogurt_fruit
   base_unit: 100g
@@ -1454,6 +1622,7 @@ canonicals:
   is_mvp: true
 - slug: dessert-chocolate
   display_name_he: מעדן חלב שוקולד
+  names_ar: [ميلكي شوكولاتة, حلوى حليب شوكولاتة, بودينغ حليب شوكولاتة]
   taxonomy_id: dairy.yogurt.desserts
   product_type: dairy_dessert
   base_unit: 100g
@@ -1463,6 +1632,7 @@ canonicals:
   is_mvp: true
 - slug: whipping-cream-38
   display_name_he: שמנת מתוקה 38%
+  names_ar: [كريمة حلوة 38%, كريمة خفق 38%, قشطة حلوة 38%]
   taxonomy_id: dairy.cream.sweet
   product_type: whipping_cream
   base_unit: 100ml
@@ -1472,6 +1642,7 @@ canonicals:
   is_mvp: true
 - slug: eggs-free-range-l
   display_name_he: ביצי חופש L
+  names_ar: [بيض حرية L, بيض بلدي L]
   taxonomy_id: dairy.eggs.chicken
   product_type: eggs_free_range_l
   base_unit: unit
@@ -1481,6 +1652,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-thigh-boneless-frozen
   display_name_he: פרגיות קפואות
+  names_ar: [فخذ دجاج بدون عظم مجمد, فرجيوت مجمدة]
   taxonomy_id: meat.chicken.thigh
   product_type: chicken_thigh_boneless
   base_unit: 100g
@@ -1490,6 +1662,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-whole-frozen
   display_name_he: עוף שלם קפוא
+  names_ar: [دجاج كامل مجمد, دجاجة كاملة مجمدة]
   taxonomy_id: meat.chicken.whole
   product_type: chicken_whole
   base_unit: kg
@@ -1499,6 +1672,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-wings-fresh
   display_name_he: כנפיים עוף טריות
+  names_ar: [اجنحة دجاج, اجنحة دجاج طازجة, وينغز دجاج طازجة]
   taxonomy_id: meat.chicken.wings
   product_type: chicken_wings
   base_unit: kg
@@ -1508,6 +1682,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-ground-fresh
   display_name_he: עוף טחון טרי
+  names_ar: [دجاج مفروم, دجاج مفروم طازج, لحم دجاج مفروم طازج]
   taxonomy_id: meat.chicken.ground
   product_type: chicken_ground
   base_unit: kg
@@ -1517,6 +1692,7 @@ canonicals:
   is_mvp: true
 - slug: chicken-liver-frozen
   display_name_he: כבד עוף קפוא
+  names_ar: [كبدة دجاج مجمدة, كبد دجاج مجمد]
   taxonomy_id: meat.chicken.offal
   product_type: chicken_liver
   base_unit: 100g
@@ -1526,6 +1702,7 @@ canonicals:
   is_mvp: true
 - slug: beef-shoulder-fresh
   display_name_he: צלי כתף בקר טרי
+  names_ar: [كتف بقر, كتف بقر طازج, روستو كتف بقر طازج]
   taxonomy_id: meat.beef.cuts
   product_type: beef_shoulder
   base_unit: kg
@@ -1535,6 +1712,7 @@ canonicals:
   is_mvp: true
 - slug: beef-goulash-fresh
   display_name_he: בשר בקר לגולאש טרי
+  names_ar: [لحم غولاش, لحم بقر غولاش طازج, غولاش بقر]
   taxonomy_id: meat.beef.cuts
   product_type: beef_goulash
   base_unit: kg
@@ -1544,6 +1722,7 @@ canonicals:
   is_mvp: true
 - slug: turkey-breast-fresh
   display_name_he: חזה הודו טרי
+  names_ar: [صدر ديك رومي طازج, صدر رومي طازج]
   taxonomy_id: meat.turkey.breast
   product_type: turkey_breast
   base_unit: kg
@@ -1553,6 +1732,7 @@ canonicals:
   is_mvp: true
 - slug: tilapia-fillet-frozen
   display_name_he: פילה אמנון קפוא
+  names_ar: [فيليه بلطي مجمد, فيليه امنون مجمد]
   taxonomy_id: fish.fillets.white
   product_type: tilapia_fillet
   base_unit: 100g
@@ -1562,6 +1742,7 @@ canonicals:
   is_mvp: true
 - slug: sea-bream-fresh
   display_name_he: דניס שלם טרי
+  names_ar: [دنيس طازج, سمكة دنيس طازجة]
   taxonomy_id: fish.whole.sea_bream
   product_type: sea_bream
   base_unit: kg
@@ -1571,6 +1752,7 @@ canonicals:
   is_mvp: true
 - slug: smoked-salmon-sliced
   display_name_he: סלמון מעושן פרוס
+  names_ar: [سلمون مدخن شرائح, سلمون مدخن]
   taxonomy_id: fish.smoked.salmon
   product_type: smoked_salmon
   base_unit: 100g
@@ -1580,6 +1762,7 @@ canonicals:
   is_mvp: true
 - slug: eggplant-mayo-salad
   display_name_he: סלט חצילים במיונז
+  names_ar: [سلطة باذنجان بالمايونيز, باذنجان مايونيز سلطة]
   taxonomy_id: deli.salads.vegetable
   product_type: eggplant_mayo_salad
   base_unit: 100g
@@ -1589,6 +1772,7 @@ canonicals:
   is_mvp: true
 - slug: cabbage
   display_name_he: כרוב לבן
+  names_ar: [ملفوف ابيض, كرنب ابيض]
   taxonomy_id: produce.vegetables.leafy
   product_type: cabbage
   base_unit: kg
@@ -1598,6 +1782,7 @@ canonicals:
   is_mvp: true
 - slug: cauliflower
   display_name_he: כרובית
+  names_ar: [قرنبيط, زهرة]
   taxonomy_id: produce.vegetables.leafy
   product_type: cauliflower
   base_unit: kg
@@ -1607,6 +1792,7 @@ canonicals:
   is_mvp: true
 - slug: broccoli-fresh
   display_name_he: ברוקולי טרי
+  names_ar: [بروكلي طازج, بروكولي طازج]
   taxonomy_id: produce.vegetables.leafy
   product_type: broccoli
   base_unit: kg
@@ -1616,6 +1802,7 @@ canonicals:
   is_mvp: true
 - slug: pear
   display_name_he: אגסים
+  names_ar: [كمثرى]
   taxonomy_id: produce.fruit.pome
   product_type: pear
   base_unit: kg
@@ -1625,6 +1812,7 @@ canonicals:
   is_mvp: true
 - slug: grapes
   display_name_he: ענבים
+  names_ar: [عنب]
   taxonomy_id: produce.fruit.berries
   product_type: grapes
   base_unit: kg
@@ -1634,6 +1822,7 @@ canonicals:
   is_mvp: true
 - slug: melon
   display_name_he: מלון
+  names_ar: [شمام, شمام جاليا]
   taxonomy_id: produce.fruit.melons
   product_type: melon
   base_unit: kg
@@ -1643,6 +1832,7 @@ canonicals:
   is_mvp: true
 - slug: strawberries-fresh
   display_name_he: תותים טריים
+  names_ar: [فراولة طازجة, فريز طازج]
   taxonomy_id: produce.fruit.berries
   product_type: strawberries
   base_unit: 100g
@@ -1652,6 +1842,7 @@ canonicals:
   is_mvp: true
 - slug: dill
   display_name_he: שמיר
+  names_ar: [شبت]
   taxonomy_id: produce.herbs.fresh
   product_type: dill
   base_unit: unit
@@ -1661,6 +1852,7 @@ canonicals:
   is_mvp: true
 - slug: green-onion
   display_name_he: בצל ירוק
+  names_ar: [بصل اخضر]
   taxonomy_id: produce.herbs.fresh
   product_type: green_onion
   base_unit: unit
@@ -1670,6 +1862,7 @@ canonicals:
   is_mvp: true
 - slug: bread-spelt
   display_name_he: לחם כוסמין
+  names_ar: [خبز سبلت]
   taxonomy_id: bakery.bread.loaves
   product_type: bread_spelt
   base_unit: 100g
@@ -1679,6 +1872,7 @@ canonicals:
   is_mvp: true
 - slug: baguette
   display_name_he: באגט
+  names_ar: [باغيت, خبز باغيت]
   taxonomy_id: bakery.bread.rolls
   product_type: baguette
   base_unit: unit
@@ -1688,6 +1882,7 @@ canonicals:
   is_mvp: true
 - slug: rice-jasmine
   display_name_he: אורז יסמין
+  names_ar: [رز ياسمين, ارز ياسمين]
   taxonomy_id: pantry.rice.white
   product_type: rice_jasmine
   base_unit: 100g
@@ -1697,6 +1892,7 @@ canonicals:
   is_mvp: true
 - slug: rice-round
   display_name_he: אורז עגול
+  names_ar: [رز مدور, رز مصري]
   taxonomy_id: pantry.rice.white
   product_type: rice_round
   base_unit: 100g
@@ -1706,6 +1902,7 @@ canonicals:
   is_mvp: true
 - slug: rice-brown
   display_name_he: אורז מלא
+  names_ar: [رز اسمر, رز كامل, رز بني]
   taxonomy_id: pantry.rice.brown
   product_type: rice_brown
   base_unit: 100g
@@ -1715,6 +1912,7 @@ canonicals:
   is_mvp: true
 - slug: white-beans
   display_name_he: שעועית לבנה יבשה
+  names_ar: [فاصوليا بيضاء, فاصوليا بيضا ناشفة]
   taxonomy_id: pantry.legumes.dry
   product_type: white_beans
   base_unit: 100g
@@ -1724,6 +1922,7 @@ canonicals:
   is_mvp: true
 - slug: bulgur
   display_name_he: בורגול
+  names_ar: [برغل, برغل ناعم]
   taxonomy_id: pantry.legumes.grains
   product_type: bulgur
   base_unit: 100g
@@ -1733,6 +1932,7 @@ canonicals:
   is_mvp: true
 - slug: flour-whole-wheat
   display_name_he: קמח מלא
+  names_ar: [طحين كامل, طحين قمح كامل, دقيق كامل]
   taxonomy_id: pantry.baking.flour
   product_type: flour_whole_wheat
   base_unit: 100g
@@ -1742,6 +1942,7 @@ canonicals:
   is_mvp: true
 - slug: sugar-brown
   display_name_he: סוכר חום
+  names_ar: [سكر بني, سكر اسمر]
   taxonomy_id: pantry.baking.sugar
   product_type: sugar_brown
   base_unit: 100g
@@ -1751,6 +1952,7 @@ canonicals:
   is_mvp: true
 - slug: baking-powder
   display_name_he: אבקת אפייה
+  names_ar: [بيكنج باودر, بيكينغ باودر, مسحوق خبز]
   taxonomy_id: pantry.baking.aids
   product_type: baking_powder
   base_unit: 100g
@@ -1760,6 +1962,7 @@ canonicals:
   is_mvp: true
 - slug: vanilla-sugar
   display_name_he: סוכר וניל
+  names_ar: [سكر فانيلا, سكر فانيلين]
   taxonomy_id: pantry.baking.aids
   product_type: vanilla_sugar
   base_unit: 100g
@@ -1769,6 +1972,7 @@ canonicals:
   is_mvp: true
 - slug: dry-yeast
   display_name_he: שמרים יבשים
+  names_ar: [خميرة جافة, خميرة ناشفة, خميرة]
   taxonomy_id: pantry.baking.aids
   product_type: dry_yeast
   base_unit: 100g
@@ -1778,6 +1982,7 @@ canonicals:
   is_mvp: true
 - slug: soybean-oil
   display_name_he: שמן סויה
+  names_ar: [زيت صويا, زيت فول الصويا]
   taxonomy_id: pantry.oils.vegetable
   product_type: soybean_oil
   base_unit: 100ml
@@ -1787,6 +1992,7 @@ canonicals:
   is_mvp: true
 - slug: silan
   display_name_he: סילאן
+  names_ar: [دبس تمر, سيلان]
   taxonomy_id: pantry.spreads.sweet
   product_type: silan
   base_unit: 100g
@@ -1796,6 +2002,7 @@ canonicals:
   is_mvp: true
 - slug: mayonnaise-light
   display_name_he: מיונז לייט
+  names_ar: [مايونيز لايت, مايونيز دايت, مايونيز خفيف]
   taxonomy_id: pantry.condiments.sauces
   product_type: mayonnaise_light
   base_unit: 100g
@@ -1805,6 +2012,7 @@ canonicals:
   is_mvp: true
 - slug: mustard
   display_name_he: חרדל
+  names_ar: [خردل, مسطردة]
   taxonomy_id: pantry.condiments.sauces
   product_type: mustard
   base_unit: 100g
@@ -1814,6 +2022,7 @@ canonicals:
   is_mvp: true
 - slug: vinegar
   display_name_he: חומץ
+  names_ar: [خل, خل ابيض]
   taxonomy_id: pantry.condiments.sauces
   product_type: vinegar
   base_unit: 100ml
@@ -1823,6 +2032,7 @@ canonicals:
   is_mvp: true
 - slug: cumin
   display_name_he: כמון
+  names_ar: [كمون]
   taxonomy_id: pantry.condiments.spices
   product_type: cumin
   base_unit: 100g
@@ -1832,6 +2042,7 @@ canonicals:
   is_mvp: true
 - slug: turmeric
   display_name_he: כורכום
+  names_ar: [كركم]
   taxonomy_id: pantry.condiments.spices
   product_type: turmeric
   base_unit: 100g
@@ -1841,6 +2052,7 @@ canonicals:
   is_mvp: true
 - slug: olives-black
   display_name_he: זיתים שחורים
+  names_ar: [زيتون اسود]
   taxonomy_id: canned.vegetables.pickles
   product_type: olives_black
   base_unit: 100g
@@ -1850,6 +2062,7 @@ canonicals:
   is_mvp: true
 - slug: mushrooms-canned
   display_name_he: פטריות בשימורים
+  names_ar: [فطر معلب, مشروم معلب]
   taxonomy_id: canned.vegetables.other
   product_type: canned_mushrooms
   base_unit: 100g
@@ -1859,6 +2072,7 @@ canonicals:
   is_mvp: true
 - slug: mixed-vegetables-frozen
   display_name_he: תערובת ירקות קפואה
+  names_ar: [خضار مشكلة مجمدة, خضروات مشكلة مجمدة, خضار مجمدة]
   taxonomy_id: frozen.vegetables.single
   product_type: mixed_vegetables
   base_unit: 100g
@@ -1868,6 +2082,7 @@ canonicals:
   is_mvp: true
 - slug: green-beans-frozen
   display_name_he: שעועית ירוקה קפואה
+  names_ar: [فاصوليا خضراء مجمدة, لوبيا خضراء مجمدة]
   taxonomy_id: frozen.vegetables.single
   product_type: green_beans
   base_unit: 100g
@@ -1877,6 +2092,7 @@ canonicals:
   is_mvp: true
 - slug: broccoli-frozen
   display_name_he: ברוקולי קפוא
+  names_ar: [بروكلي مجمد, بروكولي مجمد]
   taxonomy_id: frozen.vegetables.single
   product_type: broccoli
   base_unit: 100g
@@ -1886,6 +2102,7 @@ canonicals:
   is_mvp: true
 - slug: burekas-potato
   display_name_he: בורקס תפוחי אדמה קפוא
+  names_ar: [بوريكس بطاطا, بوريكاس بطاطس مجمد]
   taxonomy_id: frozen.ready.dough
   product_type: burekas
   base_unit: 100g
@@ -1895,6 +2112,7 @@ canonicals:
   is_mvp: true
 - slug: malawach
   display_name_he: מלוואח קפוא
+  names_ar: [ملواح, ملواح مجمد, ملوح]
   taxonomy_id: frozen.ready.dough
   product_type: malawach
   base_unit: 100g
@@ -1904,6 +2122,7 @@ canonicals:
   is_mvp: true
 - slug: frozen-pizza
   display_name_he: פיצה קפואה
+  names_ar: [بيتزا مجمدة, بيتزا جاهزة مجمدة]
   taxonomy_id: frozen.ready.other
   product_type: frozen_pizza
   base_unit: 100g
@@ -1913,6 +2132,7 @@ canonicals:
   is_mvp: true
 - slug: beef-burger-frozen
   display_name_he: המבורגר בקר קפוא
+  names_ar: [همبرغر بقر مجمد, برغر لحم بقر مجمد]
   taxonomy_id: frozen.ready.other
   product_type: beef_burger
   base_unit: 100g
@@ -1922,6 +2142,7 @@ canonicals:
   is_mvp: true
 - slug: ice-cream-vanilla
   display_name_he: גלידה וניל
+  names_ar: [بوظة فانيلا, ايس كريم فانيلا]
   taxonomy_id: frozen.desserts.ice_cream
   product_type: ice_cream
   base_unit: 100ml
@@ -1931,6 +2152,7 @@ canonicals:
   is_mvp: true
 - slug: lemon-lime-soda
   display_name_he: משקה מוגז לימון-ליים
+  names_ar: [سبرايت, مشروب غازي ليمون]
   taxonomy_id: beverages.soft_drinks.other
   product_type: lemon_lime_soda
   base_unit: 100ml
@@ -1940,6 +2162,7 @@ canonicals:
   is_mvp: true
 - slug: orange-juice
   display_name_he: מיץ תפוזים (מדף)
+  names_ar: [عصير برتقال معلب, عصير برتقال مركز]
   taxonomy_id: beverages.juice.shelf
   product_type: orange_juice
   base_unit: 100ml
@@ -1949,6 +2172,7 @@ canonicals:
   is_mvp: true
 - slug: grape-juice
   display_name_he: מיץ ענבים
+  names_ar: [عصير عنب]
   taxonomy_id: beverages.juice.shelf
   product_type: grape_juice
   base_unit: 100ml
@@ -1958,6 +2182,7 @@ canonicals:
   is_mvp: true
 - slug: bisli-onion
   display_name_he: ביסלי בצל
+  names_ar: [بيسلي بصل, بيسلي بنكهة بصل]
   taxonomy_id: snacks.salty.puffs
   product_type: wheat_snack
   base_unit: 100g
@@ -1967,6 +2192,7 @@ canonicals:
   is_mvp: true
 - slug: sunflower-seeds
   display_name_he: גרעינים
+  names_ar: [بزر عباد الشمس, بزر دوار الشمس, بزر]
   taxonomy_id: snacks.salty.seeds
   product_type: sunflower_seeds
   base_unit: 100g
@@ -1976,6 +2202,7 @@ canonicals:
   is_mvp: true
 - slug: halva
   display_name_he: חלבה
+  names_ar: [حلاوة, حلاوة طحينية]
   taxonomy_id: snacks.sweet.halva
   product_type: halva
   base_unit: 100g
@@ -1985,6 +2212,7 @@ canonicals:
   is_mvp: true
 - slug: crackers
   display_name_he: קרקרים
+  names_ar: [كراكرز, بسكويت مالح]
   taxonomy_id: snacks.crackers.all
   product_type: crackers
   base_unit: 100g
@@ -1994,6 +2222,7 @@ canonicals:
   is_mvp: true
 - slug: laundry-powder
   display_name_he: אבקת כביסה
+  names_ar: [مسحوق غسيل, بودرة غسيل, مسحوق غسيل ملابس]
   taxonomy_id: cleaning.laundry.detergent
   product_type: laundry_powder
   base_unit: 100g
@@ -2003,6 +2232,7 @@ canonicals:
   is_mvp: true
 - slug: cleaning-spray
   display_name_he: תרסיס ניקוי כללי
+  names_ar: [بخاخ تنظيف, بخاخ تنظيف عام, سبراي تنظيف]
   taxonomy_id: cleaning.surfaces.spray
   product_type: cleaning_spray
   base_unit: 100ml
@@ -2012,6 +2242,7 @@ canonicals:
   is_mvp: true
 - slug: facial-tissues
   display_name_he: ממחטות נייר
+  names_ar: [مناديل ورقية, محارم ورقية, محارم]
   taxonomy_id: paper.tissue.facial
   product_type: facial_tissues
   base_unit: unit
@@ -2021,6 +2252,7 @@ canonicals:
   is_mvp: true
 - slug: baking-paper
   display_name_he: נייר אפייה
+  names_ar: [ورق خبز, ورق زبدة]
   taxonomy_id: paper.kitchen.baking
   product_type: baking_paper
   base_unit: unit
@@ -2030,6 +2262,7 @@ canonicals:
   is_mvp: true
 - slug: cling-wrap
   display_name_he: ניילון נצמד
+  names_ar: [سلوفان, نايلون تغليف, نايلون لاصق]
   taxonomy_id: paper.kitchen.wrap
   product_type: cling_wrap
   base_unit: unit
@@ -2039,6 +2272,7 @@ canonicals:
   is_mvp: true
 - slug: disposable-plates
   display_name_he: צלחות חד-פעמיות
+  names_ar: [صحون استعمال واحد, صحون بلاستيك, صحون ورقية]
   taxonomy_id: paper.disposables.tableware
   product_type: disposable_plates
   base_unit: unit
@@ -2048,6 +2282,7 @@ canonicals:
   is_mvp: true
 - slug: disposable-cups
   display_name_he: כוסות חד-פעמיות
+  names_ar: [كاسات استعمال واحد, كاسات بلاستيك, اكواب بلاستيك]
   taxonomy_id: paper.disposables.tableware
   product_type: disposable_cups
   base_unit: unit
@@ -2057,6 +2292,7 @@ canonicals:
   is_mvp: true
 - slug: body-wash
   display_name_he: סבון רחצה
+  names_ar: [صابون استحمام, جل استحمام, شاور جل]
   taxonomy_id: toiletries.body.soap
   product_type: body_wash
   base_unit: 100ml
@@ -2066,6 +2302,7 @@ canonicals:
   is_mvp: true
 - slug: matzah
   display_name_he: מצות
+  names_ar: [ماتساه, ماتزا, خبز فطير]
   taxonomy_id: holiday.passover.matzah
   product_type: matzah
   base_unit: 100g
@@ -2075,6 +2312,7 @@ canonicals:
   is_mvp: true
 - slug: lager-beer
   display_name_he: בירה לאגר
+  names_ar: [بيرة لاجر, بيرة]
   taxonomy_id: alcohol.beer.lager
   product_type: lager_beer
   base_unit: 100ml
@@ -2084,6 +2322,7 @@ canonicals:
   is_mvp: true
 - slug: dessert-vanilla
   display_name_he: מעדן חלב וניל
+  names_ar: [ميلكي فانيلا, حلوى حليب فانيلا, بودينغ حليب فانيلا]
   taxonomy_id: dairy.yogurt.desserts
   product_type: dairy_dessert
   base_unit: 100g
@@ -2093,6 +2332,7 @@ canonicals:
   is_mvp: true
 - slug: margarine
   display_name_he: מרגרינה
+  names_ar: [مرغرين, مارجرين]
   taxonomy_id: dairy.cream.butter
   product_type: margarine
   base_unit: 100g
@@ -2102,6 +2342,7 @@ canonicals:
   is_mvp: true
 - slug: beef-entrecote-fresh
   display_name_he: אנטריקוט בקר טרי
+  names_ar: [انتريكوت بقر طازج, انتريكوت]
   taxonomy_id: meat.beef.cuts
   product_type: beef_entrecote
   base_unit: kg
@@ -2111,6 +2352,7 @@ canonicals:
   is_mvp: true
 - slug: nile-perch-fillet-frozen
   display_name_he: פילה נסיכת הנילוס קפוא
+  names_ar: [فيليه قاروص النيل مجمد, فيليه نيلية مجمد]
   taxonomy_id: fish.fillets.white
   product_type: nile_perch_fillet
   base_unit: 100g
@@ -2120,6 +2362,7 @@ canonicals:
   is_mvp: true
 - slug: salami
   display_name_he: נקניק סלמי
+  names_ar: [سلامي, نقانق سلامي]
   taxonomy_id: deli.cold_cuts.sliced
   product_type: salami
   base_unit: 100g
@@ -2129,6 +2372,7 @@ canonicals:
   is_mvp: true
 - slug: peach
   display_name_he: אפרסקים
+  names_ar: [خوخ, دراق]
   taxonomy_id: produce.fruit.stone
   product_type: peach
   base_unit: kg
@@ -2138,6 +2382,7 @@ canonicals:
   is_mvp: true
 - slug: mango
   display_name_he: מנגו
+  names_ar: [مانجا, مانجو]
   taxonomy_id: produce.fruit.tropical
   product_type: mango
   base_unit: kg
@@ -2147,6 +2392,7 @@ canonicals:
   is_mvp: true
 - slug: sardines
   display_name_he: סרדינים בשמן
+  names_ar: [سردين, سردين بالزيت, سردين معلب]
   taxonomy_id: canned.fish.other
   product_type: sardines
   base_unit: 100g
@@ -2156,6 +2402,7 @@ canonicals:
   is_mvp: true
 - slug: peas-canned
   display_name_he: אפונה בשימורים
+  names_ar: [بازلاء معلبة, بازيلا معلبة]
   taxonomy_id: canned.vegetables.legumes
   product_type: peas
   base_unit: 100g
@@ -2165,6 +2412,7 @@ canonicals:
   is_mvp: true
 - slug: spinach-frozen
   display_name_he: תרד קפוא
+  names_ar: [سبانخ مجمدة, سبانخ مجمد]
   taxonomy_id: frozen.vegetables.single
   product_type: spinach
   base_unit: 100g
@@ -2174,6 +2422,7 @@ canonicals:
   is_mvp: true
 - slug: sweet-corn-frozen
   display_name_he: תירס קפוא
+  names_ar: [ذرة مجمدة, ذرة حلوة مجمدة]
   taxonomy_id: frozen.vegetables.single
   product_type: sweet_corn
   base_unit: 100g
@@ -2183,6 +2432,7 @@ canonicals:
   is_mvp: true
 - slug: fish-fingers
   display_name_he: אצבעות דגים
+  names_ar: [اصابع سمك, اصابع سمك مجمدة]
   taxonomy_id: frozen.ready.other
   product_type: fish_fingers
   base_unit: 100g
@@ -2192,6 +2442,7 @@ canonicals:
   is_mvp: true
 - slug: flavored-water-lemon
   display_name_he: מים בטעם לימון
+  names_ar: [مياه بنكهة ليمون, مي بطعم ليمون]
   taxonomy_id: beverages.water.sparkling
   product_type: flavored_water
   base_unit: 100ml
@@ -2201,6 +2452,7 @@ canonicals:
   is_mvp: true
 - slug: deodorant
   display_name_he: דאודורנט
+  names_ar: [مزيل عرق, ديودورنت]
   taxonomy_id: toiletries.body.deodorant
   product_type: deodorant
   base_unit: 100ml
@@ -2210,6 +2462,7 @@ canonicals:
   is_mvp: true
 - slug: red-wine-dry
   display_name_he: יין אדום יבש
+  names_ar: [نبيذ احمر جاف, نبيذ احمر ناشف]
   taxonomy_id: alcohol.wine.red
   product_type: red_wine_dry
   base_unit: 100ml

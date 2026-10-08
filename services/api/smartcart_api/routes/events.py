@@ -73,7 +73,7 @@ def _choices(*values: str, required: bool = False) -> Key:
 
 EVENT_PROPS: dict[str, dict[str, Key]] = {
     # The app (or the PWA) was opened: one per visit. The actor of return visits.
-    "app_opened": {"surface": _choices("web", "pwa")},
+    "app_opened": {"surface": _choices("web", "pwa"), "platform": _choices(*PLATFORMS)},
     # A static page was viewed (SEO pages, methodology, basket index): SEO to app funnel.
     "page_viewed": {
         "page_type": _choices("category", "product", "methodology", "basket_index", "other",
@@ -131,6 +131,8 @@ EVENT_PROPS: dict[str, dict[str, Key]] = {
     # The PWA was installed (beforeinstallprompt accepted or display-mode standalone first seen).
     "pwa_installed": {"platform": _choices(*PLATFORMS)},
     # Web push: the user allowed notifications; a notification was opened.
+    # The push permission prompt was shown by our flow (the denominator of the opt-in rate, D15).
+    "push_prompt_shown": {"platform": _choices(*PLATFORMS)},
     "push_opt_in": {"platform": _choices(*PLATFORMS)},
     "push_opened": {"platform": _choices(*PLATFORMS)},
     # In-store mode was opened with a plan.

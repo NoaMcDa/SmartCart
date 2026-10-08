@@ -13,6 +13,7 @@ import { IconCheck, IconClock, IconInfo } from "@/components/ui/icons";
 import { BudgetRemaining } from "@/features/budget/BudgetRemaining";
 import { reportSplitViewed } from "@/features/consent/betaEvents";
 import { ReportGapButton } from "@/features/feedback/GapReportSheet";
+import { HandoffAction } from "@/features/handoff/HandoffAction";
 import { buildSession, startSession } from "@/features/store/session";
 import { formatDistance, formatTime } from "@/lib/format";
 import { useComparison, type LastResult } from "./lastResult";
@@ -420,6 +421,7 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
               >
                 התחילי קנייה ב{col.store.chain_name}
               </Button>
+              <HandoffAction store={col.store} items={col.items} />
             </section>
           );
         })}
