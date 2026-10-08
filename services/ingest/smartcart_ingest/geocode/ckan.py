@@ -7,28 +7,23 @@ project. The functions take a ``fetch`` callable so the tests run without a netw
 
 from __future__ import annotations
 
-import json
 import urllib.parse
-import urllib.request
 from collections.abc import Callable, Iterator
 from typing import Any
 
+from smartcart_ingest.geocode.http import StatusLog, get_json
 from smartcart_ingest.geocode.localities import classify_fields
 
 BASE_URL = "https://data.gov.il"
-USER_AGENT = "SmartCart-locality-fetch/0.1 (+https://github.com/NoaMcDa/SmartCart)"
 DEFAULT_QUERIES = ("ערים ויישובים", "רשימת יישובים", "יישובים", "localities")
 PAGE = 5000
 
 JsonFetch = Callable[[str], Any]
 
 
-def http_json(url: str, timeout: float = 60.0) -> Any:
-    req = urllib.request.Request(  # noqa: S310 (https URL built here)
-        url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"}
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return json.loads(resp.read().decode("utf-8"))
+def http_json(url: str, timeout: float = 60.0, log: StatusLog | None = None) -> Any:
+    """GET with the descriptive User-Agent of :mod:`smartcart_ingest.geocode.http`."""
+    return get_json(url, timeout=timeout, log=log)
 
 
 def _api(base: str, action: str, **params: object) -> str:

@@ -1,0 +1,9 @@
+{
+ "head": {"vars": ["prop", "label"]},
+ "results": {"bindings": [
+  {"prop": {"type": "uri", "value": "http://www.wikidata.org/entity/P88888"},
+   "label": {"xml:lang": "en", "type": "literal", "value": "Central Bureau of Statistics of the Netherlands ID"}},
+  {"prop": {"type": "uri", "value": "http://www.wikidata.org/entity/P99999"},
+   "label": {"xml:lang": "en", "type": "literal", "value": "Israel Central Bureau of Statistics locality code"}}
+ ]}
+}

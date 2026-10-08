@@ -10,7 +10,9 @@ locations (`CLAUDE.md`: rounded to neighbourhood level) they need real coordinat
 
 - **Tooling is built and tested. The full data is not in the repository yet**: this build box has no
   route to data.gov.il or Nominatim, so `data/geo/localities.csv` and `data/geo/store_geocodes.csv`
-  hold only their header. The workflow **Geocode stores** produces them (below).
+  hold only their header. The workflow **Geocode stores** produces them (below). Its first run (run
+  37822494185) got HTTP 403 from data.gov.il; a Wikidata source was added in response and is untested
+  against the live service.
 - Real Stores files, **measured**: 827 physical stores, 132 distinct non-zero city codes, 76 physical
   stores with city `0` (unknown).
 - With the 27-row **sample** table (`data/geo/localities_sample.csv`, hand-entered approximate city
@@ -54,24 +56,40 @@ A new coordinate reaches the database on the next Stores file load of that chain
 ## The locality table
 
 `data/geo/localities.csv`: `code, name_he, name_en, lat, lon, source, retrieved_at`. The `City` of a
-Stores file is the CBS (הלמ"ס) locality code. `scripts/geo/fetch_localities.py` builds the table:
+Stores file is the CBS (הלמ"ס) locality code. `scripts/geo/fetch_localities.py` builds the table from
+three sources, in order of preference (a code from an earlier source is never replaced):
 
-1. Reads the locality list from data.gov.il's CKAN API (`--resource-id` or `LOCALITIES_RESOURCE_ID`;
-   without one it searches `package_search` for a datastore resource with a code, a name and
-   coordinates, and prints its candidates). Columns are detected by name (Hebrew and English
-   aliases). WGS 84 `lat/lon` are used as they are; ITM (EPSG:2039) `X/Y` are converted by
-   `smartcart_ingest/geocode/itm.py` (the inverse transverse Mercator plus the Israel 1993 to WGS 84
-   Helmert, standard library only, within 0.35 m of pyproj on the test points). A converted point
-   outside Israel's bounding box is dropped.
-2. A resource with codes and names but no coordinates gives only names. With
-   `--nominatim-for-missing`, the codes that the Stores files need are looked up by Hebrew name in
-   Nominatim (place centroid of a settlement type, in Israel, whose own name matches). Those rows say
-   so in `source`.
-3. Rows that cannot be sourced stay out. Unresolved codes are printed; nothing is invented.
+1. **data.gov.il (CKAN API)**: `--resource-id` or `LOCALITIES_RESOURCE_ID`; without one it searches
+   `package_search` for a datastore resource with a code, a name and coordinates, and prints its
+   candidates. Columns are detected by name (Hebrew and English aliases). WGS 84 `lat/lon` are used
+   as they are; ITM (EPSG:2039) `X/Y` are converted by `smartcart_ingest/geocode/itm.py` (the inverse
+   transverse Mercator plus the Israel 1993 to WGS 84 Helmert, standard library only, within 0.35 m of
+   pyproj on the test points). A converted point outside Israel's bounding box is dropped.
+   **Observed from a GitHub runner (workflow run 37822494185): HTTP 403.** data.gov.il refuses that
+   request; the cause (the cloud IP range, or the client) is not known. All CKAN requests carry a
+   descriptive User-Agent (`SmartCart-geo/0.1 (+<repo URL>; contact: <contact>)`) and `Accept`, which is
+   the honest convention; a refusal is reported, not worked around.
+2. **Wikidata (SPARQL, `https://query.wikidata.org/sparql`)**: items that have the CBS locality code and
+   coordinates (P625), CC0 data. Rows say `source=wikidata`. Two GETs: one that finds the property by
+   label (properties whose English label contains "Central Bureau of Statistics" and "locality" or
+   "settlement"; the best match wins and every candidate is printed), one that fetches all items with
+   that property and P625, Hebrew and English labels optional (a row needs a Hebrew label). When several
+   items share a code the lowest Q-id wins. The property can be pinned with the workflow input
+   `wikidata_property` / `WIKIDATA_CBS_PROPERTY`, which skips discovery.
+   **The property id is not recorded here yet**: the build box cannot reach Wikidata, and a property id
+   is not something to recall from memory. The first successful workflow run prints it (line
+   `wikidata property candidate P...` and `property P...` in the Wikidata `SOURCE` line); put it in this
+   paragraph then and pass it as the input to skip discovery. The parser is tested on a hand-written
+   response in the documented format (`data/geo/fixtures/`, see its README), not on a recorded one.
+3. **Nominatim by name** (`--nominatim-for-missing`): a needed code that is still unplaced but has a
+   name (from source 1 or 2) is looked up by that name (place centroid of a settlement type, in Israel,
+   whose own name matches). Those rows say so in `source`.
 
-Not verified from here: which data.gov.il resource carries coordinates. The Interior Ministry
-settlement list is codes and names; if no resource has coordinates, step 2 supplies them from OSM,
-and the table is then OSM-derived (attribution below).
+Each source prints one line to stdout, which the workflow shows in the log and the job summary:
+`SOURCE <name>: HTTP <status> x<n>, ...; rows=<n>; <note>`. The script exits 1, with a
+`::error::` annotation, when **no** source produced a row (so the workflow step fails visibly); a
+single failing source does not fail it. Rows that cannot be sourced stay out. Unresolved codes are
+printed; nothing is invented.
 
 ## Address geocoding
 
@@ -125,11 +143,12 @@ open internet, the build box does not). Inputs:
 | Input | Default | Meaning |
 |---|---|---|
 | `max_stores` | 150 | stores sent to Nominatim in this run |
-| `fetch_localities` | true | rebuild `localities.csv` from data.gov.il first |
+| `fetch_localities` | true | rebuild `localities.csv` from the sources above first |
 | `localities_resource_id` | empty | CKAN resource id; empty means discover it |
+| `wikidata_property` | empty | Wikidata property id of the CBS locality code; empty means find it by label |
 | `nominatim_for_localities` | true | name lookup for localities the list gives no coordinates |
 
-Needs the variable `NOMINATIM_CONTACT`. The `geocode` job only reads the repository; the `commit` job
+`NOMINATIM_CONTACT` (repository variable or secret) overrides the default contact, this repository's issues page. The `geocode` job only reads the repository; the `commit` job
 (the only one with `contents: write`) pushes `geo/localities-<yyyymmdd>` (the locality table) and
 `geo/stores-<yyyymmdd>` (locality table, `store_geocodes.csv`, the request cache). No pull request is
 opened; review the two CSVs and merge. Re-run it with a higher `max_stores` until the summary shows
