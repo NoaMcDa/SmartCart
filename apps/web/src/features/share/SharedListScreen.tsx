@@ -16,17 +16,22 @@ import { IconClock, IconClose, IconInfo } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
 import controls from "@/features/profile/controls/controls.module.css";
+import { useRich } from "@/i18n/format-2";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import type { Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { shareMessages } from "@/i18n/messages/share";
 import { useList } from "@/state/list";
 import type { SharedItem } from "./listSync";
-import { ROLE_LABEL, ShareSheet, shareError } from "./ShareSheet";
+import { ROLE_KEY, ShareSheet, shareError } from "./ShareSheet";
 import { localListToServer, readRegistry, rememberJoined, setOwnedListId } from "./sharedLists";
 import { useSharedList } from "./useSharedList";
 import styles from "./Share.module.css";
 
-export function memberLabel(m: ListMember): string {
-  if (m.is_owner) return "הבעלים של הרשימה";
-  if (!m.user_id) return "הזמנה ממתינה";
-  return "חברה ברשימה";
+export function memberLabel(m: ListMember, locale: Locale = "he"): string {
+  if (m.is_owner) return translate(shareMessages, locale, "memberOwner");
+  if (!m.user_id) return translate(shareMessages, locale, "memberPending");
+  return translate(shareMessages, locale, "memberMember");
 }
 
 function Members({
@@ -41,11 +46,13 @@ function Members({
   onRemove: (member: ListMember) => void;
   onRevoke: (invite: ListMember) => void;
 }) {
+  const t = useT(shareMessages);
+  const { locale } = useLocale();
   if (members.length === 0) return null;
   return (
     <Card as="section" aria-labelledby="members-heading">
       <h2 id="members-heading" className={styles.sectionTitle}>
-        מי ברשימה
+        {t("membersHeading")}
       </h2>
       <ul className={styles.members} data-testid="members">
         {members.map((m, i) => {
@@ -55,19 +62,22 @@ function Members({
               key={m.share_id != null ? `share-${m.share_id}` : `${m.user_id ?? "invite"}-${i}`}
               data-testid="member"
             >
-              <span className={styles.memberName}>{memberLabel(m)}</span>
+              <span className={styles.memberName}>{memberLabel(m, locale)}</span>
               <span className={styles.memberRole}>
-                {m.is_owner ? "בעלים" : ROLE_LABEL[m.role]}
-                {pending ? " · עדיין לא הצטרפה" : null}
+                {pending
+                  ? t("roleNotJoined", { role: t(ROLE_KEY[m.role]) })
+                  : m.is_owner
+                    ? t("roleOwner")
+                    : t(ROLE_KEY[m.role])}
               </span>
               {canManage && m.user_id && !m.is_owner ? (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onRemove(m)}
-                  aria-label={`הסרת חברה מהרשימה (${ROLE_LABEL[m.role]})`}
+                  aria-label={t("removeMemberAria", { role: t(ROLE_KEY[m.role]) })}
                 >
-                  הסרה מהרשימה
+                  {t("removeMember")}
                 </Button>
               ) : null}
               {canManage && pending && m.share_id != null ? (
@@ -75,23 +85,22 @@ function Members({
                   variant="outline"
                   size="sm"
                   onClick={() => onRevoke(m)}
-                  aria-label={`ביטול הזמנה ממתינה (${ROLE_LABEL[m.role]})`}
+                  aria-label={t("revokeInviteAria", { role: t(ROLE_KEY[m.role]) })}
                 >
-                  ביטול ההזמנה
+                  {t("revokeInvite")}
                 </Button>
               ) : null}
             </li>
           );
         })}
       </ul>
-      <p className={controls.hint}>
-        חברים רואים רק את הרשימה. המיקום וההעדפות של כל אחת נשארים אצלה.
-      </p>
+      <p className={controls.hint}>{t("membersHint")}</p>
     </Card>
   );
 }
 
 function AddItem({ onAdd }: { onAdd: (c: CanonicalRef) => void }) {
+  const t = useT(shareMessages);
   const [text, setText] = useState("");
   const [hits, setHits] = useState<CanonicalRef[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -116,26 +125,26 @@ function AddItem({ onAdd }: { onAdd: (c: CanonicalRef) => void }) {
     <form onSubmit={find} className={controls.stack} noValidate>
       <div className={controls.field}>
         <label htmlFor={id} className={controls.label}>
-          הוספת פריט לרשימה המשותפת
+          {t("addItemLabel")}
         </label>
         <div className={styles.row}>
           <input
             id={id}
             className={controls.input}
             value={text}
-            placeholder="למשל: חלב"
+            placeholder={t("addItemPlaceholder")}
             onChange={(e) => setText(e.target.value)}
           />
           <Button type="submit" variant="outline" size="sm" disabled={busy}>
-            חיפוש
+            {t("search")}
           </Button>
         </div>
       </div>
       {hits !== null ? (
         hits.length === 0 ? (
-          <p className={controls.hint}>לא מצאנו מוצר כזה. נסי ניסוח אחר.</p>
+          <p className={controls.hint}>{t("noHits")}</p>
         ) : (
-          <ul className={styles.hits} aria-label="תוצאות חיפוש">
+          <ul className={styles.hits} aria-label={t("hitsLabel")}>
             {hits.map((h) => (
               <li key={h.canonical_id}>
                 <Button
@@ -147,7 +156,7 @@ function AddItem({ onAdd }: { onAdd: (c: CanonicalRef) => void }) {
                     setText("");
                   }}
                 >
-                  הוספי: {h.display_name_he}
+                  {t("addHit", { name: h.display_name_he })}
                 </Button>
               </li>
             ))}
@@ -169,6 +178,7 @@ function ItemRow({
   onChecked: (checked: boolean) => void;
   onRemove: () => void;
 }) {
+  const t = useT(shareMessages);
   return (
     <li className={styles.item} data-testid="shared-item" data-checked={item.checked}>
       <label className={styles.check}>
@@ -176,7 +186,7 @@ function ItemRow({
           type="checkbox"
           checked={item.checked}
           onChange={(e) => onChecked(e.target.checked)}
-          aria-label={`סימון ${item.name} כנאסף`}
+          aria-label={t("checkAria", { name: item.name })}
         />
       </label>
       <div className={styles.itemMain}>
@@ -188,10 +198,10 @@ function ItemRow({
         variant="ghost"
         size="sm"
         onClick={onRemove}
-        aria-label={`הסרת ${item.name} מהרשימה המשותפת`}
+        aria-label={t("removeItemAria", { name: item.name })}
         iconStart={<IconClose size={16} />}
       >
-        הסרה
+        {t("removeItem")}
       </Button>
     </li>
   );
@@ -199,12 +209,14 @@ function ItemRow({
 
 function SharedListView({ listId }: { listId: number }) {
   const list = useSharedList(listId);
+  const t = useT(shareMessages);
+  const r = useRich(shareMessages);
   const [sheet, setSheet] = useState(false);
   const canManage = readRegistry().ownedListId === listId;
 
   if (list.status === "loading") {
     return (
-      <Card aria-busy="true" aria-label="טוענת את הרשימה" data-testid="shared-loading">
+      <Card aria-busy="true" aria-label={t("loadingList")} data-testid="shared-loading">
         <Skeleton width="50%" height={22} />
         <Skeleton height={44} />
         <Skeleton height={44} />
@@ -214,15 +226,15 @@ function SharedListView({ listId }: { listId: number }) {
   if (list.status !== "ready") {
     const text =
       list.status === "not-found"
-        ? "הרשימה לא נמצאה, או שאין לך גישה אליה."
+        ? t("listNotFound")
         : list.status === "forbidden"
-          ? "צריך להתחבר עם החשבון שהוזמן כדי לראות את הרשימה."
-          : "לא הצלחנו לטעון את הרשימה. בדקי את החיבור ונסי שוב.";
+          ? t("listForbidden")
+          : t("listLoadError");
     return (
       <Card role="alert" data-testid="shared-error">
         <p>{text}</p>
         <Button variant="outline" size="sm" onClick={() => void list.reload()}>
-          נסי שוב
+          {t("retry")}
         </Button>
       </Card>
     );
@@ -237,34 +249,43 @@ function SharedListView({ listId }: { listId: number }) {
         <p className={styles.sync} data-testid="sync-state" data-mode={list.mode}>
           {list.mode === "realtime"
             ? list.live
-              ? "מתעדכן בזמן אמת"
-              : "מתחברת לעדכונים בזמן אמת…"
-            : "מתעדכן כל כמה שניות"}
+              ? t("syncRealtime")
+              : t("syncConnecting")
+            : t("syncPolling")}
         </p>
         <div role="status" aria-live="polite">
           {list.pending > 0 ? (
             <p className={styles.pending} data-testid="pending-sync">
-              <IconClock size={14} /> ממתין לסנכרון (<span dir="ltr">{list.pending}</span>)
+              <IconClock size={14} />{" "}
+              {r(
+                "pendingSync",
+                { ltr: (c) => <span dir="ltr">{c}</span> },
+                { count: list.pending },
+              )}
             </p>
           ) : null}
         </div>
-        <Button onClick={() => setSheet(true)}>הזמנת בני משפחה</Button>
+        <Button onClick={() => setSheet(true)}>{t("inviteFamily")}</Button>
       </div>
 
       <div role="status" aria-live="polite">
         {list.message ? (
           <p className={styles.note} data-testid="shared-message">
-            <IconInfo size={15} /> {list.message}
+            <IconInfo size={15} /> {t(list.message)}
           </p>
         ) : null}
       </div>
 
       <Card as="section" aria-labelledby="items-heading" padding="none">
         <h2 id="items-heading" className={styles.itemsTitle}>
-          פריטים ברשימה (<span dir="ltr">{list.items.length}</span>)
+          {r(
+            "itemsHeading",
+            { ltr: (c) => <span dir="ltr">{c}</span> },
+            { count: list.items.length },
+          )}
         </h2>
         {list.items.length === 0 ? (
-          <p className={styles.empty}>הרשימה ריקה. הוסיפי פריט וכולם יראו אותו.</p>
+          <p className={styles.empty}>{t("emptyList")}</p>
         ) : (
           <ul className={styles.items} data-testid="shared-items">
             {list.items.map((it) => (
@@ -303,6 +324,7 @@ function SharedListView({ listId }: { listId: number }) {
 
 /** Lists other people shared with me (`GET /me/shared-lists`), each opening its page. */
 function SharedWithMe() {
+  const t = useT(shareMessages);
   const [lists, setLists] = useState<ShoppingList[] | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -323,7 +345,7 @@ function SharedWithMe() {
   return (
     <Card as="section" aria-labelledby="shared-with-me-heading" data-testid="shared-with-me">
       <h2 id="shared-with-me-heading" className={styles.sectionTitle}>
-        רשימות ששיתפו איתך
+        {t("sharedWithMe")}
       </h2>
       <ul className={styles.hits}>
         {lists.map((l) => (
@@ -342,6 +364,9 @@ function SharedWithMe() {
 function MineGate() {
   const router = useRouter();
   const auth = useAuth();
+  const t = useT(shareMessages);
+  const r = useRich(shareMessages);
+  const { locale } = useLocale();
   const { state, hydrated } = useList();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -364,7 +389,7 @@ function MineGate() {
       rememberJoined({ id: created.id, name: created.name });
       router.replace(`/lists/${created.id}/share`);
     } catch (err) {
-      setError(shareError(err));
+      setError(shareError(err, locale));
       setBusy(false);
     }
   }
@@ -373,27 +398,29 @@ function MineGate() {
   return (
     <Card as="section" aria-labelledby="mine-heading" data-testid="share-mine">
       <h2 id="mine-heading" className={styles.sectionTitle}>
-        שיתוף הרשימה שלך
+        {t("mineHeading")}
       </h2>
       {shareable.length === 0 ? (
         <>
-          <p>הרשימה ריקה, ואין מה לשתף עדיין. הוסיפי פריטים ואז חזרי לכאן.</p>
+          <p>{t("mineEmpty")}</p>
           <Button href="/" variant="outline" size="sm">
-            לבניית הרשימה
+            {t("buildList")}
           </Button>
         </>
       ) : (
         <>
           <p>
-            ניצור עותק משותף של &quot;{state.name}&quot; (<span dir="ltr">{shareable.length}</span>{" "}
-            פריטים). מי שתזמיני תוכל לראות ולערוך אותו, ושינויים יופיעו אצל כולן. הרשימה שלך במכשיר
-            נשארת כמו שהיא.
+            {r(
+              "mineBody",
+              { ltr: (c) => <span dir="ltr">{c}</span> },
+              { name: state.name, count: shareable.length },
+            )}
           </p>
           {needsSignIn ? (
-            <Button onClick={auth.openSignIn}>התחברות</Button>
+            <Button onClick={auth.openSignIn}>{t("signIn")}</Button>
           ) : (
             <Button onClick={() => void start()} disabled={busy}>
-              {busy ? "יוצרת…" : "יצירת רשימה משותפת"}
+              {busy ? t("creatingList") : t("createShared")}
             </Button>
           )}
         </>
@@ -408,6 +435,7 @@ function MineGate() {
 }
 
 export function SharedListScreen({ listId }: { listId: number | "mine" }) {
+  const t = useT(shareMessages);
   return (
     <div className={styles.page}>
       {listId === "mine" ? (
@@ -419,7 +447,7 @@ export function SharedListScreen({ listId }: { listId: number | "mine" }) {
         <>
           <SharedListView listId={listId} />
           <p className={styles.footnote}>
-            <Link href="/">חזרה לרשימה שלי</Link>
+            <Link href="/">{t("backToMine")}</Link>
           </p>
         </>
       )}

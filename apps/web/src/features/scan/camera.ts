@@ -3,6 +3,7 @@
  * browser's errors to what the screen tells the user. Nothing is recorded or uploaded; the stream
  * only feeds the detector and is stopped as soon as a code is read or the screen closes.
  */
+import type { ScanMessageKey } from "@/i18n/messages/scan";
 
 export type CameraFailure = "denied" | "no-camera" | "busy" | "unsupported";
 
@@ -52,10 +53,10 @@ export function stopStream(stream: MediaStream | null | undefined): void {
   stream?.getTracks().forEach((t) => t.stop());
 }
 
-export const CAMERA_MESSAGES: Record<CameraFailure, string> = {
-  denied:
-    "הגישה למצלמה נחסמה. אפשר לאשר אותה בהגדרות הדפדפן ולנסות שוב, או להקליד את הברקוד ידנית.",
-  "no-camera": "לא נמצאה מצלמה במכשיר הזה. אפשר להקליד את הברקוד ידנית.",
-  busy: "המצלמה תפוסה על ידי אפליקציה אחרת. סגרי אותה ונסי שוב, או הקלידי את הברקוד ידנית.",
-  unsupported: "הדפדפן הזה לא מאפשר לפתוח מצלמה. אפשר להקליד את הברקוד ידנית.",
-};
+/** Message key (`scanMessages`) per camera failure; the screen translates it. */
+export const CAMERA_MESSAGES = {
+  denied: "camDenied",
+  "no-camera": "camNone",
+  busy: "camBusy",
+  unsupported: "camUnsupported",
+} as const satisfies Record<CameraFailure, ScanMessageKey>;

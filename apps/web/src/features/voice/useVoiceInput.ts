@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useLocale } from "@/i18n/LocaleProvider";
 import {
   classifyVoiceError,
   getRecognizerCtor,
   readTranscript,
   transcriptText,
-  VOICE_LANG,
+  voiceLangs,
   type SpeechRecognitionLike,
   type Transcript,
   type VoiceFailure,
@@ -50,11 +51,12 @@ export function useVoiceSupported(): boolean | null {
 }
 
 /**
- * Drives one `SpeechRecognition` (`he-IL`, continuous, interim results). Every outcome ends in
+ * Drives one `SpeechRecognition` (`he-IL`, or `ar-IL` then `ar` in Arabic; continuous, interim results). Every outcome ends in
  * `review` (with the text, even after a late error) or `error` (with a reason); nothing throws.
  * Leaving the screen aborts the recognizer.
  */
 export function useVoiceInput(): VoiceInput {
+  const { locale } = useLocale();
   const [phase, setPhase] = useState<VoicePhase>("idle");
   const [failure, setFailure] = useState<VoiceFailure | null>(null);
   const [transcript, setTranscript] = useState<Transcript>(EMPTY);
@@ -85,61 +87,74 @@ export function useVoiceInput(): VoiceInput {
       setPhase("error");
       return;
     }
-    const rec = new Ctor();
-    rec.lang = VOICE_LANG;
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.maxAlternatives = 1;
-    current.current = rec;
-    let heard: Transcript = EMPTY;
-    let reason: VoiceFailure | null = null;
+    const langs = voiceLangs(locale);
 
-    // Ends the attempt once: with the text if there is any, otherwise with the reason.
-    const settle = () => {
-      if (current.current !== rec) return;
-      current.current = null;
-      rec.onstart = rec.onresult = rec.onerror = rec.onend = null;
-      try {
-        rec.abort();
-      } catch {
-        // already stopped
-      }
-      if (transcriptText(heard)) {
+    // One recognizer for `langs[langIndex]`. A browser that does not know a regional variant
+    // (`ar-IL`) reports `language-not-supported`; the next candidate (`ar`) is tried before the
+    // person is told the language is unsupported.
+    const launch = (langIndex: number) => {
+      const rec = new Ctor();
+      rec.lang = langs[langIndex] ?? langs[0] ?? "he-IL";
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+      current.current = rec;
+      let heard: Transcript = EMPTY;
+      let reason: VoiceFailure | null = null;
+
+      // Ends the attempt once: with the text if there is any, otherwise with the reason.
+      const settle = () => {
+        if (current.current !== rec) return;
+        current.current = null;
+        rec.onstart = rec.onresult = rec.onerror = rec.onend = null;
+        try {
+          rec.abort();
+        } catch {
+          // already stopped
+        }
+        if (transcriptText(heard)) {
+          setTranscript(heard);
+          setFailure(null);
+          setPhase("review");
+        } else {
+          setFailure(reason ?? "no-speech");
+          setPhase("error");
+        }
+      };
+
+      rec.onstart = () => {
+        if (current.current === rec) setPhase("listening");
+      };
+      rec.onresult = (event) => {
+        if (current.current !== rec) return;
+        heard = readTranscript(event.results);
         setTranscript(heard);
-        setFailure(null);
-        setPhase("review");
-      } else {
-        setFailure(reason ?? "no-speech");
-        setPhase("error");
+      };
+      rec.onerror = (event) => {
+        if (current.current !== rec) return;
+        const kind = classifyVoiceError(event.error);
+        if (!kind) return;
+        if (kind === "language" && langIndex + 1 < langs.length) {
+          dispose();
+          launch(langIndex + 1);
+          return;
+        }
+        reason = kind;
+        // Some browsers never fire `end` after a permission or microphone error.
+        if (kind === "denied" || kind === "no-mic" || kind === "language") settle();
+      };
+      rec.onend = settle;
+
+      setPhase("starting");
+      try {
+        rec.start();
+      } catch {
+        reason = "failed";
+        settle();
       }
     };
-
-    rec.onstart = () => {
-      if (current.current === rec) setPhase("listening");
-    };
-    rec.onresult = (event) => {
-      if (current.current !== rec) return;
-      heard = readTranscript(event.results);
-      setTranscript(heard);
-    };
-    rec.onerror = (event) => {
-      if (current.current !== rec) return;
-      const kind = classifyVoiceError(event.error);
-      if (!kind) return;
-      reason = kind;
-      // Some browsers never fire `end` after a permission or microphone error.
-      if (kind === "denied" || kind === "no-mic" || kind === "language") settle();
-    };
-    rec.onend = settle;
-
-    setPhase("starting");
-    try {
-      rec.start();
-    } catch {
-      reason = "failed";
-      settle();
-    }
-  }, [dispose]);
+    launch(0);
+  }, [dispose, locale]);
 
   const stop = useCallback(() => {
     const rec = current.current;

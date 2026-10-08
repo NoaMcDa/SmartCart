@@ -8,28 +8,32 @@ import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { reportListShared } from "@/features/consent/betaEvents";
 import controls from "@/features/profile/controls/controls.module.css";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import type { Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { shareMessages, type ShareMessageKey } from "@/i18n/messages/share";
 import styles from "./Share.module.css";
 
-export const ROLE_LABEL: Record<ShareRole, string> = {
-  editor: "עריכה",
-  viewer: "צפייה בלבד",
-};
+/** Message key (`shareMessages`) of a role's label. */
+export const ROLE_KEY = { editor: "roleEditor", viewer: "roleViewer" } as const satisfies Record<
+  ShareRole,
+  "roleEditor" | "roleViewer"
+>;
 
 /** The invite as a link the recipient can open. The API may return a path or a full address. */
 export function inviteLink(invite: Pick<ShareInvite, "url">, origin: string): string {
   return /^https?:\/\//i.test(invite.url) ? invite.url : `${origin}${invite.url}`;
 }
 
-export function shareError(err: unknown): string {
+export function shareError(err: unknown, locale: Locale = "he"): string {
+  const t = (key: ShareMessageKey) => translate(shareMessages, locale, key);
   if (err instanceof ApiError) {
-    if (err.status === 401) return "צריך להתחבר כדי לשתף רשימה.";
-    if (err.status === 402 || err.status === 403) {
-      return "שיתוף משפחתי הוא חלק מהמנוי, או שהרשימה הזו לא שלך.";
-    }
-    if (err.status === 404) return "הרשימה לא נמצאה.";
-    return "השרת החזיר שגיאה. נסי שוב בעוד רגע.";
+    if (err.status === 401) return t("errShareSignIn");
+    if (err.status === 402 || err.status === 403) return t("errShareForbidden");
+    if (err.status === 404) return t("errShareNotFound");
+    return t("errServer");
   }
-  return "נראה שאין חיבור לשרת. בדקי את החיבור ונסי שוב.";
+  return t("errOffline");
 }
 
 /**
@@ -61,6 +65,8 @@ function ShareSheetContent({
   onInvited?: () => void;
 }) {
   const auth = useAuth();
+  const t = useT(shareMessages);
+  const { locale } = useLocale();
   const [role, setRole] = useState<ShareRole>("editor");
   const [invite, setInvite] = useState<ShareInvite | null>(null);
   const [busy, setBusy] = useState(false);
@@ -84,7 +90,7 @@ function ShareSheetContent({
       reportListShared(created.role);
       onInvited?.();
     } catch (err) {
-      setError(shareError(err));
+      setError(shareError(err, locale));
     } finally {
       setBusy(false);
     }
@@ -102,7 +108,7 @@ function ShareSheetContent({
       setRevoked(true);
       onInvited?.();
     } catch (err) {
-      setError(shareError(err));
+      setError(shareError(err, locale));
     } finally {
       setBusy(false);
     }
@@ -127,44 +133,46 @@ function ShareSheetContent({
       }
     }
     setCopied(ok);
-    if (!ok) setError("לא הצלחנו להעתיק אוטומטית. סימנו את הקישור, אפשר להעתיק אותו ידנית.");
+    if (!ok) setError(t("copyFailed"));
   }
 
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="הזמנת בני משפחה" eyebrow="שיתוף הרשימה">
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      title={t("inviteFamily")}
+      eyebrow={t("sheetEyebrow")}
+    >
       <div className={controls.stack}>
-        <p className={controls.hint}>
-          מי שתקבל את הקישור תתחבר, תצטרף ותראה את הרשימה ואת השינויים בה בזמן אמת. היא לא רואה את
-          המיקום או ההעדפות שלך.
-        </p>
+        <p className={controls.hint}>{t("sheetHint")}</p>
 
         {needsSignIn ? (
           <>
             <p className={styles.note}>
-              <IconInfo size={15} /> כדי לשתף צריך להתחבר, כך שרק מי שהוזמנה תגיע לרשימה.
+              <IconInfo size={15} /> {t("shareSignInNote")}
             </p>
-            <Button onClick={auth.openSignIn}>התחברות</Button>
+            <Button onClick={auth.openSignIn}>{t("signIn")}</Button>
           </>
         ) : (
           <>
             <SegmentedControl<ShareRole>
-              label="הרשאה למוזמנת"
+              label={t("permissionLabel")}
               value={role}
               onChange={(r) => {
                 setRole(r);
                 setInvite(null);
               }}
               options={[
-                { value: "editor", label: ROLE_LABEL.editor },
-                { value: "viewer", label: ROLE_LABEL.viewer },
+                { value: "editor", label: t(ROLE_KEY.editor) },
+                { value: "viewer", label: t(ROLE_KEY.viewer) },
               ]}
             />
             {invite ? (
               <div className={controls.field} data-testid="invite">
                 <label htmlFor="invite-link" className={controls.label}>
-                  קישור הזמנה ({ROLE_LABEL[invite.role]})
+                  {t("inviteLinkLabel", { role: t(ROLE_KEY[invite.role]) })}
                 </label>
                 <input
                   id="invite-link"
@@ -176,27 +184,27 @@ function ShareSheetContent({
                   onFocus={(e) => e.currentTarget.select()}
                 />
                 <div className={styles.row}>
-                  <Button onClick={() => void copy()}>העתקת הקישור</Button>
+                  <Button onClick={() => void copy()}>{t("copyLink")}</Button>
                   {canNativeShare ? (
                     <Button
                       variant="outline"
                       onClick={() =>
                         void navigator
-                          .share({ title: "רשימת קניות ב-SmartCart", url: link })
+                          .share({ title: t("nativeShareTitle"), url: link })
                           .catch(() => undefined)
                       }
                     >
-                      שיתוף בטלפון
+                      {t("shareOnPhone")}
                     </Button>
                   ) : null}
                   <Button variant="ghost" onClick={() => void revoke()} disabled={busy}>
-                    ביטול הקישור
+                    {t("revokeLink")}
                   </Button>
                 </div>
               </div>
             ) : (
               <Button onClick={() => void create()} disabled={busy}>
-                {busy ? "יוצרת קישור…" : "יצירת קישור הזמנה"}
+                {busy ? t("creatingLink") : t("createLink")}
               </Button>
             )}
           </>
@@ -205,13 +213,12 @@ function ShareSheetContent({
         <div role="status" aria-live="polite">
           {revoked ? (
             <p className={styles.ok} data-testid="invite-revoked">
-              <IconCheck size={15} /> הקישור בוטל. מי שקיבלה אותו לא תוכל להצטרף, ומי שכבר הצטרפה
-              איבדה גישה.
+              <IconCheck size={15} /> {t("linkRevoked")}
             </p>
           ) : null}
           {copied ? (
             <p className={styles.ok} data-testid="invite-copied">
-              <IconCheck size={15} /> הקישור הועתק.
+              <IconCheck size={15} /> {t("linkCopied")}
             </p>
           ) : null}
         </div>

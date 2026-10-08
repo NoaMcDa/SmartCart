@@ -6,6 +6,8 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { nearestStore, type StoreRef } from "@/api/client";
+import { useT } from "@/i18n/LocaleProvider";
+import { scanMessages } from "@/i18n/messages/scan";
 import { readJson, writeJson } from "@/state/storage";
 import type { ShopperContext } from "@/state/shopper";
 
@@ -49,6 +51,7 @@ export function pickStore(
 }
 
 export function useScanStores(shopper: ShopperContext | null) {
+  const t = useT(scanMessages);
   const [refs, setRefs] = useState<StoreRef[] | null>(null);
   const [chosen, setChosen] = useState<number | null>(() =>
     readJson<number | null>(SCAN_STORE_KEY, null),
@@ -85,10 +88,10 @@ export function useScanStores(shopper: ShopperContext | null) {
       ref,
     }));
     if (home !== null && refs !== null && !list.some((o) => o.storeId === home)) {
-      list.unshift({ storeId: home, label: "הסופר שלי", ref: null });
+      list.unshift({ storeId: home, label: t("myStore"), ref: null });
     }
     return list;
-  }, [refs, home]);
+  }, [refs, home, t]);
 
   const storeId = refs === null ? null : pickStore(options, chosen, home);
   const selected = options.find((o) => o.storeId === storeId) ?? null;

@@ -2,6 +2,7 @@
  * EAN-13 and EAN-8 helpers (issue #39). A scan is accepted only when its check digit is right, so a
  * misread never turns into a wrong product (D5: precision over recall).
  */
+import type { ScanMessageKey } from "@/i18n/messages/scan";
 
 export type BarcodeCheck =
   { ok: true; code: string } | { ok: false; reason: "empty" | "digits" | "length" | "checksum" };
@@ -34,9 +35,10 @@ export function checkBarcode(raw: string): BarcodeCheck {
   return { ok: true, code };
 }
 
-export const BARCODE_ERRORS: Record<Exclude<BarcodeCheck, { ok: true }>["reason"], string> = {
-  empty: "הקלידי את הספרות שמתחת לברקוד.",
-  digits: "ברקוד מורכב מספרות בלבד.",
-  length: "ברקוד תקין הוא בן 13 ספרות (או 8 ספרות במוצרים קטנים).",
-  checksum: "הספרות לא מרכיבות ברקוד תקין. בדקי שוב ונסי שוב.",
-};
+/** Message key (`scanMessages`) per failed barcode check; the screen translates it. */
+export const BARCODE_ERRORS = {
+  empty: "errEmpty",
+  digits: "errDigits",
+  length: "errLength",
+  checksum: "errChecksum",
+} as const satisfies Record<Exclude<BarcodeCheck, { ok: true }>["reason"], ScanMessageKey>;

@@ -30,6 +30,7 @@ import {
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { getSupabase } from "@/features/auth/supabaseClient";
+import type { ShareMessageKey } from "@/i18n/messages/share";
 import {
   applyChange,
   changeFromPayload,
@@ -71,7 +72,9 @@ type Supabase = NonNullable<ReturnType<typeof getSupabase>>;
 const memberKey = (m: ListMember) =>
   m.share_id != null ? `s${m.share_id}` : `u${m.user_id ?? ""}`;
 
-const REFUSED = "השינוי לא נשמר, אז החזרנו את הרשימה למה שהיה. נסי שוב.";
+/** The hook raises message keys (`shareMessages`); the screen translates them, so a language
+ * switch changes a message that is already showing. */
+const REFUSED = "msgRefused" satisfies ShareMessageKey;
 
 export function useSharedList(listId: number) {
   const auth = useAuth();
@@ -84,7 +87,7 @@ export function useSharedList(listId: number) {
   const [items, setItems] = useState<SharedItem[]>([]);
   const [members, setMembers] = useState<ListMember[]>([]);
   const [live, setLive] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<ShareMessageKey | null>(null);
   const pending = useQueuedCount(listId);
   const itemsRef = useRef<SharedItem[]>([]);
   const membersRef = useRef<ListMember[]>([]);
@@ -208,7 +211,7 @@ export function useSharedList(listId: number) {
       inflight.current -= 1;
       flushing.current = false;
     }
-    if (refused) setMessage("חלק מהשינויים לא נשמרו, אז טענו את הרשימה מחדש.");
+    if (refused) setMessage("msgPartial");
     if (queuedEdits(listId).length === 0) await load();
   }, [listId, supabase, writeRealtime, load]);
 
@@ -294,7 +297,7 @@ export function useSharedList(listId: number) {
    * order) queues it; a refusal from the server undoes it with a message.
    */
   const edit = useCallback(
-    async (change: QueuedEdit, failure = REFUSED) => {
+    async (change: QueuedEdit, failure: ShareMessageKey = REFUSED) => {
       const previous = itemsRef.current;
       const next = applyEdit(previous, change);
       commit(next);
@@ -363,7 +366,7 @@ export function useSharedList(listId: number) {
           name: canonical.display_name_he,
           quantity: 1,
         },
-        "הפריט לא נוסף. נסי שוב.",
+        "msgAddFailed",
       );
     },
     [edit, setQuantity],
@@ -382,7 +385,7 @@ export function useSharedList(listId: number) {
    * same place when the call fails, and the member list is read again either way.
    */
   const dropMember = useCallback(
-    async (target: ListMember, call: () => Promise<void>, failure: string) => {
+    async (target: ListMember, call: () => Promise<void>, failure: ShareMessageKey) => {
       const key = memberKey(target);
       const index = membersRef.current.findIndex((m) => memberKey(m) === key);
       if (index < 0) return;
@@ -412,11 +415,7 @@ export function useSharedList(listId: number) {
     (invite: ListMember) => {
       const shareId = invite.share_id;
       if (shareId == null) return Promise.resolve();
-      return dropMember(
-        invite,
-        () => revokeShareById(listId, shareId),
-        "ההזמנה לא בוטלה, אז החזרנו אותה לרשימה. נסי שוב.",
-      );
+      return dropMember(invite, () => revokeShareById(listId, shareId), "msgRevokeFailed");
     },
     [dropMember, listId],
   );
@@ -429,7 +428,7 @@ export function useSharedList(listId: number) {
       return dropMember(
         member,
         () => (shareId != null ? revokeShareById(listId, shareId) : removeMember(listId, userId!)),
-        "החברה לא הוסרה, אז החזרנו אותה לרשימה. נסי שוב.",
+        "msgRemoveFailed",
       );
     },
     [dropMember, listId],

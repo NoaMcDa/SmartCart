@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AcceptInvite } from "@/features/share/AcceptInvite";
 import pageStyles from "../../../phase2.module.css";
+import { PageTitle } from "../../../PageTitle";
 
 export const metadata: Metadata = {
   title: "הצטרפות לרשימה משותפת",
@@ -15,7 +16,7 @@ export default async function Page({ params }: { params: Promise<{ token: string
   if (!/^[A-Za-z0-9._~-]{4,200}$/.test(token)) notFound();
   return (
     <div className={pageStyles.page}>
-      <h1 className={pageStyles.title}>הצטרפות לרשימה משותפת</h1>
+      <PageTitle id="accept" />
       <AcceptInvite token={token} />
     </div>
   );
