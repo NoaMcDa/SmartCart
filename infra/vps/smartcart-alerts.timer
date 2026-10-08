@@ -1,0 +1,15 @@
+[Unit]
+Description=SmartCart: hourly price-drop alert evaluation (Israel time)
+
+[Timer]
+# Minute 45: clear of the hourly delta at :20 and of the 09:30 precompute. effective_prices
+# changes nightly; the hourly tick catches alerts created or re-armed during the day. A user is
+# notified at most once per 24 hours per alert (docs/api.md, alerts).
+OnCalendar=*-*-* *:45:00 Asia/Jerusalem
+RandomizedDelaySec=60
+# A missed tick is not replayed: the next one evaluates the same prices.
+Persistent=false
+Unit=smartcart-alerts.service
+
+[Install]
+WantedBy=timers.target

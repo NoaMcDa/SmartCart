@@ -1,0 +1,379 @@
+name: Deploy
+
+# Go-live in one command (docs/deploy.md): push a tag `v*` (or run this workflow by hand).
+#
+# 1. Build the API and web images and push them to GHCR. Always possible: GITHUB_TOKEN is enough.
+# 2. Deploy the API to the VPS over SSH (`infra/vps/setup.sh`), only when VPS_SSH_HOST and
+#    VPS_SSH_KEY are set.
+# 3. Deploy the web app to Vercel, only when VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID are
+#    set.
+# 4. Smoke the deployed API (and web) when the repository variable DEPLOY_API_URL (and
+#    DEPLOY_WEB_URL) is set.
+#
+# A missing secret is not a failure: the job prints exactly which secret to set and ends green.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag, branch or commit to deploy (default: the ref this run is started on)"
+        required: false
+        default: ""
+      deploy_api:
+        description: "Deploy the API to the VPS (when its secrets exist)"
+        type: boolean
+        default: true
+      deploy_web:
+        description: "Deploy the web app to Vercel (when its secrets exist)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  VERCEL_CLI: vercel@59.23.2
+
+jobs:
+  images:
+    name: build and push the API and web images (GHCR)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      ref: ${{ steps.meta.outputs.ref }}
+      version: ${{ steps.meta.outputs.version }}
+      api_image: ${{ steps.meta.outputs.api_image }}
+      web_image: ${{ steps.meta.outputs.web_image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Image names and tags
+        id: meta
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          sha="$(git rev-parse --short=12 HEAD)"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && -z "${INPUT_REF}" ]]; then
+            ref="${GITHUB_REF_NAME}"
+            version="${GITHUB_REF_NAME}"
+          else
+            ref="${INPUT_REF:-$(git rev-parse HEAD)}"
+            version="sha-${sha}"
+          fi
+          {
+            echo "ref=${ref}"
+            echo "version=${version}"
+            echo "sha=sha-${sha}"
+            echo "api_image=${REGISTRY}/${owner}/smartcart-api"
+            echo "web_image=${REGISTRY}/${owner}/smartcart-web"
+          } >> "$GITHUB_OUTPUT"
+          echo "Deploying ${ref} as ${version}"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/api/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: API image starts (CLI, OR-Tools, health route)
+        env:
+          IMAGE: ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.version }}
+        run: |
+          docker run --rm "$IMAGE" smartcart-api --help >/dev/null
+          docker run --rm "$IMAGE" python -c "import ortools.sat.python.cp_model; print('ortools ok')"
+          docker run -d --name api-check -p 8000:8000 "$IMAGE"
+          for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/health && break; sleep 1; done
+          echo
+          docker rm -f api-check >/dev/null
+
+      # NEXT_PUBLIC_* are inlined at build time and public by design, so they are repository
+      # VARIABLES (Settings, Secrets and variables, Actions, Variables), not secrets.
+      - name: Web build variables
+        id: webvars
+        env:
+          API_BASE: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+        run: |
+          if [[ -z "${API_BASE}" ]]; then
+            echo "::notice title=Web image is local-only::Repository variable NEXT_PUBLIC_API_BASE_URL is not set, so the web image is built against http://localhost:8000. Set NEXT_PUBLIC_API_BASE_URL, NEXT_PUBLIC_SITE_URL, NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY as repository variables to get a deployable image."
+          fi
+
+      - name: Build and push the web image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/web
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000' }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_VAPID_PUBLIC_KEY=${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+            NEXT_PUBLIC_BETA_EVENTS=${{ vars.NEXT_PUBLIC_BETA_EVENTS }}
+            NEXT_PUBLIC_CONTACT_EMAIL=${{ vars.NEXT_PUBLIC_CONTACT_EMAIL }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Summary
+        env:
+          API_IMAGE: ${{ steps.meta.outputs.api_image }}:${{ steps.meta.outputs.version }}
+          WEB_IMAGE: ${{ steps.meta.outputs.web_image }}:${{ steps.meta.outputs.version }}
+        run: |
+          {
+            echo "## Images"
+            echo ""
+            echo "- API: \`${API_IMAGE}\`"
+            echo "- Web: \`${WEB_IMAGE}\`"
+            echo ""
+            echo "Roll back by deploying the previous tag (docs/deploy.md, rollback)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  api:
+    name: deploy the API to the VPS
+    needs: images
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.deploy_api }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_SSH_USER: ${{ secrets.VPS_SSH_USER || 'deploy' }}
+      VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || '22' }}
+      VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+      DEPLOY_REF: ${{ needs.images.outputs.ref }}
+      API_DOMAIN: ${{ vars.SMARTCART_API_DOMAIN }}
+    steps:
+      - name: Check the VPS secrets
+        id: check
+        run: |
+          missing=()
+          [[ -n "${VPS_SSH_HOST}" ]] || missing+=("VPS_SSH_HOST")
+          [[ -n "${VPS_SSH_KEY}" ]] || missing+=("VPS_SSH_KEY")
+          if (( ${#missing[@]} )); then
+            msg="API not deployed: set the repository (or production environment) secret(s) ${missing[*]}. VPS_SSH_HOST is the VPS host name or IP, VPS_SSH_KEY the private key of the deploy user (docs/deploy.md, step 4). Optional: VPS_SSH_USER (default deploy), VPS_SSH_PORT (22), VPS_SSH_KNOWN_HOSTS."
+            echo "::notice title=API deploy skipped::${msg}"
+            echo "- ${msg}" >> "$GITHUB_STEP_SUMMARY"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: SSH key and known hosts
+        if: steps.check.outputs.deploy == 'true'
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${VPS_SSH_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [[ -n "${VPS_SSH_KNOWN_HOSTS}" ]]; then
+            printf '%s\n' "${VPS_SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          else
+            echo "::warning title=Host key not pinned::Set the secret VPS_SSH_KNOWN_HOSTS (the output of ssh-keyscan for the VPS) so the host key is verified instead of trusted on first use."
+            ssh-keyscan -p "${VPS_SSH_PORT}" -H "${VPS_SSH_HOST}" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      # setup.sh is idempotent: it checks out DEPLOY_REF in /opt/smartcart, syncs the environment,
+      # installs the units, restarts the API and fails unless /health answers. It runs twice
+      # because the first pass is the PREVIOUS release's script (it is what updates the checkout);
+      # the second pass is the new release's script, so a release that changes the units or the
+      # script itself is applied by its own logic. The second pass changes nothing when the
+      # script did not change.
+      - name: Deploy (infra/vps/setup.sh on the VPS)
+        if: steps.check.outputs.deploy == 'true'
+        run: |
+          remote_env="SMARTCART_REPO_REF=${DEPLOY_REF}"
+          if [[ -n "${API_DOMAIN}" ]]; then remote_env="${remote_env} SMARTCART_API_DOMAIN=${API_DOMAIN}"; fi
+          for pass in 1 2; do
+            echo "::group::setup.sh pass ${pass}"
+            ssh -i ~/.ssh/deploy_key -p "${VPS_SSH_PORT}" -o BatchMode=yes -o ConnectTimeout=20 \
+              "${VPS_SSH_USER}@${VPS_SSH_HOST}" \
+              "sudo -n ${remote_env} /usr/bin/bash /opt/smartcart/infra/vps/setup.sh"
+            echo "::endgroup::"
+          done
+
+      - name: API health on the VPS
+        if: steps.check.outputs.deploy == 'true'
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${VPS_SSH_PORT}" -o BatchMode=yes "${VPS_SSH_USER}@${VPS_SSH_HOST}" \
+            "curl -fsS http://127.0.0.1:8000/health && echo && git -C /opt/smartcart describe --tags --always && systemctl list-timers 'smartcart-*' --no-pager"
+          echo "- API deployed: \`${DEPLOY_REF}\` on the VPS" >> "$GITHUB_STEP_SUMMARY"
+
+  web:
+    name: deploy the web app to Vercel
+    needs: images
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.deploy_web }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Check the Vercel secrets
+        id: check
+        run: |
+          missing=()
+          [[ -n "${VERCEL_TOKEN}" ]] || missing+=("VERCEL_TOKEN")
+          [[ -n "${VERCEL_ORG_ID}" ]] || missing+=("VERCEL_ORG_ID")
+          [[ -n "${VERCEL_PROJECT_ID}" ]] || missing+=("VERCEL_PROJECT_ID")
+          if (( ${#missing[@]} )); then
+            msg="Web not deployed to Vercel: set the repository (or production environment) secret(s) ${missing[*]} (docs/deploy.md, step 5). The web image in GHCR is the self-hosted alternative."
+            echo "::notice title=Web deploy skipped::${msg}"
+            echo "- ${msg}" >> "$GITHUB_STEP_SUMMARY"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.deploy == 'true'
+        with:
+          ref: ${{ needs.images.outputs.ref }}
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.deploy == 'true'
+        with:
+          node-version: 22
+
+      # The Vercel project's Root Directory is apps/web, so the CLI runs from the repository root.
+      # The NEXT_PUBLIC_* values come from the project's Production environment (vercel pull).
+      - name: Build and deploy (vercel pull, build, deploy --prebuilt)
+        if: steps.check.outputs.deploy == 'true'
+        run: |
+          npx --yes "${VERCEL_CLI}" pull --yes --environment=production --token="${VERCEL_TOKEN}"
+          npx --yes "${VERCEL_CLI}" build --prod --token="${VERCEL_TOKEN}"
+          url="$(npx --yes "${VERCEL_CLI}" deploy --prebuilt --prod --token="${VERCEL_TOKEN}")"
+          echo "- Web deployed to Vercel: ${url}" >> "$GITHUB_STEP_SUMMARY"
+
+  smoke:
+    name: smoke the deployed API and web
+    needs: [images, api, web]
+    if: ${{ !cancelled() && needs.images.result == 'success' && needs.api.result != 'failure' && needs.web.result != 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      DEPLOY_API_URL: ${{ vars.DEPLOY_API_URL || secrets.DEPLOY_API_URL }}
+      DEPLOY_WEB_URL: ${{ vars.DEPLOY_WEB_URL || secrets.DEPLOY_WEB_URL }}
+      # 1 only for a deployment that holds the synthetic demo data (scripts/demo): then the full
+      # demo smoke (scripts/demo/smoke.py) runs too, with the deployment's JWT secret.
+      DEPLOY_SMOKE_DEMO: ${{ vars.DEPLOY_SMOKE_DEMO }}
+      SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+    steps:
+      - name: Check the smoke targets
+        id: check
+        run: |
+          if [[ -z "${DEPLOY_API_URL}" ]]; then
+            msg="No smoke test: set the repository variable DEPLOY_API_URL (e.g. https://api.example.org) and optionally DEPLOY_WEB_URL."
+            echo "::notice title=Smoke skipped::${msg}"
+            echo "- ${msg}" >> "$GITHUB_STEP_SUMMARY"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.run == 'true'
+        with:
+          ref: ${{ needs.images.outputs.ref }}
+
+      # Data-independent: it holds on an empty catalog as on the real one. Standard library only.
+      - name: API smoke (health, search, parse-list, compare, auth, CORS)
+        if: steps.check.outputs.run == 'true'
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, urllib.error, urllib.parse, urllib.request
+
+          base = os.environ["DEPLOY_API_URL"].rstrip("/")
+          web = os.environ.get("DEPLOY_WEB_URL", "").rstrip("/")
+          failures = []
+
+          def call(method, path, body=None, headers=None):
+              data = json.dumps(body).encode() if body is not None else None
+              h = {"accept": "application/json", **(headers or {})}
+              if data is not None:
+                  h["content-type"] = "application/json"
+              req = urllib.request.Request(base + path, data=data, method=method, headers=h)
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as res:
+                      raw = res.read()
+                      return res.status, dict(res.headers), (json.loads(raw) if raw and res.headers.get_content_type() == "application/json" else raw)
+              except urllib.error.HTTPError as exc:
+                  return exc.code, dict(exc.headers), exc.read()
+
+          def check(name, ok, detail=""):
+              print(("  ok  " if ok else "FAIL  ") + name + (f": {detail}" if detail else ""))
+              if not ok:
+                  failures.append(name)
+
+          s, _, body = call("GET", "/health")
+          check("/health", s == 200 and isinstance(body, dict) and body.get("status") == "ok", str(body)[:200])
+          s, _, body = call("GET", "/search?" + urllib.parse.urlencode({"q": "חלב", "limit": 5}))
+          check("/search", s == 200 and isinstance(body, dict) and isinstance(body.get("hits"), list), f"{s}, {len(body.get('hits', [])) if isinstance(body, dict) else '-'} hits")
+          s, _, body = call("POST", "/parse-list", {"text": "2 חלב, לחם"})
+          check("/parse-list", s == 200 and isinstance(body, dict) and len(body.get("rows", [])) == 2, f"{s}")
+          s, _, body = call("POST", "/compare", {"items": [{"canonical_id": 1, "quantity": 1}], "location": {"lat": 32.085, "lon": 34.82, "radius_m": 5000}})
+          check("/compare", s == 200 and isinstance(body, dict), f"{s}")
+          s, _, _ = call("GET", "/me/alerts")
+          check("/me/alerts without a token is 401", s == 401, f"{s}")
+          if web:
+              s, h, _ = call("OPTIONS", "/compare", headers={"origin": web, "access-control-request-method": "POST", "access-control-request-headers": "content-type"})
+              allowed = {k.lower(): v for k, v in h.items()}.get("access-control-allow-origin")
+              check("CORS allows the web origin", s == 200 and allowed == web, f"{s}, allow-origin={allowed}")
+          if failures:
+              sys.exit(f"{len(failures)} check(s) failed: {failures}")
+          print("deploy smoke passed")
+          PY
+
+      - name: Web smoke (PWA shell, service worker, manifest, SEO)
+        if: steps.check.outputs.run == 'true' && env.DEPLOY_WEB_URL != ''
+        run: |
+          set -euo pipefail
+          for path in / /sw.js /manifest.webmanifest /sitemap.xml /robots.txt /methodology; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' "${DEPLOY_WEB_URL%/}${path}")"
+            echo "${code} ${path}"
+            [[ "${code}" == "200" ]]
+          done
+          curl -sSI "${DEPLOY_WEB_URL%/}/sw.js" | grep -i '^cache-control: no-cache'
+
+      - uses: astral-sh/setup-uv@v6
+        if: steps.check.outputs.run == 'true' && env.DEPLOY_SMOKE_DEMO == '1'
+        with:
+          python-version: "3.12"
+
+      - name: Demo smoke (scripts/demo/smoke.py, synthetic demo data only)
+        if: steps.check.outputs.run == 'true' && env.DEPLOY_SMOKE_DEMO == '1'
+        run: DEMO_API_BASE_URL="${DEPLOY_API_URL}" uv run --no-project python scripts/demo/smoke.py

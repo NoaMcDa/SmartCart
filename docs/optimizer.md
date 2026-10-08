@@ -218,6 +218,48 @@ depends on how many needs share a promo. The CI runner's numbers are in the PR. 
 measured on real transparency files yet. The route adds the pricing queries (the same as the
 heuristic's) and one promo lookup.
 
+### Measured on the scaled synthetic world, 2026-10-08, this machine
+
+End to end through the real route, unlike the solver-only benchmark above:
+`scripts/loadtest/run.py` (docs/deploy.md, sizing) writes a world with the adapters' fixture
+builders, loads it through the adapters, the quality gates and the loader into a throwaway Postgres,
+maps every item through the review step's `accept`, runs the precompute, then calls the API over
+HTTP. World: 10 chains, 300 stores (45 % in Gush Dan), 5,000 items mapped to the 245 canonicals,
+90 days of price events (207,075 change events from 7,810 files), promotions on about 20 % of each
+store's items (19,634 promotions, 15 % club-only), 144,380 effective-price rows. Baskets: 50 of 25
+canonicals each (20 % at "close", the rest "any brand"), at points in Gush Dan with a 5 km radius
+(median 55 stores in it, at most 79) and a home store; `candidate_stores` 10, `max_stores` 2 (K = 2,
+55 store sets). Machine: the build container, 4 vCPU Intel Xeon 2.1 GHz shared with other jobs,
+Postgres 16 on the same machine with `fsync` off, Python 3.13, two uvicorn workers; one request at
+a time, wall time at the client.
+
+| Route, 50 requests | Run 1 p50 | Run 1 p95 | Run 2 p50 | Run 2 p95 | max |
+|---|---|---|---|---|---|
+| `/optimize`, `solver = heuristic` | 28 ms | 37 ms | 23 ms | 27 ms | 131 ms |
+| `/optimize`, `solver = milp` | 44 ms | 64 ms | 36 ms | 94 ms | 121 ms |
+| `/compare` (every store in the radius) | 72 ms | 171 ms | 71 ms | 135 ms | 195 ms |
+| `/search`, 50 queries | 46 ms | 61 ms | 56 ms | 92 ms | 117 ms |
+
+| Job | Run 1 | Run 2 |
+|---|---|---|
+| `smartcart-api precompute`, 144,380 rows | 26.9 s | 33.2 s |
+| `smartcart-api alerts-run --dry-run`, 1,000 alerts, 990 fired | 2.5 s | 3.0 s |
+
+- The MILP answered every request itself (no fallback to the heuristic); both solvers found a split
+  for the same 37 of the 50 baskets.
+- The MILP costs about 15 ms more than the heuristic at the median: the pricing step is shared, and
+  the solve itself stays in the tens of milliseconds measured above. The tail is the shared
+  machine as much as the solver (run 2's MILP p95 doubled while the heuristic's fell).
+- `/compare` is the slowest route because it prices every store in the radius, not the 10 nearest;
+  its time grows with store density.
+- Under 8 concurrent clients, `/compare` served 17 to 23 requests per second (p50 330 to 443 ms),
+  with Postgres competing for the same 4 vCPUs.
+- Everything here is **synthetic**: the prices, the promotion mix (unit price 40 %, percent 25 %,
+  1+1 / 2+1 20 %, "N for X" 15 %, one or two items each) and the store density are generated, not
+  observed. Re-measure on real transparency files.
+- `--small` (30 stores, 1,200 items over 60 canonicals, 30 days, 10 baskets of 10) runs the same
+  steps in about 20 s; it is meant for CI and not part of any workflow yet.
+
 ## Smart-cart swaps (#45)
 
 `POST /optimize/swaps?store_id=` with the /compare body (`smartcart_api/swaps.py`):
