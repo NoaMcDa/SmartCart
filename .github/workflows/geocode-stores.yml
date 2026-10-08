@@ -1,0 +1,191 @@
+name: Geocode stores
+
+# Issues #1 and #60 (exit criterion "coordinates for every store"). The seven real chains publish a
+# CBS locality code and an address but no coordinates (docs/phase-0-exit-dry-run.md). From a
+# GitHub-hosted runner, which has open internet (this repository's build box does not):
+#
+#   1. scripts/geo/fetch_localities.py   data.gov.il locality list -> data/geo/localities.csv
+#   2. scripts/geo/geocode_stores.py     OpenStreetMap Nominatim, 1 request/second, cached,
+#                                        at most `max_stores` stores -> data/geo/store_geocodes.csv
+#   3. a separate job (the only one with write access) commits the CSVs and the request cache to
+#      branches geo/localities-<date> and geo/stores-<date>. No pull request is opened.
+#
+# Nominatim's usage policy applies (docs/geocoding.md): descriptive User-Agent with a contact, 1
+# request per second, no repeated requests (the cache is committed so the next run starts from it),
+# no bulk re-runs. The repository variable (or secret) NOMINATIM_CONTACT overrides the default contact
+# (this repository's issues page); set it to an address or URL
+# where the operator can be reached. Output is © OpenStreetMap contributors (ODbL).
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_stores:
+        description: "Stores sent to Nominatim in this run (rows already geocoded are never repeated)"
+        required: false
+        default: 150
+        type: number
+      fetch_localities:
+        description: "Rebuild data/geo/localities.csv from data.gov.il first"
+        required: false
+        default: true
+        type: boolean
+      localities_resource_id:
+        description: "data.gov.il CKAN resource id of the locality list (empty: discover it)"
+        required: false
+        default: ""
+        type: string
+      nominatim_for_localities:
+        description: "Place localities that the list gives no coordinates for by Nominatim name lookup"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: geocode-stores
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  geocode:
+    name: localities and store addresses
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      # Defaults to this repository's issues page, a URL where the operator can be reached.
+      NOMINATIM_CONTACT: ${{ vars.NOMINATIM_CONTACT || secrets.NOMINATIM_CONTACT || format('{0}/{1}/issues', github.server_url, github.repository) }}
+      MAX_STORES: ${{ inputs.max_stores || 150 }}
+      RESOURCE_ID: ${{ inputs.localities_resource_id || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install
+        run: uv sync
+
+      - name: Check the Nominatim contact
+        run: |
+          if [ -z "$NOMINATIM_CONTACT" ]; then
+            echo "::error::Set the repository variable NOMINATIM_CONTACT (an e-mail address or URL): Nominatim's usage policy requires an identifying User-Agent."
+            exit 1
+          fi
+
+      - name: Locality table (data.gov.il)
+        if: inputs.fetch_localities
+        run: |
+          args=()
+          if [ -n "$RESOURCE_ID" ]; then args+=(--resource-id "$RESOURCE_ID"); fi
+          if [ "${{ inputs.nominatim_for_localities }}" = "true" ]; then args+=(--nominatim-for-missing); fi
+          uv run --no-sync python scripts/geo/fetch_localities.py "${args[@]}" | tee localities.log
+          {
+            echo "## Locality table"
+            echo
+            echo '```'
+            cat localities.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Geocode the store addresses (Nominatim, 1 request per second)
+        run: |
+          uv run --no-sync python scripts/geo/geocode_stores.py --max-stores "$MAX_STORES" | tee geocode.log
+          {
+            echo "## Store coordinates"
+            echo
+            echo '```'
+            cat geocode.log
+            echo '```'
+            echo
+            echo "Geocodes: © OpenStreetMap contributors (ODbL), https://www.openstreetmap.org/copyright"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload data/geo
+        uses: actions/upload-artifact@v4
+        with:
+          name: geo-data
+          path: |
+            data/geo/localities.csv
+            data/geo/store_geocodes.csv
+            data/geo/cache/nominatim.jsonl
+            localities.log
+            geocode.log
+          retention-days: 14
+          if-no-files-found: error
+
+  commit:
+    name: commit to geo/localities-<date> and geo/stores-<date>
+    needs: geocode
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Download the data
+        uses: actions/download-artifact@v4
+        with:
+          name: geo-data
+          path: ${{ runner.temp }}/geo-data
+
+      # Only the three known files are copied; nothing in the artifact is executed.
+      - name: Commit and push the branches
+        run: |
+          set -euo pipefail
+          day="$(date -u +%Y%m%d)"
+          src="$RUNNER_TEMP/geo-data"
+          mkdir -p data/geo/cache
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          base="$(git rev-parse HEAD)"
+
+          pick_branch() {
+            local name="$1"
+            if git ls-remote --exit-code --heads origin "$name" >/dev/null; then
+              name="$name-$GITHUB_RUN_ID"
+            fi
+            echo "$name"
+          }
+
+          # 1. the locality table (only when this run rebuilt it)
+          loc_branch="$(pick_branch "geo/localities-$day")"
+          git checkout -q -b "$loc_branch" "$base"
+          cp "$src/data/geo/localities.csv" data/geo/localities.csv
+          git add -- data/geo/localities.csv
+          if git diff --cached --quiet; then
+            echo "localities.csv unchanged"
+          else
+            git commit -q -m "Locality centroids (CBS code to WGS 84) from the Geocode stores workflow" \
+              -m "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            git push origin "HEAD:refs/heads/$loc_branch"
+            echo "Branch \`$loc_branch\` ($(git rev-parse --short HEAD))" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # 2. the store geocodes and the request cache, on top of the locality table
+          stores_branch="$(pick_branch "geo/stores-$day")"
+          git checkout -q -b "$stores_branch"
+          cp "$src/data/geo/store_geocodes.csv" data/geo/store_geocodes.csv
+          if [ -f "$src/data/geo/cache/nominatim.jsonl" ]; then cp "$src/data/geo/cache/nominatim.jsonl" data/geo/cache/nominatim.jsonl; fi
+          git add -- data/geo
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git commit -q -m "Store coordinates (address geocodes) from the Geocode stores workflow" \
+            -m "Geocodes: (c) OpenStreetMap contributors, ODbL. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git push origin "HEAD:refs/heads/$stores_branch"
+          {
+            echo "## Committed"
+            echo
+            echo "Branch \`$stores_branch\` ($(git rev-parse --short HEAD)); no pull request was opened."
+            echo
+            git show --stat --format= HEAD
+          } | tee -a "$GITHUB_STEP_SUMMARY"
