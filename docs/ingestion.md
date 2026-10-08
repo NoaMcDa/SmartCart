@@ -117,7 +117,7 @@ republishes different content under the same filename on the same day, it goes t
 
 In order, inside one transaction: chains, stores (channel from `smartcart_ingest.channel.tag_channel`:
 source declaration, the adapter's `online_store_rule`, then the shared heuristic; `geog` from
-lat/lon when the column exists), items, `ensure_price_partition`
+lat/lon when the column exists, else from `data/geo`, see Store coordinates), items, `ensure_price_partition`
 for every month of the price events, price events, promos and promo items, and the `loaded` status
 with the record count. Any error rolls all of it back and sets the file `failed` with the reason.
 
@@ -140,6 +140,22 @@ with the record count. Any error rolls all of it back and sets the file `failed`
   The promo's item list is replaced by the file's list. Item codes the chain has never published a
   price for are skipped and counted (`promo_items_unknown` in the log).
 - A price for an item code that is neither in the file nor in the database fails the file.
+
+## Store coordinates
+
+The real Stores files carry a CBS locality code (`City`) and an address, no coordinates (0 of 827
+real physical stores at the phase 0 dry run). The loader fills `stores.geog` after the upsert, per
+Stores file, in this order: coordinates the chain published (`geo_precision` `address`, source
+`chain`); a row of `data/geo/store_geocodes.csv` for the (chain, store code) (`address`, `street`
+or `locality`); the centroid of the store's locality from `data/geo/localities.csv` (`locality`);
+otherwise NULL, and the store is listed by the view `stores_missing_geo` with a reason. A worse
+source never replaces a better one, online stores are not looked up, and a missing data file is an
+empty table, never a load failure. `LoadResult.stores_located` counts what a file placed, by
+precision. The two CSVs are built by `scripts/geo/fetch_localities.py` and
+`scripts/geo/geocode_stores.py`, run by the manual workflow **Geocode stores** (open internet
+needed: data.gov.il and OpenStreetMap Nominatim). Method, Nominatim's usage policy, the OSM
+attribution (ODbL) and the follow-up for the API and web (locality-precision stores are
+approximate) are in `docs/geocoding.md`.
 
 ## Quality gates (issue #42)
 
