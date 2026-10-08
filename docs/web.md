@@ -1000,3 +1000,32 @@ first results page after onboarding and that `/split` was never needed. A11y: `t
 One unrelated finding fixed on the way: checked rows in store mode were dimmed with `opacity: 0.6`,
 which put the tags and the update time below 4.5:1; they now keep their color and the name and price
 turn muted.
+
+## Cart handoff (#72)
+
+"המשך באתר הרשת" on every store card (the plan cards of the results, through `PlanHandoff`, and each
+column of the split view) when `GET /chains/online` says that store's chain is `enabled` and has an
+address. It opens a sheet (`features/handoff/HandoffAction.tsx`) with the list for that store as
+`name × quantity` lines (copy, with the select-the-text fallback of the share sheet, and native share
+where the browser has it), a link to the chain's site, and per-item "חיפוש באתר" links built from
+`search_url_template` with the display name URL-encoded (`links.ts`; https only). All links are
+`target="_blank" rel="noopener noreferrer"`. The page fetches nothing from the chain; see
+[cart-transfer.md](cart-transfer.md).
+
+- The disclaimer (online prices, availability and delivery fees may differ; the price at checkout
+  governs) is always visible in the sheet. With `referral` true every link carries "קישור שותפים" and
+  the sheet says the links do not affect ranking, prices or savings.
+- A disabled chain renders nothing. A failed or slow `/chains/online` renders nothing and cannot break
+  the results (`useChainsOnline` is a shared cache, errors are swallowed to "no action").
+- Copy: all new strings are in `src/i18n/messages/handoff.ts` (`ar` is a copy of the Hebrew under a
+  `// TODO ar`, #73). Events: `cart_handoff` with `action` `copy`, `share`, `open_site`, `open_item`;
+  no names or URLs are sent.
+- Independence: the handoff is imported only by `PlanCard` (one `<PlanHandoff />` line) and
+  `SplitView`; it reads no price or ranking field and no ranking module reads it
+  (`tests/unit/handoff-independence.test.ts`).
+- Mock: `GET /chains/online` in `src/mocks/handlers.phase3.ts` enables `rami_levy`, `shufersal`
+  (with a referral) and `osher_ad` (no site search) on the reserved `chain-shop.example` host, which is
+  the only host added to the privacy audit allow-list. `victory` is present but disabled.
+- Tests: `features/handoff/links.test.ts`, `features/handoff/HandoffAction.test.tsx`,
+  `tests/unit/handoff-independence.test.ts`, `tests/e2e/handoff.spec.ts` (phone and desktop, results and
+  split view, failure hides the action, no request to the chain host, axe on the sheet).
