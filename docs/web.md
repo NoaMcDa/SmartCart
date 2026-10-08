@@ -1000,3 +1000,64 @@ first results page after onboarding and that `/split` was never needed. A11y: `t
 One unrelated finding fixed on the way: checked rows in store mode were dimmed with `opacity: 0.6`,
 which put the tags and the update time below 4.5:1; they now keep their color and the name and price
 turn muted.
+
+## Web debt (finish round: #70, #26, #30, #56)
+
+### Spend: correct, delete, no duplicates (#70)
+
+- **`client_id`.** Every spend entry gets a `crypto.randomUUID()` when it is recorded, stored with it in
+  `sc-spend-v1` and sent in every `POST /me/spend`. A request whose response was lost is retried with the
+  same id, and the API returns the stored entry instead of a second one (the mock does too, with 200).
+  Entries saved before this get an id on their first POST (`ensureClientId`). A pull adopts a server entry
+  carrying the `client_id` of a local entry that has no `server_id` yet, instead of adding it again.
+- **Client helpers** (`api/client.ts`): `updateSpend(id, entry)` is `PUT /me/spend/{id}` (the whole
+  `SpendEntryIn`), `deleteSpend(id)` is `DELETE /me/spend/{id}` (204).
+- **Monthly view** (`features/budget/SpendEntries.tsx`). Each shop of the month shows a tag, "הערכה" until
+  the person corrects it, then "סכום בפועל", and two buttons: "תיקון הסכום" (an inline form; accepts `371.4`,
+  `371,40`, `₪ 371`; refuses zero, negatives, more than two decimals and more than 100,000) and "מחיקה"
+  (a confirm step with the safe choice focused). A correction is local first: the device copy changes at
+  once, then for a signed-in user whose entry is already on the account `PUT` follows, and if it fails the
+  old total comes back with a message. An entry still waiting to be sent goes out with its corrected total.
+- **Delete** removes the entry from the device at once and shows an undo snackbar for 5 seconds. After the
+  window, a signed-in user's `DELETE` is sent; if it fails the entry returns to the list with a message
+  (a 404 counts as done). Leaving the screen inside the window ends it: the delete goes ahead. A pull in
+  the window does not bring the entry back (`removedServerIds`). Signed out, or an entry that never reached
+  the account, has nothing to delete there. Known gap: an entry synced while signed in and deleted while
+  signed out stays on the account and comes back on the next sign-in pull.
+- New strings: `i18n/messages/budget.ts`. Mocks: `handlers.phase3.ts` (PUT, DELETE, `client_id` replay).
+  Tests: `budget/budget.test.ts`, `budget/budgetUi.test.tsx`, `tests/e2e/budget-edit.spec.ts`.
+- Not done: the Profile "ייצוא הנתונים שלי" file (`profile/PrivacySection.tsx`) still holds the profile and
+  the savings only, not the spend entries; `GET /me/spend/export` exists but nothing calls it.
+
+### Native-decision events (#56)
+
+`lib/platform.ts` gives a coarse `ios | android | desktop | other` from the UA client hint, then the user
+agent string (an iPad that asks for the desktop site is `ios`); no versions or models. All events go
+through `trackEvent`, so none is queued before consent and none outside a beta build.
+
+| Event | Fired by |
+|---|---|
+| `pwa_installed {platform}` | `components/pwa/pwaEvents.ts`: on `appinstalled`, or on the first launch in standalone mode (also iOS, which has no `appinstalled`). Once per browser, remembered in `localStorage["sc-pwa-installed"]`, and only written when the event was really queued, so a launch before consent is counted later (it re-checks when consent is given) |
+| `push_opt_in {platform}` | `alerts/push.ts` `enablePush`, when the permission becomes `granted` through our button (not when it already was) |
+| `push_opened {platform}` | `public/sw.js` `notificationclick` posts `{type: "sc-push-opened"}` to the page it focuses, or to the window it opens (queued until that page listens); `pwaEvents.ts` turns the message into the event |
+| `store_mode_used {plan, platform}` | `store/StoreMode.tsx`, once per shopping session when store mode shows a session |
+
+Tests: `lib/platform.test.ts`, `components/pwa/pwaEvents.test.ts`, `alerts/push.test.ts`, `alerts/sw.test.ts`,
+`store/StoreMode.test.tsx`.
+
+### Privacy and accessibility wording (#30, #26)
+
+`/privacy` is marked "טיוטה, ממתינה לבדיקה משפטית" and gains sections for beta events (what is sent,
+consent, opt-out), receipt and list photos (in memory, deleted, text not kept, consent, withdrawal), voice
+(browser recognition, no audio, transcript not stored), spend tracking, and the online-store handoff (we
+fetch nothing; the chain's site has its own policy). Copy: `i18n/messages/privacy.ts`, rendered by
+`app/(secondary)/privacy/PrivacySections.tsx`. The photo and handoff sections describe the finish-round
+features by their contract (`/parse-image`, `/chains/online`); check them against what ships. The
+accessibility statement shows a coordinator line from `NEXT_PUBLIC_CONTACT_NAME`,
+`NEXT_PUBLIC_CONTACT_EMAIL` and `NEXT_PUBLIC_CONTACT_PHONE` (build-time; any subset), and keeps the
+"details will be published before launch" line when none is set (`CoordinatorLine.tsx`).
+
+### Text-only 200% scaling (#26)
+
+`tests/a11y/text-scaling.spec.ts`, results in `docs/a11y-report.md`. Two CSS fixes came out of it
+(`Product.module.css`, `StoreMode.module.css`).

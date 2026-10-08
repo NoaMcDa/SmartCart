@@ -7,6 +7,8 @@
  */
 import { addPushSubscription, deletePushSubscription } from "@/api/client";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
+import { trackEvent } from "@/features/seo/track";
+import { detectPlatform } from "@/lib/platform";
 
 export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
@@ -71,8 +73,11 @@ export async function enablePush(key: string = VAPID_PUBLIC_KEY): Promise<Enable
   const support = pushSupport(key);
   if (support !== "supported") return { ok: false, reason: support };
   try {
+    const before = Notification.permission;
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return { ok: false, reason: "denied" };
+    // Counted when the permission becomes granted through our button (#56), not when it already was.
+    if (before !== "granted") trackEvent("push_opt_in", { platform: detectPlatform() });
     const reg = await registration();
     if (!reg) return { ok: false, reason: "unsupported" };
     const sub =

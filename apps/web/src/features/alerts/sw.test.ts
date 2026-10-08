@@ -23,11 +23,13 @@ function loadWorker(
     url: string;
     focus: () => Promise<void>;
     navigate?: (u: string) => Promise<void>;
+    postMessage?: (m: unknown) => void;
   }> = [],
 ) {
   const handlers: Record<string, Handler> = {};
   const shown: Array<{ title: string; options: Record<string, unknown> }> = [];
-  const openWindow = vi.fn(() => Promise.resolve());
+  const openedClient = { postMessage: vi.fn() };
+  const openWindow = vi.fn((_url: string) => Promise.resolve(openedClient));
   const self = {
     location: { origin: ORIGIN },
     addEventListener: (type: string, fn: Handler) => {
@@ -57,7 +59,7 @@ function loadWorker(
     caches: {},
     fetch: () => Promise.reject(new Error("offline")),
   });
-  return { handlers, shown, openWindow };
+  return { handlers, shown, openWindow, openedClient };
 }
 
 async function push(payload: unknown, raw = false) {
@@ -156,5 +158,41 @@ describe("notificationclick", () => {
     const worker = loadWorker();
     await click(worker, "https://evil.example/").done();
     expect(worker.openWindow).toHaveBeenCalledWith("/alerts");
+  });
+
+  it("tells the focused page that a push was opened (the page turns it into push_opened)", async () => {
+    const postMessage = vi.fn();
+    const worker = loadWorker([
+      { url: `${ORIGIN}/compare`, focus: () => Promise.resolve(), postMessage },
+    ]);
+    await click(worker, "/alerts").done();
+    expect(postMessage).toHaveBeenCalledWith({ type: "sc-push-opened" });
+  });
+
+  it("tells the window it opened, and does not fail when a page cannot be messaged", async () => {
+    const worker = loadWorker();
+    await click(worker, "/alerts").done();
+    expect(worker.openedClient.postMessage).toHaveBeenCalledWith({ type: "sc-push-opened" });
+
+    const broken = loadWorker([
+      {
+        url: `${ORIGIN}/`,
+        focus: () => Promise.resolve(),
+        postMessage: () => {
+          throw new Error("gone");
+        },
+      },
+    ]);
+    await expect(click(broken, "/alerts").done()).resolves.toBeUndefined();
+  });
+
+  it("does not message a window of another origin", async () => {
+    const postMessage = vi.fn();
+    const worker = loadWorker([
+      { url: "https://other.example/", focus: () => Promise.resolve(), postMessage },
+    ]);
+    await click(worker, "/alerts").done();
+    expect(postMessage).not.toHaveBeenCalled();
+    expect(worker.openWindow).toHaveBeenCalled();
   });
 });

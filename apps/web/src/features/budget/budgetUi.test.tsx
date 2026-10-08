@@ -2,9 +2,11 @@
  * Monthly budget and spend on screen (issue #70): "נותר החודש" on the results and the split, the
  * Profile section with its six-month chart, and "סיימתי לקנות" in store mode.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { API_BASE_URL } from "@/api/config";
 import { ResultsView } from "@/features/compare/ResultsView";
 import { STORAGE_KEYS } from "@/features/profile/storage";
 import { clearLastResultCache } from "@/features/split/lastResult";
@@ -258,6 +260,163 @@ describe("the Profile section", () => {
     );
     render(<MonthlyBudgetSection />);
     expect(norm(screen.getByTestId("budget-saved"))).toBe("₪ 41.40");
+  });
+});
+
+describe("correcting and deleting a shop in the monthly view", () => {
+  const entries = () => within(screen.getByTestId("spend-entries")).getAllByTestId("spend-entry");
+
+  it("each shop is labeled as an estimate, with 'תיקון הסכום' and a delete button of its own", () => {
+    spend(334.4, { storeName: "רמי לוי · מודיעין" });
+    render(<MonthlyBudgetSection />);
+    const li = entries()[0]!;
+    expect(li).toHaveTextContent("הערכה");
+    expect(within(li).getByRole("button", { name: /^תיקון הסכום, .*רמי לוי/ })).toBeVisible();
+    expect(within(li).getByRole("button", { name: /^מחיקת הקנייה, .*רמי לוי/ })).toBeVisible();
+  });
+
+  it("corrects the total: validates, replaces the estimate and updates the month's sums", async () => {
+    saveBudget(1000);
+    spend(334.4);
+    const user = userEvent.setup();
+    render(<MonthlyBudgetSection />);
+    await user.click(screen.getByRole("button", { name: /^תיקון הסכום/ }));
+    const field = screen.getByLabelText("הסכום שנגבה בפועל (₪)");
+    expect(field).toHaveValue("334.40");
+    expect(screen.getByTestId("spend-edit-form")).toHaveTextContent("הערכה לפי מחירי האפליקציה");
+
+    await user.clear(field);
+    await user.type(field, "-3");
+    await user.click(screen.getByRole("button", { name: "שמירת הסכום" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("הזיני סכום חיובי");
+    expect(loadSpend().entries[0]!.total).toBe(334.4);
+
+    await user.clear(field);
+    await user.type(field, "310,50");
+    await user.click(screen.getByRole("button", { name: "שמירת הסכום" }));
+    expect(screen.getByTestId("spend-notice")).toHaveTextContent("הסכום עודכן");
+    expect(loadSpend().entries[0]).toMatchObject({ total: 310.5, corrected: true });
+    expect(entries()[0]).toHaveTextContent("סכום בפועל");
+    expect(norm(screen.getByTestId("budget-spent"))).toBe("₪ 310.50");
+    expect(norm(screen.getByTestId("budget-remaining-value"))).toBe("₪ 689.50");
+    expect(mockSpendEntries()).toEqual([]); // signed out: nothing leaves the device
+  });
+
+  it("cancel leaves the entry as it was", async () => {
+    spend(100);
+    const user = userEvent.setup();
+    render(<MonthlyBudgetSection />);
+    await user.click(screen.getByRole("button", { name: /^תיקון הסכום/ }));
+    await user.type(screen.getByLabelText("הסכום שנגבה בפועל (₪)"), "9");
+    await user.click(screen.getByRole("button", { name: "ביטול" }));
+    expect(screen.queryByTestId("spend-edit-form")).not.toBeInTheDocument();
+    expect(loadSpend().entries[0]!.total).toBe(100);
+  });
+
+  it("signed in, the correction goes to the account; when it refuses the old total comes back with an explanation", async () => {
+    auth.status = "signed-in";
+    const row = spend(200, { pending: true });
+    const user = userEvent.setup();
+    render(<MonthlyBudgetSection />);
+    await waitFor(() => expect(loadSpend().entries[0]?.server_id).toBe(1));
+
+    await user.click(screen.getByRole("button", { name: /^תיקון הסכום/ }));
+    const field = screen.getByLabelText("הסכום שנגבה בפועל (₪)");
+    await user.clear(field);
+    await user.type(field, "180");
+    await user.click(screen.getByRole("button", { name: "שמירת הסכום" }));
+    await waitFor(() => expect(mockSpendEntries()[0]?.total).toBe("180.00"));
+    expect(mockSpendEntries()[0]?.client_id).toBe(row.client_id);
+
+    server.use(
+      http.put(`${API_BASE_URL}/me/spend/:id`, () => HttpResponse.json({}, { status: 500 })),
+    );
+    await user.click(screen.getByRole("button", { name: /^תיקון הסכום/ }));
+    const again = screen.getByLabelText("הסכום שנגבה בפועל (₪)");
+    await user.clear(again);
+    await user.type(again, "50");
+    await user.click(screen.getByRole("button", { name: "שמירת הסכום" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("חזר לערך הקודם");
+    expect(loadSpend().entries[0]!.total).toBe(180);
+  });
+
+  it("delete asks first; cancelling keeps the shop", async () => {
+    spend(100);
+    const user = userEvent.setup();
+    render(<MonthlyBudgetSection />);
+    await user.click(screen.getByRole("button", { name: /^מחיקת הקנייה/ }));
+    expect(screen.getByText(/למחוק את הקנייה/)).toBeInTheDocument();
+    expect(loadSpend().entries).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "ביטול" }));
+    expect(screen.queryByText(/למחוק את הקנייה/)).not.toBeInTheDocument();
+    expect(loadSpend().entries).toHaveLength(1);
+  });
+
+  it("confirming removes it at once and offers ביטול for five seconds, which brings it back", async () => {
+    saveBudget(1000);
+    spend(100);
+    const user = userEvent.setup();
+    render(<MonthlyBudgetSection />);
+    await user.click(screen.getByRole("button", { name: /^מחיקת הקנייה/ }));
+    await user.click(screen.getByTestId("spend-delete-confirm"));
+    expect(loadSpend().entries).toEqual([]);
+    expect(screen.getByTestId("spend-undo-bar")).toHaveTextContent("הקנייה נמחקה");
+    expect(norm(screen.getByTestId("budget-spent"))).toBe("₪ 0");
+    await user.click(within(screen.getByTestId("spend-undo-bar")).getByRole("button"));
+    expect(loadSpend().entries).toHaveLength(1);
+    expect(norm(screen.getByTestId("budget-spent"))).toBe("₪ 100");
+  });
+
+  describe("the undo window", () => {
+    afterEach(() => vi.useRealTimers());
+
+    it("closes after 5 s and a signed-in delete then reaches the account", async () => {
+      auth.status = "signed-in";
+      spend(100, { pending: true });
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
+      render(<MonthlyBudgetSection />);
+      await waitFor(() => expect(mockSpendEntries()).toHaveLength(1));
+      await user.click(screen.getByRole("button", { name: /^מחיקת הקנייה/ }));
+      await user.click(screen.getByTestId("spend-delete-confirm"));
+      await act(() => vi.advanceTimersByTimeAsync(4500));
+      expect(screen.getByTestId("spend-undo-bar")).toBeInTheDocument();
+      expect(mockSpendEntries()).toHaveLength(1); // still undoable, so not deleted there yet
+      await act(() => vi.advanceTimersByTimeAsync(700));
+      await waitFor(() => expect(mockSpendEntries()).toEqual([]));
+      expect(screen.queryByTestId("spend-undo-bar")).not.toBeInTheDocument();
+      expect(loadSpend().entries).toEqual([]);
+    });
+
+    it("when the account refuses the delete, the shop returns with an explanation", async () => {
+      auth.status = "signed-in";
+      spend(100, { pending: true });
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
+      render(<MonthlyBudgetSection />);
+      await waitFor(() => expect(mockSpendEntries()).toHaveLength(1));
+      server.use(
+        http.delete(`${API_BASE_URL}/me/spend/:id`, () => new HttpResponse(null, { status: 500 })),
+      );
+      await user.click(screen.getByRole("button", { name: /^מחיקת הקנייה/ }));
+      await user.click(screen.getByTestId("spend-delete-confirm"));
+      await act(() => vi.advanceTimersByTimeAsync(5200));
+      expect(await screen.findByRole("alert")).toHaveTextContent("היא חזרה לרשימה");
+      expect(loadSpend().entries).toHaveLength(1);
+      expect(entries()).toHaveLength(1);
+    });
+
+    it("leaving the screen inside the window still deletes on the account", async () => {
+      auth.status = "signed-in";
+      spend(100, { pending: true });
+      const user = userEvent.setup();
+      const { unmount } = render(<MonthlyBudgetSection />);
+      await waitFor(() => expect(mockSpendEntries()).toHaveLength(1));
+      await user.click(screen.getByRole("button", { name: /^מחיקת הקנייה/ }));
+      await user.click(screen.getByTestId("spend-delete-confirm"));
+      unmount();
+      await waitFor(() => expect(mockSpendEntries()).toEqual([]));
+    });
   });
 });
 

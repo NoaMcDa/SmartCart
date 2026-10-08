@@ -4,9 +4,12 @@
  *
  *   POST /me/spend          SpendEntryIn (no id)                -> 201 SpendEntry (numeric `id`)
  *   GET  /me/spend?month=   `YYYY-MM`, default the current one  -> { month, entries, total, budget }
+ *   PUT  /me/spend/{id}     SpendEntryIn (replaces the entry)   -> 200 SpendEntry, 404 when unknown
+ *   DELETE /me/spend/{id}                                       -> 204, 404 when unknown
  *   POST /parse-recipe      { text?, url?, servings? }          -> { title, servings, items, unresolved }
  *
- * Money is a string with two decimals. The spend store is in memory and shared by every caller of
+ * A repeated POST with the same `client_id` returns the stored entry (200) instead of a duplicate,
+ * so a lost response can be retried safely. Money is a string with two decimals. The spend store is in memory and shared by every caller of
  * the handlers in one process; `resetPhase3Mock()` clears it. `budget` is always null here: the
  * budget travels with the profile (`monthly_budget` on `PUT /me/profile`, see handlers.ts).
  */
@@ -27,11 +30,14 @@ const url = (path: string) => `${API_BASE_URL}${path}`;
 const latency = () => delay(process.env.NODE_ENV === "test" ? 0 : 250);
 
 const spend = new Map<number, SpendEntry>();
+/** `client_id` -> entry id, for the replay of a POST whose response was lost. */
+const byClientId = new Map<string, number>();
 let nextId = 1;
 
 /** Test hook: forget every spend entry the mock holds. */
 export function resetPhase3Mock(): void {
   spend.clear();
+  byClientId.clear();
   nextId = 1;
 }
 
@@ -50,6 +56,7 @@ type SpendBody = {
   total: number | string;
   item_count: number;
   plan: "single" | "split";
+  client_id?: string | null;
 };
 
 function validSpend(body: unknown): body is SpendBody {
@@ -63,7 +70,8 @@ function validSpend(body: unknown): body is SpendBody {
     Number.isFinite(Number(e.total)) &&
     Number(e.total) >= 0 &&
     typeof e.item_count === "number" &&
-    (e.plan === "single" || e.plan === "split")
+    (e.plan === "single" || e.plan === "split") &&
+    (e.client_id === undefined || e.client_id === null || typeof e.client_id === "string")
   );
 }
 
@@ -180,10 +188,43 @@ export const phase3Handlers = [
     if (!validSpend(body)) {
       return HttpResponse.json({ detail: "invalid spend entry" }, { status: 422 });
     }
+    const known = body.client_id ? byClientId.get(body.client_id) : undefined;
+    const existing = known === undefined ? undefined : spend.get(known);
+    if (existing) return HttpResponse.json(existing, { status: 200 });
     const stored: SpendEntry = { ...body, id: nextId, total: Number(body.total).toFixed(2) };
     nextId += 1;
     spend.set(stored.id, stored);
+    if (stored.client_id) byClientId.set(stored.client_id, stored.id);
     return HttpResponse.json(stored, { status: 201 });
+  }),
+
+  http.put(url("/me/spend/:id"), async ({ request, params }) => {
+    const id = Number(params.id);
+    const body: unknown = await request.json();
+    await latency();
+    const current = spend.get(id);
+    if (!current) return HttpResponse.json({ detail: "entry not found" }, { status: 404 });
+    if (!validSpend(body)) {
+      return HttpResponse.json({ detail: "invalid spend entry" }, { status: 422 });
+    }
+    const stored: SpendEntry = {
+      ...body,
+      id,
+      client_id: body.client_id ?? current.client_id ?? null,
+      total: Number(body.total).toFixed(2),
+    };
+    spend.set(id, stored);
+    return HttpResponse.json(stored);
+  }),
+
+  http.delete(url("/me/spend/:id"), async ({ params }) => {
+    const id = Number(params.id);
+    await latency();
+    const current = spend.get(id);
+    if (!current) return HttpResponse.json({ detail: "entry not found" }, { status: 404 });
+    spend.delete(id);
+    if (current.client_id) byClientId.delete(current.client_id);
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get(url("/me/spend"), async ({ request }) => {

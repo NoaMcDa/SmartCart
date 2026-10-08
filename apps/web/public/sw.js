@@ -194,6 +194,18 @@ self.addEventListener("push", (event) => {
   );
 });
 
+// The page turns this message into the beta event `push_opened` (src/components/pwa/pwaEvents.ts);
+// the worker itself sends nothing anywhere.
+const PUSH_OPENED_MESSAGE = "sc-push-opened";
+
+function tellPage(client) {
+  try {
+    client.postMessage({ type: PUSH_OPENED_MESSAGE });
+  } catch {
+    /* the page may be gone */
+  }
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = safeUrl(event.notification.data && event.notification.data.url);
@@ -202,11 +214,14 @@ self.addEventListener("notificationclick", (event) => {
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of windows) {
         if (new URL(client.url).origin !== self.location.origin) continue;
+        tellPage(client);
         await client.focus();
         if ("navigate" in client) await client.navigate(target).catch(() => undefined);
         return;
       }
-      await self.clients.openWindow(target);
+      // No open page: the message waits in the new window's queue until its script listens.
+      const opened = await self.clients.openWindow(target);
+      if (opened) tellPage(opened);
     })(),
   );
 });

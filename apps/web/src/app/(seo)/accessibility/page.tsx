@@ -4,6 +4,7 @@ import { absoluteUrl, ACCESSIBILITY_PATH } from "@/features/seo/config";
 import { formatDateHe, isoDate } from "@/features/seo/format";
 import { breadcrumbList, webPageJsonLd } from "@/features/seo/jsonld";
 import styles from "@/features/seo/seo.module.css";
+import { CoordinatorLine } from "./CoordinatorLine";
 
 const TITLE = "הצהרת נגישות";
 const DESCRIPTION =
@@ -19,7 +20,9 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  const contact = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
+  const contactName = process.env.NEXT_PUBLIC_CONTACT_NAME?.trim() || undefined;
+  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || undefined;
+  const contactPhone = process.env.NEXT_PUBLIC_CONTACT_PHONE?.trim() || undefined;
   const crumbs = [
     { name: "בית", path: "/" },
     { name: TITLE, path: ACCESSIBILITY_PATH },
@@ -80,14 +83,7 @@ export default function Page() {
         </h2>
         <p>
           ספרי לנו איפה ומה לא עבד, ואיזה דפדפן, קורא מסך או מכשיר השתמשת.
-          {contact ? (
-            <>
-              {" "}
-              אפשר לכתוב אל <a href={`mailto:${contact}`}>{contact}</a>.
-            </>
-          ) : (
-            " פרטי הקשר יפורסמו כאן לפני ההשקה."
-          )}
+          <CoordinatorLine name={contactName} email={contactEmail} phone={contactPhone} />
         </p>
       </section>
     </article>

@@ -6,8 +6,9 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import controls from "@/features/profile/controls/controls.module.css";
 import { totalSaved, useSavings } from "@/features/profile/savingsHistory";
 import { clearBudget, MAX_BUDGET, saveBudget, useBudget } from "./budgetState";
-import { currentMonth, dayLabel, israelDate, monthName, monthOf, monthsEndingAt } from "./month";
+import { currentMonth, israelDate, monthName, monthOf, monthsEndingAt } from "./month";
 import { SpendChart } from "./SpendChart";
+import { SpendEntries } from "./SpendEntries";
 import { budgetStatus, monthlyTotals, useSpend } from "./spendState";
 import { syncSpend } from "./sync";
 import styles from "./Budget.module.css";
@@ -168,28 +169,15 @@ export function MonthlyBudgetSection({ className }: { className?: string }) {
         <>
           <h3 className={styles.subTitle}>שישה חודשים אחרונים</h3>
           <SpendChart data={totals} budget={budget} highlight={month} />
-          {thisMonth.length > 0 ? (
-            <>
-              <h3 className={styles.subTitle}>הקניות ב{monthName(month)}</h3>
-              <ul className={styles.entries} data-testid="spend-entries">
-                {thisMonth.slice(0, 8).map((e) => (
-                  <li key={e.id}>
-                    <span>
-                      <span dir="ltr">{dayLabel(e.date)}</span> · {e.store_name}
-                      {e.plan === "split" ? " (פיצול)" : ""}
-                      <span className={styles.muted}>
-                        {" · "}
-                        <span dir="ltr">{e.item_count}</span> פריטים
-                      </span>
-                    </span>
-                    <Price amount={e.total} />
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
         </>
       )}
+
+      {/* Always mounted: its undo window must outlive the last shop leaving the list. */}
+      <SpendEntries
+        entries={thisMonth}
+        signedIn={signedIn}
+        heading={`הקניות ב${monthName(month)}`}
+      />
 
       <p className={styles.note} data-testid="budget-method">
         הסכומים הם לפי המחירים שהוצגו באפליקציה ברגע הקנייה, לא לפי קבלות, ולכן הם הערכה. המחיר

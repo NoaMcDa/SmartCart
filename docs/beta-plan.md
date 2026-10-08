@@ -145,6 +145,10 @@ id per minute, counted in the table (proposal), 429 with `Retry-After`.
 | `flex_changed` | `flex_level` | flexibility sheet (W4b) | which level people move to |
 | `split_viewed` | none | split view (W5) | feature use |
 | `gap_reported` | none | report-a-gap (W4b) | data trust |
+| `pwa_installed` | `platform`: ios, android, desktop or other | `appinstalled`, or the first standalone launch, once per browser (finish round, #56) | PWA install rate |
+| `push_opt_in` | `platform` | push permission becomes granted through the alerts button (#56) | push opt-in rate |
+| `push_opened` | `platform` | a push notification is tapped; the service worker messages the page (#56) | notification open rate |
+| `store_mode_used` | `plan`: single or split, `platform` | store mode opens with a shopping session (#56) | share of sessions in store; iOS versus Android split |
 
 **Wiring is not done.** Of these only `page_viewed` is called today. W4b and W5 add the rest, then call
 `setAuthTokenProvider(() => session.access_token)` after sign-in, and add the consent screen and the
