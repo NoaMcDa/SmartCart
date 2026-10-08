@@ -519,7 +519,10 @@ dedicated key pair for the workflow (not your personal key) is the safer choice;
 from `authorized_keys` to revoke it. Exit code 2 of either VPS script (a geolocation service or the
 laibcatalog listing was silent) is reported but does not fail the job; run it again later.
 `check_portals.sh` now also checks the Cerberus FTP login of the four Cerberus chains, so its
-output (section 5.4) has four `ftp login ... OK` lines before the download probe.
+output (section 5.4) has four `ftp login ... OK` lines before the download probe. The login is
+made the way the upstream scraper makes it, without certificate verification; the portal's
+certificate does not match `url.retail.publishedprices.co.il`, so the line reads `OK (certificate
+fails verification; upstream does not verify it)` (docs/ingestion.md, portal probe).
 
 What stays with the owner here: the accounts and payment (Supabase Pro, the VPS provider, R2 or
 S3), creating the VPS and the bucket tokens (sections 5.2 and 6.1), and the restore test record

@@ -17,7 +17,7 @@ GitHub yet (they were linted with actionlint and every script was run locally, s
 | Workflow (Actions tab name) | File | Trigger | Inputs | Secrets | Artifacts | Runtime (estimate) |
 |---|---|---|---|---|---|---|
 | BGE-M3 evaluation | `bge-eval.yml` | dispatch; Mondays 02:41 UTC | `max_items` (0 = all 857 gold items), `model` (default `BAAI/bge-m3`) | none | `bge-eval-report` (Markdown and JSON, 30 days) | 10 to 20 min the first time (torch wheels and a model of about 2.3 GB), less once the model is cached |
-| Portal probe | `portal-probe.yml` | dispatch; daily 07:17 UTC | `chains` (space-separated slugs, empty = all ten), `timeout` (seconds per download, 180) | none | `portal-probe-files` (raw files, 7 days), `portal-probe-report` (table and JSON, 30 days) | 5 to 30 min, mostly the portals; capped at 90 |
+| Portal probe | `portal-probe.yml` | dispatch; daily 07:17 UTC | `chains` (space-separated slugs, empty = all ten), `timeout` (seconds per download, 180), `commit_fixtures` (default off) | none (the commit job uses the workflow token) | `portal-probe-files` (raw files, 7 days), `portal-probe-report` (table and JSON, 30 days), `portal-probe-fixtures` (with `commit_fixtures`, 7 days) | 5 to 30 min, mostly the portals; capped at 90 |
 | Extraction pilot | `extraction-pilot.yml` | dispatch | `max_items` (1 to 1000, default 200) | `ANTHROPIC_API_KEY` | `extraction-pilot-report` (30 days) | under 1 min without the key; with it, a few minutes plus the batch (usually well under an hour; the job stops at 2 h) |
 | Provision check | `provision-check.yml` | dispatch | `apply_migrations` (default off) | `SUPABASE_DB_URL`; `VPS_SSH_HOST`, `VPS_SSH_KEY` (optional `VPS_SSH_USER`, `VPS_SSH_PORT`, `VPS_SSH_KNOWN_HOSTS`); `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ENDPOINT_URL` or `S3_REGION` | none | 1 to 3 min |
 
@@ -26,12 +26,15 @@ Every workflow step has a local entry point under `scripts/unblock/`:
 | Script | Used by | Run here (no network) |
 |---|---|---|
 | `bge_eval.py` | BGE-M3 evaluation | `BGE_EVAL_EMBEDDER=hash` on a migrated database: full gold set gave the documented 1.0000 / 0.8125 any-brand and recall@10 0.9988 |
-| `portal_probe.py probe` and `gate` | Portal probe | `gate --files services/ingest/tests/fixtures`: all ten chains through the Scheduler path (stale-date quarantines with the real clock, `loaded` with `--now`); `probe` exercised against the unreachable portals |
+| `portal_probe.py probe` and `gate` | Portal probe | `gate --files services/ingest/tests/fixtures`: all ten chains through the Scheduler path (stale-date quarantines with the real clock, `loaded` with `--now`); `probe` exercised against the unreachable portals; the Cerberus login check against a local FTPS server with a mismatched certificate (passes like upstream, annotated) |
+| `portal_probe.py fixtures`, `copy_fixtures.sh` | Portal probe with `commit_fixtures` | synthetic files trimmed to 3 rows, re-parsed by every adapter, copied into temporary `<chain>/real/` folders; the real-fixture tests in `test_adapters.py` then passed (parse and gates), and were removed again |
 | `extraction_pilot.py prepare`, `compare`, `check-limit` | Extraction pilot | `prepare`, then `extract --extractor rule --limit 120`, then `compare --model-extractor rule` |
 | `provision_check.sh db\|vps\|bucket` | Provision check | db smoke against a local Postgres (pass) and a bare one (fail); every "not set" path; vps against a closed port |
 | `supabase_provision.py` | Owner, once (section 9.1 of `infra-provisioning.md`) | `--dry-run` only; the Management API calls are unverified |
 
-Tests: `uv run pytest scripts/unblock/tests -q` (24 tests, no network, no database).
+Tests: `uv run pytest scripts/unblock/tests -q` (29 tests, no network, no database). The real
+fixture tests live in `services/ingest/tests/test_adapters.py` and run in CI once
+`fixtures/<chain>/real/` exists.
 
 ## Each blocked issue: the minimum owner input now
 
@@ -82,9 +85,14 @@ For the lead to copy into the blocker column (this file does not edit that one):
   `sim_floor`/`sim_ceil` are hash-calibrated, so a precision change can be calibration.
 - **Portal probe.** Expect blocked or unreachable rows: the runner is not Israeli, and that is
   part of the measurement. Run it after about 08:00 Israel time (the schedule does). The raw files
-  stay 7 days in `portal-probe-files`; a good real file can become a regression fixture
-  (`fetch_fixtures.py` docstring). Downloads are parsed only by the adapters, in the real Scheduler
-  path.
+  stay 7 days in `portal-probe-files`. The table and one `RESULT {...}` line per file are also in
+  the job log, for readers who cannot download artifacts. With `commit_fixtures` the accepted
+  files are pushed to a new branch `probe/fixtures-<YYYYMMDD>` (Stores whole, PriceFull trimmed to
+  200 rows, `MANIFEST.json` per chain) by a separate job with `contents: write`; open the pull
+  request by hand, and CI runs then (a push with the workflow token starts no workflow). Downloads
+  are parsed only by the adapters, in the real Scheduler path. A Cerberus login line reading
+  `ok (certificate not verified, as upstream ...)` is a pass: the scraper does not verify that
+  portal's certificate, which does not match its host name.
 - **Extraction pilot.** Without the secret it shows a notice and is green. With it, the spend is
   capped by `max_items` (at most 1000, one batch) and the extractor's limits (1024 output tokens
   per item, low effort). The cost in the summary is the repo's estimate; the console bill is the
