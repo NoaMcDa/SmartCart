@@ -1,0 +1,143 @@
+name: Extraction pilot
+
+# Issue #25 (decision D14). Runs the catalog's LLM attribute extraction (Message Batches, the
+# repo's ClaudeExtractor) on the synthetic items, compares it with the rule extractor and reports
+# the cost. Without the ANTHROPIC_API_KEY repository secret it prints how to set it and exits 0,
+# so it is safe to merge before the key exists. Spend is capped by max_items (at most 1000, one
+# batch) and the extractor's own limits (EXTRACTION_MAX_TOKENS 1024 per item, effort low).
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_items:
+        description: "Items to extract (1 to 1000; about 0.002 to 0.003 USD per item, estimate)"
+        required: false
+        default: 200
+        type: number
+
+concurrency:
+  group: extraction-pilot
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  key:
+    name: is the API key set?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            msg="set the ANTHROPIC_API_KEY repository secret to run the pilot"
+            echo "::notice::$msg"
+            echo "$msg (Settings, Secrets and variables, Actions, New repository secret)." >> "$GITHUB_STEP_SUMMARY"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  pilot:
+    name: extract, compare with the rules, cost
+    needs: key
+    if: needs.key.outputs.present == 'true'
+    runs-on: ubuntu-latest
+    # Batches usually end well within an hour, but the API allows up to 24 h; past this limit
+    # the job stops and the batch may still be billed (check the console).
+    timeout-minutes: 120
+
+    services:
+      # Same image and tag as ci.yml.
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      MAX_ITEMS: ${{ inputs.max_items || 200 }}
+      EXTRACTION_MODEL: claude-sonnet-5-5
+      EXTRACTION_POLL_SECONDS: "30"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install
+        run: uv sync
+
+      - name: Check the spend cap
+        run: uv run --no-sync python scripts/unblock/extraction_pilot.py check-limit "$MAX_ITEMS"
+
+      - name: Migrate and seed the catalog
+        run: |
+          uv run --no-sync smartcart-ingest migrate
+          uv run --no-sync smartcart-catalog seed
+
+      - name: Load the synthetic items (fixtures through the gates, then the gold set's items)
+        run: uv run --no-sync python scripts/unblock/extraction_pilot.py prepare --raw-dir "$RUNNER_TEMP/raw"
+
+      - name: Extract with the model (one batch)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -o pipefail
+          uv run --no-sync smartcart-catalog extract --extractor claude \
+            --limit "$MAX_ITEMS" --batch-size "$MAX_ITEMS" | tee extract.txt
+
+      - name: Cost report
+        if: always()
+        run: |
+          set -o pipefail
+          uv run --no-sync smartcart-catalog cost-report | tee cost-report.txt
+
+      - name: Compare with the rule extractor
+        run: |
+          uv run --no-sync python scripts/unblock/extraction_pilot.py compare \
+            --model-extractor claude --out extraction-pilot.md --json-out extraction-pilot.json
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            cat extraction-pilot.md 2>/dev/null || echo "no comparison"
+            echo
+            echo "<details><summary>extract and cost-report output</summary>"
+            echo
+            echo '```'
+            cat extract.txt cost-report.txt 2>/dev/null
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the pilot report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extraction-pilot-report
+          path: |
+            extraction-pilot.md
+            extraction-pilot.json
+            extract.txt
+            cost-report.txt
+          retention-days: 30
+          if-no-files-found: ignore
