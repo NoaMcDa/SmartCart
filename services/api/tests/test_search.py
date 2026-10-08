@@ -235,3 +235,13 @@ def test_thirty_items_parse_under_two_seconds(client, catalog: World) -> None:
     assert r.status_code == 200 and len(r.json()["rows"]) == 30
     print(f"parse-list, 30 items: {elapsed:.3f} s")
     assert elapsed < 2.0
+
+
+def test_search_hit_carries_the_arabic_name(client, db, world) -> None:
+    db.execute("UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+               (["حليب 3%", "حليب طازج 3%"], world.canon["milk3"]))
+    hits = client.get("/search", params={"q": "חלב"}).json()["hits"]
+    named = {h["canonical"]["canonical_id"]: h["canonical"] for h in hits}
+    assert named[world.canon["milk3"]]["display_name_ar"] == "حليب 3%"
+    assert named[world.canon["milk3"]]["display_name_he"]
+    assert all(c["display_name_ar"] is None for cid, c in named.items() if cid != world.canon["milk3"])

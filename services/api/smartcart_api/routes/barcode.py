@@ -72,12 +72,14 @@ def _store_ref(s: StoreInfo) -> schemas.StoreRef:
 
 
 def _canonical_ref(conn: psycopg.Connection, cid: int) -> schemas.CanonicalRef:
-    cid, name, tax, base = conn.execute(
-        "SELECT id, display_name_he, taxonomy_id, base_unit FROM canonical_products WHERE id = %s",
+    cid, name, name_ar, tax, base = conn.execute(
+        "SELECT id, display_name_he, names_ar[1], taxonomy_id, base_unit FROM canonical_products"
+        " WHERE id = %s",
         (cid,),
     ).fetchone()
     return schemas.CanonicalRef(
-        canonical_id=cid, display_name_he=name, taxonomy_id=tax, base_unit=base,
+        canonical_id=cid, display_name_he=name, display_name_ar=name_ar, taxonomy_id=tax,
+        base_unit=base,
         category_path_he=category_paths(conn, [tax]).get(tax, []),
     )
 

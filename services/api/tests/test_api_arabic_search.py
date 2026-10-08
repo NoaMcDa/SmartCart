@@ -264,7 +264,7 @@ def test_vector_agreement_does_not_override_a_veto(db, ar, monkeypatch) -> None:
     assert ar["milk-fresh-3"] not in [h.canonical_id for h in hybrid_search(db, "حليب 1%")]
 
 
-def test_hash_embedder_query_is_unchanged_for_arabic(db, ar) -> None:
+def test_hash_embedder_query_is_unchanged_for_arabic(db, ar, monkeypatch) -> None:
     # the vector retriever is called with the raw query
     seen = []
 
@@ -272,11 +272,8 @@ def test_hash_embedder_query_is_unchanged_for_arabic(db, ar) -> None:
         seen.append(q)
         return []
 
-    search._RETRIEVE_AR["vector"] = spy
-    try:
-        hybrid_search(db, "الحليب ٣٪")
-    finally:
-        search._RETRIEVE_AR["vector"] = search._vector
+    monkeypatch.setitem(search._RETRIEVE_AR, "vector", spy)
+    hybrid_search(db, "الحليب ٣٪")
     assert seen == ["الحليب ٣٪"]
 
 
@@ -313,3 +310,25 @@ def test_hebrew_queries_never_take_the_arabic_path(db, ar) -> None:
     hits = hybrid_search(db, "חלב 3%")
     assert hits and hits[0].names_ar == [] and hits[0].critical_attrs == {}
     assert hybrid_search(db, "milk 3%") is not None
+
+
+# --- the Arabic name vectors (canonical_name_embeddings) --------------------------------------------------
+
+
+def test_the_arabic_retriever_reads_the_arabic_name_vectors(db, ar) -> None:
+    from smartcart_api.embedding import query_embedder
+    from smartcart_catalog.embed import embed_canonicals
+
+    q = "حليب طازج 3%"
+    with db.transaction(force_rollback=True):
+        assert dict((cid, s) for cid, s, _ in search._vector_ar(db, q, 20)).get(ar["milk-fresh-3"], 0) < 0.99
+        embed_canonicals(db, query_embedder().inner)
+        arabic = {cid: s for cid, s, _ in search._vector_ar(db, q, 20)}
+        # the query is one of the canonical's own names: the same vector
+        assert arabic[ar["milk-fresh-3"]] == pytest.approx(1.0, abs=1e-6)
+        # the Hebrew path reads Hebrew vectors only and never sees the Arabic ones
+        hebrew = {cid: s for cid, s, _ in search._vector(db, q, 20)}
+        assert hebrew.get(ar["milk-fresh-3"], 0) < 0.99
+        # still recall only: a vector hit never exceeds the cap on its own
+        for h in hybrid_search(db, "لابتوب", limit=10):
+            assert h.confidence <= search.VECTOR_ONLY_CAP

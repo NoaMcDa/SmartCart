@@ -28,6 +28,7 @@ def canonical_ref(h: Hit) -> schemas.CanonicalRef:
     return schemas.CanonicalRef(
         canonical_id=h.canonical_id,
         display_name_he=h.display_name_he,
+        display_name_ar=h.display_name_ar,
         taxonomy_id=h.taxonomy_id,
         base_unit=h.base_unit,
         category_path_he=h.category_path_he,

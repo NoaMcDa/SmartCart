@@ -82,6 +82,8 @@ class Hit:
     confidence: float = 0.0
     specificity: float = 0.0
     category_path_he: list[str] = field(default_factory=list)
+    display_name_ar: str | None = None
+    """The canonical's first Arabic name; filled on both paths, for the response."""
     names_ar: list[str] = field(default_factory=list)
     """The canonical's Arabic names; filled on the Arabic path only."""
     critical_attrs: dict = field(default_factory=dict)
@@ -171,8 +173,13 @@ def _fts(conn: psycopg.Connection, q: str, k: int) -> Ranked:
     return scored[:k]
 
 
-def _vector(conn: psycopg.Connection, q: str, k: int) -> Ranked:
+def _vector(conn: psycopg.Connection, q: str, k: int, lang: str | None = None) -> Ranked:
     """Cosine similarity, only against vectors made by the query embedder's model.
+
+    ``lang`` ``"ar"`` (the Arabic path) adds the canonicals' Arabic name vectors
+    (``canonical_name_embeddings``, ``embed_canonical_names_ar``) to the Hebrew name vectors and
+    the mapped items' vectors; a canonical's score is its best. Hebrew passes no ``lang`` and
+    reads exactly what it always did.
 
     Vectors from two models live in different spaces, so comparing them is noise. The query is
     embedded with the catalog's embedder (``smartcart_api.embedding.query_embedder``), and only
@@ -193,12 +200,21 @@ def _vector(conn: psycopg.Connection, q: str, k: int) -> Ranked:
         "   SELECT e.item_id, 1 - (e.embedding <=> qv.v) AS s"
         "   FROM item_embeddings AS e, qv WHERE e.model = %(model)s"
         "   ORDER BY e.embedding <=> qv.v LIMIT %(k4)s),"
+        + (
+            " names_ar AS ("
+            "   SELECT n.canonical_id, max(1 - (n.embedding <=> qv.v)) AS s"
+            "   FROM canonical_name_embeddings AS n, qv"
+            "   WHERE n.lang = 'ar' AND n.embedding_model = %(model)s"
+            "   GROUP BY n.canonical_id ORDER BY s DESC LIMIT %(k)s),"
+            if lang == "ar" else ""
+        ) +
         " via_items AS ("
         "   SELECT ic.canonical_id, max(n.s) AS s FROM near_items AS n"
         "   JOIN item_canonical AS ic ON ic.item_id = n.item_id"
         "   WHERE ic.flex_level IN ('exact', 'any_brand') AND NOT ic.human_rejected"
         "     AND NOT ic.needs_review GROUP BY ic.canonical_id)"
         " SELECT canonical_id, max(s) AS s FROM (SELECT * FROM direct UNION ALL"
+        + ("   SELECT * FROM names_ar UNION ALL" if lang == "ar" else "") +
         "   SELECT * FROM via_items) AS u"
         " WHERE s >= %(min)s GROUP BY canonical_id ORDER BY s DESC, canonical_id LIMIT %(k)s",
         {"v": vec, "k": k, "k4": k * 4, "min": VECTOR_MIN, "model": embedder.model_name},
@@ -229,7 +245,7 @@ def hybrid_search(
     meta = {
         r[0]: r
         for r in conn.execute(
-            "SELECT id, display_name_he, taxonomy_id, base_unit, rank"
+            "SELECT id, display_name_he, taxonomy_id, base_unit, rank, names_ar[1]"
             " FROM canonical_products WHERE id = ANY(%s)",
             (ids,),
         ).fetchall()
@@ -238,7 +254,7 @@ def hybrid_search(
     for name, ranked in found.items():
         for pos, (cid, sim, spec) in enumerate(ranked, start=1):
             m = meta[cid]
-            h = hits.setdefault(cid, Hit(cid, m[1], m[2], m[3], m[4]))
+            h = hits.setdefault(cid, Hit(cid, m[1], m[2], m[3], m[4], display_name_ar=m[5]))
             h.ranks[name] = pos
             h.similarity[name] = max(0.0, min(1.0, sim))
             h.specificity_by[name] = max(0.0, min(1.0, spec))
@@ -482,7 +498,11 @@ def _ar_fts(conn: psycopg.Connection, q: str, k: int) -> Ranked:
     return scored[:k]
 
 
-_RETRIEVE_AR = {"trigram": _ar_trigram, "fts": _ar_fts, "vector": _vector}
+def _vector_ar(conn: psycopg.Connection, q: str, k: int) -> Ranked:
+    return _vector(conn, q, k, "ar")
+
+
+_RETRIEVE_AR = {"trigram": _ar_trigram, "fts": _ar_fts, "vector": _vector_ar}
 
 
 def _hard_checks(
@@ -539,7 +559,9 @@ def _hybrid_search_ar(
         for pos, (cid, sim, spec) in enumerate(ranked, start=1):
             m = meta[cid]
             h = hits.setdefault(
-                cid, Hit(cid, m[1], m[2], m[3], m[4], names_ar=list(m[7]), critical_attrs=m[6])
+                cid,
+                Hit(cid, m[1], m[2], m[3], m[4], display_name_ar=m[7][0] if m[7] else None,
+                    names_ar=list(m[7]), critical_attrs=m[6]),
             )
             h.ranks[name] = pos
             h.similarity[name] = max(0.0, min(1.0, sim))

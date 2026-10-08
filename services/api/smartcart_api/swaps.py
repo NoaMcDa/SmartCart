@@ -99,6 +99,7 @@ def suggest_swaps(
                 from_item_id=cur.item_id,
                 to_item_id=li.item_id,
                 to_display_name_he=li.display_name_he,
+                canonical_name_ar=li.canonical_name_ar,
                 flex_level=alt,
                 saving=saving,
                 confidence=li.confidence,

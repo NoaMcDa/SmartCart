@@ -7,7 +7,9 @@ listed in its ``EXTENSIONS`` tuple. Until then, or standalone::
 
 The database is ``$DATABASE_URL`` (migrated; the command seeds the canonicals, with their
 ``names_ar``, unless ``--no-seed``). The query embedder of the API is ``$API_QUERY_EMBEDDER``
-(``hash`` when unset); Arabic retrieval is lexical, the vector retriever only suggests.
+(``hash`` when unset); Arabic retrieval is lexical, the vector retriever only suggests. The
+command embeds the canonicals' Hebrew and Arabic names with that embedder (unless ``--no-embed``)
+so the vector retriever runs as it does in production.
 """
 
 from __future__ import annotations
@@ -38,6 +40,10 @@ def evaluate_ar(
         typer.Option(help="Confidence at which a row counts as served (default: the API's 0.75)."),
     ] = None,
     no_seed: Annotated[bool, typer.Option("--no-seed", help="Use the canonicals as loaded.")] = False,
+    no_embed: Annotated[
+        bool,
+        typer.Option("--no-embed", help="Do not embed the names (vector retriever sees what is stored)."),
+    ] = False,
     json_out: Annotated[bool, typer.Option("--json", help="Print the metrics as JSON.")] = False,
     show_errors: Annotated[int, typer.Option(help="Print up to N wrong answers.")] = 30,
 ) -> None:
@@ -52,7 +58,9 @@ def evaluate_ar(
 
     lines = load_lines(queries or DEFAULT_QUERIES)
     with _connect() as conn:
-        report = run_evaluation(conn, lines, seed=not no_seed, floor=floor)
+        report = run_evaluation(
+            conn, lines, seed=not no_seed, embed=not no_embed, floor=floor
+        )
         conn.commit()
     if json_out:
         typer.echo(json.dumps(report.to_json(), ensure_ascii=False, indent=2))

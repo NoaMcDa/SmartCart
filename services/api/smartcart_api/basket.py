@@ -367,7 +367,7 @@ def price_baskets(
         r[0]: r
         for r in conn.execute(
             "SELECT c.id, c.base_unit, c.critical_attrs, c.soft_attrs,"
-            " COALESCE(r.critical_keys, '{}') || COALESCE(r.soft_keys, '{}')"
+            " COALESCE(r.critical_keys, '{}') || COALESCE(r.soft_keys, '{}'), c.names_ar[1]"
             " FROM canonical_products AS c"
             " LEFT JOIN product_type_rules AS r ON r.product_type = c.product_type"
             " WHERE c.id = ANY(%s)",
@@ -470,6 +470,7 @@ def price_baskets(
             canonical_id=cid,
             item_id=c.item_id,
             display_name_he=raw_name,
+            canonical_name_ar=canon[cid][5],
             quantity=qty,
             shelf_price=c.shelf_price,
             effective_unit_price=unit_paid,

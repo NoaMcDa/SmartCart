@@ -149,3 +149,12 @@ def test_ninety_days_response_time(client, w: World) -> None:
     elapsed = clock.perf_counter() - started
     print(f"history 90 days: {elapsed * 1000:.1f} ms")
     assert elapsed < 2.0
+
+
+def test_history_carries_the_canonicals_arabic_name(client, db, w: World) -> None:
+    assert get(client, w)["canonical_name_ar"] is None
+    db.execute("UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+               (["حليب 3%", "حليب طازج 3%"], w.canon["milk3"]))
+    resp = get(client, w)
+    assert resp["canonical_name_ar"] == "حليب 3%"
+    assert resp["display_name_he"] == "חלב תנובה 3% 1 ליטר"  # the item's own name, unchanged

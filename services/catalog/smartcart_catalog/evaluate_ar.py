@@ -32,6 +32,7 @@ from typing import Any
 import psycopg
 import yaml
 
+from smartcart_catalog.embed import embed_canonicals
 from smartcart_catalog.seed import load_catalog, seed_all
 
 LEVELS: tuple[str, ...] = ("exact", "any_brand", "close")
@@ -250,8 +251,19 @@ def run_evaluation(
     lines: list[ArLine] | None = None,
     *,
     seed: bool = True,
+    embed: bool = True,
     floor: float | None = None,
 ) -> ArReport:
+    """Seed the canonicals, embed their names, send every line through ``/parse-list``.
+
+    ``embed`` runs ``embed_canonicals`` with the API's query embedder (``$API_QUERY_EMBEDDER``,
+    ``hash`` when unset), which also writes the Arabic name vectors the Arabic vector retriever
+    reads (issue #73): the measured retrieval is then what production runs, with vectors.
+    """
     if seed:
         seed_all(conn, load_catalog())
+    if embed:
+        from smartcart_api.embedding import query_embedder
+
+        embed_canonicals(conn, query_embedder().inner)
     return compute(run_lines(conn, lines if lines is not None else load_lines(), floor))
