@@ -10,7 +10,8 @@ Order, chosen so the request never waits on itself:
    nothing; a 404 means the auth user is already gone and the rest proceeds.
 2. Under row-level security as the user (``smartcart_app``, ``auth.uid()``): push
    subscriptions, price alerts (their deliveries cascade), shares the user owns, lists (their
-   items and shares cascade), profile, preferences and substitution feedback. RLS guarantees
+   items and shares cascade), profile (with the monthly budget), preferences, substitution
+   feedback and spend entries (#70). RLS guarantees
    these statements cannot touch another user's rows.
 3. On the service connection: the user's memberships in other people's lists and the items they
    added there, ``gap_reports.user_id`` and ``events.user_id`` set to NULL (anonymous
@@ -105,6 +106,7 @@ _OWN_ROWS = (
     "DELETE FROM profiles WHERE user_id = %(uid)s",
     "DELETE FROM preferences WHERE user_id = %(uid)s",
     "DELETE FROM substitution_feedback WHERE user_id = %(uid)s",
+    "DELETE FROM spend_entries WHERE user_id = %(uid)s",
 )
 # Service connection: rows the user's policies do not let them delete.
 _SERVICE_ROWS = (
