@@ -11,7 +11,7 @@ import {
   PriceTable,
   TrustNote,
 } from "@/features/seo/components";
-import { absoluteUrl, CHECKOUT_GOVERNS, INDEX_UNPRICED } from "@/features/seo/config";
+import { absoluteUrl, CHECKOUT_GOVERNS, isIndexable } from "@/features/seo/config";
 import { getProduct, getProducts, productPages } from "@/features/seo/data";
 import { attrLabel, attrValue, PER_UNIT } from "@/features/seo/format";
 import { breadcrumbList, productJsonLd } from "@/features/seo/jsonld";
@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     description,
     alternates: { canonical: absoluteUrl(`/p/${slug}`) },
     openGraph: { title, description, type: "website", locale: "he_IL" },
-    robots: product.no_prices_yet && !INDEX_UNPRICED ? { index: false, follow: true } : undefined,
+    robots: isIndexable(product) ? undefined : { index: false, follow: true },
   };
 }
 
