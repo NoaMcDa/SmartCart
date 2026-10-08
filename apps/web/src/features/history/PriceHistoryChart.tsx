@@ -4,6 +4,9 @@ import { useId, useState } from "react";
 import type { PriceHistoryResponse } from "@/api/client";
 import { Price } from "@/components/ui/Price";
 import { Tag } from "@/components/ui/Tag";
+import { useRich } from "@/i18n/format-2";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { historyMessages } from "@/i18n/messages/history";
 import { formatPrice } from "@/lib/format";
 import {
   findGaps,
@@ -49,6 +52,10 @@ export type PriceHistoryChartProps = {
  * sentence says what the chart shows.
  */
 export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHistoryChartProps) {
+  const t = useT(historyMessages);
+  const r = useRich(historyMessages);
+  const { locale, intl } = useLocale();
+  const day = (ms: number) => formatDay(ms, intl);
   const uid = useId().replace(/:/g, "");
   const [active, setActive] = useState<SeriesPoint | null>(null);
 
@@ -66,21 +73,26 @@ export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHis
   const xTicks = [win.start, (win.start + win.end) / 2, win.end];
   const promoPoints = points.filter((p) => p.promo);
   const last = points[points.length - 1] ?? null;
-  const axisName = metric === "unit" ? "מחיר ליחידה" : "מחיר מדף";
+  const axisName = metric === "unit" ? t("axisUnit") : t("axisShelf");
 
   const describe = (p: SeriesPoint) => {
     const range = p.promo ? promoAt(promos, p.t) : null;
     const promo = p.promo
-      ? `. מבצע: ${p.promo}${range ? ` (${promoAudience(range)}, ${promoConfidence(range)})` : ""}`
+      ? t("promoDetail", { promo: p.promo }) +
+        (range
+          ? t("promoMeta", {
+              audience: promoAudience(range, locale),
+              confidence: promoConfidence(range, locale),
+            })
+          : "")
       : "";
-    return `${formatDay(p.t)}: ${formatPrice(p.value, 2)}${metric === "unit" ? ` ${unitLabel}` : ""}${promo}`;
+    return `${day(p.t)}: ${formatPrice(p.value, 2)}${metric === "unit" ? ` ${unitLabel}` : ""}${promo}`;
   };
 
   if (points.length === 0) {
     return (
       <p className={styles.empty} data-testid="history-empty">
-        אין עדיין נתוני מחיר לתקופה הזו. ההיסטוריה מתחילה מהיום שבו התחלנו לאסוף מחירים, ואין השלמה
-        של ימים קודמים.
+        {t("empty")}
       </p>
     );
   }
@@ -88,8 +100,9 @@ export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHis
   return (
     <div className={styles.chart} data-testid="history-chart">
       <p className={styles.axisName}>
-        {axisName}
-        {metric === "unit" ? <> ({unitLabel})</> : null}, בשקלים
+        {metric === "unit"
+          ? t("axisCaptionUnit", { axis: axisName, unit: unitLabel })
+          : t("axisCaption", { axis: axisName })}
       </p>
       <svg
         className={styles.svg}
@@ -118,9 +131,9 @@ export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHis
             </text>
           </g>
         ))}
-        {xTicks.map((t) => (
-          <text key={t} x={x(t)} y={H - 8} textAnchor="middle" className={styles.tick}>
-            {formatDay(t)}
+        {xTicks.map((tick) => (
+          <text key={tick} x={x(tick)} y={H - 8} textAnchor="middle" className={styles.tick}>
+            {day(tick)}
           </text>
         ))}
 
@@ -185,54 +198,58 @@ export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHis
         ) : null}
       </svg>
 
-      <ul className={styles.legend} aria-label="מקרא">
+      <ul className={styles.legend} aria-label={t("legendLabel")}>
         <li>
-          <span className={`${styles.swatch} ${styles.swatchLine}`} aria-hidden="true" /> מחיר
+          <span className={`${styles.swatch} ${styles.swatchLine}`} aria-hidden="true" />{" "}
+          {t("legendPrice")}
         </li>
         <li>
-          <span className={`${styles.swatch} ${styles.swatchPromo}`} aria-hidden="true" /> תקופת
-          מבצע
+          <span className={`${styles.swatch} ${styles.swatchPromo}`} aria-hidden="true" />{" "}
+          {t("legendPromoPeriod")}
         </li>
         <li>
-          <span className={`${styles.swatch} ${styles.swatchMarker}`} aria-hidden="true" /> יום מבצע
-          (נקודה)
+          <span className={`${styles.swatch} ${styles.swatchMarker}`} aria-hidden="true" />{" "}
+          {t("legendPromoDay")}
         </li>
         <li>
-          <span className={`${styles.swatch} ${styles.swatchGap}`} aria-hidden="true" /> אין נתונים
+          <span className={`${styles.swatch} ${styles.swatchGap}`} aria-hidden="true" />{" "}
+          {t("legendNoData")}
         </li>
       </ul>
 
       <p className={styles.tooltip} role="status" data-testid="history-tooltip">
-        {active ? describe(active) : "הצביעי על נקודת מבצע כדי לראות את פרטיה."}
+        {active ? describe(active) : t("tooltipHint")}
       </p>
 
       {summary ? (
         <p className={styles.summary} data-testid="history-summary">
-          ב-{days} הימים האחרונים המחיר ({axisName}) נע בין{" "}
-          <Price amount={summary.min} fractionDigits={2} /> ל-
-          <Price amount={summary.max} fractionDigits={2} />, והמחיר האחרון הוא{" "}
-          <Price amount={summary.latest} fractionDigits={2} />.{" "}
+          {r(
+            "summary",
+            {
+              min: <Price amount={summary.min} fractionDigits={2} />,
+              max: <Price amount={summary.max} fractionDigits={2} />,
+              latest: <Price amount={summary.latest} fractionDigits={2} />,
+            },
+            { days, axis: axisName },
+          )}{" "}
           {promos.length > 0
-            ? `היו ${promos.length} תקופות מבצע (כ-${summary.promoDays} ימים). `
-            : "לא היו תקופות מבצע. "}
-          {gaps.length > 0
-            ? `ב-${summary.gapDays} ימים אין נתונים, והם מסומנים כרווח בלי קו.`
-            : "אין ימים חסרים."}
+            ? t("summaryPromos", { count: promos.length, days: summary.promoDays })
+            : t("summaryNoPromos")}{" "}
+          {gaps.length > 0 ? t("summaryGaps", { days: summary.gapDays }) : t("summaryNoGaps")}
         </p>
       ) : null}
-      <p className={styles.note}>
-        ימים ללא נתונים מוצגים כרווח מקוקו ולא כקו ישר: לא ממלאים מחיר שלא ראינו.
-      </p>
+      <p className={styles.note}>{t("gapNote")}</p>
 
       {promos.length > 0 ? (
-        <ul className={styles.promoList} aria-label="תקופות מבצע">
+        <ul className={styles.promoList} aria-label={t("promoListLabel")}>
           {promos.map((p) => (
             <li key={p.from} data-testid="history-promo-row">
               <span dir="ltr">
-                {formatDay(p.from)}–{formatDay(p.to)}
+                {day(p.from)}–{day(p.to)}
               </span>
-              : {p.description} {p.clubOnly ? <Tag variant="club">{promoAudience(p)}</Tag> : null}{" "}
-              <span className={styles.confidence}>{promoConfidence(p)}</span>
+              : {p.description}{" "}
+              {p.clubOnly ? <Tag variant="club">{promoAudience(p, locale)}</Tag> : null}{" "}
+              <span className={styles.confidence}>{promoConfidence(p, locale)}</span>
             </li>
           ))}
         </ul>
@@ -240,20 +257,20 @@ export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHis
 
       <div className="sr-only">
         <table data-testid="history-table">
-          <caption>נתוני המחיר לפי תאריך, מהישן לחדש</caption>
+          <caption>{t("tableCaption")}</caption>
           <thead>
             <tr>
-              <th scope="col">תאריך</th>
+              <th scope="col">{t("colDate")}</th>
               <th scope="col">{axisName}</th>
-              <th scope="col">מבצע</th>
+              <th scope="col">{t("colPromo")}</th>
             </tr>
           </thead>
           <tbody>
             {points.map((p) => (
               <tr key={p.t}>
-                <th scope="row">{formatDay(p.t)}</th>
+                <th scope="row">{day(p.t)}</th>
                 <td>{formatPrice(p.value, 2)}</td>
-                <td>{p.promo ?? "אין"}</td>
+                <td>{p.promo ?? t("none")}</td>
               </tr>
             ))}
           </tbody>

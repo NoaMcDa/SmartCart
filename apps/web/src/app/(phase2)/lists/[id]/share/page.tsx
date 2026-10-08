@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SharedListScreen } from "@/features/share/SharedListScreen";
 import pageStyles from "../../../phase2.module.css";
+import { PageTitle } from "../../../PageTitle";
 
 export const metadata: Metadata = { title: "שיתוף הרשימה" };
 
@@ -15,7 +16,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (listId !== "mine" && (!Number.isInteger(listId) || listId <= 0)) notFound();
   return (
     <div className={pageStyles.page}>
-      <h1 className={pageStyles.title}>שיתוף הרשימה</h1>
+      <PageTitle id="share" />
       <SharedListScreen listId={listId} />
     </div>
   );

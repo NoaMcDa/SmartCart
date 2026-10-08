@@ -1,7 +1,10 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { BottomNav } from "@/components/shell/BottomNav";
 import { TopBar } from "@/components/shell/TopBar";
-import { CHECKOUT_GOVERNS } from "./config";
+import { useT } from "@/i18n/LocaleProvider";
+import { seoMessages } from "@/i18n/messages/seo";
 import { SeoFooterLinks } from "./components";
 import styles from "./seo.module.css";
 
@@ -11,10 +14,11 @@ import styles from "./seo.module.css";
  * with the trust links on every page.
  */
 export function SeoShell({ children }: { children: ReactNode }) {
+  const t = useT(seoMessages);
   return (
     <div className={styles.shell}>
       <a href="#main" className="skip-link">
-        דילוג לתוכן
+        {t("skipLink")}
       </a>
       <TopBar />
       <main id="main" className={styles.main} data-testid="content">
@@ -23,7 +27,9 @@ export function SeoShell({ children }: { children: ReactNode }) {
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
           <SeoFooterLinks />
-          <p>{CHECKOUT_GOVERNS} SmartCart אינה מוכרת מידע על משתמשים ואינה מדרגת לפי מי שמשלם.</p>
+          <p>
+            {t("checkoutGoverns")} {t("footerCommitment")}
+          </p>
         </div>
       </footer>
       <BottomNav />

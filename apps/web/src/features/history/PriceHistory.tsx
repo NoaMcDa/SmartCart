@@ -3,6 +3,8 @@
 import { useEffect, useId, useState } from "react";
 import { priceHistory, type PriceHistoryResponse } from "@/api/client";
 import { Card, SegmentedControl, Skeleton, UpdatedAt } from "@/components/ui";
+import { useT } from "@/i18n/LocaleProvider";
+import { historyMessages } from "@/i18n/messages/history";
 import { PriceHistoryChart } from "./PriceHistoryChart";
 import { seriesOf, type Metric } from "./series";
 import styles from "./History.module.css";
@@ -32,6 +34,7 @@ export function PriceHistory({
   stores: ReadonlyArray<HistoryStoreOption>;
   unitLabel: string;
 }) {
+  const t = useT(historyMessages);
   const [range, setRange] = useState<Range>("90");
   const [metric, setMetric] = useState<Metric>("unit");
   const [choice, setChoice] = useState<string>("");
@@ -71,25 +74,25 @@ export function PriceHistory({
     >
       <div className={styles.head}>
         <h2 id={`${selectId}-title`} className={styles.title}>
-          היסטוריית מחירים
+          {t("title")}
         </h2>
         <div className={styles.controls}>
           <SegmentedControl<Range>
-            label="טווח הזמן"
+            label={t("rangeLabel")}
             value={range}
             onChange={setRange}
             options={[
-              { value: "30", label: "30 יום" },
-              { value: "90", label: "90 יום" },
+              { value: "30", label: t("range30") },
+              { value: "90", label: t("range90") },
             ]}
           />
           <SegmentedControl<Metric>
-            label="סוג המחיר"
+            label={t("metricLabel")}
             value={metric}
             onChange={setMetric}
             options={[
-              { value: "unit", label: "ליחידה" },
-              { value: "shelf", label: "מדף" },
+              { value: "unit", label: t("metricUnit") },
+              { value: "shelf", label: t("metricShelf") },
             ]}
           />
         </div>
@@ -97,7 +100,7 @@ export function PriceHistory({
       {stores.length > 1 ? (
         <div className={styles.controls}>
           <label htmlFor={selectId} className={styles.state}>
-            הסניף:
+            {t("storeLabel")}
           </label>
           <select
             id={selectId}
@@ -117,12 +120,12 @@ export function PriceHistory({
 
       <Card>
         {!current ? (
-          <div aria-busy="true" aria-label="טוענת את ההיסטוריה">
+          <div aria-busy="true" aria-label={t("loading")}>
             <Skeleton height={160} />
           </div>
         ) : current.error ? (
           <p role="alert" className={styles.state}>
-            לא הצלחנו לטעון את היסטוריית המחירים. נסי שוב בעוד רגע.
+            {t("loadError")}
           </p>
         ) : (
           <PriceHistoryChart
@@ -136,9 +139,9 @@ export function PriceHistory({
 
       <p className={styles.footer}>
         <span>
-          {lastIso ? <UpdatedAt iso={lastIso} prefix="המחיר האחרון עודכן" withIcon /> : null}
+          {lastIso ? <UpdatedAt iso={lastIso} prefix={t("lastUpdated")} withIcon /> : null}
         </span>
-        <span>המחיר הקובע הוא בקופה.</span>
+        <span>{t("checkoutGoverns")}</span>
       </p>
     </section>
   );

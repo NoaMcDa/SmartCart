@@ -10,6 +10,8 @@ import {
 } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useT } from "@/i18n/LocaleProvider";
+import { mapMessages } from "@/i18n/messages/map";
 import { circleRing, type LatLon } from "./geo";
 import { PinButton, type Pin } from "./PinButton";
 import styles from "./Map.module.css";
@@ -93,6 +95,7 @@ export default function MapCanvas({
   onSelect,
   onUnsupported,
 }: MapCanvasProps) {
+  const myLocation = useT(mapMessages)("myLocation");
   const container = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<MapLibreMap | null>(null);
 
@@ -145,7 +148,7 @@ export default function MapCanvas({
     const dot = document.createElement("div");
     dot.className = styles.userDot ?? "";
     dot.setAttribute("role", "img");
-    dot.setAttribute("aria-label", "המיקום שלי, מעוגל לשכונה");
+    dot.setAttribute("aria-label", myLocation);
     const marker = new Marker({ element: dot }).setLngLat([center.lon, center.lat]).addTo(map);
     const apply = () => setRadius(map, center, radiusM);
     try {
@@ -158,7 +161,7 @@ export default function MapCanvas({
       marker.remove();
       map.off("style.load", apply);
     };
-  }, [map, center, radiusM]);
+  }, [map, center, radiusM, myLocation]);
 
   // One marker per pin.
   useEffect(() => {

@@ -2,7 +2,7 @@
  * Browser speech recognition for the voice list (issue #65), behind a thin typed seam.
  *
  * The Web Speech API is `SpeechRecognition` (Chrome, Edge, Safari 14.1+ unprefixed on recent
- * versions) or `webkitSpeechRecognition`. Whether it works for `he-IL` depends on the browser and
+ * versions) or `webkitSpeechRecognition`. Whether it works for `he-IL` (or `ar-IL`) depends on the browser and
  * the OS and has not been verified here, so nothing assumes it: `getRecognizerCtor()` is a runtime
  * check, the list builder hides the microphone without it, and every failure the recognizer can
  * report has a Hebrew message that points back to typing.
@@ -11,6 +11,9 @@
  * speech service. SmartCart never records, stores or uploads audio; the copy in the voice sheet
  * says both things.
  */
+
+import type { Locale } from "@/i18n/locales";
+import { voiceMessages, type VoiceMessageKey } from "@/i18n/messages/voice";
 
 /** The parts of `SpeechRecognition` this app uses (the DOM lib has no type for it). */
 export interface SpeechRecognitionLike {
@@ -37,6 +40,16 @@ export type SpeechResultEventLike = {
 export type RecognizerCtor = new () => SpeechRecognitionLike;
 
 export const VOICE_LANG = "he-IL";
+
+/**
+ * Recognition languages to try for a UI locale, in order. Arabic asks for the Israeli variant
+ * first and falls back to plain `ar` when the browser reports `language-not-supported` for it.
+ * Whether a given browser recognizes Arabic has not been verified here; the same feature
+ * detection and failure messages apply as for Hebrew.
+ */
+export function voiceLangs(locale: Locale): readonly string[] {
+  return locale === "ar" ? ["ar-IL", "ar"] : [VOICE_LANG];
+}
 
 type SpeechWindow = {
   SpeechRecognition?: RecognizerCtor;
@@ -78,17 +91,24 @@ export function classifyVoiceError(code: string): VoiceFailure | null {
   }
 }
 
-export const VOICE_MESSAGES: Record<VoiceFailure, string> = {
-  denied:
-    "הגישה למיקרופון נחסמה. אפשר לאשר אותה בהגדרות הדפדפן ולנסות שוב, או להקליד או להדביק את הרשימה בתיבה.",
-  "no-speech": "לא שמענו כלום. קרבי את המכשיר ונסי שוב, או הקלידי את הרשימה בתיבה.",
-  "no-mic": "לא נמצא מיקרופון במכשיר הזה. אפשר להקליד או להדביק את הרשימה בתיבה.",
-  network:
-    "שירות זיהוי הדיבור של הדפדפן לא זמין כרגע, כנראה בגלל החיבור. נסי שוב, או הקלידי את הרשימה בתיבה.",
-  language: "הדפדפן הזה לא מזהה דיבור בעברית. אפשר להקליד או להדביק את הרשימה בתיבה.",
-  unsupported: "הדפדפן הזה לא תומך בהכתבה קולית. אפשר להקליד או להדביק את הרשימה בתיבה.",
-  failed: "הזיהוי הקולי נעצר באמצע. נסי שוב, או הקלידי את הרשימה בתיבה.",
-};
+/** Message key (`voiceMessages`) per failure; the sheet translates it. */
+export const VOICE_MESSAGE_KEYS = {
+  denied: "failDenied",
+  "no-speech": "failNoSpeech",
+  "no-mic": "failNoMic",
+  network: "failNetwork",
+  language: "failLanguage",
+  unsupported: "failUnsupported",
+  failed: "failFailed",
+} as const satisfies Record<VoiceFailure, VoiceMessageKey>;
+
+/** The failure texts in Hebrew (the default locale), for code that has no locale at hand. */
+export const VOICE_MESSAGES: Record<VoiceFailure, string> = Object.fromEntries(
+  (Object.keys(VOICE_MESSAGE_KEYS) as VoiceFailure[]).map((f) => [
+    f,
+    voiceMessages.he[VOICE_MESSAGE_KEYS[f]],
+  ]),
+) as Record<VoiceFailure, string>;
 
 export type Transcript = {
   /** Finished phrases, one per pause the recognizer detected. */

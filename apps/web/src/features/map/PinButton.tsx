@@ -2,6 +2,9 @@
 
 import { Price } from "@/components/ui/Price";
 import { IconCheck, IconClose } from "@/components/ui/icons";
+import { useRich } from "@/i18n/format-2";
+import { useT } from "@/i18n/LocaleProvider";
+import { mapMessages } from "@/i18n/messages/map";
 import styles from "./Map.module.css";
 
 export type Pin = {
@@ -30,12 +33,17 @@ export function PinButton({
   selected: boolean;
   onSelect: (storeId: number) => void;
 }) {
+  const t = useT(mapMessages);
+  const r = useRich(mapMessages);
   const label =
-    `${pin.chainName}, סל ₪${pin.total}` +
-    (pin.recommended ? ", מומלץ" : "") +
-    (pin.cheapest ? ", הכי זול" : "") +
-    (pin.missingCount > 0 ? `, חסרים ${pin.missingCount} פריטים` : "") +
-    ". לחצי לפרטים";
+    [
+      t("pinBasket", { chain: pin.chainName, total: pin.total }),
+      pin.recommended ? t("recommended") : null,
+      pin.cheapest ? t("cheapest") : null,
+      pin.missingCount > 0 ? t("pinMissingItems", { count: pin.missingCount }) : null,
+    ]
+      .filter(Boolean)
+      .join(t("listSep")) + t("pinTap");
   return (
     <button
       type="button"
@@ -50,15 +58,20 @@ export function PinButton({
       <span className={styles.pinChain}>{pin.chainName}</span>
       <Price amount={pin.total} size="md" data-testid="pin-price" />
       <span className={styles.pinFlags}>
-        {pin.recommended ? <span className={styles.flag}>מומלץ</span> : null}
+        {pin.recommended ? <span className={styles.flag}>{t("recommended")}</span> : null}
         {pin.cheapest ? (
           <span className={styles.flag}>
-            <IconCheck size={11} /> הכי זול
+            <IconCheck size={11} /> {t("cheapest")}
           </span>
         ) : null}
         {pin.missingCount > 0 ? (
           <span className={styles.flagMissing}>
-            <IconClose size={11} /> חסרים <span dir="ltr">{pin.missingCount}</span>
+            <IconClose size={11} />{" "}
+            {r(
+              "flagMissing",
+              { ltr: (c) => <span dir="ltr">{c}</span> },
+              { count: pin.missingCount },
+            )}
           </span>
         ) : null}
       </span>

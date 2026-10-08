@@ -212,6 +212,20 @@ lines against a chain's own site (shelf prices; never copy content). (3) Run aga
 `--reviewed-by`. (4) Commit `basket-index.json`, `public/seo/reports/`, `docs/reports/`, rebuild and
 deploy. The first month needs real prices: none are loaded, so `months` is empty and the page says so.
 
+## Arabic UI and the indexed Hebrew (#73)
+
+The static pages are generated at build time in Hebrew and must stay Hebrew in the server HTML,
+because that is what search engines index; they are not made dynamic and carry no Arabic
+alternates yet (the `hreflang` decision for Arabic SEO pages is still open). The page bodies and the
+shared chrome (`components.tsx`, `SeoShell`, the quality metric, the basket tables, and the
+`*Content` components used by `/methodology`, `/c/*`, `/p/*` and `/basket-index`) are client
+components that read the UI locale. On the server the locale context is always Hebrew, so the HTML
+is Hebrew; after hydration a visitor with the Arabic locale sees the Arabic messages
+(`src/i18n/messages/{seo,methodology}.ts`, machine-drafted, native review pending). `<title>`,
+descriptions, Open Graph data and JSON-LD stay Hebrew. Catalog names (products, categories, chains)
+are Hebrew data and are not translated; Arabic canonical display names are a catalog task.
+`tests/e2e/locale-ar-2.spec.ts` checks that the server HTML is Hebrew even with the Arabic cookie.
+
 ## What is still synthetic or not done
 
 - **No prices.** The committed snapshot has none: `effective_prices` is empty in seeded data, so every

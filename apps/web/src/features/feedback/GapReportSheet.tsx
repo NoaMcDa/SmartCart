@@ -10,6 +10,8 @@ import { IconCheck, IconClock, IconWarning } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { reportGapReported } from "@/features/consent/betaEvents";
 import controls from "@/features/profile/controls/controls.module.css";
+import { useT } from "@/i18n/LocaleProvider";
+import { feedbackMessages } from "@/i18n/messages/feedback";
 import { formatTime } from "@/lib/format";
 import { buildGapRequest, GAP_REASONS, type GapContext, type GapReason } from "./gapReport";
 import styles from "./GapReport.module.css";
@@ -28,6 +30,7 @@ export type GapReportSheetProps = {
  * so one tap plus "שליחה" is enough; the reason, the price at the shelf and a note are optional.
  */
 export function GapReportSheet({ open, onClose, context }: GapReportSheetProps) {
+  const t = useT(feedbackMessages);
   const [reason, setReason] = useState<GapReason | null>(null);
   const [actual, setActual] = useState("");
   const [note, setNote] = useState("");
@@ -59,40 +62,41 @@ export function GapReportSheet({ open, onClose, context }: GapReportSheetProps) 
     }
   }
 
-  const subject = context.itemName ?? "המחיר שמוצג";
+  const subject = context.itemName ?? t("subjectDefault");
   return (
     <BottomSheet
       open={open}
       onClose={close}
-      eyebrow="דיווח על פער"
-      title={state === "sent" ? "תודה על הדיווח" : subject}
+      eyebrow={t("eyebrow")}
+      title={state === "sent" ? t("thanks") : subject}
       hideCloseButton={false}
     >
       {state === "sent" ? (
         <div className={controls.stack} data-testid="gap-sent">
           <p className={styles.confirm} role="status">
             <IconCheck size={18} />
-            <span>הדיווח התקבל ויעזור לנו לבדוק את המחיר. לא נשנה מחיר אוטומטית בלי בדיקה.</span>
+            <span>{t("sentBody")}</span>
           </p>
           <Button block onClick={close}>
-            סגירה
+            {t("close")}
           </Button>
         </div>
       ) : (
         <form onSubmit={submit} className={controls.stack} noValidate>
           <dl className={styles.facts}>
             <div>
-              <dt>סניף</dt>
+              <dt>{t("factStore")}</dt>
               <dd>{context.storeName}</dd>
             </div>
             {context.shownPrice !== undefined && context.shownPrice !== null ? (
               <div>
-                <dt>המחיר שהוצג</dt>
+                <dt>{t("factShown")}</dt>
                 <dd>
                   <Price amount={context.shownPrice} />
                   {context.priceUpdatedAt ? (
                     <span className={styles.time}>
-                      <IconClock size={13} /> עודכן {formatTime(context.priceUpdatedAt)}
+                      <IconClock size={13} />{" "}
+                      {t("updatedAt", { time: formatTime(context.priceUpdatedAt) })}
                     </span>
                   ) : null}
                 </dd>
@@ -102,7 +106,7 @@ export function GapReportSheet({ open, onClose, context }: GapReportSheetProps) 
 
           <div className={controls.group} role="group" aria-labelledby={`${noteId}-reasons`}>
             <p id={`${noteId}-reasons`} className={controls.legend}>
-              מה לא מסתדר? (לא חובה)
+              {t("reasonLegend")}
             </p>
             <div className={styles.reasons}>
               {GAP_REASONS.map((r) => (
@@ -112,7 +116,7 @@ export function GapReportSheet({ open, onClose, context }: GapReportSheetProps) 
                   selected={reason === r.value}
                   tone={reason === r.value ? "accent" : "neutral"}
                 >
-                  {r.label}
+                  {t(r.labelKey)}
                 </Chip>
               ))}
             </div>
@@ -120,7 +124,7 @@ export function GapReportSheet({ open, onClose, context }: GapReportSheetProps) 
 
           <div className={controls.field}>
             <label htmlFor={actualId} className={controls.label}>
-              המחיר במדף או בקופה (לא חובה)
+              {t("actualLabel")}
             </label>
             <input
               id={actualId}
@@ -135,7 +139,7 @@ export function GapReportSheet({ open, onClose, context }: GapReportSheetProps) 
 
           <div className={controls.field}>
             <label htmlFor={noteId} className={controls.label}>
-              הערה (לא חובה)
+              {t("noteLabel")}
             </label>
             <textarea
               id={noteId}
@@ -149,11 +153,11 @@ export function GapReportSheet({ open, onClose, context }: GapReportSheetProps) 
 
           {state === "error" ? (
             <p className={controls.error} role="alert">
-              לא הצלחנו לשלוח את הדיווח. בדקי את החיבור ונסי שוב.
+              {t("sendError")}
             </p>
           ) : null}
           <Button type="submit" block disabled={state === "sending"}>
-            {state === "sending" ? "שולחת…" : "שליחה"}
+            {state === "sending" ? t("sending") : t("send")}
           </Button>
         </form>
       )}
@@ -169,11 +173,9 @@ export type ReportGapButtonProps = {
 };
 
 /** One-tap entry point: a small ghost button that opens the sheet with the context filled in. */
-export function ReportGapButton({
-  context,
-  label = "דווחי על פער",
-  size = "sm",
-}: ReportGapButtonProps) {
+export function ReportGapButton({ context, label, size = "sm" }: ReportGapButtonProps) {
+  const t = useT(feedbackMessages);
+  const shownLabel = label ?? t("reportGap");
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -182,9 +184,12 @@ export function ReportGapButton({
         size={size}
         iconStart={<IconWarning size={15} />}
         onClick={() => setOpen(true)}
-        aria-label={`${label}: ${context.itemName ?? context.storeName}`}
+        aria-label={t("reportGapAria", {
+          label: shownLabel,
+          subject: context.itemName ?? context.storeName,
+        })}
       >
-        {label}
+        {shownLabel}
       </Button>
       <GapReportSheet open={open} onClose={() => setOpen(false)} context={context} />
     </>
