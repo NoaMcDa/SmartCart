@@ -129,7 +129,9 @@ def parse_filename(filename: str) -> FileName:
     Handles every pattern seen in the upstream scrapers:
     ``PriceFull7290027600007-001-202610060300.gz`` (chain-store-YYYYMMDDHHMM),
     ``Promo7290700100008-000-207-20261006-030000.xml.gz`` (chain-subchain-store-date-time),
-    ``Stores7290058140886-202610060100.xml`` (no store segment).
+    ``Stores7290058140886-202610060100.xml`` (no store segment), and the real Shufersal Stores name
+    ``Stores7290027600007-000-20261008-020.gz`` (date, then a three-digit HHM time, the minute in
+    tens; seen on the portal on 2026-10-08, provisional until a second day confirms it).
     """
     base = filename.replace("\\", "/").rsplit("/", 1)[-1]
     stem = base.split(".", 1)[0]
@@ -146,6 +148,9 @@ def parse_filename(filename: str) -> FileName:
         parts = parts[:-1]
     elif len(parts) >= 2 and len(parts[-2]) == 8 and len(parts[-1]) in (4, 6):
         published = _parse_compact(parts[-2] + parts[-1])
+        parts = parts[:-2]
+    elif len(parts) >= 2 and len(parts[-2]) == 8 and len(parts[-1]) == 3:
+        published = _parse_compact(parts[-2] + parts[-1] + "0")  # HHM, minute in tens
         parts = parts[:-2]
     store = normalize_store_code(parts[-1]) if parts else None
     if kind == "stores" or store == "0":

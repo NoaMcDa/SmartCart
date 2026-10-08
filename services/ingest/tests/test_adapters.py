@@ -211,6 +211,8 @@ def test_register_rejects_duplicate_chain() -> None:
         ("StoresFull7290875100001-000-202610060510.gz", "stores", "7290875100001", None, "2026-10-06 05:10:00+03:00"),
         ("NULLPriceFull7290055700007-2960-202610060300.gz", "price_full", "7290055700007", "2960", "2026-10-06 03:00:00+03:00"),
         ("raw/shufersal/1/PriceFull7290027600007-001-202610060300.gz", "price_full", "7290027600007", "1", "2026-10-06 03:00:00+03:00"),
+        # Real Shufersal Stores name (portal, 2026-10-08): date, then HHM with the minute in tens.
+        ("Stores7290027600007-000-20261008-020.gz", "stores", "7290027600007", None, "2026-10-08 02:00:00+03:00"),
     ],
 )
 def test_parse_filename(filename: str, kind: str, chain: str, store: str | None, published: str) -> None:
