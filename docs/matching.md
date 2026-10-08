@@ -47,7 +47,29 @@ report on that mapping is unresolved.
 | Name | Use | Notes |
 |---|---|---|
 | `hash` (`HashEmbedder`) | tests, CI, local dev | Deterministic 1024-dim signed feature hashing of character 2-4-grams and words of the normalized text (final letters folded, nikud and quotes stripped, digits and `%` kept), L2-normalized. Similar strings get similar vectors; there is no semantics. |
-| `bge-m3` (`BgeM3Embedder`) | production | BGE-M3 dense vectors via sentence-transformers (`uv sync --extra embed`), imported lazily, model name configurable (`$EMBEDDING_MODEL`, default `BAAI/bge-m3`). Not runnable in the build sandbox (Hugging Face is unreachable there), so no BGE-M3 numbers exist yet. |
+| `bge-m3` (`BgeM3Embedder`) | production | BGE-M3 dense vectors via sentence-transformers (`uv sync --all-packages --extra embed`; the extra belongs to `smartcart-catalog`, so a bare `uv sync --extra embed` at the workspace root fails), imported lazily, model name configurable (`$EMBEDDING_MODEL`, default `BAAI/bge-m3`). Not runnable in the build sandbox (Hugging Face is unreachable there); the "BGE-M3 evaluation" workflow runs it on a GitHub runner (below). |
+
+**Measuring BGE-M3 (issue #29, `.github/workflows/bge-eval.yml`).** A `workflow_dispatch` job, also
+run weekly (Mondays 02:41 UTC), on the same Supabase Postgres image as the gate. It installs the
+`embed` extra, caches the model under `~/.cache/huggingface` (key: the model name), and runs
+`scripts/unblock/bge_eval.py`, which calls the real CLI three times: `evaluate --embedder hash`
+(loads the gold set exactly as `matching-eval.yml` does and gives the hash baseline on the same
+items), `embed --target all --embedder bge-m3` (timed: the reported embed time excludes the model
+download, which a separate step does first), and `evaluate --no-load --embedder bge-m3` with the
+gate's judge and k (rule, 10). The report, in the job summary and the `bge-eval-report` artifact
+(Markdown and JSON, 30 days), gives precision and recall per level for both embedders, retrieval
+recall@10, the embed time, the model revision (the commit in the Hugging Face cache) and the
+sentence-transformers and torch versions, then compares any-brand precision with the 0.98 gate and
+recall with the fine-tuning triggers below. It never fails on a number: it is a measurement, and
+the gold set is still synthetic. Inputs: `max_items` (0 for all 857 gold items; a round-robin
+sample across departments otherwise, e.g. 100 for a quick run) and `model` (any 1024-dimension
+sentence-transformers model). Locally, on a fresh migrated database:
+`BGE_EVAL_EMBEDDER=hash uv run --no-sync python scripts/unblock/bge_eval.py --max-items 120`
+reproduces the flow without torch. Two cautions when reading the first BGE-M3 numbers:
+`sim_floor`/`sim_ceil` are calibrated for the hash embedder, so a change in precision or in the
+review band can be calibration rather than retrieval; and recall@10 is the number that speaks to
+the embedder itself. No BGE-M3 result is recorded here until the workflow has run; paste the
+table from its summary with the run link when it has.
 
 **Model name (issue #102).** Every embedder exposes `model_name: str` (the `Embedder` protocol in
 `models.py`; no separate `name` attribute was added). It names the vector space, and it is the

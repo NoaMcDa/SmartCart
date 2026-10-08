@@ -1,0 +1,120 @@
+name: BGE-M3 evaluation
+
+# Issue #29. The build sandbox cannot reach Hugging Face; a GitHub-hosted runner can. This job
+# embeds the gold set with BGE-M3 (sentence-transformers, the catalog's optional "embed" extra)
+# and runs the same evaluation as matching-eval.yml (rule judge, k = 10) against the Supabase
+# Postgres image, with the hash embedder as a baseline on the same items. It is a measurement:
+# it never fails because a number is below the gate, it prints the comparison instead. The gold
+# set is SYNTHETIC until real items are labeled (docs/matching.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_items:
+        description: "Gold items to evaluate (0: all 857; 100 is a quick run)"
+        required: false
+        default: 0
+        type: number
+      model:
+        description: "Hugging Face model id ($EMBEDDING_MODEL); must give 1024-dim vectors"
+        required: false
+        default: "BAAI/bge-m3"
+        type: string
+  schedule:
+    - cron: "41 2 * * 1" # Mondays 02:41 UTC, full gold set
+
+concurrency:
+  group: bge-eval-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: gold-set evaluation with BGE-M3 (measurement, not a gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    services:
+      # Same image and tag as ci.yml and matching-eval.yml.
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      EMBEDDING_MODEL: ${{ inputs.model || 'BAAI/bge-m3' }}
+      MAX_ITEMS: ${{ inputs.max_items || 0 }}
+      MATCH_PRECISION_THRESHOLD: "0.98"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      # The extra belongs to the smartcart-catalog member, so plain `uv sync --extra embed` fails
+      # at the workspace root; --all-packages keeps every member installed. Later steps use
+      # --no-sync: the environment is exactly what this step installed.
+      - name: Install with the embed extra (sentence-transformers, torch)
+        run: uv sync --all-packages --extra embed
+
+      - name: Cache the Hugging Face model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: huggingface-${{ runner.os }}-${{ env.EMBEDDING_MODEL }}-v1
+
+      # Downloaded (or read from the cache) before the timed embed step, so the reported embed
+      # time is compute only.
+      - name: Fetch the model
+        run: |
+          uv run --no-sync python -c "
+          import os, time
+          from sentence_transformers import SentenceTransformer
+          t = time.monotonic()
+          m = SentenceTransformer(os.environ['EMBEDDING_MODEL'], device='cpu')
+          dim = len(m.encode(['חלב 3% 1 ליטר'])[0])
+          print(os.environ['EMBEDDING_MODEL'], 'dim', dim, f'loaded in {time.monotonic() - t:.1f}s')
+          assert dim == 1024, 'the schema stores 1024-dim vectors'
+          "
+
+      - name: Migrate
+        run: uv run --no-sync smartcart-ingest migrate
+
+      - name: Load the gold set, embed and evaluate
+        run: |
+          uv run --no-sync python scripts/unblock/bge_eval.py \
+            --embedder bge-m3 --judge rule --k 10 \
+            --threshold "$MATCH_PRECISION_THRESHOLD" --max-items "$MAX_ITEMS" \
+            --out bge-eval-report.md --json-out bge-eval.json
+
+      - name: Job summary
+        if: always()
+        run: cat bge-eval-report.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "no report" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bge-eval-report
+          path: |
+            bge-eval-report.md
+            bge-eval.json
+          retention-days: 30
+          if-no-files-found: ignore

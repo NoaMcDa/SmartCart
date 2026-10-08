@@ -8,6 +8,8 @@ normally the Israeli-IP ingestion VPS:
     uv run python -m smartcart_ingest.adapters.fetch_fixtures shufersal ramilevy
     uv run python -m smartcart_ingest.adapters.fetch_fixtures --list     # plan only, no network
     uv run python -m smartcart_ingest.adapters.fetch_fixtures machsanei_hashuk king_store
+    uv run python -m smartcart_ingest.adapters.fetch_fixtures --kind stores --kind price_full \
+        --timeout 300 --out /tmp/probe          # what scripts/unblock/portal_probe.py fetches
 
 Every registered chain is fetched through its adapter's ``upstream_scraper``. The laibcatalog
 chains (victory, machsanei_hashuk) list no files overnight until about 08:00 Israel time, and
@@ -56,17 +58,22 @@ def adapters_by_slug() -> dict[str, type[RegulationAdapter]]:
     }
 
 
-def plan(slugs: list[str] | None = None) -> list[tuple[str, str, str]]:
-    """``[(slug, upstream scraper name, kind)]`` without touching the network."""
+def plan(
+    slugs: list[str] | None = None, kinds: list[str] | None = None
+) -> list[tuple[str, str, str]]:
+    """``[(slug, upstream scraper name, kind)]`` without touching the network. ``kinds``
+    limits the plan to those file kinds (keys of ``KIND_FILTERS``), kept in that table's order."""
     available = adapters_by_slug()
     chosen = slugs or sorted(available)
     unknown = sorted(set(chosen) - set(available))
     if unknown:
         raise SystemExit(f"unknown chain slug(s): {', '.join(unknown)}")
+    bad_kinds = sorted(set(kinds or ()) - set(KIND_FILTERS))
+    if bad_kinds:
+        raise SystemExit(f"unknown kind(s): {', '.join(bad_kinds)}; expected {list(KIND_FILTERS)}")
+    wanted = [k for k in KIND_FILTERS if not kinds or k in kinds]
     return [
-        (slug, available[slug].upstream_scraper or "", kind)
-        for slug in chosen
-        for kind in KIND_FILTERS
+        (slug, available[slug].upstream_scraper or "", kind) for slug in chosen for kind in wanted
     ]
 
 
@@ -85,12 +92,17 @@ async def _download(scraper_name: str, kind: str, workdir: Path) -> list[Path]:
     return sorted(p for p in (workdir / "files").rglob("*") if p.is_file())
 
 
-def fetch(slug: str, scraper_name: str, kind: str, out_dir: Path) -> dict:
+def fetch(
+    slug: str, scraper_name: str, kind: str, out_dir: Path, timeout: float | None = None
+) -> dict:
+    """Download one file of ``kind`` for the chain into ``out_dir/<slug>/`` and describe it.
+    ``timeout`` (seconds) bounds the upstream scrape; when it expires ``TimeoutError`` is
+    raised (``main`` records it as that chain's error and carries on)."""
     adapter = adapters_by_slug()[slug]()
     target = out_dir / slug
     target.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
-        files = asyncio.run(_download(scraper_name, kind, Path(tmp)))
+        files = asyncio.run(asyncio.wait_for(_download(scraper_name, kind, Path(tmp)), timeout))
         for path in files:
             try:
                 info = parse_filename(path.name)
@@ -104,6 +116,10 @@ def fetch(slug: str, scraper_name: str, kind: str, out_dir: Path) -> dict:
             entry: dict = {
                 "file": path.name,
                 "kind": kind,
+                "store_code": info.store_code,
+                "published_at": (
+                    info.published_at.isoformat(timespec="minutes") if info.published_at else None
+                ),
                 "sha256": hashlib.sha256(data).hexdigest(),
                 "bytes": len(data),
                 "fetched_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -130,9 +146,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("chains", nargs="*", help="chain slugs (default: all registered)")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--list", action="store_true", help="print the plan and exit")
+    parser.add_argument("--kind", action="append", choices=list(KIND_FILTERS),
+                        help="only this file kind (repeatable; default: all three)")  # fmt: skip
+    parser.add_argument("--timeout", type=float, default=None,
+                        help="seconds allowed per download (default: no limit)")  # fmt: skip
     args = parser.parse_args(argv)
 
-    steps = plan(args.chains or None)
+    steps = plan(args.chains or None, args.kind)
     if args.list:
         for slug, scraper, kind in steps:
             print(f"{slug:16} {scraper:28} {kind}")
@@ -143,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     for slug, scraper, kind in steps:
         print(f"fetching {slug} {kind} via {scraper} ...", flush=True)
         try:
-            entry = fetch(slug, scraper, kind, args.out)
+            entry = fetch(slug, scraper, kind, args.out, timeout=args.timeout)
         except Exception as exc:  # noqa: BLE001 - report every chain, keep going
             entry = {"kind": kind, "scraper": scraper, "error": f"{type(exc).__name__}: {exc}"}
         failures += int("error" in entry or "parse_error" in entry)
