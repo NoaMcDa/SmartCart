@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/chains/online": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chains Online */
+        get: operations["chains_online_chains_online_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/compare": {
         parameters: {
             query?: never;
@@ -495,6 +512,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/parse-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Parse Image */
+        post: operations["parse_image_parse_image_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/parse-list": {
         parameters: {
             query?: never;
@@ -649,6 +683,19 @@ export interface components {
             /** Quantity */
             quantity: number | string;
         };
+        /** Body_parse_image_parse_image_post */
+        Body_parse_image_parse_image_post: {
+            /**
+             * Image
+             * @description JPEG, PNG or WebP, at most 8 MB
+             */
+            image: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "receipt" | "list";
+        };
         /** CanonicalRef */
         CanonicalRef: {
             /**
@@ -667,6 +714,34 @@ export interface components {
             display_name_he: string;
             /** Taxonomy Id */
             taxonomy_id: string;
+        };
+        /** ChainOnline */
+        ChainOnline: {
+            /** Chain Id */
+            chain_id: string;
+            /** Chain Name */
+            chain_name: string;
+            /**
+             * Enabled
+             * @description Feature flag (CART_HANDOFF_CHAINS); disabled chains show no handoff
+             */
+            enabled: boolean;
+            /**
+             * Online Url
+             * @description The chain's own online-store home page
+             */
+            online_url?: string | null;
+            /**
+             * Referral
+             * @description True when the link carries a referral; always labeled in the UI
+             * @default false
+             */
+            referral: boolean;
+            /**
+             * Search Url Template
+             * @description The chain's public site-search URL with {q} for the query; a link only, nothing is fetched
+             */
+            search_url_template?: string | null;
         };
         /** CompareRequest */
         CompareRequest: {
@@ -714,7 +789,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted" | "voice_started" | "voice_completed";
+            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted" | "voice_started" | "voice_completed" | "pwa_installed" | "push_opt_in" | "push_opened" | "store_mode_used" | "image_parsed" | "cart_handoff" | "locale_changed";
             /**
              * Props
              * @description Allowlisted keys per event name, values are integers or members of a fixed set; anything else is rejected with 422 (no free text, no personal data). See docs/beta-plan.md.
@@ -940,6 +1015,38 @@ export interface components {
             split?: components["schemas"]["Plan"] | null;
             /** Subsets Evaluated */
             subsets_evaluated: number;
+        };
+        /** ParseImageResponse */
+        ParseImageResponse: {
+            /**
+             * Deleted
+             * @description The image and the raw text were discarded before responding
+             * @default true
+             * @constant
+             */
+            deleted: true;
+            /**
+             * Items
+             * @description Resolved like /parse-list; low-confidence rows carry needs_confirmation
+             */
+            items: components["schemas"]["ParsedRow"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "receipt" | "list";
+            /**
+             * Provider
+             * @description The OCR provider that read the image: fake, tesseract or claude
+             */
+            provider: string;
+            /** @description Receipt structure; null for a list photo */
+            receipt?: components["schemas"]["ReceiptSummary"] | null;
+            /**
+             * Unresolved
+             * @description Lines read but not matched to a catalog product (never guessed)
+             */
+            unresolved: string[];
         };
         /** ParseListRequest */
         ParseListRequest: {
@@ -1505,6 +1612,41 @@ export interface components {
             /** User Agent */
             user_agent?: string | null;
         };
+        /** ReceiptLine */
+        ReceiptLine: {
+            /**
+             * Price
+             * @description Line total in ILS when printed
+             */
+            price?: string | null;
+            /**
+             * Quantity
+             * @description Units or kg when printed
+             */
+            quantity?: string | null;
+            /**
+             * Text
+             * @description The line as read, after normalization
+             */
+            text: string;
+        };
+        /** ReceiptSummary */
+        ReceiptSummary: {
+            /**
+             * Chain Hint
+             * @description Chain id guessed from the header; null when unsure
+             */
+            chain_hint?: string | null;
+            /** Lines */
+            lines?: components["schemas"]["ReceiptLine"][];
+            /** Store Hint */
+            store_hint?: string | null;
+            /**
+             * Total
+             * @description The printed total, ILS
+             */
+            total?: string | null;
+        };
         /** SavingBreakdown */
         SavingBreakdown: {
             /**
@@ -1618,6 +1760,11 @@ export interface components {
         /** SpendEntry */
         SpendEntry: {
             /**
+             * Client Id
+             * @description Random id the browser makes per entry; a repeated POST with the same id returns the stored entry instead of a duplicate
+             */
+            client_id?: string | null;
+            /**
              * Date
              * Format: date
              * @description The shopping day
@@ -1644,6 +1791,11 @@ export interface components {
         };
         /** SpendEntryIn */
         SpendEntryIn: {
+            /**
+             * Client Id
+             * @description Random id the browser makes per entry; a repeated POST with the same id returns the stored entry instead of a duplicate
+             */
+            client_id?: string | null;
             /**
              * Date
              * Format: date
@@ -1944,6 +2096,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    chains_online_chains_online_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainOnline"][];
+                };
+            };
+        };
+    };
     compare_compare_post: {
         parameters: {
             query?: never;
@@ -3092,6 +3264,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SwapSuggestionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    parse_image_parse_image_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_parse_image_parse_image_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParseImageResponse"];
                 };
             };
             /** @description Validation Error */

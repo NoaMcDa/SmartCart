@@ -29,10 +29,12 @@ from smartcart_api.db import close_pool
 from smartcart_api.routes import (
     alerts,
     barcode,
+    chains,
     compare,
     events,
     feedback,
     history,
+    image,
     me,
     me_delete,
     optimize,
@@ -93,6 +95,8 @@ app.include_router(swaps.router)
 app.include_router(recipe.router)
 app.include_router(spend.router)
 app.include_router(promo_cycles.router)
+app.include_router(image.router)
+app.include_router(chains.router)
 
 
 def run() -> None:

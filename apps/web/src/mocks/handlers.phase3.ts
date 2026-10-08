@@ -18,6 +18,8 @@ import type {
   ParsedRow,
   SpendEntry,
   SpendMonth,
+  ChainOnline,
+  ParseImageResponse,
 } from "@/api/client";
 import { parseRow } from "./parseRow";
 
@@ -133,7 +135,45 @@ function finish(
   };
 }
 
+/**
+ * Finish-round stubs (#61, #68, #72) so the web workstreams build against the contract. The photo
+ * and handoff workstreams replace these with fuller mocks.
+ */
+const MOCK_CHAINS_ONLINE: ChainOnline[] = [
+  {
+    chain_id: "7290027600007",
+    chain_name: "שופרסל",
+    online_url: null,
+    search_url_template: null,
+    enabled: true,
+    referral: false,
+  },
+];
+
 export const phase3Handlers = [
+  http.post(url("/parse-image"), async ({ request }) => {
+    await latency();
+    if (request.headers.get("X-Image-Consent") !== "1") {
+      return HttpResponse.json({ detail: "receipt processing needs consent" }, { status: 403 });
+    }
+    const form = await request.formData();
+    const kind = form.get("kind") === "receipt" ? "receipt" : "list";
+    return HttpResponse.json({
+      kind,
+      provider: "fake",
+      items: [parseRow("חלב 3%")],
+      unresolved: [],
+      receipt:
+        kind === "receipt" ? { chain_hint: null, store_hint: null, total: null, lines: [] } : null,
+      deleted: true,
+    } satisfies ParseImageResponse);
+  }),
+
+  http.get(url("/chains/online"), async () => {
+    await latency();
+    return HttpResponse.json(MOCK_CHAINS_ONLINE);
+  }),
+
   http.post(url("/me/spend"), async ({ request }) => {
     const body: unknown = await request.json();
     await latency();

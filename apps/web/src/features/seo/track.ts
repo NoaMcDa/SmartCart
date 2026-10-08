@@ -69,9 +69,23 @@ export type EventProps = {
     duration_ms?: number;
     item_count?: number;
   };
+  /** Finish round (#56, #61, #68, #72, #73): platform, outcomes and counts only. */
+  pwa_installed: { platform?: Platform };
+  push_opt_in: { platform?: Platform };
+  push_opened: { platform?: Platform };
+  store_mode_used: { plan?: "single" | "split"; platform?: Platform };
+  image_parsed: {
+    kind: "receipt" | "list";
+    outcome: "parsed" | "empty" | "refused" | "error";
+    item_count?: number;
+    duration_ms?: number;
+  };
+  cart_handoff: { action: "copy" | "share" | "open_site" | "open_item" };
+  locale_changed: { locale: "he" | "ar" };
 };
 
 type ScanEngine = "native" | "zxing" | "manual";
+type Platform = "ios" | "android" | "desktop" | "other";
 
 export type EventName = keyof EventProps;
 

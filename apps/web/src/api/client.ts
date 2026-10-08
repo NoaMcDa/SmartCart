@@ -352,3 +352,8 @@ export async function getSpend(month: string): Promise<SpendMonth> {
 export async function parseRecipe(body: ParseRecipeRequest): Promise<ParseRecipeResponse> {
   return unwrap(await api.POST("/parse-recipe", { body }));
 }
+
+// --- finish round contracts (#61, #68, #72) -------------------------------------------------
+export type ParseImageResponse = Schemas["ParseImageResponse"];
+export type ReceiptSummary = Schemas["ReceiptSummary"];
+export type ChainOnline = Schemas["ChainOnline"];

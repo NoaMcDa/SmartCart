@@ -10,6 +10,7 @@ from datetime import date as Date
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -79,6 +80,47 @@ class ParseRecipeResponse(_Model):
     servings: int | None = Field(description="The servings the quantities are for; null when the recipe's yield is unknown (then nothing was scaled)")
     items: list[ParsedRow] = Field(description="One row per ingredient, resolved like /parse-list; quantity counts packs (rounded up to the canonical's typical pack size) or kg when unit is kg")
     unresolved: list[str] = Field(description="Ingredient lines left to the user: not a supermarket product, to taste, optional, or not found in the catalog")
+
+
+# --- parse-image: receipt or handwritten list photo (phase 3, issues #61, #68) ------------------
+# POST /parse-image is multipart/form-data: ``kind`` ("receipt" | "list") and ``image`` (JPEG, PNG
+# or WebP, at most 8 MB). The image is processed in memory and never stored (D11); raw OCR text is
+# not stored either. Needs the receipt-processing consent (``X-Image-Consent: 1``), else 403.
+
+class ReceiptLine(_Model):
+    text: str = Field(description="The line as read, after normalization")
+    quantity: Decimal | None = Field(default=None, description="Units or kg when printed")
+    price: Decimal | None = Field(default=None, description="Line total in ILS when printed")
+
+
+class ReceiptSummary(_Model):
+    chain_hint: str | None = Field(default=None, description="Chain id guessed from the header; null when unsure")
+    store_hint: str | None = None
+    total: Decimal | None = Field(default=None, description="The printed total, ILS")
+    lines: list[ReceiptLine] = Field(default_factory=list)
+
+
+class ParseImageResponse(_Model):
+    kind: Literal["receipt", "list"]
+    provider: str = Field(description="The OCR provider that read the image: fake, tesseract or claude")
+    items: list[ParsedRow] = Field(description="Resolved like /parse-list; low-confidence rows carry needs_confirmation")
+    unresolved: list[str] = Field(description="Lines read but not matched to a catalog product (never guessed)")
+    receipt: ReceiptSummary | None = Field(default=None, description="Receipt structure; null for a list photo")
+    deleted: Literal[True] = Field(default=True, description="The image and the raw text were discarded before responding")
+
+
+# --- cart handoff to chain online stores (phase 3, issue #72) ---------------------------------
+
+class ChainOnline(_Model):
+    chain_id: str
+    chain_name: str
+    online_url: str | None = Field(default=None, description="The chain's own online-store home page")
+    search_url_template: str | None = Field(
+        default=None,
+        description="The chain's public site-search URL with {q} for the query; a link only, nothing is fetched",
+    )
+    enabled: bool = Field(description="Feature flag (CART_HANDOFF_CHAINS); disabled chains show no handoff")
+    referral: bool = Field(default=False, description="True when the link carries a referral; always labeled in the UI")
 
 
 # --- search ----------------------------------------------------------------------------------
@@ -361,6 +403,14 @@ EventName = Literal[
     # phase 3 surfaces
     "voice_started",
     "voice_completed",
+    # finish round (issues #56, #61, #68, #72, #73)
+    "pwa_installed",
+    "push_opt_in",
+    "push_opened",
+    "store_mode_used",
+    "image_parsed",
+    "cart_handoff",
+    "locale_changed",
 ]
 
 
@@ -530,6 +580,10 @@ class SpendEntryIn(_Model):
     total: Decimal = Field(ge=0, max_digits=10, decimal_places=2, description="ILS; the user's actual total overrides the app's estimate")
     item_count: int = Field(ge=0, le=1000)
     plan: Literal["single", "split"]
+    client_id: UUID | None = Field(
+        default=None,
+        description="Random id the browser makes per entry; a repeated POST with the same id returns the stored entry instead of a duplicate",
+    )
 
 
 class SpendEntry(SpendEntryIn):

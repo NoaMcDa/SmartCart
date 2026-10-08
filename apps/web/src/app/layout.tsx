@@ -4,6 +4,8 @@ import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar"
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { THEME_COLOR, THEME_INIT_SCRIPT } from "@/components/theme/theme-constants";
 import { AuthProvider } from "@/features/auth/AuthProvider";
+import { LocaleProvider } from "@/i18n/LocaleProvider";
+import { LOCALE_INIT_SCRIPT } from "@/i18n/locales";
 import { heebo } from "./fonts";
 import "./globals.css";
 
@@ -39,14 +41,18 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    // data-theme is set before first paint by THEME_INIT_SCRIPT, so the server markup differs.
+    // data-theme and lang are set before first paint (THEME_INIT_SCRIPT, LOCALE_INIT_SCRIPT), so the
+    // server markup differs. Both locales are RTL, so dir never changes.
     <html lang="he" dir="rtl" className={heebo.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: LOCALE_INIT_SCRIPT }} />
       </head>
       <body>
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <LocaleProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </LocaleProvider>
         </ThemeProvider>
         <ServiceWorkerRegistrar />
       </body>

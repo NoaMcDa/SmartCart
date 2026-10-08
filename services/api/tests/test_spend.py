@@ -33,7 +33,7 @@ def test_record_and_read_a_month(client, world: World, users) -> None:
     r = client.post("/me/spend", json=entry(world), headers=h(a))
     assert r.status_code == 201, r.text
     first = r.json()
-    assert set(first) == {"id", "date", "store_id", "store_name", "total", "item_count", "plan"}
+    assert set(first) == {"id", "date", "store_id", "store_name", "total", "item_count", "plan", "client_id"}
     assert first["total"] == "312.40" and first["date"] == "2026-10-02" and first["plan"] == "single"
     client.post("/me/spend", json=entry(world, date="2026-10-20", total="150", plan="split",
                                         store_id=world.stores["b"], store_name="סניף B"), headers=h(a))

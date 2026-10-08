@@ -192,6 +192,30 @@
         "title": "BasketItem",
         "type": "object"
       },
+      "Body_parse_image_parse_image_post": {
+        "properties": {
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "description": "JPEG, PNG or WebP, at most 8 MB",
+            "title": "Image",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "receipt",
+              "list"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "image"
+        ],
+        "title": "Body_parse_image_parse_image_post",
+        "type": "object"
+      },
       "CanonicalRef": {
         "additionalProperties": false,
         "properties": {
@@ -233,6 +257,61 @@
           "base_unit"
         ],
         "title": "CanonicalRef",
+        "type": "object"
+      },
+      "ChainOnline": {
+        "additionalProperties": false,
+        "properties": {
+          "chain_id": {
+            "title": "Chain Id",
+            "type": "string"
+          },
+          "chain_name": {
+            "title": "Chain Name",
+            "type": "string"
+          },
+          "enabled": {
+            "description": "Feature flag (CART_HANDOFF_CHAINS); disabled chains show no handoff",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "online_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The chain's own online-store home page",
+            "title": "Online Url"
+          },
+          "referral": {
+            "default": false,
+            "description": "True when the link carries a referral; always labeled in the UI",
+            "title": "Referral",
+            "type": "boolean"
+          },
+          "search_url_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The chain's public site-search URL with {q} for the query; a link only, nothing is fetched",
+            "title": "Search Url Template"
+          }
+        },
+        "required": [
+          "chain_id",
+          "chain_name",
+          "enabled"
+        ],
+        "title": "ChainOnline",
         "type": "object"
       },
       "CompareRequest": {
@@ -359,7 +438,14 @@
               "list_shared",
               "share_accepted",
               "voice_started",
-              "voice_completed"
+              "voice_completed",
+              "pwa_installed",
+              "push_opt_in",
+              "push_opened",
+              "store_mode_used",
+              "image_parsed",
+              "cart_handoff",
+              "locale_changed"
             ],
             "title": "Name",
             "type": "string"
@@ -913,6 +999,66 @@
           "generated_at"
         ],
         "title": "OptimizeResponse",
+        "type": "object"
+      },
+      "ParseImageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "deleted": {
+            "const": true,
+            "default": true,
+            "description": "The image and the raw text were discarded before responding",
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "items": {
+            "description": "Resolved like /parse-list; low-confidence rows carry needs_confirmation",
+            "items": {
+              "$ref": "#/components/schemas/ParsedRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "receipt",
+              "list"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "provider": {
+            "description": "The OCR provider that read the image: fake, tesseract or claude",
+            "title": "Provider",
+            "type": "string"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReceiptSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Receipt structure; null for a list photo"
+          },
+          "unresolved": {
+            "description": "Lines read but not matched to a catalog product (never guessed)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Unresolved",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "provider",
+          "items",
+          "unresolved"
+        ],
+        "title": "ParseImageResponse",
         "type": "object"
       },
       "ParseListRequest": {
@@ -2303,6 +2449,97 @@
         "title": "PushSubscriptionIn",
         "type": "object"
       },
+      "ReceiptLine": {
+        "additionalProperties": false,
+        "properties": {
+          "price": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Line total in ILS when printed",
+            "title": "Price"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Units or kg when printed",
+            "title": "Quantity"
+          },
+          "text": {
+            "description": "The line as read, after normalization",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ReceiptLine",
+        "type": "object"
+      },
+      "ReceiptSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "chain_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Chain id guessed from the header; null when unsure",
+            "title": "Chain Hint"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/ReceiptLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "store_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store Hint"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The printed total, ILS",
+            "title": "Total"
+          }
+        },
+        "title": "ReceiptSummary",
+        "type": "object"
+      },
       "SavingBreakdown": {
         "additionalProperties": false,
         "properties": {
@@ -2548,6 +2785,19 @@
       "SpendEntry": {
         "additionalProperties": false,
         "properties": {
+          "client_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Random id the browser makes per entry; a repeated POST with the same id returns the stored entry instead of a duplicate",
+            "title": "Client Id"
+          },
           "date": {
             "description": "The shopping day",
             "format": "date",
@@ -2604,6 +2854,19 @@
       "SpendEntryIn": {
         "additionalProperties": false,
         "properties": {
+          "client_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Random id the browser makes per entry; a repeated POST with the same id returns the stored entry instead of a duplicate",
+            "title": "Client Id"
+          },
           "date": {
             "description": "The shopping day",
             "format": "date",
@@ -3390,6 +3653,31 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/chains/online": {
+      "get": {
+        "operationId": "chains_online_chains_online_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChainOnline"
+                  },
+                  "title": "Response Chains Online Chains Online Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Chains Online",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
     "/compare": {
       "post": {
         "operationId": "compare_compare_post",
@@ -5403,6 +5691,47 @@
         "summary": "Swap Suggestions",
         "tags": [
           "basket"
+        ]
+      }
+    },
+    "/parse-image": {
+      "post": {
+        "operationId": "parse_image_parse_image_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_parse_image_parse_image_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseImageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Parse Image",
+        "tags": [
+          "list"
         ]
       }
     },
