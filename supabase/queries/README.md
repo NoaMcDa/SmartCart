@@ -6,6 +6,7 @@ one parameterized statement using psycopg named placeholders (`%(name)s`).
 | File | What it answers |
 |---|---|
 | `basket_radius.sql` | What does this basket of barcodes cost at every store within a radius of a point, and what is missing at each store? (Phase 0 exit criterion, issue #60.) |
+| `catalog_backlog.sql` | What should the catalog learn next? Missed queries (clustered) and uncovered products in the price files, ranked. Run by `smartcart-catalog backlog`; documented in `docs/catalog.md` section 9 (issue #52). |
 
 ## basket_radius.sql
 
@@ -113,3 +114,18 @@ same point is excluded:
 Chain B's 7.50 is the smaller total only because it is missing two of three items; its
 `is_complete` is false and so is Chain A's, because nobody sells salt. Asking for the first two
 barcodes only makes Chain A the single complete row, ahead of Chain B.
+
+## catalog_backlog.sql
+
+Parameters: `days` (30), `min_similarity` (0.5), `min_misses` (1), `item_days` (60), `top` (20). With
+psql, give all five (same rewrite as above; the file has no other `%` character):
+
+```bash
+sed -E "s/%\(([a-z_]+)\)s/:'\1'/g" supabase/queries/catalog_backlog.sql \
+  | psql "$DATABASE_URL" -X -v days=30 -v min_similarity=0.5 -v min_misses=1 \
+      -v item_days=60 -v top=20 -f -
+```
+
+The result has `kind` (`missed_query` or `unmapped_item`), `position` within its kind, `label`,
+`demand` (misses, or stores carrying the product), `secondary` (spellings, or chains),
+`examples` and `last_seen`. The two kinds are ranked separately because their units differ.

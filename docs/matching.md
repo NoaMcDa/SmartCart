@@ -203,10 +203,17 @@ to review, which is the safe failure.
 uv run smartcart-catalog review        # or: uv run streamlit run services/catalog/smartcart_catalog/review_app.py
 ```
 
-Needs `DATABASE_URL` with write access to `item_canonical` and `gold_pairs`. Tabs:
+Needs `DATABASE_URL` with write access to `item_canonical` and `gold_pairs`, and Streamlit, which
+is the optional `review` extra of `smartcart-catalog` (`uv sync --extra review --package
+smartcart-catalog`, or `uv sync --all-packages`); without it `review` prints that hint and exits 2.
+The API image does not install it. Tabs:
 
-- **Review queue**: every `needs_review` mapping, items users reported as "not a good
-  substitute" first (marked), then by canonical `rank` (best sellers first), then confidence.
+- **Review queue**: every `needs_review` mapping, most uncertain first (`active.select_for_review`,
+  issue #52): items users reported as "not a good substitute" (marked, most reports first), then
+  those closest to the accept threshold (|confidence - 0.90|, in bands of 0.02), then those where
+  the learned embedder and the hash embedder disagree, then by canonical `rank` (best sellers
+  first). The sidebar shows labels per hour over the last 7 days, from the reviewers' own
+  timestamps. Ordering, the metric and their limits: [catalog.md](catalog.md) section 9.
   Each row shows the item name, chain, barcode, extracted attributes and their source, the block,
   the top candidates with similarity and the judge's reason for each (vetoes included).
   Actions: **Accept** (optionally at another level), **Reject**, **Re-map** to another candidate.
@@ -222,7 +229,8 @@ rejections" above). `gold_pairs` is used for evaluation only: it no longer decid
 may write. The queue shows the stored judge reason; `explain` re-runs retrieval only to list the
 candidates a reviewer can re-map to (rejected canonicals excluded). The query and command
 functions (`review_queue`, `explain`, `bestseller_status`, `accept`, `reject`, `remap`) are
-tested without Streamlit in `tests/test_match_review.py`.
+tested without Streamlit in `tests/test_match_review.py`; the selection order and the labels-per-hour
+metric in `tests/test_active_selection.py`.
 
 ## Feedback loop (#43)
 
@@ -386,6 +394,13 @@ names (they are the ceiling of recall). `names_ar` are not embedded: with BGE-M3
 sees only the Hebrew names, so `embed_canonicals` should also embed the Arabic names before vectors
 are expected to help Arabic recall.
 
+**Re-run after the active-learning change (issue #52), 2026-10-08.** Same set, same settings
+(fresh database with a UTF-8 ctype, `EMBEDDER=hash`, `cli_matching evaluate --fail-below 0.98`,
+exit 0): exact 1.0000 / 1.0000 (104 served of 104), any_brand 1.0000 / 0.8125 (546 of 672), close
+1.0000 / 0.7611 (634 of 833), recall@10 0.9988, 857 items, 634 auto-accepted, 198 to review, 25
+unmapped; review-queue-accepted any_brand precision 0.9940. Identical to the table above, as
+expected: the selector orders the review queue and writes nothing the judge reads.
+
 ## Fine-tuning trigger
 
 Retrieval is the recall ceiling: the judge can only accept what top-k returns. On the **real**
@@ -410,6 +425,9 @@ phase 1 (#29).
 | `evaluate [--fail-below 0.98] [--embedder] [--judge] [--k] [--gold-dir] [--no-load] [--json]` | Gold-set metrics, saved to `match_runs` |
 | `review [--port 8502]` | Streamlit review UI |
 | `evaluate-ar [--fail-below 0.98] [--queries] [--floor] [--no-seed] [--json]` | Arabic list lines through `/parse-list`, precision and recall per level (`cli_arabic`; add it to `cli.EXTENSIONS`, or run `python -m smartcart_catalog.cli_arabic evaluate-ar`) |
+
+| `review [--port 8502]` | Streamlit review UI (needs the `review` extra) |
+| `backlog [--top N] [--days N]` | the expansion backlog: missed queries and uncovered products ([catalog.md](catalog.md) section 9) |
 
 The database is `$DATABASE_URL`; the embedder defaults to `$EMBEDDER` (`hash` when unset).
 

@@ -122,7 +122,7 @@ privileges, and the schema issue adds explicit grants for each table it creates.
 | `postgres` | Owner only: migrations, enabling extensions, creating roles | Superuser-like on Supabase (unverified); never given to a worker | Now |
 | `smartcart_ingest` | `smartcart-ingest` on the VPS, and later the catalog workers | Connect; usage on the schemas it writes; select, insert, update on the ingest tables (`chains`, `stores`, `items`, `prices`, `promos`, `file_tracking`, quarantine tables); **no DDL, no delete, no access to user tables** | Now |
 | `smartcart_readonly` | The internal Streamlit dashboard (issue #46) | Select on ingest tables and views only | Now |
-| `smartcart_api` | The FastAPI service | Select on catalog and effective-price tables; limited writes to its own tables | Phase 1, Track B (#64). The app role works with Supabase Auth and RLS; do not create it before the schema and policies exist |
+| `smartcart_api` | The FastAPI service | Login, `NOINHERIT`, no `BYPASSRLS`. Select on the catalog, price and matching tables; insert on `events`, `search_misses`, `gap_reports`, `substitution_feedback`; update of `item_canonical.needs_review` only; the user tables only after `SET ROLE smartcart_app` (row-level security decides the rows); no DDL, no write to the catalog or price tables | Migration `20261011100500_api_role.sql`. Created only when a password is supplied (`PGOPTIONS="-c smartcart.api_password=..." smartcart-ingest migrate` on the direct connection) or by hand plus `select smartcart_grant_api_role('smartcart_api')`; full steps, the list of grants and the `auth` schema caveat in [deploy.md](deploy.md) "Which role" |
 
 Create the first two (the password prompt keeps the password out of shell history and the repo):
 
@@ -156,7 +156,7 @@ and are **unverified**: the Connect panel in the dashboard shows the current str
 |---|---|---|
 | Migrations, `db_smoke.sql`, one-off admin work | Direct, as `postgres` | DDL and `\copy` want a stable session. The direct host may be IPv6 only unless the IPv4 add-on is bought (unverified); if your laptop or VPS has no IPv6, use the session pooler instead. |
 | `smartcart-ingest` on the VPS | Session pooler (port 5432 on the pooler host), or direct if the VPS has IPv6 | The worker is a few long-lived processes that use `COPY`, long transactions and possibly prepared statements. Session mode keeps them working and works over IPv4. Cap the worker at 4 connections. |
-| FastAPI, later | Transaction pooler (port 6543) | Many short requests. Prepared statements need care in transaction mode; decide in the API issue. |
+| FastAPI | Session pooler (port 5432) by default, as `smartcart_api`; the transaction pooler (port 6543) with `DB_POOLER_MODE=transaction` | Many short requests. In transaction mode the API turns off server-side prepared statements and sets the time zone per transaction (`smartcart_api/db.py`, [deploy.md](deploy.md)); tested on a local Postgres, not yet on Supavisor. The batch jobs (precompute, alerts) keep the owner connection: they write `effective_prices` and read every user's alerts. |
 | Dashboard | Session pooler or direct, as `smartcart_readonly` | Low volume. |
 
 Rules:
