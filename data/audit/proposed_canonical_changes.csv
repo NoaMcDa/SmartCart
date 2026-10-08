@@ -1,0 +1,12 @@
+kind,canonical_slug,proposal,evidence_item,chain,reason
+change,peanut-butter,"decide if crunchy (שברי בוטנים) and smooth are one canonical; if not add a soft `variety` value or split","חמאת בוטנים עם שברי בוטנים 454 ג' סקיפי",קינג סטור,"verdict unsure: the canonical does not say smooth or crunchy"
+change,burekas-cheese,"decide if frozen is critical; real names rarely say it","בורקס גבינה ש.האופים",אושר עד,"verdict unsure: the canonical is the frozen burekas, the name has no state"
+add,,"canned crushed tomatoes (עגבניות מרוסקות / פולפה), pantry or canned, base unit 100g","עגבניות חתוכות פולפה",רמי לוי,"served as fresh tomatoes before the guard; with no canonical it is now unmapped"
+add,,"white beans in sauce (שעועית לבנה ברוטב), canned","שעועית לבנה ברוטב מב",מגה,"served as dry white beans before the guard"
+add,,"wheat beer (בירת חיטה) next to lager","בירה פאולנר חיטה 500 מ""ל",שופרסל,"four wheat beers were mapped to lager; now unmapped"
+add,,"baby liquid soap and baby shampoo in the baby department","סבון נוזלי לתינוק",טיב טעם,"adult hand soap and shampoo canonicals no longer take baby goods"
+change,chocolate-dark-bar,"decide how flavored dark bars (salt, filled, nuts) are represented: a flavor value or `close` only","שוקולד מריר לינדט מלח 10",שופרסל,"verdict wrong before the compound-flavor rule"
+change,yogurt-plain-3,"decide whether protein yogurt (יוגורט חלבון) is the same canonical; the extractor knows variety=protein","יוגורט חלבון יופלה G",רמי לוי,"queued, not served; needs a decision"
+change,peanut-butter,"decide whether no-sugar variants (ללא סוכר, ללת""ס) are the same canonical; the judge now serves them at close","חמאת בוטנים ללת""ס340",שופרסל,"verdict unsure"
+change,baguette,"decide whether challah baguette (חלת באגט) belongs here or under challah","חלת באגט",יוחננוף,"verdict unsure"
+change,laundry-gel,"decide whether gel with softener is the same canonical","ג'ל כביסה פלוס מרכך",מגה,"verdict unsure"

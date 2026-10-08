@@ -60,6 +60,17 @@ ABBREVIATIONS: tuple[Abbreviation, ...] = (
     Abbreviation(_P + r'מ"ל' + _NOT_WORD, r"\1מיליליטר"),
     Abbreviation(_P + r"גר'" + _NOT_WORD, r"\1גרם"),
     Abbreviation(_P + r"ליט'" + _NOT_WORD, r"\1ליטר"),
+    # sugar claims: ללת"ס / לל"ס are printed on "no added sugar" and "sugar free" goods (a diet
+    # variant, never the regular product); real names: חמאת בוטנים ללת"ס, סוכריות חמאה לל"ס
+    Abbreviation(_P + r'ללת"ס' + _NOT_WORD, r"\1ללא תוספת סוכר", "ללא תוספת סוכר"),
+    Abbreviation(_P + r'לל"ס' + _NOT_WORD, r"\1ללא סוכר", "ללא סוכר"),
+    Abbreviation(_P + r'חד"פ' + _NOT_WORD, r"\1חד פעמי", "disposable"),
+    # dotted chain shorthand for the first word of a name: שוק.מריר, חט.דגנים, תח.גוף, נ.כלים
+    Abbreviation(_P + r"שוק\.\s*", r"\1שוקולד ", "שוק. = שוקולד"),
+    Abbreviation(_P + r"חט\.\s*", r"\1חטיף ", "חט. = חטיף"),
+    Abbreviation(_P + r"תח\.\s*", r"\1תחליב ", "תח. = תחליב (body lotion)"),
+    Abbreviation(_P + r"מ\.כביסה" + _NOT_WORD, r"\1מרכך כביסה", "מ.כביסה"),
+    Abbreviation(_P + r"נ\.כלים" + _NOT_WORD, r"\1נוזל כלים", "נ.כלים"),
     Abbreviation(_P + r"יחי?'" + _NOT_WORD, r"\1יחידות"),
     # bare one-letter units: only right after a number, so ג'/ל' elsewhere is left alone
     Abbreviation(r"(?<=\d)(\s*)ג'" + _NOT_WORD, r"\1גרם"),
@@ -78,6 +89,43 @@ def clean_name(raw: str) -> str:
     for pattern, expansion in _ABBR:
         s = pattern.sub(expansion, s)
     return _SPACE.sub(" ", s).strip()
+
+
+# --- truncated names -------------------------------------------------------------------------------
+
+# Several chains publish ItemName cut at a fixed width (measured on the committed real fixtures
+# of 2026-10-08: the longest name is 20 characters for Carrefour/Mega, Osher Ad, Rami Levy and
+# Yohananof, 24 for Shufersal and 40 for Tiv Taam; King Store's longest is 55 with no pile-up at
+# one length, so it is not cut). A cut name may end inside a word ("חלבון" -> "חלב"), and may
+# have lost a flavor, a fat percentage or a size: it must not be trusted as complete.
+NAME_LIMITS: dict[str, int] = {
+    "7290055700007": 20,  # Carrefour (Mega)
+    "7290103152017": 20,  # Osher Ad
+    "7290058140886": 20,  # Rami Levy
+    "7290803800003": 20,  # Yohananof
+    "7290027600007": 24,  # Shufersal
+    "7290873255550": 40,  # Tiv Taam
+}
+
+
+def is_truncated(chain_id: str | None, raw_name: str | None) -> bool:
+    """True when ``raw_name`` is at, or one character under, its chain's cut width.
+
+    One under, because a cut right after a space is stripped, so a name cut at 20 can be 19
+    long. A name longer than the width was not cut by that chain. A false positive only sends
+    an item to review; a false negative can serve a wrong match, so the boundary errs on the
+    side of "cut"."""
+    limit = NAME_LIMITS.get(chain_id or "")
+    if limit is None or not raw_name:
+        return False
+    return limit - 1 <= len(raw_name.strip()) <= limit
+
+
+def is_full_width(chain_id: str | None, raw_name: str | None) -> bool:
+    """True when ``raw_name`` is exactly as wide as its chain cuts names: the last word may be
+    a fragment (a name cut at a space is one character shorter and ends on a whole word)."""
+    limit = NAME_LIMITS.get(chain_id or "")
+    return limit is not None and bool(raw_name) and len(raw_name.strip()) == limit
 
 
 # --- units ---------------------------------------------------------------------------------------

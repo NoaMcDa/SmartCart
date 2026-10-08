@@ -42,6 +42,7 @@ EXTENSIONS: tuple[str, ...] = (
     "smartcart_catalog.cli_arabic",
     "smartcart_catalog.cli_growth",
     "smartcart_catalog.review_packet",
+    "smartcart_catalog.audit_real",
 )
 
 
