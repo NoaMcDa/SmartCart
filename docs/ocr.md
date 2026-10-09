@@ -220,7 +220,8 @@ a count recovered from a unit price and a total when the sums say so (`2 א 20.8
 for `ל'`, and a bug found on the way: the shekel sign `שח` was removed from inside `שחור` (black).
 A price is no longer computed from quantity times unit price; if the total was not read it is empty.
 
-Same 40 receipts and 20 lists (seed 7), local run with the runner's Tesseract version; synthetic:
+Same 40 receipts and 20 lists (seed 7), synthetic. The numbers in the last row were measured locally
+and reproduced by the runner (workflow run 37912320759, branch `finish/ocr-api`, 0.56 s per image):
 
 | step | item text | quantity | price | total | chain |
 |---|---:|---:|---:|---:|---:|
