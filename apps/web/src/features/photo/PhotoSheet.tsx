@@ -122,6 +122,11 @@ export function PhotoSheet({ open, onClose, onAdd, onTypeInstead, flexDefaults }
     e.target.value = "";
     if (!file) return;
     const kind = pickedKind.current;
+    // The attempt is cancellable from here, not only once the request starts: "ביטול" or closing
+    // the sheet while the photo is still being prepared must stop the upload that would follow.
+    abort.current?.abort();
+    const controller = new AbortController();
+    abort.current = controller;
     setAttempt(null);
     setProblem(null);
     setStage({ name: "reading" });
@@ -129,25 +134,26 @@ export function PhotoSheet({ open, onClose, onAdd, onTypeInstead, flexDefaults }
     try {
       prepared = await prepareImage(file);
     } catch (err) {
+      if (controller.signal.aborted) return;
       const reason = classifyPhotoError(err);
       reportImageParsed({ kind, outcome: outcomeOfError(reason) });
       setStage({ name: "choose" });
       setProblem(reason);
       return;
     }
+    if (controller.signal.aborted) return;
     const next = { kind, file: prepared };
     setAttempt(next);
-    await upload(next);
+    await upload(next, controller);
   }
 
-  async function upload(current: Attempt | null) {
+  async function upload(current: Attempt | null, controller = new AbortController()) {
     if (!current) return;
     // The one gate: no consent, no request (`parseImage` refuses too).
     if (!getImageConsent()) {
       setStage({ name: "consent", serverAsked: false });
       return;
     }
-    const controller = new AbortController();
     abort.current = controller;
     setStage({ name: "reading" });
     const started = now();
