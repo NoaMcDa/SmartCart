@@ -52,6 +52,11 @@ def money(d: Decimal) -> Decimal:
     return d.quantize(_C2, rounding=ROUND_HALF_UP)
 
 
+def distance_is_approximate(geo_precision: str | None) -> bool:
+    """A distance is an estimate for a town-centre (locality) point or a store with no coordinates."""
+    return geo_precision not in ("address", "street")
+
+
 @dataclass
 class StoreInfo:
     store_id: int
@@ -63,6 +68,12 @@ class StoreInfo:
     distance_m: int
     lat: float | None = None
     lon: float | None = None
+    geo_precision: str | None = None  # stores.geo_precision: address | street | locality | None
+
+    @property
+    def distance_approximate(self) -> bool:
+        """The distance is an estimate: a town-centre (locality) point, or no coordinates at all."""
+        return distance_is_approximate(self.geo_precision)
 
 
 @dataclass
@@ -86,6 +97,8 @@ class StoreBasket:
             store_name=self.info.store_name,
             city=self.info.city,
             distance_m=self.info.distance_m,
+            geo_precision=self.info.geo_precision,
+            distance_approximate=self.info.distance_approximate,
             channel=self.info.channel,
             total=total,
             found_count=len(lines),
@@ -180,7 +193,7 @@ def promo_confidence(raw: Any) -> float | None:
 
 # --- stores ------------------------------------------------------------------------------------
 
-_LAT_LON = "ST_Y(s.geog::geometry)::float8, ST_X(s.geog::geometry)::float8"
+_LAT_LON = "ST_Y(s.geog::geometry)::float8, ST_X(s.geog::geometry)::float8, s.geo_precision"
 
 
 def stores_in_radius(
