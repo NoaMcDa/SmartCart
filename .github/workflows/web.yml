@@ -61,7 +61,7 @@ jobs:
 
       - name: Unit tests
         run: |
-          npm test > unit.log 2>&1 && echo PASSED || { grep -E "FAIL|DEBUGFLAKE|Error|cause" -A8 unit.log | grep -v "^\s*<\|^\s*/>\|=\"" | cut -c1-400 | head -150; }
+          npm test > unit.log 2>&1 && echo PASSED || { grep -E "^ *(FAIL|×)" unit.log | head -20; grep -A6 "DEBUGFLAKE upload error TypeError" unit.log | head -40; }
           exit 1
 
       - name: Build

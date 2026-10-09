@@ -5,7 +5,7 @@
  */
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { delay, http, HttpResponse, type JsonBodyType } from "msw";
+import { http, HttpResponse, type JsonBodyType } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseImage } from "@/api/client";
 import { API_BASE_URL } from "@/api/config";
@@ -419,13 +419,29 @@ describe("empty and failed reads", () => {
 describe("progress and cancelling", () => {
   it("shows a progress state, and cancelling sends nothing further to the list", async () => {
     setImageConsent(true);
-    server.use(http.post(`${API_BASE_URL}/parse-image`, () => delay("infinite")));
+    // The answer is held until the cancel, then sent: a handler that never settles leaves MSW
+    // with a request it never finishes, and the next test's upload can fail behind it.
+    let answer!: () => void;
+    const held = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    server.use(
+      http.post(`${API_BASE_URL}/parse-image`, async () => {
+        await held;
+        return HttpResponse.json({ detail: "x" }, { status: 503 });
+      }),
+    );
     const { user } = await openSheet();
     await pick(user, "list", image());
     const reading = await screen.findByTestId("photo-reading");
     expect(within(reading).getByRole("status")).toHaveTextContent("קוראים את התמונה");
     await user.click(screen.getByTestId("photo-cancel"));
     expect(screen.getByTestId("photo-list-camera")).toBeVisible();
+    answer();
+    // The late answer to the cancelled request changes nothing.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByTestId("photo-list-camera")).toBeVisible();
+    expect(screen.queryByTestId("photo-error")).not.toBeInTheDocument();
     expect(getListState().items).toEqual([]);
   });
 });
@@ -442,7 +458,14 @@ describe("events", () => {
       const html = (dialog?.innerHTML ?? "NO DIALOG").replace(/<svg[\s\S]*?<\/svg>/g, "");
       console.error("DEBUGFLAKE uploads", JSON.stringify(uploads));
       console.error("DEBUGFLAKE events", JSON.stringify(vi.mocked(trackEvent).mock.calls));
-      console.error("DEBUGFLAKE testids", JSON.stringify([...(dialog?.querySelectorAll("[data-testid]") ?? [])].map((e) => e.getAttribute("data-testid"))));
+      console.error(
+        "DEBUGFLAKE testids",
+        JSON.stringify(
+          [...(dialog?.querySelectorAll("[data-testid]") ?? [])].map((e) =>
+            e.getAttribute("data-testid"),
+          ),
+        ),
+      );
       console.error("DEBUGFLAKE html", html.slice(0, 3000));
       throw err;
     }
