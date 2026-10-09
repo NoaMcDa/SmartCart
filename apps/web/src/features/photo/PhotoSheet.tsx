@@ -172,6 +172,7 @@ export function PhotoSheet({ open, onClose, onAdd, onTypeInstead, flexDefaults }
       setStage(empty ? { name: "empty" } : { name: "preview", result });
     } catch (err) {
       if (controller.signal.aborted) return;
+      console.error("DEBUGFLAKE upload error", err, (err as { cause?: unknown })?.cause);
       const kind = classifyPhotoError(err);
       reportImageParsed({
         kind: current.kind,
