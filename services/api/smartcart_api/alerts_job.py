@@ -73,7 +73,7 @@ class Hit:
 _ALERTS_SQL = """
 SELECT a.id, a.user_id, a.canonical_id, a.threshold_unit_price, a.flex_level, a.radius_m,
        a.neighborhood_lat::float8, a.neighborhood_lon::float8, a.last_fired_at,
-       COALESCE(pr.clubs, '{}'), cp.display_name_he
+       COALESCE(pr.clubs, '{}'), cp.display_name_he, cp.names_ar[1]
 FROM price_alerts AS a
 JOIN canonical_products AS cp ON cp.id = a.canonical_id
 LEFT JOIN profiles AS pr ON pr.user_id = a.user_id
@@ -96,8 +96,14 @@ WHERE ep.canonical_id = %(cid)s AND ep.flex_level = %(flex)s AND s.channel = 'ph
 
 
 def best_hit(
-    conn: psycopg.Connection, canonical_id: int, flex: str, lon: float, lat: float,
-    radius_m: int, clubs: list[str], threshold: Decimal,
+    conn: psycopg.Connection,
+    canonical_id: int,
+    flex: str,
+    lon: float,
+    lat: float,
+    radius_m: int,
+    clubs: list[str],
+    threshold: Decimal,
 ) -> Hit | None:
     """The lowest effective unit price at or below ``threshold`` for this user, or None."""
     best: Hit | None = None
@@ -111,9 +117,13 @@ def best_hit(
             continue
         if best is None or (pick.effective_unit_price, r[0]) < (best.unit_price, best.store_id):
             best = Hit(
-                store_id=r[0], store_name=r[13], chain_name=r[14], item_id=pick.item_id,
+                store_id=r[0],
+                store_name=r[13],
+                chain_name=r[14],
+                item_id=pick.item_id,
                 item_name=r[16] if pick.item_id == r[1] else _item_name(conn, pick.item_id),
-                unit_price=pick.effective_unit_price, uom=pick.uom,
+                unit_price=pick.effective_unit_price,
+                uom=pick.uom,
                 price_valid_from=pick.price_valid_from,
                 club_name=pick.club_name if pick.club_required else None,
             )
@@ -125,7 +135,9 @@ def _item_name(conn: psycopg.Connection, item_id: int) -> str:
     return row[0] if row else ""
 
 
-def payload(alert_id: int, canonical_id: int, product: str, hit: Hit) -> dict:
+def payload(
+    alert_id: int, canonical_id: int, product: str, hit: Hit, product_ar: str | None = None
+) -> dict:
     price = f"₪ {money(hit.unit_price)}"
     updated = hit.price_valid_from.astimezone(UTC).strftime("%d.%m.%Y %H:%M")
     club = f" (מבצע מועדון: {hit.club_name})" if hit.club_name else ""
@@ -139,6 +151,7 @@ def payload(alert_id: int, canonical_id: int, product: str, hit: Hit) -> dict:
         "tag": f"alert-{alert_id}",
         "alert_id": alert_id,
         "canonical_id": canonical_id,
+        "product_ar": product_ar,
         "store_id": hit.store_id,
         "item_id": hit.item_id,
         "unit_price": str(hit.unit_price),
@@ -155,8 +168,20 @@ def evaluate_alerts(
     now = now or datetime.now(UTC)
     started = time.monotonic()
     result = AlertRunResult()
-    for (alert_id, user_id, cid, threshold, flex, radius, lat, lon, last_fired, clubs,
-         product) in conn.execute(_ALERTS_SQL).fetchall():
+    for (
+        alert_id,
+        user_id,
+        cid,
+        threshold,
+        flex,
+        radius,
+        lat,
+        lon,
+        last_fired,
+        clubs,
+        product,
+        product_ar,
+    ) in conn.execute(_ALERTS_SQL).fetchall():
         result.alerts_checked += 1
         if last_fired is not None and now - last_fired < DEDUP_WINDOW:
             result.deduplicated += 1
@@ -169,7 +194,11 @@ def evaluate_alerts(
             " ORDER BY delivered_at DESC, id DESC LIMIT 1",
             (alert_id,),
         ).fetchone()
-        if last is not None and (last[0], last[1]) == (hit.store_id, hit.item_id) and hit.unit_price >= last[2]:
+        if (
+            last is not None
+            and (last[0], last[1]) == (hit.store_id, hit.item_id)
+            and hit.unit_price >= last[2]
+        ):
             result.deduplicated += 1  # the drop that was already notified
             continue
         targets = [
@@ -190,7 +219,7 @@ def evaluate_alerts(
         result.fired += 1
         if channel != "push":
             continue
-        body = payload(alert_id, cid, product, hit)
+        body = payload(alert_id, cid, product, hit, product_ar)
         for t in targets:
             status = sender(t, body)
             if 200 <= status < 300:

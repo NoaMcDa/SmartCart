@@ -15,6 +15,7 @@ import type {
   Schemas,
 } from "@/api/client";
 import { CATALOG, canonicalRef, compareFixture, HOME_STORE_ID, optimizeFixture } from "./fixtures";
+import { betaHandlers } from "./handlers.beta";
 import { phase2Handlers } from "./handlers.phase2";
 import { phase3Handlers } from "./handlers.phase3";
 import { parseRow } from "./parseRow";
@@ -32,6 +33,7 @@ const url = (path: string) => `${API_BASE_URL}${path}`;
 const latency = () => delay(process.env.NODE_ENV === "test" ? 0 : 250);
 
 export const handlers = [
+  ...betaHandlers,
   ...phase2Handlers,
   ...phase3Handlers,
   http.get(url("/health"), () =>

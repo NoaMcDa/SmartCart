@@ -59,7 +59,10 @@ def _location(conn: psycopg.Connection, user: User) -> tuple:
 
 
 def _check_canonical(conn: psycopg.Connection, canonical_id: int) -> None:
-    if conn.execute("SELECT 1 FROM canonical_products WHERE id = %s", (canonical_id,)).fetchone() is None:
+    if (
+        conn.execute("SELECT 1 FROM canonical_products WHERE id = %s", (canonical_id,)).fetchone()
+        is None
+    ):
         raise HTTPException(status_code=404, detail="canonical product not found")
 
 
@@ -68,7 +71,8 @@ def list_alerts(uc: UserConn) -> list[schemas.PriceAlert]:
     user, conn = uc
     with conn.cursor(row_factory=dict_row) as cur:
         rows = cur.execute(
-            f"SELECT {_COLS} FROM price_alerts WHERE user_id = %s ORDER BY created_at, id", (user.id,)
+            f"SELECT {_COLS} FROM price_alerts WHERE user_id = %s ORDER BY created_at, id",
+            (user.id,),
         ).fetchall()
     return [schemas.PriceAlert(**r) for r in rows]
 
@@ -77,7 +81,9 @@ def list_alerts(uc: UserConn) -> list[schemas.PriceAlert]:
 def create_alert(body: schemas.PriceAlertIn, uc: UserConn) -> schemas.PriceAlert:
     user, conn = uc
     _check_canonical(conn, body.canonical_id)
-    count = conn.execute("SELECT count(*) FROM price_alerts WHERE user_id = %s", (user.id,)).fetchone()[0]
+    count = conn.execute(
+        "SELECT count(*) FROM price_alerts WHERE user_id = %s", (user.id,)
+    ).fetchone()[0]
     if count >= free_limit():
         raise HTTPException(status_code=403, detail=f"the free tier allows {free_limit()} alerts")
     lat, lon = _location(conn, user)
@@ -87,8 +93,16 @@ def create_alert(body: schemas.PriceAlertIn, uc: UserConn) -> schemas.PriceAlert
             " radius_m, active, neighborhood_lat, neighborhood_lon)"
             " VALUES (%s, %s, %s, %s, %s, %s, round(%s::numeric, 3), round(%s::numeric, 3))"
             f" RETURNING {_COLS}",
-            (user.id, body.canonical_id, body.threshold_unit_price, body.flex_level, body.radius_m,
-             body.active, lat, lon),
+            (
+                user.id,
+                body.canonical_id,
+                body.threshold_unit_price,
+                body.flex_level,
+                body.radius_m,
+                body.active,
+                lat,
+                lon,
+            ),
         ).fetchone()
     return schemas.PriceAlert(**row)
 
@@ -108,9 +122,17 @@ def update_alert(alert_id: int, body: schemas.PriceAlertIn, uc: UserConn) -> sch
             " last_fired_at = CASE WHEN canonical_id = %(cid)s AND threshold_unit_price = %(th)s"
             "   AND flex_level = %(flex)s THEN last_fired_at END"
             f" WHERE id = %(id)s AND user_id = %(uid)s RETURNING {_COLS}",
-            {"cid": body.canonical_id, "th": body.threshold_unit_price, "flex": body.flex_level,
-             "radius": body.radius_m, "active": body.active, "lat": lat, "lon": lon,
-             "id": alert_id, "uid": user.id},
+            {
+                "cid": body.canonical_id,
+                "th": body.threshold_unit_price,
+                "flex": body.flex_level,
+                "radius": body.radius_m,
+                "active": body.active,
+                "lat": lat,
+                "lon": lon,
+                "id": alert_id,
+                "uid": user.id,
+            },
         ).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="alert not found")

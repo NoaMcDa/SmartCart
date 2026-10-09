@@ -16,12 +16,20 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 # chain id -> (stores fixture, online store codes, rule that identifies them)
 CHAIN_ONLINE = {
-    "7290027600007": ("shufersal/Stores7290027600007-000-202610060201.gz", {"90"}, "sub-chain ONLINE"),
+    "7290027600007": (
+        "shufersal/Stores7290027600007-000-202610060201.gz",
+        {"90"},
+        "sub-chain ONLINE",
+    ),
     "7290058140886": ("ramilevy/Stores7290058140886-202610060100.xml", {"331"}, "store code"),
     "7290103152017": ("osherad/Stores7290103152017-202610060100.xml", set(), "none"),
     "7290803800003": ("yohananof/Stores7290803800003-202610060100.xml", {"100"}, "StoreType 2"),
     "7290696200003": ("victory/Stores7290696200003-000-202610060100.xml.gz", {"45"}, "name"),
-    "7290700100008": ("hazihinam/Stores7290700100008-000-000-20261006-010000.xml.gz", {"299"}, "name אתר"),
+    "7290700100008": (
+        "hazihinam/Stores7290700100008-000-000-20261006-010000.xml.gz",
+        {"299"},
+        "name אתר",
+    ),
     "7290873255550": ("tivtaam/Stores7290873255550-000-202610060100.gz", {"80"}, "address"),
     "7290055700007": ("mega/Stores7290055700007-000-202610060100.gz", {"5000"}, "store code"),
 }
@@ -63,7 +71,9 @@ def test_each_chain_online_record_from_fixture(chain_id: str) -> None:
 
 def test_chains_without_online_record_are_declared() -> None:
     no_online = sorted(
-        cid for cid in CHAIN_ONLINE if get_adapter(cid).has_online_record is False  # type: ignore[attr-defined]
+        cid
+        for cid in CHAIN_ONLINE
+        if get_adapter(cid).has_online_record is False  # type: ignore[attr-defined]
     )
     assert no_online == ["7290103152017"]  # Osher Ad
     for cid in no_online:
@@ -115,7 +125,11 @@ def test_online_stores_may_lack_coordinates() -> None:
     assert isinstance(adapter, RegulationAdapter)
     file = FIXTURES / CHAIN_ONLINE["7290027600007"][0]
     data = file.read_bytes()
-    online = [s for s in adapter.parse(adapter.raw_file_for(file.name, data), data).stores if s.channel == "online"]
+    online = [
+        s
+        for s in adapter.parse(adapter.raw_file_for(file.name, data), data).stores
+        if s.channel == "online"
+    ]
     assert online and all(s.lat is None and s.lon is None for s in online)
 
 

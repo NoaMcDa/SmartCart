@@ -13,6 +13,7 @@ import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from smartcart_api import schemas
+from smartcart_api.basket import distance_is_approximate
 from smartcart_api.db import get_conn
 
 router = APIRouter(prefix="/stores", tags=["stores"])
@@ -29,7 +30,8 @@ def nearest_store(
         "WITH p AS (SELECT ST_SetSRID(ST_MakePoint(%(lon)s, %(lat)s), 4326)::geography AS g)"
         " SELECT s.id, s.chain_id, c.name, s.name, s.city,"
         "   round(ST_Distance(s.geog, p.g))::int,"
-        "   ST_Y(s.geog::geometry)::float8, ST_X(s.geog::geometry)::float8, s.channel"
+        "   ST_Y(s.geog::geometry)::float8, ST_X(s.geog::geometry)::float8, s.channel,"
+        "   s.geo_precision"
         " FROM stores AS s JOIN chains AS c ON c.id = s.chain_id, p"
         " WHERE s.chain_id = %(chain)s AND s.channel = 'physical' AND s.geog IS NOT NULL"
         " ORDER BY s.geog <-> p.g, s.id LIMIT 1",
@@ -38,6 +40,15 @@ def nearest_store(
     if row is None:
         raise HTTPException(status_code=404, detail="no physical store of this chain")
     return schemas.StoreRef(
-        store_id=row[0], chain_id=row[1], chain_name=row[2], store_name=row[3], city=row[4],
-        distance_m=row[5], lat=row[6], lon=row[7], channel=row[8],
+        store_id=row[0],
+        chain_id=row[1],
+        chain_name=row[2],
+        store_name=row[3],
+        city=row[4],
+        distance_m=row[5],
+        lat=row[6],
+        lon=row[7],
+        channel=row[8],
+        geo_precision=row[9],
+        distance_approximate=distance_is_approximate(row[9]),
     )

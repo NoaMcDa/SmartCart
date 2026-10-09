@@ -25,10 +25,17 @@ import {
 import { BudgetRemaining } from "@/features/budget/BudgetRemaining";
 import { reportResultsShown, reportSubstitutionsShown } from "@/features/consent/betaEvents";
 import { MethodologyLink } from "@/features/seo/components";
+import { formatRich } from "@/i18n/format";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { compareMessages } from "@/i18n/messages/compare";
+import { sharedMessages } from "@/i18n/messages/shared";
+import { productName } from "@/lib/format";
+import { cityLabelFor } from "@/features/profile/cities";
 import { setFlash, useFlash } from "@/state/flash";
 import { basketItems, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
 import { BasketDetails } from "./BasketDetails";
+import { Count } from "./Count";
 import { useResolveHomeStore } from "@/features/profile/profileState";
 import { PlanCard } from "./PlanCard";
 import { ReportGapSheet } from "./ReportGapSheet";
@@ -53,6 +60,9 @@ export function ResultsContent({
   names: Map<number, string>;
   onReportGap: () => void;
 }) {
+  const t = useT(compareMessages);
+  const shared = useT(sharedMessages);
+  const { locale } = useLocale();
   const home = homeStore(res);
   const plans = orderedPlans(res);
   const recommended = plans.find((p) => p.recommended) ?? res.single;
@@ -72,19 +82,18 @@ export function ResultsContent({
 
       <footer className={styles.footnote} data-testid="disclaimer">
         <p>
-          <strong>{res.disclaimer_he}</strong> המחירים לפי קבצי שקיפות המחירים של הרשתות, ומבצעי
-          מועדון רק לפי המועדונים שסימנת. החיסכון מחושב תמיד מול הסופר שלך, אחרי נסיעה.{" "}
-          <MethodologyLink />
+          <strong>{locale === "he" ? res.disclaimer_he : shared("checkoutGoverns")}</strong>{" "}
+          {t("footerBody")} <MethodologyLink>{t("methodologyLink")}</MethodologyLink>
         </p>
         <p className={styles.footRow}>
-          <UpdatedAt iso={updated} prefix="מחירים עודכנו" withIcon />
+          <UpdatedAt iso={updated} prefix={shared("pricesUpdated")} withIcon />
           <Button
             variant="ghost"
             size="sm"
             onClick={onReportGap}
             iconStart={<IconInfo size={16} />}
           >
-            דיווח על פער במחיר
+            {t("reportGapButton")}
           </Button>
         </p>
       </footer>
@@ -93,8 +102,9 @@ export function ResultsContent({
 }
 
 function LoadingCards() {
+  const t = useT(compareMessages);
   return (
-    <div className={styles.cards} aria-busy="true" aria-label="טוען תוצאות">
+    <div className={styles.cards} aria-busy="true" aria-label={t("loadingResults")}>
       {[0, 1, 2].map((i) => (
         <Card key={i} className={styles.plan}>
           <Skeleton width={90} height={22} radius={999} />
@@ -112,6 +122,8 @@ function LoadingCards() {
  * substitutions, line details, the checkout disclaimer and report-a-gap.
  */
 export function ResultsView() {
+  const t = useT(compareMessages);
+  const { locale } = useLocale();
   const router = useRouter();
   const { state, hydrated } = useList();
   const shopper = useShopper();
@@ -149,10 +161,10 @@ export function ResultsView() {
   const names = useMemo(() => {
     const m = new Map<number, string>();
     for (const it of state.items) {
-      if (it.canonical) m.set(it.canonical.canonical_id, it.canonical.display_name_he);
+      if (it.canonical) m.set(it.canonical.canonical_id, productName(it.canonical, locale));
     }
     return m;
-  }, [state.items]);
+  }, [state.items, locale]);
 
   const itemCount = state.items.filter((i) => !i.notFound).length;
   const radiusKm = shopper ? Math.round(shopper.radiusM / 100) / 10 : null;
@@ -175,22 +187,18 @@ export function ResultsView() {
   } else if (basket.length === 0) {
     body = (
       <Card className={styles.stateCard}>
-        <h2 className={styles.sectionTitle}>אין עדיין מה להשוות</h2>
-        <p className={styles.muted}>הוסיפי פריטים לרשימה ונחשב איפה הכי משתלם לקנות אותם.</p>
-        <Button href="/">לבניית הרשימה</Button>
+        <h2 className={styles.sectionTitle}>{t("emptyTitle")}</h2>
+        <p className={styles.muted}>{t("emptyBody")}</p>
+        <Button href="/">{t("buildList")}</Button>
       </Card>
     );
   } else if (result.status === "error" && !data) {
     const offline = !(result.error instanceof ApiError);
     body = (
       <Card className={styles.stateCard} role="alert">
-        <h2 className={styles.sectionTitle}>לא הצלחנו לחשב את ההשוואה</h2>
-        <p className={styles.muted}>
-          {offline
-            ? "נראה שאין חיבור לשרת. בדקי את החיבור ונסי שוב."
-            : "השרת החזיר שגיאה. נסי שוב בעוד רגע."}
-        </p>
-        <Button onClick={result.reload}>נסי שוב</Button>
+        <h2 className={styles.sectionTitle}>{t("errTitle")}</h2>
+        <p className={styles.muted}>{offline ? t("errOffline") : t("errServer")}</p>
+        <Button onClick={result.reload}>{t("retry")}</Button>
       </Card>
     );
   } else if (!data) {
@@ -203,12 +211,15 @@ export function ResultsView() {
     <>
       <p className={styles.subline} data-testid="results-subline">
         <span>
-          <span dir="ltr">{itemCount}</span> פריטים
+          <Count n={itemCount} noun="items" />
         </span>
         {radiusKm !== null ? (
           <span>
-            {" · "}עד <span dir="ltr">{radiusKm}</span> ק&quot;מ
-            {shopper?.cityLabel ? ` מ${shopper.cityLabel}` : ""}
+            {" · "}
+            {formatRich(t("radiusText"), { km: <span dir="ltr">{radiusKm}</span> })}
+            {shopper?.cityLabel
+              ? t("fromCity", { city: cityLabelFor(shopper.cityLabel, locale) })
+              : ""}
           </span>
         ) : null}
         {data ? (
@@ -220,14 +231,14 @@ export function ResultsView() {
       </p>
 
       <SegmentedControl
-        label="תצוגה"
+        label={t("viewLabel")}
         value="list"
         onChange={(v) => {
           if (v === "map") router.push("/map");
         }}
         options={[
-          { value: "list", label: "רשימה", icon: <IconList size={16} /> },
-          { value: "map", label: "מפה", icon: <IconMap size={16} /> },
+          { value: "list", label: t("viewList"), icon: <IconList size={16} /> },
+          { value: "map", label: t("viewMap"), icon: <IconMap size={16} /> },
         ]}
         className={styles.toggle}
       />
@@ -242,13 +253,10 @@ export function ResultsView() {
 
       {shopper && shopper.homeStoreId === null ? (
         <Card className={styles.stateCard} data-testid="no-home-store">
-          <h2 className={styles.sectionTitle}>מה הסופר שלך?</h2>
-          <p className={styles.muted}>
-            את החיסכון אנחנו מחשבים רק מול הסופר שבו את קונה בדרך כלל. בחרי אותו ונראה כמה באמת
-            נחסך.
-          </p>
+          <h2 className={styles.sectionTitle}>{t("noHomeTitle")}</h2>
+          <p className={styles.muted}>{t("noHomeBody")}</p>
           <Button href="/onboarding" variant="outline" size="sm">
-            בחירת הסופר שלי
+            {t("noHomeCta")}
           </Button>
         </Card>
       ) : null}

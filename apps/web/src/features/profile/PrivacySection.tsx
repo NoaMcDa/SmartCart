@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { UsageEventsControl } from "@/features/consent/UsageEventsControl";
+import { BetaFeedbackEntry } from "@/features/beta";
+import { loadBudget } from "@/features/budget/budgetState";
+import { loadSpend } from "@/features/budget/spendState";
+import { ImageConsentToggle } from "@/features/photo/ImageConsentToggle";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { profileMessages } from "@/i18n/messages/profile";
 import { deleteMyData, type DeleteResult } from "./deleteData";
 import { loadSavings } from "./savingsHistory";
 import { clearLocation, getProfile, updateProfile, useProfile } from "./profileState";
@@ -27,6 +33,8 @@ function downloadJson(filename: string, data: unknown) {
 
 /** Privacy statement, consent toggles, export and "מחקי את הנתונים שלי" (issue #30). */
 export function PrivacySection() {
+  const t = useT(profileMessages);
+  const { locale } = useLocale();
   const profile = useProfile();
   const auth = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -38,6 +46,7 @@ export function PrivacySection() {
     const outcome = await deleteMyData({
       signedIn: auth.status === "signed-in",
       signOut: auth.signOut,
+      locale,
     });
     setBusy(false);
     setResult(outcome);
@@ -47,14 +56,12 @@ export function PrivacySection() {
   return (
     <div className={styles.stack}>
       <p className={styles.hint} data-testid="privacy-statement">
-        אנחנו לא מוכרים מידע על משתמשים, לא משתפים אותו עם מפרסמים ולא מציגים תוצאות ממומנות. המיקום
-        נשמר רק ברמת שכונה ורק באישורך. אין בשירות כלי מעקב או פרסום של צד שלישי.{" "}
-        <Link href="/privacy">למדיניות הפרטיות המלאה</Link>
+        {t("privacyStatement")} <Link href="/privacy">{t("privacyPolicyLink")}</Link>
       </p>
 
       <Switch
-        label="שימוש במיקום"
-        description="המיקום נשמר מעוגל לשכונה (כ-100 מטר). כיבוי מוחק את המיקום השמור."
+        label={t("locationUseLabel")}
+        description={t("locationUseDescription")}
         checked={profile.consentLocation}
         onChange={(on) => {
           if (on) updateProfile({ consentLocation: true });
@@ -63,6 +70,10 @@ export function PrivacySection() {
       />
 
       <UsageEventsControl />
+
+      <BetaFeedbackEntry />
+
+      <ImageConsentToggle />
 
       <div className={profileStyles.actions}>
         <Button
@@ -73,10 +84,14 @@ export function PrivacySection() {
               exportedAt: new Date().toISOString(),
               profile: getProfile(),
               savings: loadSavings(),
+              // Budget and spend entries kept on this device (#70); a signed-in account's full
+              // history is also available from GET /me/spend/export.
+              monthlyBudget: loadBudget(),
+              spend: loadSpend().entries,
             })
           }
         >
-          ייצוא הנתונים שלי
+          {t("exportData")}
         </Button>
         <Button
           variant="outline"
@@ -87,26 +102,21 @@ export function PrivacySection() {
             setConfirmOpen(true);
           }}
         >
-          מחקי את הנתונים שלי
+          {t("deleteData")}
         </Button>
       </div>
 
       {result?.ok ? (
         <p className={styles.status} role="status" data-testid="delete-done">
-          הנתונים נמחקו מהמכשיר
           {result.signedIn
-            ? `, ${result.listsDeleted} רשימות נמחקו מהחשבון ופרטי הפרופיל אופסו`
-            : ""}
-          .
-          {result.signedIn && !result.accountRowRemains
-            ? " החשבון עצמו, כולל כתובת האימייל, נמחק."
-            : ""}
+            ? t("deletedDeviceAndAccount", { count: result.listsDeleted })
+            : t("deletedDevice")}
+          {result.signedIn && !result.accountRowRemains ? t("accountDeleted") : ""}
         </p>
       ) : null}
       {result?.ok && result.accountRowRemains ? (
         <p className={styles.error} role="alert" data-testid="account-remains">
-          הנתונים נמחקו, אבל לא הצלחנו למחוק את החשבון המאוחסן עצמו (כתובת האימייל). התחברי שוב ונסי
-          שוב מהפרופיל.
+          {t("accountRemains")}
         </p>
       ) : null}
       {result && !result.ok ? (
@@ -118,28 +128,22 @@ export function PrivacySection() {
       <BottomSheet
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        title="למחוק את כל הנתונים שלי?"
-        eyebrow="אי אפשר לבטל"
+        title={t("confirmTitle")}
+        eyebrow={t("confirmEyebrow")}
         footer={
           <>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              ביטול
+              {t("cancel")}
             </Button>
             <Button tone="bad" disabled={busy} onClick={confirmDelete} data-testid="confirm-delete">
-              {busy ? "מוחקת…" : "כן, למחוק"}
+              {busy ? t("deleting") : t("confirmDelete")}
             </Button>
           </>
         }
       >
-        <p className={styles.hint}>
-          יימחקו מהמכשיר: המיקום, הרשת והמועדונים, העדפות הכשרות והתזונה, ברירות המחדל, תוצאת
-          ההשוואה האחרונה, הקנייה הפעילה והחיסכון שנצבר.
-        </p>
+        <p className={styles.hint}>{t("deviceDeleteBody")}</p>
         {auth.status === "signed-in" ? (
-          <p className={styles.hint}>
-            וגם מהחשבון: כל הרשימות השמורות, פרטי הפרופיל והחשבון עצמו, כולל כתובת האימייל. בסיום
-            תתנתקי.
-          </p>
+          <p className={styles.hint}>{t("accountDeleteBody")}</p>
         ) : null}
       </BottomSheet>
     </div>

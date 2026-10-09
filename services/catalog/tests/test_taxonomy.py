@@ -46,7 +46,9 @@ def test_staples_reach_product_type_level(taxonomy, department: str) -> None:
 def test_path_he(taxonomy) -> None:
     assert taxonomy.path_he("dairy.milk.fresh") == "מוצרי חלב וביצים > חלב ומשקאות חלב > חלב טרי"
     assert [n.id for n in taxonomy.path("dairy.milk.fresh")] == [
-        "dairy", "dairy.milk", "dairy.milk.fresh"
+        "dairy",
+        "dairy.milk",
+        "dairy.milk.fresh",
     ]
 
 
@@ -96,7 +98,8 @@ def test_canonicals_under_a_category(db: psycopg.Connection) -> None:
     dairy = {slug for _, slug in canonicals_under(db, "dairy")}
     assert set(milk) < dairy and "cottage-5" in dairy
     assert {slug for _, slug in canonicals_under(db, "dairy.milk.fresh")} == {
-        "milk-fresh-3", "milk-fresh-1"
+        "milk-fresh-3",
+        "milk-fresh-1",
     }
     # prefix match is on whole segments: "dairy.mil" is not a node and matches nothing
     assert canonicals_under(db, "dairy.mil") == []

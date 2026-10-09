@@ -69,7 +69,11 @@ async function openRecipe() {
   const user = userEvent.setup();
   render(<ListBuilder />);
   await user.click(await screen.findByTestId("recipe-open"));
-  return { user, dialog: screen.getByRole("dialog", { name: "מתכון לרשימה" }) };
+  const dialog = screen.getByRole("dialog", { name: "מתכון לרשימה" });
+  // BottomSheet moves focus into itself one animation frame after opening. Wait for that, or on a
+  // slow runner it lands after the test focused the text field and the paste goes elsewhere.
+  await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+  return { user, dialog };
 }
 
 const RECIPE_TEXT = "פסטה ברוטב עגבניות\n500 גרם פסטה\n2 רסק עגבניות\nעגבניות\nחופן בזיליקום";
@@ -175,8 +179,11 @@ describe("the recipe sheet", () => {
     const { user, dialog } = await openRecipe();
     await user.click(within(dialog).getByLabelText("המתכון או רשימת המצרכים"));
     await user.paste("בלה בלה");
+    expect(within(dialog).getByLabelText("המתכון או רשימת המצרכים")).toHaveValue("בלה בלה");
     await user.click(screen.getByTestId("recipe-read"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("לא מצאנו מצרכים");
+    // Wait for the server's answer, not the first alert: on a slow runner the empty-input hint can
+    // still be the alert on screen when findByRole resolves.
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("לא מצאנו מצרכים"));
 
     server.use(http.post(`${API_BASE_URL}/parse-recipe`, () => HttpResponse.error()));
     await user.click(screen.getByTestId("recipe-read"));

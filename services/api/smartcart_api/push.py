@@ -45,7 +45,9 @@ class PushSender(Protocol):
 class WebPushSender:
     """Sends one encrypted web push message per call; returns the push service's HTTP status."""
 
-    def __init__(self, private_key: str, public_key: str, subject: str, ttl: int = 24 * 3600) -> None:
+    def __init__(
+        self, private_key: str, public_key: str, subject: str, ttl: int = 24 * 3600
+    ) -> None:
         self.private_key = private_key
         self.public_key = public_key
         self.subject = subject
@@ -81,6 +83,8 @@ class WebPushSender:
             log.warning("push failed", status=status, subscription_id=target.id)
             return status
         except RequestException as exc:  # network: try again on the next run
-            log.warning("push service unreachable", error=type(exc).__name__, subscription_id=target.id)
+            log.warning(
+                "push service unreachable", error=type(exc).__name__, subscription_id=target.id
+            )
             return 0
         return int(getattr(resp, "status_code", 201))

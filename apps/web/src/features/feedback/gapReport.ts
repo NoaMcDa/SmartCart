@@ -1,4 +1,5 @@
 import type { GapReportRequest } from "@/api/client";
+import type { FeedbackMessageKey } from "@/i18n/messages/feedback";
 
 /** What the screen knows about the price being reported. Everything except the store is optional. */
 export type GapContext = {
@@ -15,10 +16,11 @@ export type GapContext = {
 
 export type GapReason = "price_differs" | "wrong_product" | "promo_wrong";
 
-export const GAP_REASONS: ReadonlyArray<{ value: GapReason; label: string }> = [
-  { value: "price_differs", label: "המחיר שונה" },
-  { value: "wrong_product", label: "מוצר לא נכון" },
-  { value: "promo_wrong", label: "מבצע חסר או שגוי" },
+/** `labelKey` is a `feedbackMessages` key: the sheet translates it. */
+export const GAP_REASONS: ReadonlyArray<{ value: GapReason; labelKey: FeedbackMessageKey }> = [
+  { value: "price_differs", labelKey: "reasonPriceDiffers" },
+  { value: "wrong_product", labelKey: "reasonWrongProduct" },
+  { value: "promo_wrong", labelKey: "reasonPromoWrong" },
 ];
 
 const NOTE_MAX = 500;

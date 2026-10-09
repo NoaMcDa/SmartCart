@@ -41,11 +41,16 @@ def test_anonymous_and_bad_tokens_are_rejected(client, users) -> None:
     assert client.get("/me/lists", headers={"Authorization": f"Bearer {forged}"}).status_code == 401
     expired = jwt.encode(
         {"sub": str(a), "aud": "authenticated", "exp": datetime.now(UTC) - timedelta(minutes=1)},
-        JWT_SECRET, algorithm="HS256",
+        JWT_SECRET,
+        algorithm="HS256",
     )
-    assert client.get("/me/lists", headers={"Authorization": f"Bearer {expired}"}).status_code == 401
+    assert (
+        client.get("/me/lists", headers={"Authorization": f"Bearer {expired}"}).status_code == 401
+    )
     wrong_aud = make_token(a, aud="anon")
-    assert client.get("/me/lists", headers={"Authorization": f"Bearer {wrong_aud}"}).status_code == 401
+    assert (
+        client.get("/me/lists", headers={"Authorization": f"Bearer {wrong_aud}"}).status_code == 401
+    )
 
 
 def test_list_crud_under_rls(client, users) -> None:
@@ -53,7 +58,10 @@ def test_list_crud_under_rls(client, users) -> None:
     r = client.post("/me/lists", json=LIST, headers=h(a))
     assert r.status_code == 201, r.text
     created = r.json()
-    assert created["name"] == LIST["name"] and [i["input_text"] for i in created["items"]] == ["חלב", "סלמון"]
+    assert created["name"] == LIST["name"] and [i["input_text"] for i in created["items"]] == [
+        "חלב",
+        "סלמון",
+    ]
     lid = created["id"]
     assert [x["id"] for x in client.get("/me/lists", headers=h(a)).json()] == [lid]
     upd = {**LIST, "name": "שבועי", "items": LIST["items"][:1]}
@@ -82,9 +90,15 @@ def test_profile_defaults_update_and_rounding(client, users) -> None:
     a, b = users
     r = client.get("/me/profile", headers=h(a))
     assert r.status_code == 200 and r.json()["exists"] is False and r.json()["radius_m"] == 5000
-    body = {"radius_m": 3000, "neighborhood_lat": 32.0712345, "neighborhood_lon": 34.7812345,
-            "consent_location": True, "clubs": ["מועדון לקוחות"], "travel_mode": "walk_transit",
-            "flex_defaults": {"t.fish": "close"}}
+    body = {
+        "radius_m": 3000,
+        "neighborhood_lat": 32.0712345,
+        "neighborhood_lon": 34.7812345,
+        "consent_location": True,
+        "clubs": ["מועדון לקוחות"],
+        "travel_mode": "walk_transit",
+        "flex_defaults": {"t.fish": "close"},
+    }
     r = client.put("/me/profile", json=body, headers=h(a))
     assert r.status_code == 200, r.text
     p = r.json()
@@ -96,8 +110,9 @@ def test_profile_defaults_update_and_rounding(client, users) -> None:
 
 def test_location_needs_consent(client, users) -> None:
     a, _ = users
-    r = client.put("/me/profile", json={"neighborhood_lat": 32.07, "neighborhood_lon": 34.78},
-                   headers=h(a))
+    r = client.put(
+        "/me/profile", json={"neighborhood_lat": 32.07, "neighborhood_lon": 34.78}, headers=h(a)
+    )
     assert r.status_code == 422
 
 

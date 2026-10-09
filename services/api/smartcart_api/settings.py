@@ -9,6 +9,7 @@
 | ``API_DB_USER_ROLE`` | ``smartcart_app`` | role switched to (SET LOCAL ROLE) for signed-in requests |
 | ``API_POOL_MIN`` / ``API_POOL_MAX`` | 1 / 10 | connection pool size |
 | ``API_WALK_TRANSIT_COST_PER_STORE`` | 11.0 | flat ILS per store visited on foot or by bus (estimate) |
+| ``CART_HANDOFF_CHAINS`` | empty | comma separated chain ids whose "continue on the chain's site" handoff is on (#72); empty = all off |
 """
 
 from __future__ import annotations
@@ -39,7 +40,11 @@ class Settings(BaseSettings):
         default=Decimal("11.0"), alias="API_WALK_TRANSIT_COST_PER_STORE"
     )
 
-    @field_validator("cors_origins", mode="before")
+    cart_handoff_chains: Annotated[list[str], NoDecode] = Field(
+        default_factory=list, alias="CART_HANDOFF_CHAINS"
+    )
+
+    @field_validator("cors_origins", "cart_handoff_chains", mode="before")
     @classmethod
     def _split(cls, v: object) -> object:
         if isinstance(v, str):

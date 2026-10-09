@@ -20,7 +20,14 @@ import { PriceHistory, type HistoryStoreOption } from "@/features/history/PriceH
 import { IconClock } from "@/components/ui/icons";
 import { ReportGapButton } from "@/features/feedback/GapReportSheet";
 import { useShopper } from "@/state/shopper";
-import { formatDistance } from "@/lib/format";
+import { useRich } from "@/i18n/format-2";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import type { Locale } from "@/i18n/locales";
+import { productMessages, type ProductMessageKey } from "@/i18n/messages/product";
+import { DataText } from "@/i18n/DataText";
+import { StoreText } from "@/i18n/StoreText";
+import { formatStoreDistance } from "@/lib/format";
+import { chainLabel } from "@/lib/storeName";
 import { listActions } from "@/state/list";
 import { formatUpdated, storeRows, variantsOf, type StoreRow } from "./productData";
 import styles from "./Product.module.css";
@@ -62,6 +69,9 @@ export function ProductDetail({
   canonicalId: number;
   nameHint: string | null;
 }) {
+  const t = useT(productMessages);
+  const r = useRich(productMessages);
+  const { locale } = useLocale();
   const shopper = useShopper();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [level, setLevel] = useState<FlexLevel>("any_brand");
@@ -122,14 +132,15 @@ export function ProductDetail({
 
   const readyCompare = state.kind === "ready" ? state.compare : null;
   const rows = readyCompare ? storeRows(readyCompare, canonicalId) : [];
-  const variants = variantsOf(rows);
-  const title = nameHint ?? variants[0]?.name ?? "פרטי מוצר";
+  const variants = variantsOf(rows, locale);
+  const title = nameHint ?? variants[0]?.name ?? t("pageTitle");
+  const unitText = variants[0]?.unitLabel ?? t("perUnitDefault");
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         {state.kind === "ready" && state.categoryPath.length > 0 ? (
-          <nav aria-label="קטגוריה">
+          <nav aria-label={t("categoryNav")}>
             <ol className={styles.crumbs}>
               {state.categoryPath.map((c) => (
                 <li key={c}>{c}</li>
@@ -154,18 +165,18 @@ export function ProductDetail({
               setAdded(true);
             }}
           >
-            הוספה לרשימה
+            {t("addToList")}
           </Button>
           {added ? (
             <span role="status" className={styles.added}>
-              נוסף לרשימה
+              {t("added")}
             </span>
           ) : null}
         </div>
       </header>
 
       {state.kind === "loading" ? (
-        <Card aria-busy="true" aria-label="טוענת מחירים">
+        <Card aria-busy="true" aria-label={t("loadingPrices")}>
           <Skeleton />
           <Skeleton />
           <Skeleton />
@@ -174,13 +185,13 @@ export function ProductDetail({
 
       {state.kind === "error" ? (
         <Card role="alert">
-          <p>לא הצלחנו לטעון את המחירים. בדקי את החיבור ונסי שוב.</p>
+          <p>{t("loadError")}</p>
         </Card>
       ) : null}
 
       {state.kind === "ready" && rows.length === 0 ? (
         <Card data-testid="product-empty">
-          <p>אין עדיין מחיר למוצר הזה בסניפים שברדיוס שבחרת. אפשר להגדיל את הרדיוס בפרופיל.</p>
+          <p>{t("noPrice")}</p>
         </Card>
       ) : null}
 
@@ -188,7 +199,7 @@ export function ProductDetail({
         <>
           <section aria-labelledby="variants-heading" className={styles.section}>
             <h2 id="variants-heading" className={styles.sectionTitle}>
-              וריאנטים לפי מחיר ליחידה
+              {t("variantsHeading")}
             </h2>
             <Card padding="none">
               <ol className={styles.variants} data-testid="variants">
@@ -200,12 +211,17 @@ export function ProductDetail({
                     <div className={styles.variantMain}>
                       <span className={styles.variantName}>{v.name}</span>
                       <span className={styles.muted}>
-                        הכי זול ב{v.cheapestStore} · נמכר ב-<span dir="ltr">{v.storeCount}</span>{" "}
-                        סניפים
+                        {r(
+                          "cheapestAt",
+                          { ltr: (c) => <span dir="ltr">{c}</span> },
+                          { store: v.cheapestStore, count: v.storeCount },
+                        )}
                       </span>
                       <span className={styles.tags}>
-                        {v.isEstimated ? <Tag variant="estimated">מחיר משוער (שקילה)</Tag> : null}
-                        {v.isSubstitute ? <Tag variant="differs">תחליף</Tag> : null}
+                        {v.isEstimated ? (
+                          <Tag variant="estimated">{t("estimatedWeighed")}</Tag>
+                        ) : null}
+                        {v.isSubstitute ? <Tag variant="differs">{t("substitute")}</Tag> : null}
                       </span>
                     </div>
                     <span className={styles.unit}>
@@ -220,18 +236,18 @@ export function ProductDetail({
 
           <section aria-labelledby="stores-heading" className={styles.section}>
             <h2 id="stores-heading" className={styles.sectionTitle}>
-              מחיר בכל סניף
+              {t("storesHeading")}
             </h2>
             <Card padding="none">
               <table className={styles.table} data-testid="store-prices">
-                <caption className="sr-only">מחירים לפי סניף, מהזול ליקר</caption>
+                <caption className="sr-only">{t("tableCaption")}</caption>
                 <thead>
                   <tr>
-                    <th scope="col">סניף</th>
-                    <th scope="col">מחיר מדף</th>
-                    <th scope="col">מחיר סופי</th>
+                    <th scope="col">{t("colStore")}</th>
+                    <th scope="col">{t("colShelf")}</th>
+                    <th scope="col">{t("colFinal")}</th>
                     <th scope="col">
-                      <span className="sr-only">דיווח</span>
+                      <span className="sr-only">{t("colReport")}</span>
                     </th>
                   </tr>
                 </thead>
@@ -244,23 +260,37 @@ export function ProductDetail({
                     return (
                       <tr key={store.store_id}>
                         <th scope="row" className={styles.storeCell}>
-                          <span className={styles.storeName}>{store.store_name}</span>
-                          <span className={styles.muted}>
-                            {formatDistance(store.distance_m)} · {item.display_name_he}
+                          <span className={styles.storeName}>
+                            <StoreText name={store.store_name} />
                           </span>
-                          {item.is_substitute ? <Tag variant="differs">תחליף</Tag> : null}
+                          <span className={styles.muted}>
+                            <span
+                              data-testid="product-distance"
+                              data-approximate={store.distance_approximate ? "true" : "false"}
+                            >
+                              {formatStoreDistance(store, locale)}
+                            </span>{" "}
+                            · <DataText>{item.display_name_he}</DataText>
+                          </span>
+                          {item.is_substitute ? (
+                            <Tag variant="differs">{t("substitute")}</Tag>
+                          ) : null}
                         </th>
-                        <td data-label="מחיר מדף" className={styles.shelfCell}>
+                        <td data-label={t("colShelf")} className={styles.shelfCell}>
                           <Price amount={shelf} tone="muted" />
-                          {item.is_estimated ? <Tag variant="estimated">משוער</Tag> : null}
+                          {item.is_estimated ? (
+                            <Tag variant="estimated">{t("estimatedShort")}</Tag>
+                          ) : null}
                         </td>
-                        <td data-label="מחיר סופי" className={styles.finalCell}>
+                        <td data-label={t("colFinal")} className={styles.finalCell}>
                           <Price amount={effective} size="md" />
                           {hasPromo ? (
                             <span className={styles.promo}>
                               {item.club_required ? (
                                 <Chip tone="accent" size="sm">
-                                  מבצע מועדון{item.club_name ? ` · ${item.club_name}` : ""}
+                                  {item.club_name
+                                    ? t("clubPromoNamed", { club: item.club_name })
+                                    : t("clubPromo")}
                                 </Chip>
                               ) : (
                                 <Chip tone="neutral" size="sm">
@@ -268,18 +298,21 @@ export function ProductDetail({
                                 </Chip>
                               )}
                               {item.club_required && !member ? (
-                                <span className={styles.muted}>רק לחברי המועדון</span>
+                                <span className={styles.muted}>{t("clubOnly")}</span>
                               ) : null}
                               <PromoConfidence confidence={item.promo_confidence} />
                             </span>
                           ) : null}
                           <span className={styles.updated}>
-                            <IconClock size={12} /> עודכן {formatUpdated(item.price_valid_from)}
+                            <IconClock size={12} />{" "}
+                            {t("updated", {
+                              time: formatUpdated(item.price_valid_from, new Date(), locale),
+                            })}
                           </span>
                         </td>
                         <td className={styles.reportCell}>
                           <ReportGapButton
-                            label="דיווח"
+                            label={t("reportShort")}
                             context={{
                               storeId: store.store_id,
                               storeName: store.store_name,
@@ -297,9 +330,7 @@ export function ProductDetail({
                 </tbody>
               </table>
             </Card>
-            <p className={styles.footnote}>
-              המחיר הקובע הוא בקופה. מחירים מקבצי השקיפות של הרשתות.
-            </p>
+            <p className={styles.footnote}>{t("footnote")}</p>
           </section>
         </>
       ) : null}
@@ -307,16 +338,12 @@ export function ProductDetail({
       {state.kind !== "loading" ? (
         <PriceHistory
           canonicalId={canonicalId}
-          stores={historyStores(rows, home)}
-          unitLabel={variants[0]?.unitLabel ?? "ליחידה"}
+          stores={historyStores(rows, home, t, locale)}
+          unitLabel={unitText}
         />
       ) : null}
 
-      <AlertMe
-        canonicalId={canonicalId}
-        name={title}
-        unitLabel={variants[0]?.unitLabel ?? "ליחידה"}
-      />
+      <AlertMe canonicalId={canonicalId} name={title} unitLabel={unitText} />
     </div>
   );
 }
@@ -355,22 +382,26 @@ function addToList(canonicalId: number, name: string, level: FlexLevel, ref: Can
 function historyStores(
   rows: ReadonlyArray<StoreRow>,
   homeStoreId: number | null,
+  t: (key: ProductMessageKey, vars?: Record<string, string | number>) => string,
+  locale: Locale,
 ): HistoryStoreOption[] {
   const options: HistoryStoreOption[] = [];
   if (homeStoreId !== null) {
     const mine = rows.find((r) => r.store.store_id === homeStoreId);
     options.push({
       storeId: homeStoreId,
-      label: mine ? `הסניף שלי · ${mine.store.chain_name}` : "הסניף שלי",
+      label: mine
+        ? t("historyMineChain", { chain: chainLabel(mine.store.chain_name, locale) })
+        : t("historyMine"),
     });
   }
   const cheapest = rows[0];
   if (cheapest && cheapest.store.store_id !== homeStoreId) {
     options.push({
       storeId: cheapest.store.store_id,
-      label: `הכי זול בקרבתך · ${cheapest.store.chain_name}`,
+      label: t("historyCheapest", { chain: chainLabel(cheapest.store.chain_name, locale) }),
     });
   }
-  options.push({ storeId: null, label: "מחיר בסיס של הרשת" });
+  options.push({ storeId: null, label: t("historyBase") });
   return options;
 }

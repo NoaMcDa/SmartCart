@@ -10,6 +10,7 @@ from datetime import date as Date
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -23,28 +24,44 @@ class _Model(BaseModel):
 
 # --- parse-list ------------------------------------------------------------------------------
 
+
 class ParseListRequest(_Model):
-    text: str = Field(min_length=1, max_length=4000, description="Free text, Hebrew, comma or newline separated")
-    flex_defaults: dict[str, FlexLevel] = Field(default_factory=dict, description="taxonomy_id -> flex level")
+    text: str = Field(
+        min_length=1, max_length=4000, description="Free text, Hebrew, comma or newline separated"
+    )
+    flex_defaults: dict[str, FlexLevel] = Field(
+        default_factory=dict, description="taxonomy_id -> flex level"
+    )
 
 
 class CanonicalRef(_Model):
     canonical_id: int
     display_name_he: str
+    display_name_ar: str | None = Field(
+        default=None,
+        description="The canonical's first Arabic name (names_ar[1], machine drafted, pending native "
+        "review); null when it has none. Hebrew stays the primary name.",
+    )
     taxonomy_id: str
     base_unit: Literal["100g", "100ml", "unit", "kg"]
-    category_path_he: list[str] = Field(default_factory=list, description="Taxonomy names, root first")
+    category_path_he: list[str] = Field(
+        default_factory=list, description="Taxonomy names, root first"
+    )
 
 
 class ParsedRow(_Model):
     input_text: str
     canonical: CanonicalRef | None = None
     quantity: Decimal = Field(default=Decimal(1), gt=0)
-    unit: Literal["kg"] | None = Field(default=None, description='"kg" when the user gave a weight; quantity is then in kg')
+    unit: Literal["kg"] | None = Field(
+        default=None, description='"kg" when the user gave a weight; quantity is then in kg'
+    )
     flex_level: FlexLevel = "any_brand"
     confidence: float = Field(ge=0, le=1)
     needs_confirmation: bool
-    candidates: list[CanonicalRef] = Field(default_factory=list, description="Alternatives when confidence is low")
+    candidates: list[CanonicalRef] = Field(
+        default_factory=list, description="Alternatives when confidence is low"
+    )
     not_found: bool = False
     is_weighed: bool = False
 
@@ -56,14 +73,21 @@ class ParseListResponse(_Model):
 
 # --- parse-recipe (phase 3, issue #71) -------------------------------------------------------
 
+
 class ParseRecipeRequest(_Model):
-    text: str | None = Field(default=None, min_length=1, max_length=20000, description="A pasted recipe, Hebrew")
+    text: str | None = Field(
+        default=None, min_length=1, max_length=20000, description="A pasted recipe, Hebrew"
+    )
     url: str | None = Field(
-        default=None, min_length=8, max_length=2000,
+        default=None,
+        min_length=8,
+        max_length=2000,
         description="A recipe page (http or https). Only this page is fetched: 5 s timeout, 2 MB cap",
     )
     servings: int | None = Field(
-        default=None, ge=1, le=100,
+        default=None,
+        ge=1,
+        le=100,
         description="Scale the amounts to this many servings (needs the recipe's own yield)",
     )
 
@@ -76,18 +100,91 @@ class ParseRecipeRequest(_Model):
 
 class ParseRecipeResponse(_Model):
     title: str | None
-    servings: int | None = Field(description="The servings the quantities are for; null when the recipe's yield is unknown (then nothing was scaled)")
-    items: list[ParsedRow] = Field(description="One row per ingredient, resolved like /parse-list; quantity counts packs (rounded up to the canonical's typical pack size) or kg when unit is kg")
-    unresolved: list[str] = Field(description="Ingredient lines left to the user: not a supermarket product, to taste, optional, or not found in the catalog")
+    servings: int | None = Field(
+        description="The servings the quantities are for; null when the recipe's yield is unknown (then nothing was scaled)"
+    )
+    items: list[ParsedRow] = Field(
+        description="One row per ingredient, resolved like /parse-list; quantity counts packs (rounded up to the canonical's typical pack size) or kg when unit is kg"
+    )
+    unresolved: list[str] = Field(
+        description="Ingredient lines left to the user: not a supermarket product, to taste, optional, or not found in the catalog"
+    )
+
+
+# --- parse-image: receipt or handwritten list photo (phase 3, issues #61, #68) ------------------
+# POST /parse-image is multipart/form-data: ``kind`` ("receipt" | "list") and ``image`` (JPEG, PNG
+# or WebP, at most 8 MB). The image is processed in memory and never stored (D11); raw OCR text is
+# not stored either. Needs the receipt-processing consent (``X-Image-Consent: 1``), else 403.
+
+
+class ReceiptLine(_Model):
+    text: str = Field(description="The line as read, after normalization")
+    quantity: Decimal | None = Field(default=None, description="Units or kg when printed")
+    price: Decimal | None = Field(default=None, description="Line total in ILS when printed")
+
+
+class ReceiptSummary(_Model):
+    chain_hint: str | None = Field(
+        default=None, description="Chain id guessed from the header; null when unsure"
+    )
+    store_hint: str | None = None
+    total: Decimal | None = Field(default=None, description="The printed total, ILS")
+    lines: list[ReceiptLine] = Field(default_factory=list)
+
+
+class ParseImageResponse(_Model):
+    kind: Literal["receipt", "list"]
+    provider: str = Field(
+        description="The OCR provider that read the image: fake, tesseract or claude"
+    )
+    items: list[ParsedRow] = Field(
+        description="Resolved like /parse-list; low-confidence rows carry needs_confirmation"
+    )
+    unresolved: list[str] = Field(
+        description="Lines read but not matched to a catalog product (never guessed)"
+    )
+    receipt: ReceiptSummary | None = Field(
+        default=None, description="Receipt structure; null for a list photo"
+    )
+    deleted: Literal[True] = Field(
+        default=True, description="The image and the raw text were discarded before responding"
+    )
+
+
+# --- cart handoff to chain online stores (phase 3, issue #72) ---------------------------------
+
+
+class ChainOnline(_Model):
+    chain_id: str
+    chain_name: str
+    online_url: str | None = Field(
+        default=None, description="The chain's own online-store home page"
+    )
+    search_url_template: str | None = Field(
+        default=None,
+        description="The chain's public site-search URL with {q} for the query; a link only, nothing is fetched",
+    )
+    enabled: bool = Field(
+        description="Feature flag (CART_HANDOFF_CHAINS); disabled chains show no handoff"
+    )
+    referral: bool = Field(
+        default=False, description="True when the link carries a referral; always labeled in the UI"
+    )
 
 
 # --- search ----------------------------------------------------------------------------------
+
 
 class SearchHit(_Model):
     canonical: CanonicalRef
     score: float = Field(description="Reciprocal rank fusion score, normalized to [0, 1]")
     matched_by: list[Literal["trigram", "fts", "vector"]]
-    confidence: float | None = Field(default=None, ge=0, le=1, description="Evidence for this hit; the parser's thresholds use it")
+    confidence: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Evidence for this hit; the parser's thresholds use it",
+    )
 
 
 class SearchResponse(_Model):
@@ -96,6 +193,7 @@ class SearchResponse(_Model):
 
 
 # --- compare ---------------------------------------------------------------------------------
+
 
 class BasketItem(_Model):
     canonical_id: int
@@ -114,7 +212,9 @@ class CompareRequest(_Model):
     items: list[BasketItem] = Field(min_length=1, max_length=200)
     location: Location
     clubs: list[str] = Field(default_factory=list)
-    home_store_id: int | None = Field(default=None, description="The user's usual store; savings are measured against it only")
+    home_store_id: int | None = Field(
+        default=None, description="The user's usual store; savings are measured against it only"
+    )
     include_online: bool = False
 
 
@@ -128,6 +228,11 @@ class PricedItem(_Model):
     canonical_id: int
     item_id: int
     display_name_he: str
+    canonical_name_ar: str | None = Field(
+        default=None,
+        description="The canonical's first Arabic name. display_name_he is the chain's own item name "
+        "and stays Hebrew; this is what the shopper asked for, not a translation of the item.",
+    )
     quantity: Decimal
     shelf_price: Decimal
     effective_unit_price: Decimal
@@ -136,19 +241,51 @@ class PricedItem(_Model):
     is_substitute: bool
     is_estimated: bool = Field(default=False, description="Weighed goods")
     promo_description: str | None = None
-    promo_min_qty: Decimal | None = Field(default=None, description="Quantity the promo needs (2 for 1+1)")
-    promo_applied: bool = Field(default=False, description="The requested quantity reaches the promo")
-    promo_add_qty: Decimal | None = Field(default=None, description="Add this many to complete the promo")
-    promo_add_saving: Decimal | None = Field(default=None, description="What completing the promo saves versus the shelf price")
+    promo_min_qty: Decimal | None = Field(
+        default=None, description="Quantity the promo needs (2 for 1+1)"
+    )
+    promo_applied: bool = Field(
+        default=False, description="The requested quantity reaches the promo"
+    )
+    promo_add_qty: Decimal | None = Field(
+        default=None, description="Add this many to complete the promo"
+    )
+    promo_add_saving: Decimal | None = Field(
+        default=None, description="What completing the promo saves versus the shelf price"
+    )
     club_required: bool = False
     club_name: str | None = None
     price_valid_from: datetime
-    confidence: float | None = Field(default=None, description="Match confidence when is_substitute")
+    confidence: float | None = Field(
+        default=None, description="Match confidence when is_substitute"
+    )
     tags: list[AttributeTag] = Field(default_factory=list)
     original_item_id: int | None = None
-    promo_confidence: float | None = Field(default=None, ge=0, le=1, description="Confidence that the promo was parsed correctly; null when unknown")
-    club_offer_name: str | None = Field(default=None, description="A club deal on this line for a club the user did not mark; information only, never in a total or saving")
-    club_offer_discount: Decimal | None = Field(default=None, description="What club_offer_name would save on this line, ILS; information only")
+    promo_confidence: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Confidence that the promo was parsed correctly; null when unknown",
+    )
+    club_offer_name: str | None = Field(
+        default=None,
+        description="A club deal on this line for a club the user did not mark; information only, never in a total or saving",
+    )
+    club_offer_discount: Decimal | None = Field(
+        default=None,
+        description="What club_offer_name would save on this line, ILS; information only",
+    )
+
+
+GeoPrecision = Literal["address", "street", "locality"]
+_GEO_PRECISION_DOC = (
+    "How exact the store's coordinates are (stores.geo_precision): address (house or chain-published), "
+    "street (the street, not the house), locality (the town centre). null when the store has no coordinates."
+)
+_DISTANCE_APPROX_DOC = (
+    "True when distance_m is only an estimate: the store sits at locality precision (a town centre, which "
+    "can be a few km from the real branch) or has no coordinates. Show it as approximate; never ranks or filters."
+)
 
 
 class StoreResult(_Model):
@@ -158,14 +295,21 @@ class StoreResult(_Model):
     store_name: str
     city: str | None = None
     distance_m: int
+    geo_precision: GeoPrecision | None = Field(default=None, description=_GEO_PRECISION_DOC)
+    distance_approximate: bool = Field(default=False, description=_DISTANCE_APPROX_DOC)
     channel: Literal["physical", "online"]
     total: Decimal
     found_count: int
-    missing: list[int] = Field(description="canonical_ids not available at this store; never ignored")
+    missing: list[int] = Field(
+        description="canonical_ids not available at this store; never ignored"
+    )
     substituted_count: int
     items: list[PricedItem]
     prices_updated_at: datetime
-    saving_vs_home: Decimal | None = Field(default=None, description="Positive means cheaper than the home store; null when no home store")
+    saving_vs_home: Decimal | None = Field(
+        default=None,
+        description="Positive means cheaper than the home store; null when no home store",
+    )
     lat: float | None = Field(default=None, description="Store latitude when known (phase 2)")
     lon: float | None = Field(default=None, description="Store longitude when known (phase 2)")
 
@@ -180,32 +324,46 @@ class CompareResponse(_Model):
 
 # --- optimize --------------------------------------------------------------------------------
 
+
 class TravelSettings(_Model):
     mode: TravelMode = "car"
     cost_per_km: Decimal = Field(default=Decimal("1.2"), ge=0)
-    extra_stop_value: Decimal = Field(default=Decimal(25), ge=0, le=50, description="What one more stop is worth to the user, ILS")
+    extra_stop_value: Decimal = Field(
+        default=Decimal(25), ge=0, le=50, description="What one more stop is worth to the user, ILS"
+    )
 
 
 class OptimizeRequest(CompareRequest):
     max_stores: int = Field(default=2, ge=1, le=3)
-    candidate_stores: int = Field(default=10, ge=1, le=15, description="N nearest stores the subsets are drawn from")
-    min_split_saving: Decimal = Field(default=Decimal(25), ge=0, description="A split is recommended only above this net saving")
+    candidate_stores: int = Field(
+        default=10, ge=1, le=15, description="N nearest stores the subsets are drawn from"
+    )
+    min_split_saving: Decimal = Field(
+        default=Decimal(25), ge=0, description="A split is recommended only above this net saving"
+    )
     travel: TravelSettings = Field(default_factory=TravelSettings)
-    solver: Literal["heuristic", "milp"] = Field(default="heuristic", description="milp handles cross-item promos and quantity rounding (phase 2)")
+    solver: Literal["heuristic", "milp"] = Field(
+        default="heuristic",
+        description="milp handles cross-item promos and quantity rounding (phase 2)",
+    )
 
 
 class PromoBundle(_Model):
     promo_description: str
     bundle_count: int = Field(ge=1)
     saving: Decimal
-    add_qty: Decimal | None = Field(default=None, description="Quantity to add to complete one more bundle")
+    add_qty: Decimal | None = Field(
+        default=None, description="Quantity to add to complete one more bundle"
+    )
 
 
 class SavingBreakdown(_Model):
     basket_saving: Decimal = Field(description="Home store total minus this plan's basket total")
     travel_cost: Decimal
     extra_stop_cost: Decimal
-    net_saving: Decimal = Field(description="basket_saving - travel_cost - extra_stop_cost; the hero number")
+    net_saving: Decimal = Field(
+        description="basket_saving - travel_cost - extra_stop_cost; the hero number"
+    )
 
 
 class StoreAssignment(_Model):
@@ -217,19 +375,29 @@ class Plan(_Model):
     kind: Literal["single", "split", "minimum_effort"]
     stores: list[StoreAssignment]
     total: Decimal
-    travel_cost: Decimal = Field(default=Decimal(0), description="Round-trip travel to this plan's stores, ILS")
+    travel_cost: Decimal = Field(
+        default=Decimal(0), description="Round-trip travel to this plan's stores, ILS"
+    )
     extra_minutes: int = 0
-    breakdown: SavingBreakdown | None = Field(default=None, description="null when there is no home store to compare with")
+    breakdown: SavingBreakdown | None = Field(
+        default=None, description="null when there is no home store to compare with"
+    )
     recommended: bool
     missing: list[int] = Field(default_factory=list)
     substituted_count: int = 0
-    promo_bundles: list[PromoBundle] = Field(default_factory=list, description="Cross-item promos the MILP solver exploited")
+    promo_bundles: list[PromoBundle] = Field(
+        default_factory=list, description="Cross-item promos the MILP solver exploited"
+    )
 
 
 class OptimizeResponse(_Model):
     single: Plan
-    split: Plan | None = Field(default=None, description="null when no split beats min_split_saving")
-    minimum_effort: Plan | None = Field(default=None, description="The home store itself; null without a home store")
+    split: Plan | None = Field(
+        default=None, description="null when no split beats min_split_saving"
+    )
+    minimum_effort: Plan | None = Field(
+        default=None, description="The home store itself; null without a home store"
+    )
     subsets_evaluated: int
     solver: Literal["heuristic", "milp"] = "heuristic"
     generated_at: datetime
@@ -237,6 +405,7 @@ class OptimizeResponse(_Model):
 
 
 # --- feedback --------------------------------------------------------------------------------
+
 
 class SubstitutionFeedbackRequest(_Model):
     canonical_id: int
@@ -269,10 +438,13 @@ class Ack(_Model):
 
 # --- signed-in user (Supabase JWT, row-level security) -----------------------------------------
 
+
 class ProfileUpdate(_Model):
     home_store_id: int | None = None
     radius_m: int = Field(default=5000, ge=500, le=15000)
-    neighborhood_lat: float | None = Field(default=None, ge=-90, le=90, description="Stored rounded to 3 decimals (about 100 m)")
+    neighborhood_lat: float | None = Field(
+        default=None, ge=-90, le=90, description="Stored rounded to 3 decimals (about 100 m)"
+    )
     neighborhood_lon: float | None = Field(default=None, ge=-180, le=180)
     travel_mode: TravelMode = "car"
     cost_per_km: Decimal = Field(default=Decimal("1.2"), ge=0)
@@ -283,9 +455,14 @@ class ProfileUpdate(_Model):
     kosher_level: str | None = None
     flex_defaults: dict[str, FlexLevel] = Field(default_factory=dict)
     theme: Literal["system", "light", "dark"] = "system"
-    consent_location: bool = Field(default=False, description="Required to store a neighborhood location")
+    consent_location: bool = Field(
+        default=False, description="Required to store a neighborhood location"
+    )
     monthly_budget: Decimal | None = Field(
-        default=None, ge=0, max_digits=10, decimal_places=2,
+        default=None,
+        ge=0,
+        max_digits=10,
+        decimal_places=2,
         description="Monthly grocery budget, ILS (#70). Omitted keeps the stored value; null clears it",
     )
 
@@ -361,6 +538,15 @@ EventName = Literal[
     # phase 3 surfaces
     "voice_started",
     "voice_completed",
+    # finish round (issues #56, #61, #68, #72, #73)
+    "pwa_installed",
+    "push_prompt_shown",
+    "push_opt_in",
+    "push_opened",
+    "store_mode_used",
+    "image_parsed",
+    "cart_handoff",
+    "locale_changed",
 ]
 
 
@@ -388,6 +574,7 @@ class EventsAck(_Model):
 
 # --- phase 2 contracts (issues #13, #23, #28, #34, #39, #45, #90) ----------------------------
 
+
 class StoreRef(_Model):
     store_id: int
     chain_id: str
@@ -395,6 +582,8 @@ class StoreRef(_Model):
     store_name: str
     city: str | None = None
     distance_m: int | None = None
+    geo_precision: GeoPrecision | None = Field(default=None, description=_GEO_PRECISION_DOC)
+    distance_approximate: bool = Field(default=False, description=_DISTANCE_APPROX_DOC)
     lat: float | None = None
     lon: float | None = None
     channel: Literal["physical", "online"] = "physical"
@@ -412,10 +601,16 @@ class PromoWindow(_Model):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     description: str
-    promo_type: str | None = Field(default=None, description="reward_type: price, percent, buy_x_get_y, bundle, other")
-    club_only: bool | None = Field(default=None, description="true when only club members (or card holders) get it")
+    promo_type: str | None = Field(
+        default=None, description="reward_type: price, percent, buy_x_get_y, bundle, other"
+    )
+    club_only: bool | None = Field(
+        default=None, description="true when only club members (or card holders) get it"
+    )
     club_name: str | None = None
-    confidence: float | None = Field(default=None, ge=0, le=1, description="Promo parsing confidence; null when unknown")
+    confidence: float | None = Field(
+        default=None, ge=0, le=1, description="Promo parsing confidence; null when unknown"
+    )
 
 
 class PriceHistoryResponse(_Model):
@@ -425,8 +620,13 @@ class PriceHistoryResponse(_Model):
     points: list[PricePoint]
     promos: list[PromoWindow] = Field(default_factory=list)
     generated_at: datetime
-    item_id: int | None = Field(default=None, description="The item whose price events make the series; null when none")
+    item_id: int | None = Field(
+        default=None, description="The item whose price events make the series; null when none"
+    )
     display_name_he: str | None = None
+    canonical_name_ar: str | None = Field(
+        default=None, description="The canonical's first Arabic name, null when none"
+    )
 
 
 class PriceAlertIn(_Model):
@@ -483,11 +683,17 @@ class StorePrice(_Model):
     uom: str
     price_valid_from: datetime
     promo_description: str | None = None
-    club_required: bool | None = Field(default=None, description="true when the price is a club deal the user marked")
+    club_required: bool | None = Field(
+        default=None, description="true when the price is a club deal the user marked"
+    )
     club_name: str | None = None
-    is_substitute: bool | None = Field(default=None, description="true: another product than the one scanned")
+    is_substitute: bool | None = Field(
+        default=None, description="true: another product than the one scanned"
+    )
     confidence: float | None = Field(default=None, description="Mapping confidence of a substitute")
-    tags: list[AttributeTag] | None = Field(default=None, description="Why it is a substitute: attributes against the scanned product")
+    tags: list[AttributeTag] | None = Field(
+        default=None, description="Why it is a substitute: attributes against the scanned product"
+    )
 
 
 class BarcodeLookupResponse(_Model):
@@ -495,9 +701,13 @@ class BarcodeLookupResponse(_Model):
     found: bool
     display_name_he: str | None = None
     canonical: CanonicalRef | None = None
-    here: StorePrice | None = Field(default=None, description="Price at the store the user is in, when store_id was given")
+    here: StorePrice | None = Field(
+        default=None, description="Price at the store the user is in, when store_id was given"
+    )
     cheapest_nearby: StorePrice | None = None
-    cheaper_substitute: StorePrice | None = Field(default=None, description="A cheaper any-brand match nearby, labeled as a substitute")
+    cheaper_substitute: StorePrice | None = Field(
+        default=None, description="A cheaper any-brand match nearby, labeled as a substitute"
+    )
     generated_at: datetime
     disclaimer_he: str = "המחיר הקובע הוא בקופה."
 
@@ -507,6 +717,9 @@ class SwapSuggestion(_Model):
     from_item_id: int
     to_item_id: int
     to_display_name_he: str
+    canonical_name_ar: str | None = Field(
+        default=None, description="The canonical's first Arabic name, null when none"
+    )
     flex_level: FlexLevel
     saving: Decimal = Field(description="For the requested quantity, ILS")
     confidence: float | None = None
@@ -523,13 +736,23 @@ class SwapSuggestionResponse(_Model):
 
 # --- budget and spend (phase 3, issue #70) ---------------------------------------------------
 
+
 class SpendEntryIn(_Model):
     date: Date = Field(description="The shopping day")
     store_id: int
     store_name: str = Field(min_length=1, max_length=200)
-    total: Decimal = Field(ge=0, max_digits=10, decimal_places=2, description="ILS; the user's actual total overrides the app's estimate")
+    total: Decimal = Field(
+        ge=0,
+        max_digits=10,
+        decimal_places=2,
+        description="ILS; the user's actual total overrides the app's estimate",
+    )
     item_count: int = Field(ge=0, le=1000)
     plan: Literal["single", "split"]
+    client_id: UUID | None = Field(
+        default=None,
+        description="Random id the browser makes per entry; a repeated POST with the same id returns the stored entry instead of a duplicate",
+    )
 
 
 class SpendEntry(SpendEntryIn):
@@ -551,18 +774,57 @@ class SpendExport(_Model):
 
 # --- promo cycles (phase 3, issue #69) -------------------------------------------------------
 
+
 class PromoCycleChain(_Model):
     chain_id: str
     chain_name: str
     cycles_seen: int = Field(ge=0, description="Gaps between consecutive promo windows observed")
-    median_gap_days: float | None = Field(description="Median days from one promo start to the next; null with no gap")
-    confidence: float = Field(ge=0, le=1, description="cycles_seen / (cycles_seen + 1.5) x max(0, 1 - coefficient of variation of the gaps)")
+    median_gap_days: float | None = Field(
+        description="Median days from one promo start to the next; null with no gap"
+    )
+    confidence: float = Field(
+        ge=0,
+        le=1,
+        description="cycles_seen / (cycles_seen + 1.5) x max(0, 1 - coefficient of variation of the gaps)",
+    )
     last_promo_ends: Date | None = Field(description="End of the latest promo window seen")
-    next_expected_from: Date | None = Field(description="null unless the prediction passes the gate (3 cycles, confidence 0.6)")
+    next_expected_from: Date | None = Field(
+        description="null unless the prediction passes the gate (3 cycles, confidence 0.6)"
+    )
     next_expected_to: Date | None
-    advice: Literal["buy_now", "wait", "unknown"] = Field(description="A hint, never a promise; unknown below the gate")
+    advice: Literal["buy_now", "wait", "unknown"] = Field(
+        description="A hint, never a promise; unknown below the gate"
+    )
 
 
 class PromoCycleResponse(_Model):
     canonical_id: int
     chains: list[PromoCycleChain]
+
+
+# --- closed beta (issue #40): invite codes, membership, feedback -----------------------------
+
+BetaSegment = Literal["large_family", "kosher", "periphery", "general"]
+
+
+class BetaJoinRequest(_Model):
+    code: str = Field(
+        min_length=6,
+        max_length=32,
+        pattern=r"^[A-Za-z0-9-]+$",
+        description="Invite code from a join link (case does not matter)",
+    )
+
+
+class BetaMembership(_Model):
+    member: bool
+    segment: BetaSegment | None = Field(default=None, description="null when not a member")
+
+
+class BetaFeedbackIn(_Model):
+    rating: int = Field(ge=1, le=5)
+    text: str = Field(
+        default="",
+        max_length=1000,
+        description="Free text; stored with the segment only, never with the user",
+    )

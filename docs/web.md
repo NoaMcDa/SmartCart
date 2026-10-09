@@ -774,6 +774,35 @@ null coordinate or an invalid one falls back to the distance-and-bearing approxi
 existing note ("הכיוון … בקירוב") shows only while at least one pin is approximate. The mock stores
 have no coordinates yet, so the mock still shows the note.
 
+### Approximate distances (trust, `docs/api.md` "Store location precision")
+
+A store at `locality` precision (or with no point) arrives with `distance_approximate: true`. The UI
+never shows that distance as exact:
+
+- **One formatter.** `formatStoreDistance(store, locale)` in `lib/format.ts`: exact is "4.2 ק"מ",
+  approximate is "כ־3.6 ק"מ · מיקום משוער" (Arabic "نحو 3.6 كم · الموقع تقريبي"; words in
+  `messages/format.ts`). A store with no point reports 0, which is not a measurement, so only the
+  words are shown. Used by the plan card, the split columns, the map list, row and sheet, the scan
+  store choice and result card, and the product detail table. `data-approximate` marks each one.
+- **Map.** A locality store is a hollow, dashed marker with the words "מיקום משוער" on it (never an
+  exact pin), plus an area (`APPROX_AREA_M`, 2 km: a visual size, not a promise that the branch is
+  inside) as a dashed layer on MapLibre and a dashed circle on the schematic map. A legend under the
+  map (`map-legend`) explains solid and hollow, and only shows when such a store is on the map. The
+  sheet says why the distance is an estimate. The `map-approx` note is a different thing (direction
+  when the API has no coordinates) and keeps its own rule.
+- **Not shown:** the home-store picker in onboarding and the gap-report store select show no distance,
+  so there is nothing to mark there.
+- **Chain and store names** in `MapScreen`, `ScanScreen`, `ProductDetail` and the substitution card go
+  through `chainLabel` / `storeLabel` (strings) or `StoreText` (`i18n/StoreText.tsx`, which marks a
+  part the tables do not know `lang="he"` through `DataText`).
+
+### Beta membership without a session
+
+`useBetaMembership` asks `GET /me/beta` only when the person is signed in; signed out it returns "not
+a member" and makes no request, so `BetaFeedbackEntry` (Profile) renders nothing and "delete my data"
+signed out never calls `/me`. The join page passes `{ askWithoutSession: true }`, which also asks in a
+build that cannot sign in at all (mock, local development), because a person opened it on purpose.
+
 ### Account deletion (UI halves of #30 and #55)
 
 "מחקי את הנתונים שלי", signed in: lists and profile are erased on the server (unchanged), then the
@@ -1000,3 +1029,237 @@ first results page after onboarding and that `/split` was never needed. A11y: `t
 One unrelated finding fixed on the way: checked rows in store mode were dimmed with `opacity: 0.6`,
 which put the tags and the update time below 4.5:1; they now keep their color and the name and price
 turn muted.
+
+## Web debt (finish round: #70, #26, #30, #56)
+
+### Spend: correct, delete, no duplicates (#70)
+
+- **`client_id`.** Every spend entry gets a `crypto.randomUUID()` when it is recorded, stored with it in
+  `sc-spend-v1` and sent in every `POST /me/spend`. A request whose response was lost is retried with the
+  same id, and the API returns the stored entry instead of a second one (the mock does too, with 200).
+  Entries saved before this get an id on their first POST (`ensureClientId`). A pull adopts a server entry
+  carrying the `client_id` of a local entry that has no `server_id` yet, instead of adding it again.
+- **Client helpers** (`api/client.ts`): `updateSpend(id, entry)` is `PUT /me/spend/{id}` (the whole
+  `SpendEntryIn`), `deleteSpend(id)` is `DELETE /me/spend/{id}` (204).
+- **Monthly view** (`features/budget/SpendEntries.tsx`). Each shop of the month shows a tag, "הערכה" until
+  the person corrects it, then "סכום בפועל", and two buttons: "תיקון הסכום" (an inline form; accepts `371.4`,
+  `371,40`, `₪ 371`; refuses zero, negatives, more than two decimals and more than 100,000) and "מחיקה"
+  (a confirm step with the safe choice focused). A correction is local first: the device copy changes at
+  once, then for a signed-in user whose entry is already on the account `PUT` follows, and if it fails the
+  old total comes back with a message. An entry still waiting to be sent goes out with its corrected total.
+- **Delete** removes the entry from the device at once and shows an undo snackbar for 5 seconds. After the
+  window, a signed-in user's `DELETE` is sent; if it fails the entry returns to the list with a message
+  (a 404 counts as done). Leaving the screen inside the window ends it: the delete goes ahead. A pull in
+  the window does not bring the entry back (`removedServerIds`). Signed out, or an entry that never reached
+  the account, has nothing to delete there. Known gap: an entry synced while signed in and deleted while
+  signed out stays on the account and comes back on the next sign-in pull.
+- New strings: `i18n/messages/budget.ts`. Mocks: `handlers.phase3.ts` (PUT, DELETE, `client_id` replay).
+  Tests: `budget/budget.test.ts`, `budget/budgetUi.test.tsx`, `tests/e2e/budget-edit.spec.ts`.
+- Not done: the Profile "ייצוא הנתונים שלי" file (`profile/PrivacySection.tsx`) still holds the profile and
+  the savings only, not the spend entries; `GET /me/spend/export` exists but nothing calls it.
+
+### Native-decision events (#56)
+
+`app_opened` (fired by `ConsentGate`) also carries `platform`.
+
+`lib/platform.ts` gives a coarse `ios | android | desktop | other` from the UA client hint, then the user
+agent string (an iPad that asks for the desktop site is `ios`); no versions or models. All events go
+through `trackEvent`, so none is queued before consent and none outside a beta build.
+
+| Event | Fired by |
+|---|---|
+| `pwa_installed {platform}` | `components/pwa/pwaEvents.ts`: on `appinstalled`, or on the first launch in standalone mode (also iOS, which has no `appinstalled`). Once per browser, remembered in `localStorage["sc-pwa-installed"]`, and only written when the event was really queued, so a launch before consent is counted later (it re-checks when consent is given) |
+| `push_prompt_shown {platform}` | `alerts/push.ts` `enablePush`, right before `Notification.requestPermission()`, only when the permission is `default` (the denominator of the opt-in rate) |
+| `push_opt_in {platform}` | `alerts/push.ts` `enablePush`, when the permission becomes `granted` through our button (not when it already was) |
+| `push_opened {platform}` | `public/sw.js` `notificationclick` posts `{type: "sc-push-opened"}` to the page it focuses, or to the window it opens (queued until that page listens); `pwaEvents.ts` turns the message into the event |
+| `store_mode_used {plan, platform}` | `store/StoreMode.tsx`, once per shopping session when store mode shows a session |
+
+Tests: `lib/platform.test.ts`, `components/pwa/pwaEvents.test.ts`, `alerts/push.test.ts`, `alerts/sw.test.ts`,
+`store/StoreMode.test.tsx`.
+
+### Privacy and accessibility wording (#30, #26)
+
+`/privacy` is marked "טיוטה, ממתינה לבדיקה משפטית" and gains sections for beta events (what is sent,
+consent, opt-out), receipt and list photos (in memory, deleted, text not kept, consent, withdrawal), voice
+(browser recognition, no audio, transcript not stored), spend tracking, and the online-store handoff (we
+fetch nothing; the chain's site has its own policy). Copy: `i18n/messages/privacy.ts`, rendered by
+`app/(secondary)/privacy/PrivacySections.tsx`. The photo and handoff sections describe the finish-round
+features by their contract (`/parse-image`, `/chains/online`); check them against what ships. The
+accessibility statement shows a coordinator line from `NEXT_PUBLIC_CONTACT_NAME`,
+`NEXT_PUBLIC_CONTACT_EMAIL` and `NEXT_PUBLIC_CONTACT_PHONE` (build-time; any subset), and keeps the
+"details will be published before launch" line when none is set (`CoordinatorLine.tsx`).
+
+### Text-only 200% scaling (#26)
+
+`tests/a11y/text-scaling.spec.ts`, results in `docs/a11y-report.md`. Two CSS fixes came out of it
+(`Product.module.css`, `StoreMode.module.css`).
+
+## Cart handoff (#72)
+
+"המשך באתר הרשת" on every store card (the plan cards of the results, through `PlanHandoff`, and each
+column of the split view) when `GET /chains/online` says that store's chain is `enabled` and has an
+address. It opens a sheet (`features/handoff/HandoffAction.tsx`) with the list for that store as
+`name × quantity` lines (copy, with the select-the-text fallback of the share sheet, and native share
+where the browser has it), a link to the chain's site, and per-item "חיפוש באתר" links built from
+`search_url_template` with the display name URL-encoded (`links.ts`; https only). All links are
+`target="_blank" rel="noopener noreferrer"`. The page fetches nothing from the chain; see
+[cart-transfer.md](cart-transfer.md).
+
+- The disclaimer (online prices, availability and delivery fees may differ; the price at checkout
+  governs) is always visible in the sheet. With `referral` true every link carries "קישור שותפים" and
+  the sheet says the links do not affect ranking, prices or savings.
+- A disabled chain renders nothing. A failed or slow `/chains/online` renders nothing and cannot break
+  the results (`useChainsOnline` is a shared cache, errors are swallowed to "no action").
+- Copy: all new strings are in `src/i18n/messages/handoff.ts` (`ar` is a copy of the Hebrew under a
+  `// TODO ar`, #73). Events: `cart_handoff` with `action` `copy`, `share`, `open_site`, `open_item`;
+  no names or URLs are sent.
+- Independence: the handoff is imported only by `PlanCard` (one `<PlanHandoff />` line) and
+  `SplitView`; it reads no price or ranking field and no ranking module reads it
+  (`tests/unit/handoff-independence.test.ts`).
+- Mock: `GET /chains/online` in `src/mocks/handlers.phase3.ts` enables `rami_levy`, `shufersal`
+  (with a referral) and `osher_ad` (no site search) on the reserved `chain-shop.example` host, which is
+  the only host added to the privacy audit allow-list. `victory` is present but disabled.
+- Tests: `features/handoff/links.test.ts`, `features/handoff/HandoffAction.test.tsx`,
+  `tests/unit/handoff-independence.test.ts`, `tests/e2e/handoff.spec.ts` (phone and desktop, results and
+  split view, failure hides the action, no request to the chain host, axe on the sheet).
+
+## Arabic locale (#73)
+
+Infrastructure for Arabic as the second interface language. The copy migration, the native-speaker
+review, Arabic search and the Arabic SEO pages are separate work (see the issue).
+
+- **Catalogs.** One module per feature under `src/i18n/messages/`, written with `defineMessages({ he, ar })`
+  (the compiler enforces identical keys). Components call `useT(catalog)`; non-React code calls
+  `translate(catalog, locale, key)`. Hebrew is the source and the fallback. A module whose Arabic is
+  a draft or unfinished carries a `// TODO ar` comment.
+- **Locale state.** `LocaleProvider` (root layout) keeps the locale in the `sc-locale` cookie and
+  `localStorage`, hydrates from the Hebrew server snapshot and then switches, and sets `<html lang>`.
+  `LOCALE_INIT_SCRIPT` sets `lang` before first paint. `dir` is `rtl` in both locales, so switching
+  never flips the layout. `INTL_LOCALE.ar` is `ar-IL-u-nu-latn`: Western digits, matching the shelf
+  labels (to be confirmed with users). Prices keep going through `Price` (an LTR island, `₪` + NBSP).
+- **Switch.** `src/i18n/LocaleSwitch.tsx` is a radio group (`SegmentedControl`) with "עברית" and
+  "العربية", each labeled in its own language with `lang`. It calls `setLocale` and fires
+  `trackEvent("locale_changed", { locale })`. **Mount it in Profile**, next to `ThemePreferenceControl`
+  (`<LocaleSwitch />`, no props needed). The choice is per browser: the profile schema has no locale
+  column, so there is a `TODO(#73)` to sync it when signed in.
+- **Font.** `Noto Sans Arabic` (SIL OFL) 400/500/600/700, self-hosted in `public/fonts/NotoSansArabic-*.woff2`
+  with `OFL-NotoSansArabic.txt`, fetched by `scripts/fetch-noto-arabic.sh` (same method as
+  `fetch-heebo.sh`; rerun only to update). `src/app/fonts.ts` loads it as `--font-noto-arabic`
+  (`preload: false`, so Hebrew page loads do not pay for it) and `--sc-font` is
+  `var(--font-heebo), var(--font-noto-arabic), "Heebo", system-ui, sans-serif`. Hebrew and Latin
+  glyphs render in Heebo; Arabic glyphs fall through to Noto per character. There is no per-locale
+  font swap, so there is no layout shift on switching. `heebo.variable` in `fonts.ts` carries both
+  variables, so the root layout needed no change.
+- **Mixed text.** `src/i18n/Bidi.tsx`: `<Bidi>Coca-Cola</Bidi>` is `dir="ltr" lang="en"` with
+  `unicode-bidi: isolate`; `<Bidi lang="ar">` / `lang="he"` marks a run of the other RTL language.
+  Use it for Latin brand names, units and codes inside Arabic or Hebrew copy; prices use `Price`.
+- **Guards.** Physical left/right CSS and JSX style properties are rejected by stylelint
+  (`.stylelintrc.json`) and ESLint (see "RTL rules and the guard"); there are none in `src/**/*.css`.
+  `src/i18n/messages.catalog.test.ts` checks, for every module under `messages/`, identical `he` and
+  `ar` keys (catches `as` casts), the same `{placeholders}`, no empty strings, and lists Arabic values
+  identical to the Hebrew (untranslated) as a printed warning; it fails only for modules not marked
+  `// TODO ar`.
+- **Tests.** Unit: `src/i18n/LocaleSwitch.test.tsx` (switch, event, `lang`, `Bidi`, `Price` inside
+  Arabic), `messages.catalog.test.ts`, `i18n.test.tsx`. E2E: `tests/e2e/locale-switch.spec.ts`
+  (switch, `<html lang>`, cookie, reload, the migrated nav in Arabic, Noto loads, no horizontal
+  scroll). A11y: `tests/a11y/locale-ar.spec.ts` (axe on the Arabic shell, light and dark, 390 and
+  1280 px). Both use the test-only page `/locale-test` (`src/app/(dev)/`: real shell, `noindex`, not
+  in the sitemap) until the switch is mounted in Profile.
+- **Lists, comparison, split, store mode, budget, consent, alerts, legal pages (AR-4).** Modules
+  `list`, `compare`, `split`, `store`, `alerts`, `consent`, `counts`, `shared`, `legal`, plus the
+  budget, privacy, accessibility, photo, handoff and beta modules finished. Counted nouns use four
+  forms (`i18n/plural.ts`, `<base>_one|two|few|many`; Hebrew repeats its plural; an Arabic `_two`
+  may drop the number, the catalog guard allows it). Product names: `productName(canonical, locale)`
+  reads `display_name_ar`; `itemProductName(item, locale)` reads `canonical_name_ar` on priced
+  items and swaps. A chain's own item name (`PricedItem.display_name_he`) is never replaced: in
+  Arabic `ItemName` shows the Arabic product name and the Hebrew shelf name under it, marked
+  `lang="he"` (`DataText` marks any other Hebrew-only data such as promo descriptions). Chains are
+  Latin and cities Arabic through `lib/storeName.ts` (`chainLabel`, `storeLabel`). Legal and
+  consent texts (privacy, accessibility, consent sheet, photo consent, beta join) carry
+  `LegalNotice`: "هذه ترجمة، والنص العبري هو الملزم", visible in Arabic only, until a lawyer has
+  reviewed the Arabic. The privacy and accessibility route files stay server components
+  (`PrivacyBody`, `AccessibilityBody` hold the words). E2E: `tests/e2e/locale-ar-4.spec.ts`.
+- **Still open** (issue #73): Arabic screenshots on real devices, native-speaker review of every
+  `ar` string, Arabic skip link and other literals not yet migrated to catalogs (the skip link in
+  `AppShell` is still Hebrew), the Western-versus-Eastern digits confirmation with users.
+
+## Photo to list (#61, #68)
+
+The web half of receipt scanning and handwritten list photos. "מצילום" in the list builder (next to
+"ממתכון") opens `features/photo/PhotoSheet.tsx`; the server half (`POST /parse-image`, the OCR
+providers, the monthly cap) is a separate workstream, so everything here runs against the mock in
+`src/mocks/handlers.phase3.ts`.
+
+**Flow.** choose, then consent (once), then reading, then preview, then the list.
+
+1. **Choose.** Two cards, "קבלה" and "רשימה בכתב יד", each with "צילום" (a file input with
+   `accept="image/*" capture="environment"`, which opens the back camera on a phone) and "בחירת קובץ"
+   (the same input without `capture`). The inputs are hidden and sit outside the dialog, so the sheet's
+   focus trap never counts them.
+2. **Checks on the device** (`imageFile.ts`). A file that is not an image, or is over 8 MB (the
+   server's limit), is refused with a message and no request. Anything whose longest side is over
+   2400 px is redrawn on a canvas as a JPEG (quality 0.85, white background) before the upload, which
+   keeps phone photos small; a format the server does not take (HEIC, GIF) goes
+   through the same redraw when the browser can decode it, and a JPEG, PNG or WebP the browser cannot
+   decode is sent as it is. The size logic (`checkImageFile`, `fitWithin`, `prepareImage`) is tested
+   without a canvas behind an `ImageIO` seam, and an e2e test checks that a 4000 x 3000 photo reaches
+   the server as 2400 x 1800.
+3. **Consent** (`features/consent/imageConsent.ts`). The first upload asks: the image is read on our
+   server and deleted right away, the text is not kept, nothing is shared; "מסכים/ה" stores the
+   answer, "לא עכשיו" closes the sheet. **No consent, no request**: the sheet checks it before
+   `parseImage`, and `parseImage` refuses to send without it (`X-Image-Consent: 1` is sent only
+   then). A 403 from the server (it disagrees) sends the person back to the consent step.
+   Withdrawable in Profile, "פרטיות ונתונים" (`ImageConsentToggle`, a switch); turning it off removes
+   the key at once and the next photo asks again. Delete-my-data removes it too.
+4. **Reading.** A progress state with "ביטול"; cancelling aborts the request and drops a late answer.
+5. **Preview** (`PhotoPreview.tsx`, the recipe preview's pattern). Matches the server is sure about
+   are listed and ticked; matches with `needs_confirmation` are in an amber group "לאישור" (the list's
+   amber), unticked, each with "נקרא: <the line as read>"; the lines in `unresolved` are in "לא זוהו",
+   each an editable field with a checkbox (typing ticks it). A receipt adds a summary: chain (named
+   from the chain id, with the store hint), the printed total and the number of lines. The photo is
+   shown small, from an object URL on this device only, so what was read can be checked against what
+   was written. "התמונה נמחקה מהשרת" is shown when `deleted`. **Nothing joins the list until
+   "הוסיפי N פריטים לרשימה"**; then the ticked matches are added as they came (an uncertain match
+   keeps its normal amber confirmation in the list), an unresolved line the person rewrote goes through
+   `/parse-list` once more (and joins as typed if that fails), and one left as read joins as a
+   not-found row in the list's "לא זוהו" group.
+6. **Failures** (`photoErrors.ts`), each with its own message and "להקליד במקום" (closes the sheet and
+   puts the cursor in the list input): 403 consent (back to the consent step), 413 and 415 (another
+   photo), 429 ("הגענו למכסה החודשית, נסו שוב בחודש הבא", no retry), 501 and 503 (no OCR provider,
+   retry), a dropped connection (retry), anything else (retry). An image with nothing readable has its
+   own state.
+
+**Events.** `image_parsed {kind, outcome, item_count?, duration_ms?}` once per attempt that reached a
+decision: `parsed`, `empty`, `refused` (not an image, over 8 MB, 403, 413, 415, 429) or `error`. Counts
+and fixed strings only; never the text, the file name or the image. Declining the consent step is not
+an event.
+
+**API helper.** `parseImage(kind, file, consent, { signal })` in `src/api/client.ts` sends
+`multipart/form-data` through `api.POST` with a `bodySerializer` that builds the `FormData`, so the
+bearer-token middleware (`ensureApiAuth`) and the mock transport apply like for every other helper;
+openapi-fetch drops its JSON content type for a `FormData` body, so the browser sets the boundary. The
+generated body type says `image: string`, so the file is cast once, in that function.
+
+**Mock** (`POST /parse-image`). Without `X-Image-Consent: 1` it answers 403. File names pick the case:
+`x-413.png` too large, `x-415.png` type, `x-429.png` monthly cap, `x-503.png` no OCR provider,
+`x-500.png` failure, `empty.png` nothing read, `slow.png` waits 1.5 s. The real limits apply as well
+(not JPEG, PNG or WebP is 415, over 8 MB is 413, no image part is 422). A `list` upload returns three
+matches (one uncertain) and two unresolved lines; a `receipt` returns four matches (one uncertain), two
+unresolved lines and a summary (Shufersal, "שופרסל דיל מודיעין", total 187.40, six lines).
+
+| Key | Owner |
+|---|---|
+| `sc-image-consent-v1` | `features/consent/imageConsent.ts`; `"1"` means agreed. In `CORE_DATA_KEYS`, so "מחקי את הנתונים שלי" removes it and `useImageConsent` hears the `storage` event |
+
+Copy is in `src/i18n/messages/photo.ts` (`ar` is a copy of the Hebrew under a `// TODO ar`, #73).
+
+Not built: the on-screen crop that #68 mentions (the preview shows the photo beside what was read, but
+there is no crop step), and the accuracy and cost evaluations the issues ask for (they need the server
+half and real photos). Receipts are never stored: the file lives in memory in the sheet until it closes.
+
+Tests: `features/photo/imageFile.test.ts` (checks, `fitWithin`, `prepareImage`),
+`features/photo/photo.test.tsx` (entry, consent gate, preview, errors, events, token, Profile switch),
+`features/consent/imageConsent.test.ts`, `mocks/handlers.photo.test.ts` (node environment, the magic
+names), `i18n/messages/photo.test.ts`; `tests/e2e/photo.spec.ts` (with `photo-helpers.ts`, which answers
+`/parse-image` with the real multipart body because `mockApi` rewrites bodies as JSON) and
+`tests/a11y/photo.spec.ts`.

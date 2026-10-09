@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Query
 from smartcart_api import schemas
 from smartcart_api.db import get_conn
 from smartcart_api.listparse import Fragment, parse_fragment, split_items, split_vav
+from smartcart_api.misses import record_miss
 from smartcart_api.search import Hit, ancestors, hybrid_search
 
 router = APIRouter()
@@ -27,6 +28,7 @@ def canonical_ref(h: Hit) -> schemas.CanonicalRef:
     return schemas.CanonicalRef(
         canonical_id=h.canonical_id,
         display_name_he=h.display_name_he,
+        display_name_ar=h.display_name_ar,
         taxonomy_id=h.taxonomy_id,
         base_unit=h.base_unit,
         category_path_he=h.category_path_he,
@@ -40,6 +42,10 @@ def search(
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
 ) -> schemas.SearchResponse:
     hits = hybrid_search(conn, q, limit=limit)
+    best = max((h.confidence for h in hits), default=0.0)
+    if best < NOT_FOUND_BELOW:
+        # Nothing the parser would accept: a demand signal for the catalog (issue #52).
+        record_miss(conn, q, "search", best if hits else None)
     return schemas.SearchResponse(
         query=q,
         hits=[
@@ -97,7 +103,11 @@ def _row(
         )
     top = hits[0]
     flex = next(
-        (flex_defaults[t] for t in chains.get(top.taxonomy_id, [top.taxonomy_id]) if t in flex_defaults),
+        (
+            flex_defaults[t]
+            for t in chains.get(top.taxonomy_id, [top.taxonomy_id])
+            if t in flex_defaults
+        ),
         "any_brand",
     )
     needs = conf < CONFIRM_BELOW
@@ -137,5 +147,7 @@ def parse_list(
         resolved.extend(parsed)
     chains = ancestors(conn, {h[0].taxonomy_id for _, h, _ in resolved if h})
     rows = [_row(conn, f, h, c, body.flex_defaults, chains) for f, h, c in resolved]
+    for frag, hits, conf in resolved:
+        if not hits or conf < NOT_FOUND_BELOW:  # the rows that came back not_found (issue #52)
+            record_miss(conn, frag.text, "parse_list", conf if hits else None)
     return schemas.ParseListResponse(rows=rows, generated_at=datetime.now(UTC))
-

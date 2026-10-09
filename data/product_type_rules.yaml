@@ -33,7 +33,7 @@ rules:
   critical_keys: []
   soft_keys: [pack_size, brand, fat_pct]
   keywords: [שוקו, משקה חלב בטעם שוקולד]
-  exclude: [אבקת]
+  exclude: [אבקת, טבלת, טבלה]
 - product_type: cottage_cheese
   critical_keys: [fat_pct]
   soft_keys: [pack_size, brand]
@@ -249,7 +249,7 @@ rules:
   critical_keys: [flavor]
   soft_keys: [pack_size, brand]
   keywords: [חומוס]
-  exclude: [גרגרי, יבש, שימורי, מבושל]
+  exclude: [גרגרי, גרגירי, יבש, שימורי, מבושל]
   implied: {flavor: plain}
 - product_type: tahini_salad
   critical_keys: []
@@ -434,7 +434,7 @@ rules:
   critical_keys: [state]
   soft_keys: [pack_size, brand]
   keywords: [אבטיח]
-  exclude: []
+  exclude: [גרעיני]
   implied: {state: fresh}
 - product_type: melon
   critical_keys: [state]
@@ -543,7 +543,7 @@ rules:
   critical_keys: []
   soft_keys: [pack_size, brand]
   keywords: [אורז יסמין, יסמין]
-  exclude: []
+  exclude: [תה, שקיקים]
 - product_type: rice_round
   critical_keys: []
   soft_keys: [pack_size, brand]
@@ -638,7 +638,7 @@ rules:
   critical_keys: []
   soft_keys: [pack_size, brand]
   keywords: [שמרים יבשים, שמרים]
-  exclude: []
+  exclude: [לחמניה, לחמניות]
 - product_type: breadcrumbs
   critical_keys: []
   soft_keys: [pack_size, brand]
@@ -678,7 +678,7 @@ rules:
   critical_keys: []
   soft_keys: [pack_size, brand]
   keywords: [חמאת בוטנים]
-  exclude: []
+  exclude: [בייגלה, במילוי]
 - product_type: honey
   critical_keys: []
   soft_keys: [pack_size, brand]
@@ -773,7 +773,7 @@ rules:
   critical_keys: []
   soft_keys: [pack_size, brand]
   keywords: [תה]
-  exclude: [ירוק, קר, צמחים, תה ירוק]
+  exclude: [ירוק, קר, צמחים, תה ירוק, סבון, פירות]
 - product_type: soup_powder
   critical_keys: [flavor]
   soft_keys: [pack_size, brand]
@@ -808,7 +808,7 @@ rules:
 - product_type: chickpeas
   critical_keys: [state]
   soft_keys: [pack_size, brand]
-  keywords: [גרגרי חומוס, חומוס יבש, חומוס גרגרים]
+  keywords: [גרגרי חומוס, גרגירי חומוס, חומוס יבש, חומוס גרגרים]
   exclude: []
 - product_type: peas
   critical_keys: [state]
@@ -997,7 +997,7 @@ rules:
   critical_keys: []
   soft_keys: [pack_size, brand]
   keywords: [גרעינים, גרעיני חמניה]
-  exclude: []
+  exclude: [תירס, אבטיח]
 - product_type: chocolate_bar
   critical_keys: [flavor]
   soft_keys: [pack_size, brand]
@@ -1157,7 +1157,7 @@ rules:
   critical_keys: []
   soft_keys: [pack_size, brand]
   keywords: [בירה]
-  exclude: [שורש, ללא אלכוהול]
+  exclude: [שורש, ללא אלכוהול, חיטה, סטאוט, אייל]
 - product_type: red_wine_dry
   critical_keys: []
   soft_keys: [pack_size, brand]

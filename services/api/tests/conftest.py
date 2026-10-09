@@ -21,8 +21,17 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import psycopg
+import psycopg.sql
 import pytest
-from api_world import JWT_SECRET, World, seed_catalog, seed_world
+from api_world import (
+    JWT_SECRET,
+    World,
+    assume_role,
+    make_api_role,
+    release_role,
+    seed_catalog,
+    seed_world,
+)
 from fastapi.testclient import TestClient
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
@@ -43,6 +52,7 @@ db = _module.db
 _skip_without_extension = _module._skip_without_extension
 
 API_TEST_DB = "smartcart_api_test"
+AS_API_ROLE_ENV = "SMARTCART_TEST_AS_API_ROLE"
 
 
 @pytest.fixture(scope="session")
@@ -84,13 +94,20 @@ def database(api_dsn: str):
 
 
 @pytest.fixture
-def client(db: psycopg.Connection, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    """A TestClient whose requests run on the test's rolled-back connection."""
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
-    get_settings.cache_clear()
+def api_role(db: psycopg.Connection) -> str:
+    return make_api_role(db)
 
+
+def _client(db: psycopg.Connection, role: str | None) -> Iterator[TestClient]:
     def _conn() -> Iterator[psycopg.Connection]:
-        yield db
+        if role is None:
+            yield db
+            return
+        assume_role(db, role)
+        try:
+            yield db
+        finally:
+            release_role(db)
 
     app.dependency_overrides[get_conn] = _conn
     try:
@@ -98,6 +115,31 @@ def client(db: psycopg.Connection, monkeypatch: pytest.MonkeyPatch) -> Iterator[
     finally:
         app.dependency_overrides.pop(get_conn, None)
         get_settings.cache_clear()
+
+
+@pytest.fixture
+def client(db: psycopg.Connection, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    """A TestClient whose requests run on the test's rolled-back connection.
+
+    With ``SMARTCART_TEST_AS_API_ROLE=1`` every request runs as a throwaway copy of the
+    ``smartcart_api`` role instead of the superuser the tests connect as: the whole suite then
+    proves the role's grants and policies (one test, the stand-in ``auth.users`` delete in
+    ``DELETE /me`` without the Supabase Admin API, is expected to differ: the role cannot do it).
+    """
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
+    get_settings.cache_clear()
+    role = make_api_role(db) if os.environ.get(AS_API_ROLE_ENV) == "1" else None
+    yield from _client(db, role)
+
+
+@pytest.fixture
+def client_as_api_role(
+    db: psycopg.Connection, api_role: str, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[TestClient]:
+    """Like ``client``, always as the throwaway API role."""
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
+    get_settings.cache_clear()
+    yield from _client(db, api_role)
 
 
 @pytest.fixture

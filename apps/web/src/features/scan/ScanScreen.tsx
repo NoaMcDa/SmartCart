@@ -9,13 +9,16 @@ import { reportScanCompleted, reportScanStarted } from "@/features/consent/betaE
 import type { ScanEngine, ScanOutcome } from "@/features/consent/betaEvents";
 import { ReportGapButton } from "@/features/feedback";
 import controls from "@/features/profile/controls/controls.module.css";
+import { useRich } from "@/i18n/format-2";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { scanMessages } from "@/i18n/messages/scan";
 import { useShopper } from "@/state/shopper";
 import { BARCODE_ERRORS, checkBarcode } from "./barcode";
 import { CAMERA_MESSAGES, requestCamera, stopStream, type CameraFailure } from "./camera";
 import { startDetector, type ScanSession } from "./detector";
 import { ResultCard } from "./ResultCard";
 import { recordScan } from "./scanLog";
-import { useScanStores } from "./stores";
+import { scanOptionText, useScanStores } from "./stores";
 import styles from "./Scan.module.css";
 
 type Phase =
@@ -52,6 +55,9 @@ export function ScanScreen() {
 }
 
 function ScanScreenInner() {
+  const t = useT(scanMessages);
+  const { locale } = useLocale();
+  const r = useRich(scanMessages);
   const shopper = useShopper();
   const stores = useScanStores(shopper);
   // The hook is null outside a Next router (component tests), which simply means "no code".
@@ -59,10 +65,11 @@ function ScanScreenInner() {
   const urlCode = params?.get("code")?.trim() || null;
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [manual, setManual] = useState(urlCode ?? "");
-  const [manualError, setManualError] = useState<string | null>(() => {
+  // The failed check's reason (not its text), so the message follows the language.
+  const [manualError, setManualError] = useState<keyof typeof BARCODE_ERRORS | null>(() => {
     if (!urlCode) return null;
     const check = checkBarcode(urlCode);
-    return check.ok ? null : BARCODE_ERRORS[check.reason];
+    return check.ok ? null : check.reason;
   });
   const urlHandled = useRef<string | null>(null);
   const manualId = useId();
@@ -236,7 +243,7 @@ function ScanScreenInner() {
     e.preventDefault();
     const check = checkBarcode(manual);
     if (!check.ok) {
-      setManualError(BARCODE_ERRORS[check.reason]);
+      setManualError(check.reason);
       return;
     }
     setManualError(null);
@@ -261,14 +268,11 @@ function ScanScreenInner() {
 
   return (
     <div className={styles.page}>
-      <p className={styles.intro}>
-        כוונו את המצלמה אל הברקוד שעל המוצר. נראה כאן מה המחיר, איפה הכי זול באזור ואיזה תחליף זול
-        יותר יש.
-      </p>
+      <p className={styles.intro}>{t("intro")}</p>
 
       <div className={controls.field}>
         <label htmlFor={storeSelectId} className={controls.label}>
-          באיזה סניף את עכשיו?
+          {t("whichStore")}
         </label>
         <select
           id={storeSelectId}
@@ -278,13 +282,13 @@ function ScanScreenInner() {
           onChange={(e) => stores.choose(Number(e.target.value))}
           data-testid="scan-store"
         >
-          {stores.loading ? <option value="">טוענת סניפים…</option> : null}
+          {stores.loading ? <option value="">{t("loadingStores")}</option> : null}
           {!stores.loading && stores.options.length === 0 ? (
-            <option value="">לא נמצאו סניפים באזור</option>
+            <option value="">{t("noStores")}</option>
           ) : null}
           {stores.options.map((o) => (
             <option key={o.storeId} value={o.storeId}>
-              {o.label}
+              {scanOptionText(o, locale)}
             </option>
           ))}
         </select>
@@ -298,13 +302,13 @@ function ScanScreenInner() {
               className={styles.video}
               playsInline
               muted
-              aria-label="תצוגת המצלמה"
+              aria-label={t("cameraView")}
               data-testid="scan-video"
             />
             <div className={styles.frame} aria-hidden="true" />
           </div>
           <p role="status" className={styles.lineMeta}>
-            {phase.kind === "starting" ? "פותחת את המצלמה…" : "מחפשת ברקוד…"}
+            {phase.kind === "starting" ? t("openingCamera") : t("searchingBarcode")}
           </p>
           <Button
             variant="outline"
@@ -312,7 +316,7 @@ function ScanScreenInner() {
             iconStart={<IconClose size={16} />}
             onClick={stopCamera}
           >
-            עצירת המצלמה
+            {t("stopCamera")}
           </Button>
         </Card>
       ) : null}
@@ -320,15 +324,12 @@ function ScanScreenInner() {
       {phase.kind === "idle" || phase.kind === "camera-error" ? (
         <Card as="section" aria-labelledby="camera-heading">
           <h2 id="camera-heading" className={styles.sectionTitle}>
-            סריקה במצלמה
+            {t("cameraHeading")}
           </h2>
-          <p className={controls.hint}>
-            המצלמה משמשת רק לקריאת הברקוד. לא נשמרות תמונות והן לא עוזבות את המכשיר. הדפדפן יבקש
-            אישור כשתלחצי על הכפתור.
-          </p>
+          <p className={controls.hint}>{t("cameraHint")}</p>
           {phase.kind === "camera-error" ? (
             <p className={styles.error} role="alert" data-testid="scan-camera-error">
-              <IconInfo size={15} /> {CAMERA_MESSAGES[phase.reason]}
+              <IconInfo size={15} /> {t(CAMERA_MESSAGES[phase.reason])}
             </p>
           ) : null}
           <Button
@@ -336,19 +337,19 @@ function ScanScreenInner() {
             onClick={() => void startCamera()}
             disabled={cameraBusy}
           >
-            {phase.kind === "camera-error" ? "ניסיון נוסף" : "הפעלת המצלמה"}
+            {phase.kind === "camera-error" ? t("retryCamera") : t("startCamera")}
           </Button>
         </Card>
       ) : null}
 
       <Card as="section" aria-labelledby="manual-heading">
         <h2 id="manual-heading" className={styles.sectionTitle}>
-          הקלדת ברקוד ידנית
+          {t("manualHeading")}
         </h2>
         <form onSubmit={submitManual} className={controls.stack} noValidate>
           <div className={controls.field}>
             <label htmlFor={manualId} className={controls.label}>
-              ברקוד (13 ספרות, או 8 במוצרים קטנים)
+              {t("manualLabel")}
             </label>
             <input
               id={manualId}
@@ -367,19 +368,19 @@ function ScanScreenInner() {
             />
             {manualError ? (
               <p id={`${manualId}-error`} className={controls.error} role="alert">
-                {manualError}
+                {t(BARCODE_ERRORS[manualError])}
               </p>
             ) : null}
           </div>
           <Button type="submit" variant="secondary" disabled={!shopper}>
-            חיפוש
+            {t("search")}
           </Button>
         </form>
       </Card>
 
       <div aria-live="polite" aria-busy={phase.kind === "loading"}>
         {phase.kind === "loading" ? (
-          <Card aria-label="מחפשת את המוצר" data-testid="scan-loading">
+          <Card aria-label={t("lookingUp")} data-testid="scan-loading">
             <Skeleton width="60%" height={22} />
             <Skeleton height={44} />
             <Skeleton height={44} />
@@ -388,13 +389,13 @@ function ScanScreenInner() {
 
         {phase.kind === "lookup-error" ? (
           <Card role="alert" data-testid="scan-error">
-            <p>לא הצלחנו לבדוק את הברקוד. בדקי את החיבור ונסי שוב.</p>
+            <p>{t("lookupError")}</p>
             <Button
               variant="outline"
               size="sm"
               onClick={() => void lookup(phase.code, input.current)}
             >
-              נסי שוב
+              {t("retry")}
             </Button>
           </Card>
         ) : null}
@@ -406,28 +407,30 @@ function ScanScreenInner() {
         {phase.kind === "result" && !phase.result.found ? (
           <Card as="section" aria-labelledby="notfound-heading" data-testid="scan-notfound">
             <h2 id="notfound-heading" className={styles.sectionTitle}>
-              לא מצאנו את הברקוד הזה
+              {t("notFoundHeading")}
             </h2>
             <p>
-              הברקוד <span dir="ltr">{phase.result.barcode}</span> לא מקושר אצלנו למוצר. ייתכן שזה
-              קוד פנימי של הרשת ולא ברקוד אמיתי. לא ננחש מוצר.
+              {r(
+                "notFoundBody",
+                { ltr: (c) => <span dir="ltr">{c}</span> },
+                { barcode: phase.result.barcode },
+              )}
             </p>
-            <p className={controls.hint}>
-              אפשר להקליד ברקוד אחר, לחפש את המוצר ברשימה, או לדווח לנו.
-            </p>
+            <p className={controls.hint}>{t("notFoundHint")}</p>
             <div className={styles.addRow}>
               {gapStore ? (
                 <ReportGapButton
-                  label="דווחי על פער"
+                  label={t("reportGap")}
                   context={{
                     storeId: gapStore.storeId,
                     storeName: gapStore.name,
+                    // Goes to the review team in the report, so it stays Hebrew in both locales.
                     itemName: `ברקוד ${phase.result.barcode}`,
                   }}
                 />
               ) : null}
               <Button variant="outline" size="sm" onClick={again}>
-                סריקה נוספת
+                {t("scanAnother")}
               </Button>
             </div>
           </Card>
@@ -435,7 +438,7 @@ function ScanScreenInner() {
 
         {phase.kind === "result" && phase.result.found ? (
           <Button variant="outline" onClick={again} className={styles.again}>
-            סריקת מוצר נוסף
+            {t("scanNext")}
           </Button>
         ) : null}
       </div>

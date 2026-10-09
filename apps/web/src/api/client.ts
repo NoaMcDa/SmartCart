@@ -343,6 +343,21 @@ export async function postSpend(entry: SpendEntryInput): Promise<SpendEntry> {
   return unwrap(await api.POST("/me/spend", { body: entry }));
 }
 
+/**
+ * `PUT /me/spend/{id}`: replaces an entry, e.g. with the actual checkout total (#70). The body is
+ * the whole `SpendEntryIn`, with the same `client_id` the entry was created with.
+ */
+export async function updateSpend(id: number, entry: SpendEntryInput): Promise<SpendEntry> {
+  return unwrap(
+    await api.PUT("/me/spend/{entry_id}", { params: { path: { entry_id: id } }, body: entry }),
+  );
+}
+
+/** `DELETE /me/spend/{id}` (204): removes one entry of the signed-in user (#70). */
+export async function deleteSpend(id: number): Promise<void> {
+  expectOk(await api.DELETE("/me/spend/{entry_id}", { params: { path: { entry_id: id } } }));
+}
+
 /** `GET /me/spend?month=YYYY-MM`: the signed-in user's entries for one month. */
 export async function getSpend(month: string): Promise<SpendMonth> {
   return unwrap(await api.GET("/me/spend", { params: { query: { month } } }));
@@ -351,4 +366,67 @@ export async function getSpend(month: string): Promise<SpendMonth> {
 /** `POST /parse-recipe`: pasted recipe text or a URL (exactly one) to `/parse-list` rows. */
 export async function parseRecipe(body: ParseRecipeRequest): Promise<ParseRecipeResponse> {
   return unwrap(await api.POST("/parse-recipe", { body }));
+}
+
+// --- finish round contracts (#61, #68, #72) -------------------------------------------------
+export type ParseImageResponse = Schemas["ParseImageResponse"];
+export type ReceiptSummary = Schemas["ReceiptSummary"];
+export type ChainOnline = Schemas["ChainOnline"];
+
+/**
+ * `POST /parse-image` (multipart): a receipt or a handwritten list photo to `/parse-list` rows.
+ *
+ * `consent` must be true: it sends `X-Image-Consent: 1`, and without it no request is made (the
+ * server would answer 403). The file goes as a `FormData` body through `api.POST` with a
+ * `bodySerializer`, which keeps the auth middleware and the mock transport and drops the JSON
+ * content type, so the browser sets the multipart boundary. Throws ApiError on non-2xx (403 no
+ * consent, 413 too large, 415 type, 429 monthly cap, 503 no OCR provider), and a TypeError when
+ * the network fails.
+ */
+export async function parseImage(
+  kind: ParseImageResponse["kind"],
+  file: Blob,
+  consent: boolean,
+  options: { signal?: AbortSignal } = {},
+): Promise<ParseImageResponse> {
+  if (!consent) throw new ApiError(403, { detail: "image processing needs consent" });
+  return unwrap(
+    await api.POST("/parse-image", {
+      // The generated body type says `image: string`; the serializer sends the file itself.
+      body: { kind, image: file as unknown as string },
+      bodySerializer: () => {
+        const form = new FormData();
+        form.append("kind", kind);
+        form.append("image", file, file instanceof File ? file.name : "photo.jpg");
+        return form;
+      },
+      headers: { "X-Image-Consent": "1" },
+      signal: options.signal,
+    }),
+  );
+}
+
+// --- closed beta (#40): invite codes, membership, feedback -------------------------------------
+export type BetaMembership = Schemas["BetaMembership"];
+export type BetaSegment = NonNullable<BetaMembership["segment"]>;
+export type BetaFeedbackInput = Opt<Schemas["BetaFeedbackIn"], "text">;
+
+/** `POST /beta/join`: turns an invite code into a membership. 404 unknown, 410 expired or used up. */
+export async function joinBeta(code: string): Promise<BetaMembership> {
+  return unwrap(await api.POST("/beta/join", { body: { code } }));
+}
+
+/** `GET /me/beta`: am I a member, and of which segment. Needs the bearer token. */
+export async function getBetaMembership(): Promise<BetaMembership> {
+  return unwrap(await api.GET("/me/beta"));
+}
+
+/** `DELETE /me/beta`: leave the beta (deletes the member row; idempotent). */
+export async function leaveBeta(): Promise<Ack> {
+  return unwrap(await api.DELETE("/me/beta"));
+}
+
+/** `POST /beta/feedback` (201, members only): a 1 to 5 rating and up to 1000 characters. */
+export async function postBetaFeedback(body: BetaFeedbackInput): Promise<Ack> {
+  return unwrap(await api.POST("/beta/feedback", { body: { text: "", ...body } }));
 }

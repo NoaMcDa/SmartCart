@@ -86,9 +86,29 @@ Three retrievers over `canonical_products.display_name_he`, merged with reciproc
   `matched_by` lists the retrievers that found the hit. `confidence` is the evidence:
   `0.85 x best similarity + 0.15 x share of retrievers that found it`.
 - `canonical.category_path_he` is the taxonomy path, root first.
+- `canonical.display_name_ar` is the canonical's first Arabic name (`names_ar[1]`, see below), null
+  when it has none. It is filled on every path, Hebrew queries included; `display_name_he` stays the
+  primary name and is unchanged.
 - Latency: a 30-item `/parse-list` (90 retriever queries) took 0.14 s on the test database with
   the test catalog (measured locally). The target on the MVP catalog (a few hundred canonicals) is
   under 50 ms per query; not yet measured on real data.
+
+### Arabic display names (#73)
+
+Names in responses stay Hebrew; Arabic is added next to them, never instead of them, so a client
+shows `display_name_ar ?? display_name_he`. `names_ar` is machine drafted and **awaits a
+native-speaker review** (`docs/catalog.md`, "Arabic names"); a client that shows it to users should
+treat it like any other unreviewed copy. Where it appears:
+
+| Response | Field | Is |
+|---|---|---|
+| `CanonicalRef` (`/search` hits, `/parse-list` rows and candidates, `/items/barcode` `canonical`, `/parse-recipe`, `/parse-image`) | `display_name_ar` | the canonical's first Arabic name, or null |
+| `PricedItem` (`/compare`, `/optimize`) | `canonical_name_ar` | the same name; `display_name_he` there is the chain's own item name and stays Hebrew, so the Arabic field names what the shopper asked for, not a translation of the item |
+| `SwapSuggestion` (`/optimize/swaps`) | `canonical_name_ar` | the same |
+| `PriceHistoryResponse` (`/history/{id}`) | `canonical_name_ar` | the same |
+| price-alert push payload | `product_ar` | the same; the title and body stay Hebrew |
+
+`/promo-cycles/{id}` and `StorePrice` (barcode prices) carry no canonical name, and the static SEO export (`export_seo`, Hebrew pages) does not emit Arabic names.
 
 ### POST /parse-list
 
@@ -261,6 +281,7 @@ in either file. Change `schemas.py`, then run the script and commit both files.
 | `20261007110100_app_role.sql` | `smartcart_app` role and its grants; grants to `authenticated` on Supabase |
 | `20261007110200_search_indexes.sql` | `search_norm()`, GIN trigram and FTS indexes on canonical names, HNSW on `item_embeddings` |
 | `20261007110300_effective_prices_v2.sql` | `effective_prices.effective_price`, `promo_min_qty`, `is_estimated`, `noclub` |
+| `20261011100800_canonical_name_embeddings.sql` | `canonical_name_embeddings` (vectors of the Arabic names for the Arabic vector retriever, #73) and its grant to the API role |
 
 `20261007100100_user_tables_rls.sql` was also fixed so it applies on Supabase, where the `auth`
 schema belongs to `supabase_auth_admin` (it now creates the stand-in `auth.users` only when the
@@ -331,7 +352,7 @@ number). Tests: `test_clubs.py` (a basket whose cheapest store changes with memb
 /compare and /optimize, and the unparseable default).
 
 `PricedItem.promo_confidence` is `promos.raw->>'confidence'` when the adapter recorded one
-(0 to 1, or a percentage), else null. `StoreResult.lat` / `lon` come from `stores.geog`.
+(0 to 1, or a percentage), else null. `StoreResult.lat` / `lon` come from `stores.geog`; `geo_precision` and `distance_approximate` from `stores.geo_precision` (below).
 
 ### Account deletion, DELETE /me
 
@@ -351,7 +372,45 @@ number). Tests: `test_clubs.py` (a basket whose cheapest store changes with memb
 ### GET /stores/nearest
 
 PostGIS KNN (`ORDER BY geog <-> point`) over the chain's physical stores with a location; 404
-when there is none. Returns a `StoreRef` with `distance_m`, `lat`, `lon`.
+when there is none. Returns a `StoreRef` with `distance_m`, `lat`, `lon`, `geo_precision` and
+`distance_approximate` (see "Store location precision").
+
+### Store location precision (`geo_precision`, `distance_approximate`)
+
+`stores.geo_precision` (migration `20261011100900_store_geocode.sql`, `docs/geocoding.md`) says how
+exact a store's point is: `address` (house, or chain-published), `street` (the street, not the
+house) or `locality` (the town centre, used when no street or house was found; 265 of the 827 real
+stores at the last measurement). It is NULL exactly when the store has no point.
+
+Every response model that carries a store location or a distance has both fields, filled from
+`stores.geo_precision` in the same query that reads the point:
+
+| Model | Routes |
+|---|---|
+| `StoreResult` | `POST /compare` (`stores[]`), `POST /optimize` (`single`, `split`, `minimum_effort`, heuristic and MILP, via `StoreAssignment.store`) |
+| `StoreRef` | `GET /stores/nearest`, `GET /items/barcode/{barcode}` (`here`, `cheapest_nearby`, `cheaper_substitute`), `StorePrice.store` |
+
+- `geo_precision`: `"address" | "street" | "locality" | null`.
+- `distance_approximate: bool`: true when `geo_precision` is `locality` or the store has no point
+  (the distance of a home store without a point is reported as 0, which is not a measurement).
+  False for `address` and `street`.
+
+The alert job payload (`alerts_job.py`) names the store and the price but carries no distance, so it
+has no new field. Swap suggestions return no store location.
+
+**Estimate, not a measurement.** A town-centre point can be a few km from the real branch, so
+`distance_m` to a locality store is an estimate in either direction (the store may be nearer or
+farther). The API does not correct it: ranking (`sort_key`), the radius filter (`stores_within`),
+the travel cost and the net saving all keep using `distance_m` as before, and a test asserts that
+`/compare` and `/optimize` are identical, field for field, with and without precision data. The
+travel cost in a plan that includes a locality store is therefore approximate too.
+
+**What the UI must show** (trust signals are mandatory, `CLAUDE.md`): whenever
+`distance_approximate` is true, label the distance as approximate (for example "בערך 2.3 ק״מ", or
+"~2.3 ק״מ" with a note that the branch location is approximate), and do not draw a map pin at
+`lat`/`lon` as if it were the branch; show the town instead. Never render the distance of such a
+store as exact, and never use `geo_precision` to hide a store. `street` is shown as a normal
+distance. Tests: `tests/test_api_geo_precision.py`.
 
 ### GET /history/{canonical_id}
 
@@ -530,6 +589,48 @@ fractions, ranges, word amounts, pack units, cloves, weights in parentheses, amo
 name, JSON-LD and plain-HTML pages, scaling up and down) against the seeded MVP catalog with
 hash embeddings, plus the fetch rules with an `httpx.MockTransport`.
 
+### POST /parse-image (#61, #68)
+
+A photo of a receipt or a handwritten list to rows. `multipart/form-data` with `kind`
+(`receipt` or `list`) and `image` (JPEG, PNG or WebP, at most 8 MB). Required header:
+`X-Image-Consent: 1` (the user agreed to photo processing; it is not in `openapi.json`).
+Response `{kind, provider, items: ParsedRow[], unresolved: string[], receipt, deleted: true}`;
+`receipt` is `{chain_hint, store_hint, total, lines: [{text, quantity, price}]}` for a receipt and
+null for a list. Full design, privacy guarantee, caps and evaluation: [ocr.md](ocr.md). Code:
+`routes/image.py`, `ocr/`, and the catalog's `receipt.py`.
+
+| Status | When |
+|---|---|
+| 200 | read; `items` resolved like `/parse-list` (low confidence carries `needs_confirmation`), `unresolved` are lines read but not matched (best hit under 0.70, never guessed) |
+| 403 | no `X-Image-Consent: 1`; the body is not read |
+| 413 | body over 8 MB, or an image over 25 megapixels |
+| 415 | not JPEG, PNG or WebP (by magic bytes, not the client's content type) |
+| 422 | the image cannot be decoded, is empty, or `kind` is invalid |
+| 429 | the monthly cap was reached (`OCR_MONTHLY_IMAGE_CAP`, default 2000, or `OCR_MONTHLY_USD_CAP`, default 20, estimated) |
+| 502 | the OCR provider failed or declined |
+| 503 | no OCR provider configured (`OCR_PROVIDER`: `auto`, `fake`, `tesseract`, `claude`) |
+
+The photo is rotated by its EXIF orientation and downscaled to 2400 px on the long side, read in
+memory, and never written to disk, logged or stored; `deleted: true` states it. Only a monthly
+count and cost estimate are kept (`ocr_usage`, no user id). Receipts: quantity is the printed one
+(`unit = "kg"` for weighed goods), repeated products merge, and a till's brand and pack size are
+tried with and without (the catalog is "any brand"). List photos read by Tesseract mark every row
+`needs_confirmation`. The web client sends the consent header only after the user's consent
+screen and shows what was read next to the photo.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OCR_PROVIDER` | `auto` | `auto` (claude when `ANTHROPIC_API_KEY` is set, else tesseract when installed with the `heb` data, else 503), `fake`, `tesseract`, `claude` |
+| `OCR_MONTHLY_IMAGE_CAP` | 2000 | images per calendar month (UTC) |
+| `OCR_MONTHLY_USD_CAP` | 20 | estimated dollars per month |
+| `OCR_CLAUDE_MODEL` | `claude-sonnet-5-5` | model of the vision provider |
+| `ANTHROPIC_API_KEY` | none | enables the Claude provider |
+
+Migration: `20261011100000_ocr_usage.sql` (`ocr_usage(month, provider, images, est_cost_usd)`, RLS
+on with no policy). Tests: `test_api_image.py` (consent, round trips, cap), `test_api_image_limits.py`,
+`test_api_image_privacy.py`, `test_api_image_providers.py`, `test_api_image_eval.py`, and the
+catalog's `test_receipt_structuring.py`.
+
 ### Budget and spend (/me/spend)
 
 - Entry: `{id, date, store_id, store_name, total, item_count, plan: "single" | "split"}`. `total`
@@ -572,3 +673,34 @@ request and is not on the compare or optimize path.
 | File | What |
 |---|---|
 | `20261010100000_phase3.sql` | `profiles.monthly_budget numeric(10,2)`; `spend_entries` with own-rows RLS (forced), grants to `smartcart_app` and, on Supabase, `authenticated` |
+
+## Cart handoff to chain online stores (#72)
+
+### GET /chains/online
+
+One row per chain: `chain_id`, `chain_name`, `online_url`, `search_url_template`, `enabled`,
+`referral` (the `ChainOnline` schema). Public (no auth) and sent with
+`Cache-Control: public, max-age=3600`.
+
+- `enabled` is the per-chain feature flag: the chain id is in `CART_HANDOFF_CHAINS` (comma separated
+  env var, default empty, so every row is disabled) **and** the chain has an `online_url`.
+- `online_url` and `search_url_template` come from `chains` (https only; the template must contain
+  `{q}`, checked by the database). They are links for the user's browser to open. The API never
+  requests them (CLAUDE.md: no scraping of chain online stores). `referral` is `chains.online_referral`.
+- Ranking never reads any of this: `/compare` and `/optimize` are byte-identical with the flag and the
+  referral flags on or off (`tests/test_api_handoff_independence.py`).
+
+See [cart-transfer.md](cart-transfer.md) for the seeded addresses (all unverified), why this is not
+scraping and what an official cart-prefill integration needs.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `CART_HANDOFF_CHAINS` | empty | chain ids whose handoff is on |
+
+### Migration
+
+| File | What |
+|---|---|
+| `20261011100100_chain_online.sql` | `chains.online_url`, `chains.search_url_template` (CHECK: https and `{q}`), `chains.online_referral boolean NOT NULL DEFAULT false`; `chain_online_seed` and a `BEFORE INSERT` trigger on `chains` that fills seeded addresses into rows the ingest loader creates later |
+
+Tests: `test_api_chains.py`, `test_api_handoff_independence.py`.

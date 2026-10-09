@@ -12,13 +12,17 @@
 import { useSyncExternalStore } from "react";
 import { API_MOCK } from "@/api/config";
 import type { OptimizeInput, Schemas } from "@/api/client";
+import { cityLabelFor } from "@/features/profile/cities";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { stateMessages } from "@/i18n/messages/state";
 import { readJson, writeJson } from "./storage";
 
 export const PROFILE_KEY = "sc-profile-v1";
 
 /** Modi'in city center, rounded to neighborhood precision (D11). The artboards' city. */
 export const DEFAULT_LOCATION = { lat: 31.898, lon: 35.01 };
-export const DEFAULT_CITY = "מודיעין";
+export const DEFAULT_CITY = translate(stateMessages, DEFAULT_LOCALE, "defaultCity");
 export const MOCK_HOME_STORE_ID = 103;
 
 export type StoredProfile = Partial<
@@ -56,7 +60,12 @@ const num = (v: unknown, fallback: number) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-export function shopperFromStored(stored: StoredProfile | null, mock = API_MOCK): ShopperContext {
+/** `locale` only changes `cityLabel` (a known city or the default city in Arabic); Hebrew by default. */
+export function shopperFromStored(
+  stored: StoredProfile | null,
+  mock = API_MOCK,
+  locale: Locale = DEFAULT_LOCALE,
+): ShopperContext {
   const s = stored ?? {};
   const hasLocation =
     typeof s.neighborhood_lat === "number" && typeof s.neighborhood_lon === "number";
@@ -72,7 +81,12 @@ export function shopperFromStored(stored: StoredProfile | null, mock = API_MOCK)
     lat: hasLocation ? s.neighborhood_lat! : DEFAULT_LOCATION.lat,
     lon: hasLocation ? s.neighborhood_lon! : DEFAULT_LOCATION.lon,
     radiusM: Math.min(15000, Math.max(1000, num(s.radius_m, 5000))),
-    cityLabel: s.city_label ?? (hasLocation ? null : DEFAULT_CITY),
+    cityLabel:
+      s.city_label !== undefined && s.city_label !== null
+        ? cityLabelFor(s.city_label, locale)
+        : hasLocation
+          ? null
+          : translate(stateMessages, locale, "defaultCity"),
     homeStoreId,
     clubs: Array.isArray(s.clubs) ? s.clubs.filter((c) => typeof c === "string") : [],
     travelMode: mode === "walk_transit" || mode === "delivery" ? mode : "car",

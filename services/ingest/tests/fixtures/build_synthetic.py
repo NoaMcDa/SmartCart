@@ -81,14 +81,80 @@ def row(tag: str, fields: dict[str, object]) -> str:
 
 # Items: code, type, name, manufacturer, unit_qty, quantity, weighed, uom, price, uom_price
 ITEMS = [
-    ("7290004131074", 1, "חלב תנובה 3% בקרטון 1 ליטר", "תנובה", "ליטר", "1.00", 0, "ליטר", "7.12", "7.12"),
-    ("7290000042442", 1, "קוטג' 5% תנובה 250 גרם", "תנובה", "גרם", "250.00", 0, "100 גרם", "5.90", "2.36"),
-    ("7290112337023", 1, "לחם אחיד פרוס אנג'ל 750 גרם", "אנג'ל", "גרם", "750.00", 0, "100 גרם", "8.30", "1.11"),
-    ("2000123", 0, "עגבניות שרי במשקל", "לא ידוע", "קילוגרמים", "1.00", 1, "קילו", "12.90", "12.90"),
+    (
+        "7290004131074",
+        1,
+        "חלב תנובה 3% בקרטון 1 ליטר",
+        "תנובה",
+        "ליטר",
+        "1.00",
+        0,
+        "ליטר",
+        "7.12",
+        "7.12",
+    ),
+    (
+        "7290000042442",
+        1,
+        "קוטג' 5% תנובה 250 גרם",
+        "תנובה",
+        "גרם",
+        "250.00",
+        0,
+        "100 גרם",
+        "5.90",
+        "2.36",
+    ),
+    (
+        "7290112337023",
+        1,
+        "לחם אחיד פרוס אנג'ל 750 גרם",
+        "אנג'ל",
+        "גרם",
+        "750.00",
+        0,
+        "100 גרם",
+        "8.30",
+        "1.11",
+    ),
+    (
+        "2000123",
+        0,
+        "עגבניות שרי במשקל",
+        "לא ידוע",
+        "קילוגרמים",
+        "1.00",
+        1,
+        "קילו",
+        "12.90",
+        "12.90",
+    ),
     ("7290000066318", 1, "במבה אסם 80 גרם", "אסם", "גרם", "80.00", 0, "100 גרם", "4.50", "5.63"),
-    ("7290011194246", 1, "שמן קנולה מזולה 1 ליטר", "שמן תעשיות", "ליטר", "1.00", 0, "ליטר", "11.90", "11.90"),
+    (
+        "7290011194246",
+        1,
+        "שמן קנולה מזולה 1 ליטר",
+        "שמן תעשיות",
+        "ליטר",
+        "1.00",
+        0,
+        "ליטר",
+        "11.90",
+        "11.90",
+    ),
     ("2000456", 0, "בננה במשקל", "לא ידוע", "קילוגרמים", "1.00", 1, "קילו", "8.90", "8.90"),
-    ("7290107932158", 1, "שוקולד פרה מריר 100 גרם", "עלית", "גרם", "100.00", 0, "100 גרם", "6.90", "6.90"),
+    (
+        "7290107932158",
+        1,
+        "שוקולד פרה מריר 100 גרם",
+        "עלית",
+        "גרם",
+        "100.00",
+        0,
+        "100 גרם",
+        "6.90",
+        "6.90",
+    ),
 ]
 
 
@@ -213,7 +279,8 @@ def promotion(
     body += (
         f'<PromotionItems Count="{len(items)}">'
         + "".join(
-            row("Item", {"ItemCode": code, "ItemType": 1, "IsGiftItem": gift}) for code, gift in items
+            row("Item", {"ItemCode": code, "ItemType": 1, "IsGiftItem": gift})
+            for code, gift in items
         )
         + "</PromotionItems>"
     )
@@ -235,7 +302,7 @@ def standard_promos() -> list[str]:
     return [
         promotion(
             "1001",
-            "במבה 2 ב-8 ש\"ח לחברי מועדון",
+            'במבה 2 ב-8 ש"ח לחברי מועדון',
             [("7290000066318", 0)],
             club="1",
             min_qty="2",
@@ -341,10 +408,37 @@ def subchains_doc(
 def build_shufersal() -> None:
     chain = "7290027600007"
     stores = [
-        ("1", 1, "שופרסל שלי", "שופרסל שלי תל אביב - אבן גבירול", "אבן גבירול 101", "תל אביב", "32.0853", "34.7818"),
-        ("29", 1, "שופרסל דיל", "שופרסל דיל ירושלים - תלפיות", "האומן 17", "ירושלים", "31.7520", "35.2110"),
+        (
+            "1",
+            1,
+            "שופרסל שלי",
+            "שופרסל שלי תל אביב - אבן גבירול",
+            "אבן גבירול 101",
+            "תל אביב",
+            "32.0853",
+            "34.7818",
+        ),
+        (
+            "29",
+            1,
+            "שופרסל דיל",
+            "שופרסל דיל ירושלים - תלפיות",
+            "האומן 17",
+            "ירושלים",
+            "31.7520",
+            "35.2110",
+        ),
         ("90", 1, "שופרסל ONLINE", "מרכז ליקוט מודיעין", "המלאכה 3", "מודיעין", "0", "0"),
-        ("137", 1, "שופרסל אקספרס", "שופרסל אקספרס חיפה - מוריה", "מוריה 82", "חיפה", "32.7940", "34.9896"),
+        (
+            "137",
+            1,
+            "שופרסל אקספרס",
+            "שופרסל אקספרס חיפה - מוריה",
+            "מוריה 82",
+            "חיפה",
+            "32.7940",
+            "34.9896",
+        ),
         ("260", 1, "BE", "BE באר שבע", "רגר 1", "באר שבע", "31.2518", "34.7913"),
     ]
     store_rows = "".join(
@@ -374,13 +468,32 @@ def build_shufersal() -> None:
         + f"<STORES>{store_rows}</STORES></asx:values></asx:abap>"
     )
     f = "shufersal"
-    write(f, f"Stores{chain}-000-202610060201.gz", gz(encode(stores_xml, "utf-8", declare="utf-8", bom=True)))
-    write(f, f"PriceFull{chain}-001-202610060300.gz", gz(encode(price_doc(chain, "001", ITEMS, root="root"), "utf-8", declare="UTF-8")))
-    write(f, f"PromoFull{chain}-001-202610060300.gz", gz(encode(promo_doc(chain, "001", standard_promos(), root="root"), "utf-8", declare="UTF-8")))
+    write(
+        f,
+        f"Stores{chain}-000-202610060201.gz",
+        gz(encode(stores_xml, "utf-8", declare="utf-8", bom=True)),
+    )
+    write(
+        f,
+        f"PriceFull{chain}-001-202610060300.gz",
+        gz(encode(price_doc(chain, "001", ITEMS, root="root"), "utf-8", declare="UTF-8")),
+    )
+    write(
+        f,
+        f"PromoFull{chain}-001-202610060300.gz",
+        gz(
+            encode(
+                promo_doc(chain, "001", standard_promos(), root="root"), "utf-8", declare="UTF-8"
+            )
+        ),
+    )
     # v2: same layout plus the provisional marker and a field the new model may add.
     v2 = price_doc(
         chain, "001", ITEMS[:3], root="root", extra_header=el("SchemaVersion", "2.0")
-    ).replace("<ItemStatus>1</ItemStatus>", "<ItemStatus>1</ItemStatus><UniformPromoRef>0</UniformPromoRef>")
+    ).replace(
+        "<ItemStatus>1</ItemStatus>",
+        "<ItemStatus>1</ItemStatus><UniformPromoRef>0</UniformPromoRef>",
+    )
     write(f, f"PriceFull{chain}-001-202610070300.gz", gz(encode(v2, "utf-8", declare="UTF-8")))
     # unknown: a marker with an unrecognised major version.
     v3 = price_doc(chain, "001", ITEMS[:2], root="root", extra_header=el("SchemaVersion", "3.1"))
@@ -453,8 +566,14 @@ def build_shufersal() -> None:
                         "items[0].raw_name": "חלב תנובה 3% בקרטון 1 ליטר",
                     },
                 },
-                f"PriceFull{chain}-001-202610080300.gz": {"kind": "price_full", "error": "UnknownSchemaError"},
-                f"PriceFull{chain}-001-202610090300.gz": {"kind": "price_full", "error": "AdapterError"},
+                f"PriceFull{chain}-001-202610080300.gz": {
+                    "kind": "price_full",
+                    "error": "UnknownSchemaError",
+                },
+                f"PriceFull{chain}-001-202610090300.gz": {
+                    "kind": "price_full",
+                    "error": "AdapterError",
+                },
             },
         },
     )
@@ -474,16 +593,45 @@ def build_ramilevy() -> None:
                     ("039", 1, "רמי לוי תלפיות", "יד חרוצים 10", "ירושלים", "31.7550", "35.2145"),
                     ("012", 1, "רמי לוי מודיעין", "ישפה 7", "מודיעין", "31.8980", "35.0100"),
                     ("331", 1, "רמי לוי מרכז לוגיסטי", "אזור תעשייה שילת", "שילת"),
-                    ("055", 1, "רמי לוי חיפה - צ'ק פוסט", "ההסתדרות 54", "חיפה", "32.7900", "35.0300"),
+                    (
+                        "055",
+                        1,
+                        "רמי לוי חיפה - צ'ק פוסט",
+                        "ההסתדרות 54",
+                        "חיפה",
+                        "32.7900",
+                        "35.0300",
+                    ),
                 ],
             )
         ],
     )
-    write(f, f"Stores{chain}-202610060100.xml", encode(stores, "utf-16-le", declare="utf-16", bom=True))
-    write(f, f"PriceFull{chain}-039-202610060300.gz", gz(encode(price_doc(chain, "039", ITEMS, name_tag="ItemNm", price_delta="-0.20"), "utf-8", declare="utf-8", bom=True)))
-    write(f, f"PromoFull{chain}-039-202610060300.gz", gz(encode(promo_doc(chain, "039", standard_promos()), "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"Stores{chain}-202610060100.xml",
+        encode(stores, "utf-16-le", declare="utf-16", bom=True),
+    )
+    write(
+        f,
+        f"PriceFull{chain}-039-202610060300.gz",
+        gz(
+            encode(
+                price_doc(chain, "039", ITEMS, name_tag="ItemNm", price_delta="-0.20"),
+                "utf-8",
+                declare="utf-8",
+                bom=True,
+            )
+        ),
+    )
+    write(
+        f,
+        f"PromoFull{chain}-039-202610060300.gz",
+        gz(encode(promo_doc(chain, "039", standard_promos()), "utf-8", declare="utf-8")),
+    )
     unknown = (
-        "<Root>" + el("ChainId", chain) + el("StoreId", "039")
+        "<Root>"
+        + el("ChainId", chain)
+        + el("StoreId", "039")
         + "<Catalogue><Entry><Code>1</Code></Entry></Catalogue></Root>"
     )
     write(f, f"PriceFull{chain}-039-202610080300.gz", gz(encode(unknown, "utf-8", declare="utf-8")))
@@ -528,7 +676,10 @@ def build_ramilevy() -> None:
                         "promos[3].ends_at": "2026-10-14 12:00:00+03:00",
                     },
                 },
-                f"PriceFull{chain}-039-202610080300.gz": {"kind": "price_full", "error": "UnknownSchemaError"},
+                f"PriceFull{chain}-039-202610080300.gz": {
+                    "kind": "price_full",
+                    "error": "UnknownSchemaError",
+                },
             },
         },
     )
@@ -546,17 +697,51 @@ def build_osherad() -> None:
                 "אושר עד",
                 [
                     ("012", 1, "אושר עד בית שמש", "יגאל אלון 3", "בית שמש", "31.7470", "34.9880"),
-                    ("003", 1, "אושר עד בני ברק", "ז'בוטינסקי 168", "בני ברק", "32.0930", "34.8390"),
+                    (
+                        "003",
+                        1,
+                        "אושר עד בני ברק",
+                        "ז'בוטינסקי 168",
+                        "בני ברק",
+                        "32.0930",
+                        "34.8390",
+                    ),
                     ("021", 1, "אושר עד אשדוד", "הנמל 1", "אשדוד", "31.8040", "34.6550"),
                 ],
             )
         ],
     )
-    write(f, f"Stores{chain}-202610060100.xml", encode(stores, "utf-16-le", declare="utf-16", bom=True))
-    write(f, f"PriceFull{chain}-012-202610060300.gz", gz(encode(price_doc(chain, "012", ITEMS[:6], name_tag="ItemNm", price_delta="-0.30"), "utf-8", declare="utf-8")))
-    write(f, f"PromoFull{chain}-012-202610060300.gz", gz(encode(promo_doc(chain, "012", standard_promos()[:2]), "utf-8", declare="utf-8")))
-    write(f, f"PromoFull{chain}-021-202610060300.gz", gz(encode(promo_doc(chain, "021", []), "utf-8", declare="utf-8")))
-    write(f, f"PriceFull{chain}-021-202610060300.gz", gz(encode(price_doc(chain, "021", []), "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"Stores{chain}-202610060100.xml",
+        encode(stores, "utf-16-le", declare="utf-16", bom=True),
+    )
+    write(
+        f,
+        f"PriceFull{chain}-012-202610060300.gz",
+        gz(
+            encode(
+                price_doc(chain, "012", ITEMS[:6], name_tag="ItemNm", price_delta="-0.30"),
+                "utf-8",
+                declare="utf-8",
+            )
+        ),
+    )
+    write(
+        f,
+        f"PromoFull{chain}-012-202610060300.gz",
+        gz(encode(promo_doc(chain, "012", standard_promos()[:2]), "utf-8", declare="utf-8")),
+    )
+    write(
+        f,
+        f"PromoFull{chain}-021-202610060300.gz",
+        gz(encode(promo_doc(chain, "021", []), "utf-8", declare="utf-8")),
+    )
+    write(
+        f,
+        f"PriceFull{chain}-021-202610060300.gz",
+        gz(encode(price_doc(chain, "021", []), "utf-8", declare="utf-8")),
+    )
     write_expected(
         f,
         {
@@ -573,13 +758,20 @@ def build_osherad() -> None:
                     "kind": "price_full",
                     "schema": "v1",
                     "counts": {"items": 6, "prices": 6},
-                    "checks": {"prices[0].price": "6.82", "prices[3].price": "12.60", "items[3].is_weighed": "True"},
+                    "checks": {
+                        "prices[0].price": "6.82",
+                        "prices[3].price": "12.60",
+                        "items[3].is_weighed": "True",
+                    },
                 },
                 f"PromoFull{chain}-012-202610060300.gz": {
                     "kind": "promo_full",
                     "schema": "v1",
                     "counts": {"promos": 2},
-                    "checks": {"promos[0].reward_type": "bundle", "promos[1].reward_type": "buy_x_get_y"},
+                    "checks": {
+                        "promos[0].reward_type": "bundle",
+                        "promos[1].reward_type": "buy_x_get_y",
+                    },
                 },
                 f"PromoFull{chain}-021-202610060300.gz": {
                     "kind": "promo_full",
@@ -587,7 +779,10 @@ def build_osherad() -> None:
                     "counts": {"promos": 0},
                     "checks": {},
                 },
-                f"PriceFull{chain}-021-202610060300.gz": {"kind": "price_full", "error": "AdapterError"},
+                f"PriceFull{chain}-021-202610060300.gz": {
+                    "kind": "price_full",
+                    "error": "AdapterError",
+                },
             },
         },
     )
@@ -605,17 +800,37 @@ def build_yohananof() -> None:
                 "יוחננוף",
                 [
                     ("005", 1, "יוחננוף רחובות", "הרצל 200", "רחובות", "31.8940", "34.8110"),
-                    ("017", 1, "יוחננוף ראשון לציון", "רוטשילד 30", "ראשון לציון", "31.9640", "34.8040"),
+                    (
+                        "017",
+                        1,
+                        "יוחננוף ראשון לציון",
+                        "רוטשילד 30",
+                        "ראשון לציון",
+                        "31.9640",
+                        "34.8040",
+                    ),
                     ("100", 2, "יוחננוף - מרכז ליקוט", "המדע 2", "יבנה"),
                 ],
             )
         ],
     )
     write(f, f"Stores{chain}-202610060100.xml", encode(stores, "utf-8", declare="utf-8"))
-    price = encode(price_doc(chain, "005", ITEMS, name_tag="ItemNm", price_delta="0.10"), "utf-8", declare="utf-8")
+    price = encode(
+        price_doc(chain, "005", ITEMS, name_tag="ItemNm", price_delta="0.10"),
+        "utf-8",
+        declare="utf-8",
+    )
     # A Cerberus download that keeps the .gz name but is really a zip archive.
-    write(f, f"PriceFull{chain}-005-202610060300.gz", zipped([(f"PriceFull{chain}-005-202610060300.xml", price)]))
-    write(f, f"PromoFull{chain}-005-202610060300.gz", gz(encode(promo_doc(chain, "005", standard_promos()), "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"PriceFull{chain}-005-202610060300.gz",
+        zipped([(f"PriceFull{chain}-005-202610060300.xml", price)]),
+    )
+    write(
+        f,
+        f"PromoFull{chain}-005-202610060300.gz",
+        gz(encode(promo_doc(chain, "005", standard_promos()), "utf-8", declare="utf-8")),
+    )
     write_expected(
         f,
         {
@@ -632,7 +847,11 @@ def build_yohananof() -> None:
                     "kind": "price_full",
                     "schema": "v1",
                     "counts": {"items": 8, "prices": 8},
-                    "checks": {"prices[0].store_code": "5", "prices[0].price": "7.22", "items[7].manufacturer": "עלית"},
+                    "checks": {
+                        "prices[0].store_code": "5",
+                        "prices[0].price": "7.22",
+                        "items[7].manufacturer": "עלית",
+                    },
                 },
                 f"PromoFull{chain}-005-202610060300.gz": {
                     "kind": "promo_full",
@@ -675,12 +894,27 @@ def build_victory() -> None:
         ]
     )
     stores_xml = f'<Store Date="06/10/2026" Time="01:00:00"><Branches>{branches}</Branches></Store>'
-    write(f, f"Stores{chain}-000-202610060100.xml.gz", gz(encode(stores_xml, "windows-1255", declare="windows-1255")))
-    prices = price_doc(
-        chain, "001", ITEMS, root="Prices", id_case="ID", container="Products", row_tag="Product",
-        big_id=True, price_delta="0.30",
+    write(
+        f,
+        f"Stores{chain}-000-202610060100.xml.gz",
+        gz(encode(stores_xml, "windows-1255", declare="windows-1255")),
     )
-    write(f, f"PriceFull{chain}-001-202610060300.xml.gz", gz(encode(prices, "windows-1255", declare="windows-1255")))
+    prices = price_doc(
+        chain,
+        "001",
+        ITEMS,
+        root="Prices",
+        id_case="ID",
+        container="Products",
+        row_tag="Product",
+        big_id=True,
+        price_delta="0.30",
+    )
+    write(
+        f,
+        f"PriceFull{chain}-001-202610060300.xml.gz",
+        gz(encode(prices, "windows-1255", declare="windows-1255")),
+    )
 
     def sale(item: str, promo_id: str, desc: str, **kw: object) -> str:
         fields: dict[str, object] = {
@@ -713,20 +947,46 @@ def build_victory() -> None:
 
     sales = "".join(
         [
-            sale("7290000066318", "55001", "חטיפים 3 ב-12 למועדון", min_qty="3", discounted="12.00", club=1),
-            sale("7290107932158", "55001", "חטיפים 3 ב-12 למועדון", min_qty="3", discounted="12.00", club=1),
+            sale(
+                "7290000066318",
+                "55001",
+                "חטיפים 3 ב-12 למועדון",
+                min_qty="3",
+                discounted="12.00",
+                club=1,
+            ),
+            sale(
+                "7290107932158",
+                "55001",
+                "חטיפים 3 ב-12 למועדון",
+                min_qty="3",
+                discounted="12.00",
+                club=1,
+            ),
             sale("7290004131074", "55002", "חלב 1+1", min_qty="2", gift=1),
             sale("7290112337023", "55003", "לחם ב-6.90", discounted="6.90"),
         ]
     )
     promos_xml = (
-        "<Promos>" + el("ChainID", chain) + el("SubChainID", 1) + el("StoreID", "001")
-        + el("BikoretNo", 8) + f"<Sales>{sales}</Sales></Promos>"
+        "<Promos>"
+        + el("ChainID", chain)
+        + el("SubChainID", 1)
+        + el("StoreID", "001")
+        + el("BikoretNo", 8)
+        + f"<Sales>{sales}</Sales></Promos>"
     )
-    write(f, f"PromoFull{chain}-001-202610060300.xml.gz", gz(encode(promos_xml, "windows-1255", declare="windows-1255")))
+    write(
+        f,
+        f"PromoFull{chain}-001-202610060300.xml.gz",
+        gz(encode(promos_xml, "windows-1255", declare="windows-1255")),
+    )
     # laibcatalog new source: regulation Items layout, UTF-8, ChainID casing.
     new_src = price_doc(chain, "007", ITEMS[:4], id_case="ID")
-    write(f, f"PriceFull{chain}-007-202610060300.xml.gz", gz(encode(new_src, "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"PriceFull{chain}-007-202610060300.xml.gz",
+        gz(encode(new_src, "utf-8", declare="utf-8")),
+    )
     write_expected(
         f,
         {
@@ -803,11 +1063,29 @@ def build_hazihinam() -> None:
         store_id_tag="StoreID",
     )
     # Declared ISO-8859-8 over UTF-8 content: a known mis-declaration the decoder must survive.
-    write(f, f"Stores{chain}-000-000-20261006-010000.xml.gz", gz(encode(stores, "utf-8", declare="ISO-8859-8")))
-    write(f, f"PriceFull{chain}-000-207-20261006-030000.xml.gz", gz(encode(price_doc(chain, "207", ITEMS, price_delta="-0.50"), "utf-8", declare="utf-8")))
-    write(f, f"PromoFull{chain}-000-207-20261006-030000.xml.gz", gz(encode(promo_doc(chain, "207", standard_promos()), "utf-8", declare="utf-8")))
-    bad = price_doc(chain, "201", ITEMS[:2]).replace("<ItemPrice>7.12</ItemPrice>", "<ItemPrice>abc</ItemPrice>")
-    write(f, f"PriceFull{chain}-000-201-20261006-030000.xml.gz", gz(encode(bad, "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"Stores{chain}-000-000-20261006-010000.xml.gz",
+        gz(encode(stores, "utf-8", declare="ISO-8859-8")),
+    )
+    write(
+        f,
+        f"PriceFull{chain}-000-207-20261006-030000.xml.gz",
+        gz(encode(price_doc(chain, "207", ITEMS, price_delta="-0.50"), "utf-8", declare="utf-8")),
+    )
+    write(
+        f,
+        f"PromoFull{chain}-000-207-20261006-030000.xml.gz",
+        gz(encode(promo_doc(chain, "207", standard_promos()), "utf-8", declare="utf-8")),
+    )
+    bad = price_doc(chain, "201", ITEMS[:2]).replace(
+        "<ItemPrice>7.12</ItemPrice>", "<ItemPrice>abc</ItemPrice>"
+    )
+    write(
+        f,
+        f"PriceFull{chain}-000-201-20261006-030000.xml.gz",
+        gz(encode(bad, "utf-8", declare="utf-8")),
+    )
     write_expected(
         f,
         {
@@ -824,15 +1102,25 @@ def build_hazihinam() -> None:
                     "kind": "price_full",
                     "schema": "v1",
                     "counts": {"items": 8, "prices": 8},
-                    "checks": {"prices[0].store_code": "207", "prices[0].price": "6.62", "prices[3].price": "12.40"},
+                    "checks": {
+                        "prices[0].store_code": "207",
+                        "prices[0].price": "6.62",
+                        "prices[3].price": "12.40",
+                    },
                 },
                 f"PromoFull{chain}-000-207-20261006-030000.xml.gz": {
                     "kind": "promo_full",
                     "schema": "v1",
                     "counts": {"promos": 4},
-                    "checks": {"promos[0].club_only": "True", "promos[1].reward_type": "buy_x_get_y"},
+                    "checks": {
+                        "promos[0].club_only": "True",
+                        "promos[1].reward_type": "buy_x_get_y",
+                    },
                 },
-                f"PriceFull{chain}-000-201-20261006-030000.xml.gz": {"kind": "price_full", "error": "AdapterError"},
+                f"PriceFull{chain}-000-201-20261006-030000.xml.gz": {
+                    "kind": "price_full",
+                    "error": "AdapterError",
+                },
             },
         },
     )
@@ -856,10 +1144,18 @@ def build_tivtaam() -> None:
             )
         ],
     )
-    write(f, f"Stores{chain}-000-202610060100.gz", gz(encode(stores, "utf-16-be", declare="utf-16", bom=True)))
+    write(
+        f,
+        f"Stores{chain}-000-202610060100.gz",
+        gz(encode(stores, "utf-16-be", declare="utf-16", bom=True)),
+    )
     nds = price_doc(chain, "002", ITEMS, container="NewDataSet", row_tag="item", price_delta="1.00")
     write(f, f"PriceFull{chain}-002-202610060300.gz", gz(encode(nds, "utf-8", declare="utf-8")))
-    write(f, f"PromoFull{chain}-002-202610060300.gz", gz(encode(promo_doc(chain, "002", standard_promos()), "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"PromoFull{chain}-002-202610060300.gz",
+        gz(encode(promo_doc(chain, "002", standard_promos()), "utf-8", declare="utf-8")),
+    )
     write_expected(
         f,
         {
@@ -876,7 +1172,11 @@ def build_tivtaam() -> None:
                     "kind": "price_full",
                     "schema": "v1",
                     "counts": {"items": 8, "prices": 8},
-                    "checks": {"prices[0].store_code": "2", "prices[0].price": "8.12", "items[6].raw_name": "בננה במשקל"},
+                    "checks": {
+                        "prices[0].store_code": "2",
+                        "prices[0].price": "8.12",
+                        "items[6].raw_name": "בננה במשקל",
+                    },
                 },
                 f"PromoFull{chain}-002-202610060300.gz": {
                     "kind": "promo_full",
@@ -901,7 +1201,15 @@ def build_mega() -> None:
                 "קרפור מרקט",
                 [
                     ("2960", 1, "קרפור מרקט נווה שאנן", "חנה סנש 14", "חיפה", "32.7790", "35.0170"),
-                    ("3012", 1, "קרפור היפר ראשון לציון", "משה בקר 20", "ראשון לציון", "31.9850", "34.7700"),
+                    (
+                        "3012",
+                        1,
+                        "קרפור היפר ראשון לציון",
+                        "משה בקר 20",
+                        "ראשון לציון",
+                        "31.9850",
+                        "34.7700",
+                    ),
                 ],
             ),
             ("002", "קרפור לוגיסטיקה", [("5000", 1, "קרפור מרכז ליקוט", "השחם 8", "פתח תקווה")]),
@@ -909,10 +1217,22 @@ def build_mega() -> None:
     )
     # windows-1255 bytes with no XML declaration at all.
     write(f, f"Stores{chain}-000-202610060100.gz", gz(encode(stores, "windows-1255")))
-    write(f, f"PriceFull{chain}-2960-202610060300.gz", gz(encode(price_doc(chain, "2960", ITEMS, price_delta="0.40"), "utf-8", declare="utf-8")))
-    write(f, f"PromoFull{chain}-2960-202610060300.gz", gz(encode(promo_doc(chain, "2960", standard_promos()), "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"PriceFull{chain}-2960-202610060300.gz",
+        gz(encode(price_doc(chain, "2960", ITEMS, price_delta="0.40"), "utf-8", declare="utf-8")),
+    )
+    write(
+        f,
+        f"PromoFull{chain}-2960-202610060300.gz",
+        gz(encode(promo_doc(chain, "2960", standard_promos()), "utf-8", declare="utf-8")),
+    )
     # kind mismatch: named PriceFull but holds promotions.
-    write(f, f"PriceFull{chain}-3012-202610060300.gz", gz(encode(promo_doc(chain, "3012", standard_promos()[:1]), "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"PriceFull{chain}-3012-202610060300.gz",
+        gz(encode(promo_doc(chain, "3012", standard_promos()[:1]), "utf-8", declare="utf-8")),
+    )
     write_expected(
         f,
         {
@@ -923,7 +1243,10 @@ def build_mega() -> None:
                     "schema": "v1",
                     "counts": {"stores": 3},
                     "online": ["5000"],
-                    "checks": {"stores[0].store_code": "2960", "stores[2].name": "קרפור מרכז ליקוט"},
+                    "checks": {
+                        "stores[0].store_code": "2960",
+                        "stores[2].name": "קרפור מרכז ליקוט",
+                    },
                 },
                 f"PriceFull{chain}-2960-202610060300.gz": {
                     "kind": "price_full",
@@ -937,7 +1260,10 @@ def build_mega() -> None:
                     "counts": {"promos": 4},
                     "checks": {"promos[0].reward_type": "bundle"},
                 },
-                f"PriceFull{chain}-3012-202610060300.gz": {"kind": "price_full", "error": "AdapterError"},
+                f"PriceFull{chain}-3012-202610060300.gz": {
+                    "kind": "price_full",
+                    "error": "AdapterError",
+                },
             },
         },
     )
@@ -972,7 +1298,15 @@ def build_machsanei_hashuk() -> None:
                 "001",
                 "מחסני השוק",
                 [
-                    ("003", 1, "מחסני השוק בני ברק", "רבי עקיבא 100", "בני ברק", "32.0840", "34.8340"),
+                    (
+                        "003",
+                        1,
+                        "מחסני השוק בני ברק",
+                        "רבי עקיבא 100",
+                        "בני ברק",
+                        "32.0840",
+                        "34.8340",
+                    ),
                     ("012", 1, "מחסני השוק אשדוד", "הבנים 9", "אשדוד", "31.7990", "34.6480"),
                     ("090", 1, "מחסני השוק אונליין", "", ""),
                 ],
@@ -980,17 +1314,35 @@ def build_machsanei_hashuk() -> None:
             (
                 "002",
                 "מחסני השוק בשכונה",
-                [("041", 1, "מחסני השוק בשכונה ירושלים", "מלכי ישראל 20", "ירושלים", "31.7890", "35.2150")],
+                [
+                    (
+                        "041",
+                        1,
+                        "מחסני השוק בשכונה ירושלים",
+                        "מלכי ישראל 20",
+                        "ירושלים",
+                        "31.7890",
+                        "35.2150",
+                    )
+                ],
             ),
         ],
         id_case="ID",
         store_id_tag="StoreID",
     )
-    write(f, f"Stores{chain}-000-202610060810.xml.gz", gz(encode(stores, "utf-8", declare="utf-8", bom=True)))
+    write(
+        f,
+        f"Stores{chain}-000-202610060810.xml.gz",
+        gz(encode(stores, "utf-8", declare="utf-8", bom=True)),
+    )
     prices = price_doc(chain, "003", ITEMS, id_case="ID", price_delta="-0.20")
-    write(f, f"PriceFull{chain}-003-202610060810.xml.gz", gz(encode(prices, "utf-8", declare="utf-8")))
+    write(
+        f, f"PriceFull{chain}-003-202610060810.xml.gz", gz(encode(prices, "utf-8", declare="utf-8"))
+    )
     promos = promo_doc(chain, "003", _big_id_promos(standard_promos()[:3]), id_case="ID")
-    write(f, f"PromoFull{chain}-003-202610060810.xml.gz", gz(encode(promos, "utf-8", declare="utf-8")))
+    write(
+        f, f"PromoFull{chain}-003-202610060810.xml.gz", gz(encode(promos, "utf-8", declare="utf-8"))
+    )
     # hourly delta: two prices changed
     delta = price_doc(chain, "003", ITEMS[:2], id_case="ID", price_delta="-0.50")
     write(f, f"Price{chain}-003-202610061110.xml.gz", gz(encode(delta, "utf-8", declare="utf-8")))
@@ -1018,10 +1370,18 @@ def build_machsanei_hashuk() -> None:
         for code in ("7290000066318", "7290107932158")
     )
     legacy = (
-        "<Promos>" + el("ChainID", alias) + el("SubChainID", 1) + el("StoreID", "003")
-        + el("BikoretNo", 8) + f"<Sales>{sales}</Sales></Promos>"
+        "<Promos>"
+        + el("ChainID", alias)
+        + el("SubChainID", 1)
+        + el("StoreID", "003")
+        + el("BikoretNo", 8)
+        + f"<Sales>{sales}</Sales></Promos>"
     )
-    write(f, f"Promo{alias}-003-202610061110.xml.gz", gz(encode(legacy, "windows-1255", declare="windows-1255")))
+    write(
+        f,
+        f"Promo{alias}-003-202610061110.xml.gz",
+        gz(encode(legacy, "windows-1255", declare="windows-1255")),
+    )
     write_expected(
         f,
         {
@@ -1118,12 +1478,32 @@ def build_king_store() -> None:
         ],
     )
     write(f, f"Stores{chain}-000-202610060500.xml", encode(stores, "utf-8", declare="utf-8"))
-    write(f, f"PriceFull{chain}-001-202610060510.xml", gz(encode(price_doc(chain, "001", ITEMS[:7], price_delta="0.10"), "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"PriceFull{chain}-001-202610060510.xml",
+        gz(
+            encode(price_doc(chain, "001", ITEMS[:7], price_delta="0.10"), "utf-8", declare="utf-8")
+        ),
+    )
     promo_xml = encode(promo_doc(chain, "001", standard_promos()), "utf-8", declare="utf-8")
-    write(f, f"PromoFull{chain}-001-202610060510.xml", zipped([(f"PromoFull{chain}-001-202610060510.xml", promo_xml)]))
-    write(f, f"Price{chain}-001-202610061200.xml", gz(encode(price_doc(chain, "001", ITEMS[:3], price_delta="0.40"), "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"PromoFull{chain}-001-202610060510.xml",
+        zipped([(f"PromoFull{chain}-001-202610060510.xml", promo_xml)]),
+    )
+    write(
+        f,
+        f"Price{chain}-001-202610061200.xml",
+        gz(
+            encode(price_doc(chain, "001", ITEMS[:3], price_delta="0.40"), "utf-8", declare="utf-8")
+        ),
+    )
     # a promo delta with no rows is legitimate (no changes this hour)
-    write(f, f"Promo{chain}-002-202610061200.xml", gz(encode(promo_doc(chain, "002", []), "utf-8", declare="utf-8")))
+    write(
+        f,
+        f"Promo{chain}-002-202610061200.xml",
+        gz(encode(promo_doc(chain, "002", []), "utf-8", declare="utf-8")),
+    )
     # a truncated download must fail loudly
     good = gz(encode(price_doc(chain, "004", ITEMS), "utf-8", declare="utf-8"))
     write(f, f"PriceFull{chain}-004-202610060510.xml", good[: len(good) // 2])
@@ -1181,7 +1561,10 @@ def build_king_store() -> None:
                     "counts": {},
                     "checks": {},
                 },
-                f"PriceFull{chain}-004-202610060510.xml": {"kind": "price_full", "error": "AdapterError"},
+                f"PriceFull{chain}-004-202610060510.xml": {
+                    "kind": "price_full",
+                    "error": "AdapterError",
+                },
             },
         },
     )
@@ -1190,7 +1573,7 @@ def build_king_store() -> None:
 def build_xmlutil() -> None:
     f = "xmlutil"
     body = (
-        "<Root><ChainId>7290027600007</ChainId><Items Count=\"2\">"
+        '<Root><ChainId>7290027600007</ChainId><Items Count="2">'
         "<Item><ItemCode>1</ItemCode><ItemName>חלב 3%</ItemName></Item>"
         "<Item><ItemCode>2</ItemCode><ItemName>לחם אחיד</ItemName></Item>"
         "</Items></Root>"

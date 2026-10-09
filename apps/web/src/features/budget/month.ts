@@ -4,6 +4,8 @@
  * wherever the browser's clock says it is.
  */
 
+import { DEFAULT_LOCALE, INTL_LOCALE, type Locale } from "@/i18n/locales";
+
 const TIME_ZONE = "Asia/Jerusalem";
 
 const dateParts = new Intl.DateTimeFormat("en-US", {
@@ -41,10 +43,14 @@ export function monthsEndingAt(month: string, count: number): string[] {
   return out;
 }
 
-/** "אוקטובר" (long) or "אוק׳" (short) for a `YYYY-MM`. */
-export function monthName(month: string, style: "long" | "short" = "long"): string {
+/** "אוקטובר" (long) or "אוק׳" (short) for a `YYYY-MM`; Arabic month names with `locale: "ar"`. */
+export function monthName(
+  month: string,
+  style: "long" | "short" = "long",
+  locale: Locale = DEFAULT_LOCALE,
+): string {
   const [y, m] = month.split("-").map(Number) as [number, number];
-  return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString("he-IL", {
+  return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(INTL_LOCALE[locale], {
     month: style,
     timeZone: "UTC",
   });

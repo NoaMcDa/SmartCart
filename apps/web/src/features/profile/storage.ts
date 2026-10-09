@@ -20,7 +20,12 @@ export const STORAGE_KEYS = {
  * Keys owned by the core screens (W4b: `src/state/list.ts` LIST_KEY and `src/state/shopper.ts`
  * PROFILE_KEY) that also hold personal data, so "delete my data" removes them as well.
  */
-export const CORE_DATA_KEYS: ReadonlyArray<string> = ["sc-list-v1", "sc-profile-v1"];
+export const CORE_DATA_KEYS: ReadonlyArray<string> = [
+  "sc-list-v1",
+  "sc-profile-v1",
+  // Photo consent (features/consent/imageConsent.ts, issues #61 and #68).
+  "sc-image-consent-v1",
+];
 
 export const LOCAL_DATA_KEYS: ReadonlyArray<string> = [
   ...Object.values(STORAGE_KEYS),

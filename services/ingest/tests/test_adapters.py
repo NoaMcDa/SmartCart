@@ -45,7 +45,9 @@ def chain_adapters() -> dict[str, type[RegulationAdapter]]:
 
 def chain_dirs(root: Path = FIXTURES) -> list[Path]:
     return sorted(
-        p for p in root.iterdir() if p.is_dir() and p.name not in NON_CHAIN_DIRS and not p.name.startswith(("_", "."))
+        p
+        for p in root.iterdir()
+        if p.is_dir() and p.name not in NON_CHAIN_DIRS and not p.name.startswith(("_", "."))
     )
 
 
@@ -147,7 +149,7 @@ def test_adapter_metadata(slug: str) -> None:
 def test_adding_a_chain_needs_only_a_module_and_a_fixture(tmp_path: Path) -> None:
     """Write a brand-new adapter module and fixture folder, then run the generic harness."""
     module_src = textwrap.dedent(
-        '''
+        """
         from smartcart_ingest.adapters._common import RegulationAdapter
         from smartcart_ingest.adapters.base import register
 
@@ -158,7 +160,7 @@ def test_adding_a_chain_needs_only_a_module_and_a_fixture(tmp_path: Path) -> Non
             slug = "newchain"
             portal = "other"
             has_online_record = False
-        '''
+        """
     )
     namespace: dict[str, Any] = {}
     try:
@@ -168,7 +170,7 @@ def test_adding_a_chain_needs_only_a_module_and_a_fixture(tmp_path: Path) -> Non
         doc = (
             '<?xml version="1.0" encoding="utf-8"?><Root><ChainId>7290000000001</ChainId>'
             "<StoreId>001</StoreId><Items><Item><ItemCode>7290000000123</ItemCode>"
-            "<ItemName>אורז פרסי 1 ק\"ג</ItemName><ItemPrice>9.90</ItemPrice></Item></Items></Root>"
+            '<ItemName>אורז פרסי 1 ק"ג</ItemName><ItemPrice>9.90</ItemPrice></Item></Items></Root>'
         )
         (folder / "PriceFull7290000000001-001-202610060300.gz").write_bytes(
             gzip.compress(doc.encode("utf-8"), mtime=0)
@@ -203,25 +205,83 @@ def test_register_rejects_duplicate_chain() -> None:
 @pytest.mark.parametrize(
     ("filename", "kind", "chain", "store", "published"),
     [
-        ("PriceFull7290027600007-001-202610060300.gz", "price_full", "7290027600007", "1", "2026-10-06 03:00:00+03:00"),
-        ("Price7290027600007-001-202610061130.gz", "price", "7290027600007", "1", "2026-10-06 11:30:00+03:00"),
-        ("PromoFull7290058140886-039-202610060300.gz", "promo_full", "7290058140886", "39", "2026-10-06 03:00:00+03:00"),
-        ("Promo7290700100008-000-207-20261006-103225.xml.gz", "promo", "7290700100008", "207", "2026-10-06 10:32:25+03:00"),
-        ("Stores7290058140886-202610060100.xml", "stores", "7290058140886", None, "2026-10-06 01:00:00+03:00"),
-        ("StoresFull7290875100001-000-202610060510.gz", "stores", "7290875100001", None, "2026-10-06 05:10:00+03:00"),
-        ("NULLPriceFull7290055700007-2960-202610060300.gz", "price_full", "7290055700007", "2960", "2026-10-06 03:00:00+03:00"),
-        ("raw/shufersal/1/PriceFull7290027600007-001-202610060300.gz", "price_full", "7290027600007", "1", "2026-10-06 03:00:00+03:00"),
+        (
+            "PriceFull7290027600007-001-202610060300.gz",
+            "price_full",
+            "7290027600007",
+            "1",
+            "2026-10-06 03:00:00+03:00",
+        ),
+        (
+            "Price7290027600007-001-202610061130.gz",
+            "price",
+            "7290027600007",
+            "1",
+            "2026-10-06 11:30:00+03:00",
+        ),
+        (
+            "PromoFull7290058140886-039-202610060300.gz",
+            "promo_full",
+            "7290058140886",
+            "39",
+            "2026-10-06 03:00:00+03:00",
+        ),
+        (
+            "Promo7290700100008-000-207-20261006-103225.xml.gz",
+            "promo",
+            "7290700100008",
+            "207",
+            "2026-10-06 10:32:25+03:00",
+        ),
+        (
+            "Stores7290058140886-202610060100.xml",
+            "stores",
+            "7290058140886",
+            None,
+            "2026-10-06 01:00:00+03:00",
+        ),
+        (
+            "StoresFull7290875100001-000-202610060510.gz",
+            "stores",
+            "7290875100001",
+            None,
+            "2026-10-06 05:10:00+03:00",
+        ),
+        (
+            "NULLPriceFull7290055700007-2960-202610060300.gz",
+            "price_full",
+            "7290055700007",
+            "2960",
+            "2026-10-06 03:00:00+03:00",
+        ),
+        (
+            "raw/shufersal/1/PriceFull7290027600007-001-202610060300.gz",
+            "price_full",
+            "7290027600007",
+            "1",
+            "2026-10-06 03:00:00+03:00",
+        ),
         # Real Shufersal Stores name (portal, 2026-10-08): date, then HHM with the minute in tens.
-        ("Stores7290027600007-000-20261008-020.gz", "stores", "7290027600007", None, "2026-10-08 02:00:00+03:00"),
+        (
+            "Stores7290027600007-000-20261008-020.gz",
+            "stores",
+            "7290027600007",
+            None,
+            "2026-10-08 02:00:00+03:00",
+        ),
     ],
 )
-def test_parse_filename(filename: str, kind: str, chain: str, store: str | None, published: str) -> None:
+def test_parse_filename(
+    filename: str, kind: str, chain: str, store: str | None, published: str
+) -> None:
     info = parse_filename(filename)
     assert (info.kind, info.chain_id, info.store_code) == (kind, chain, store)
     assert str(info.published_at) == published
 
 
-@pytest.mark.parametrize("filename", ["README.md", "Catalog7290027600007-001-202610060300.gz", "PriceFull-001.gz"])
+@pytest.mark.parametrize(
+    "filename", ["README.md", "Catalog7290027600007-001-202610060300.gz", "PriceFull-001.gz"]
+)
 def test_detect_kind_rejects_unknown_names(filename: str) -> None:
     with pytest.raises(AdapterError, match=r"\[7290027600007\]"):
         get_adapter("7290027600007").detect_kind(filename)
@@ -351,7 +411,9 @@ def test_container_outside_chain_dialect_is_unknown() -> None:
 def test_no_upstream_types_leak_from_parse() -> None:
     adapter = get_adapter("7290058140886")
     assert isinstance(adapter, RegulationAdapter)
-    parsed = parse_fixture(adapter, FIXTURES / "ramilevy" / "PriceFull7290058140886-039-202610060300.gz")
+    parsed = parse_fixture(
+        adapter, FIXTURES / "ramilevy" / "PriceFull7290058140886-039-202610060300.gz"
+    )
     for record in [parsed.raw, *parsed.items, *parsed.prices]:
         assert type(record).__module__ == "smartcart_ingest.models"
 
@@ -396,19 +458,25 @@ def real_manifest_entry(file: Path) -> dict[str, Any]:
 
 def documented_gates(file: Path) -> set[str]:
     gates = set((real_manifest_entry(file).get("gate") or {}).get("gates") or [])
-    assert gates <= DOCUMENTED_GATES, f"{file.name}: undocumented gate(s) {gates - DOCUMENTED_GATES}"
+    assert gates <= DOCUMENTED_GATES, (
+        f"{file.name}: undocumented gate(s) {gates - DOCUMENTED_GATES}"
+    )
     return gates
 
 
 REAL_FILES = real_fixture_files()
 REAL_CHAINS = sorted({slug for slug, _ in REAL_FILES})
-NO_REAL = "no real fixtures yet; run the Portal probe workflow with commit_fixtures (docs/ingestion.md)"
+NO_REAL = (
+    "no real fixtures yet; run the Portal probe workflow with commit_fixtures (docs/ingestion.md)"
+)
 
 
 def test_real_fixture_discovery_reads_chain_real_dirs(tmp_path: Path) -> None:
     """The discovery itself, on a temporary tree (runs whether or not real files exist)."""
     (tmp_path / "victory" / "real").mkdir(parents=True)
-    (tmp_path / "victory" / "real" / "Stores7290696200003-000-202610080900.xml.gz").write_bytes(b"x")
+    (tmp_path / "victory" / "real" / "Stores7290696200003-000-202610080900.xml.gz").write_bytes(
+        b"x"
+    )
     (tmp_path / "victory" / "real" / "MANIFEST.json").write_text("{}")
     (tmp_path / "real" / "shufersal").mkdir(parents=True)
     (tmp_path / "real" / "shufersal" / "Stores7290027600007-000-202610080201.gz").write_bytes(b"x")
@@ -419,7 +487,9 @@ def test_real_fixture_discovery_reads_chain_real_dirs(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(not REAL_FILES, reason=NO_REAL)
-@pytest.mark.parametrize(("slug", "file"), REAL_FILES, ids=lambda v: v if isinstance(v, str) else v.name)
+@pytest.mark.parametrize(
+    ("slug", "file"), REAL_FILES, ids=lambda v: v if isinstance(v, str) else v.name
+)
 def test_real_fixture_parses(slug: str, file: Path) -> None:
     adapter = chain_adapters()[slug]()
     info = adapter.parse_filename(file.name)

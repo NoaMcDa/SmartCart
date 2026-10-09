@@ -20,9 +20,9 @@ D = Decimal
         ("½ כפית מלח", "מלח", D("2.5"), "ml"),
         ("3 ביצים", "ביצים L", D(3), "piece"),
         ("200 גרם גבינה", "גבינה", D(200), "g"),
-        ("1.5 ק\"ג תפוחי אדמה", "תפוחי אדמה", D(1500), "g"),
+        ('1.5 ק"ג תפוחי אדמה', "תפוחי אדמה", D(1500), "g"),
         ("1,5 ליטר חלב", "חלב", D(1500), "ml"),
-        ("250 מ\"ל שמנת מתוקה", "שמנת מתוקה", D(250), "ml"),
+        ('250 מ"ל שמנת מתוקה', "שמנת מתוקה", D(250), "ml"),
         ("1 1/2 כוסות סוכר", "סוכר לבן", D(360), "ml"),
         ("1½ כוסות סוכר", "סוכר לבן", D(360), "ml"),
         ("3/4 כוס שמן", "שמן", D(180), "ml"),
@@ -120,40 +120,70 @@ def test_text_with_headers() -> None:
 
 
 def test_text_without_headers_takes_the_first_line_as_title() -> None:
-    r = rp.parse_recipe_text("סלט ירקות\n3 עגבניות\n2 מלפפונים\nשמן זית\nמערבבים הכל היטב ומגישים מיד עם לחם טרי")
+    r = rp.parse_recipe_text(
+        "סלט ירקות\n3 עגבניות\n2 מלפפונים\nשמן זית\nמערבבים הכל היטב ומגישים מיד עם לחם טרי"
+    )
     assert r.title == "סלט ירקות" and r.servings is None
     assert [i.name for i in r.ingredients] == ["עגבניות", "מלפפונים", "שמן זית"]
 
 
 @pytest.mark.parametrize(
     ("value", "servings"),
-    [(4, 4), ("4", 4), ("6 מנות", 6), (["8", "8 servings"], 8), ("ל-4 סועדים", 4),
-     ("מספר מנות: 10", 10), ("12 servings", 12), ("כ-30 עוגיות", None), (None, None), (0, None),
-     (True, None), ("500", None)],
+    [
+        (4, 4),
+        ("4", 4),
+        ("6 מנות", 6),
+        (["8", "8 servings"], 8),
+        ("ל-4 סועדים", 4),
+        ("מספר מנות: 10", 10),
+        ("12 servings", 12),
+        ("כ-30 עוגיות", None),
+        (None, None),
+        (0, None),
+        (True, None),
+        ("500", None),
+    ],
 )
 def test_servings(value, servings) -> None:
     assert rp.parse_servings(value) == servings
 
 
 def _page(jsonld: object, body: str = "") -> str:
-    return (f'<html><head><title>כותרת הדף</title><script type="application/ld+json">'
-            f"{json.dumps(jsonld, ensure_ascii=False)}</script></head><body>{body}</body></html>")
+    return (
+        f'<html><head><title>כותרת הדף</title><script type="application/ld+json">'
+        f"{json.dumps(jsonld, ensure_ascii=False)}</script></head><body>{body}</body></html>"
+    )
 
 
 def test_jsonld_recipe_variants() -> None:
-    node = {"@type": ["Recipe", "NewsArticle"], "name": "פנקייק &amp; סירופ", "recipeYield": ["4", "4 מנות"],
-            "recipeIngredient": ["1 כוס קמח", "<b>2</b> ביצים", "קורט מלח"]}
-    r = rp.recipe_from_html(_page({"@context": "https://schema.org", "@graph": [{"@type": "WebPage"}, node]}))
+    node = {
+        "@type": ["Recipe", "NewsArticle"],
+        "name": "פנקייק &amp; סירופ",
+        "recipeYield": ["4", "4 מנות"],
+        "recipeIngredient": ["1 כוס קמח", "<b>2</b> ביצים", "קורט מלח"],
+    }
+    r = rp.recipe_from_html(
+        _page({"@context": "https://schema.org", "@graph": [{"@type": "WebPage"}, node]})
+    )
     assert r.title == "פנקייק & סירופ" and r.servings == 4
     assert [(i.name, i.amount) for i in r.ingredients] == [("קמח לבן", D(240)), ("ביצים L", D(2))]
     assert r.unresolved == ["קורט מלח"]
-    assert rp.recipe_from_html(_page([{"@type": "Recipe", "name": "x", "recipeIngredient": "1 כוס סוכר"}])).ingredients[0].name == "סוכר לבן"
+    assert (
+        rp.recipe_from_html(
+            _page([{"@type": "Recipe", "name": "x", "recipeIngredient": "1 כוס סוכר"}])
+        )
+        .ingredients[0]
+        .name
+        == "סוכר לבן"
+    )
 
 
 def test_broken_jsonld_falls_back_to_the_text_under_the_header() -> None:
-    page = ('<html><head><meta property="og:title" content="עוגה"><script type="application/ld+json">{oops'
-            "</script></head><body><p>מבוא עם 3 כוסות של השראה</p><h3>המצרכים</h3><ul><li>1 כוס קמח</li>"
-            "<li>2 ביצים</li></ul><h3>אופן ההכנה</h3><p>1 כוס סוכר נוספת לקישוט</p></body></html>")
+    page = (
+        '<html><head><meta property="og:title" content="עוגה"><script type="application/ld+json">{oops'
+        "</script></head><body><p>מבוא עם 3 כוסות של השראה</p><h3>המצרכים</h3><ul><li>1 כוס קמח</li>"
+        "<li>2 ביצים</li></ul><h3>אופן ההכנה</h3><p>1 כוס סוכר נוספת לקישוט</p></body></html>"
+    )
     r = rp.recipe_from_html(page)
     assert r.title == "עוגה"
     assert [i.name for i in r.ingredients] == ["קמח לבן", "ביצים L"]
@@ -191,7 +221,7 @@ def ing(line: str) -> Ingredient:
     ("line", "base", "pack", "unit", "quantity", "kg", "converted"),
     [
         # by weight: kilograms, rounded up to 50 g
-        ("1 ק\"ג חזה עוף", "kg", None, None, D("1.00"), True, True),
+        ('1 ק"ג חזה עוף', "kg", None, None, D("1.00"), True, True),
         ("320 גרם סלמון", "kg", None, None, D("0.35"), True, True),
         ("3 עגבניות", "kg", None, None, D("0.40"), True, True),  # 3 x 130 g
         ("2 שיני שום", "kg", None, None, D("0.05"), True, True),

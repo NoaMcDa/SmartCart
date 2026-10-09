@@ -4,7 +4,9 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { BottomSheet, Button, IconInfo, IconMic } from "@/components/ui";
 import { reportVoiceCompleted, reportVoiceStarted } from "@/features/consent/betaEvents";
 import type { VoiceOutcome } from "@/features/consent/betaEvents";
-import { transcriptText, VOICE_MESSAGES, type VoiceFailure } from "./speech";
+import { useT } from "@/i18n/LocaleProvider";
+import { voiceMessages } from "@/i18n/messages/voice";
+import { transcriptText, VOICE_MESSAGE_KEYS, type VoiceFailure } from "./speech";
 import { useVoiceInput } from "./useVoiceInput";
 import styles from "./Voice.module.css";
 
@@ -29,6 +31,7 @@ function outcomeOf(failure: VoiceFailure): VoiceOutcome {
  * through the same `/parse-list` call as a pasted list. Audio is never stored or sent by the app.
  */
 export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
+  const t = useT(voiceMessages);
   const voice = useVoiceInput();
   const draftId = useId();
   // The person's edits to the transcript; null = show what was heard.
@@ -94,24 +97,19 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
   if (phase === "idle") {
     body = (
       <>
-        <p className={styles.lead}>
-          אמרי את הפריטים בקול ועצרי רגע בין פריט לפריט, למשל &quot;חלב… שתי עגבניות… סלמון&quot;.
-          לפני שנוסיף משהו לרשימה תראי מה שמענו ותוכלי לתקן.
-        </p>
+        <p className={styles.lead}>{t("lead")}</p>
         <p className={styles.privacy} data-testid="voice-privacy">
-          הדפדפן יבקש אישור למיקרופון כשתלחצי על &quot;התחלת הקלטה&quot;. אנחנו לא מקליטים ולא
-          שומרים אודיו. הזיהוי נעשה בשירות הדיבור של הדפדפן (למשל בכרום, בשרתים של גוגל, לפי מדיניות
-          הפרטיות שלו), ורק הטקסט שאישרת נשלח אלינו כמו רשימה שהודבקה.
+          {t("privacy")}
         </p>
       </>
     );
     actions = (
       <>
         <Button variant="outline" onClick={close}>
-          ביטול
+          {t("cancel")}
         </Button>
         <Button iconStart={<IconMic size={18} />} onClick={begin} data-testid="voice-start">
-          התחלת הקלטה
+          {t("startRecording")}
         </Button>
       </>
     );
@@ -120,7 +118,7 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
       <>
         <p className={styles.status} role="status" data-testid="voice-status">
           <span className={styles.dot} aria-hidden="true" />
-          {phase === "starting" ? "ממתינה לאישור המיקרופון…" : "מקשיבה… אמרי את הפריטים."}
+          {phase === "starting" ? t("waitingMic") : t("listening")}
         </p>
         <div className={styles.live} data-testid="voice-live">
           {voice.transcript.finals.join("\n")}
@@ -136,10 +134,10 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
     actions = (
       <>
         <Button variant="outline" onClick={close}>
-          ביטול
+          {t("cancel")}
         </Button>
         <Button onClick={voice.stop} disabled={phase === "starting"} data-testid="voice-stop">
-          סיימתי לדבר
+          {t("doneSpeaking")}
         </Button>
       </>
     );
@@ -147,7 +145,7 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
     body = (
       <>
         <label htmlFor={draftId} className={styles.label}>
-          מה שמענו (אפשר לתקן, שורה לכל פריט)
+          {t("draftLabel")}
         </label>
         <textarea
           id={draftId}
@@ -160,7 +158,7 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
         {addFailed ? (
           <p className={styles.callout} role="alert">
             <IconInfo size={16} />
-            לא הצלחנו לזהות את הרשימה. בדקי את החיבור ונסי שוב. הטקסט נשמר.
+            {t("addFailed")}
           </p>
         ) : null}
       </>
@@ -168,14 +166,14 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
     actions = (
       <>
         <Button variant="outline" onClick={begin} disabled={adding}>
-          הקלטה מחדש
+          {t("recordAgain")}
         </Button>
         <Button
           onClick={() => void add()}
           disabled={adding || !text.trim()}
           data-testid="voice-add"
         >
-          הוסיפי לרשימה
+          {t("addToList")}
         </Button>
       </>
     );
@@ -184,23 +182,23 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
     body = (
       <p className={styles.callout} role="alert" data-testid="voice-error">
         <IconInfo size={16} />
-        {VOICE_MESSAGES[reason]}
+        {t(VOICE_MESSAGE_KEYS[reason])}
       </p>
     );
     actions = (
       <>
         <Button variant="outline" onClick={close}>
-          חזרה להקלדה
+          {t("backToTyping")}
         </Button>
         {reason === "unsupported" || reason === "language" ? null : (
-          <Button onClick={begin}>ניסיון נוסף</Button>
+          <Button onClick={begin}>{t("tryAgain")}</Button>
         )}
       </>
     );
   }
 
   return (
-    <BottomSheet open={open} onClose={close} eyebrow="רשימה בקול" title="הכתבה קולית">
+    <BottomSheet open={open} onClose={close} eyebrow={t("eyebrow")} title={t("title")}>
       <div className={styles.body}>
         {body}
         <div className={styles.footer}>{actions}</div>

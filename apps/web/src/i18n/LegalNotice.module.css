@@ -1,0 +1,11 @@
+/* A visible text label, not color alone: a bordered block with the sentence itself. */
+.notice {
+  margin: 0;
+  padding: var(--sc-space-2) var(--sc-space-3);
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--sc-text);
+}

@@ -1,4 +1,6 @@
 import { Price } from "@/components/ui";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { budgetMessages } from "@/i18n/messages/budget";
 import { monthName } from "./month";
 import type { MonthTotal } from "./spendState";
 import styles from "./Budget.module.css";
@@ -24,6 +26,8 @@ export type SpendChartProps = {
  * screens, where the month names under the bars are hidden.
  */
 export function SpendChart({ data, budget, highlight }: SpendChartProps) {
+  const t = useT(budgetMessages);
+  const { locale } = useLocale();
   const n = data.length;
   const width = n * COL;
   const max = Math.max(1, budget ?? 0, ...data.map((d) => d.total));
@@ -70,26 +74,26 @@ export function SpendChart({ data, budget, highlight }: SpendChartProps) {
       </svg>
       <div className={styles.axis} aria-hidden="true">
         {data.map((d) => (
-          <span key={d.month}>{monthName(d.month, "short")}</span>
+          <span key={d.month}>{monthName(d.month, "short", locale)}</span>
         ))}
       </div>
       {budget !== null ? (
         <figcaption className={styles.legend}>
-          <span className={styles.swatchLine} aria-hidden="true" /> התקציב החודשי
+          <span className={styles.swatchLine} aria-hidden="true" /> {t("chartLegend")}
         </figcaption>
       ) : null}
       <table className={styles.table}>
-        <caption className={styles.tableCaption}>הוצאה לפי חודש, לפי המחירים שהוצגו</caption>
+        <caption className={styles.tableCaption}>{t("chartCaption")}</caption>
         <thead>
           <tr>
-            <th scope="col">חודש</th>
-            <th scope="col">סכום</th>
+            <th scope="col">{t("colMonth")}</th>
+            <th scope="col">{t("colAmount")}</th>
           </tr>
         </thead>
         <tbody>
           {[...data].reverse().map((d) => (
             <tr key={d.month}>
-              <th scope="row">{monthName(d.month)}</th>
+              <th scope="row">{monthName(d.month, "long", locale)}</th>
               <td>
                 <Price amount={d.total} />
               </td>

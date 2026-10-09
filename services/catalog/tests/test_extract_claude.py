@@ -44,8 +44,9 @@ class FakeBatches:
 
     def create(self, requests: list[dict[str, Any]]) -> SimpleNamespace:
         self.created.append(copy.deepcopy(requests))
-        return SimpleNamespace(id=f"msgbatch_fake_{len(self.created)}",
-                               processing_status="in_progress")
+        return SimpleNamespace(
+            id=f"msgbatch_fake_{len(self.created)}", processing_status="in_progress"
+        )
 
     def retrieve(self, batch_id: str) -> SimpleNamespace:
         self.retrieved += 1
@@ -60,9 +61,11 @@ class FakeBatches:
             entry = self.by_name.get(msg["raw_name"] or msg["name"])
             if entry is None or entry.get("omit"):
                 continue
-            out.append(MessageBatchIndividualResponse.model_validate(
-                {"custom_id": req["custom_id"], "result": entry["result"]}
-            ))
+            out.append(
+                MessageBatchIndividualResponse.model_validate(
+                    {"custom_id": req["custom_id"], "result": entry["result"]}
+                )
+            )
         return iter(out)
 
 
@@ -95,10 +98,19 @@ def _items() -> list[NormalizedItem]:
 
 def test_request_matches_recorded_shape(catalog) -> None:
     x, _ = _extractor(catalog)
-    item = normalize({"raw_name": "חלב תנובה 3% בקרטון 1 ליטר", "quantity": 1, "unit": "ליטר",
-                      "item_code": "7290004131074", "chain_id": "7290027600007",
-                      "chain_name": "שופרסל", "manufacturer": "תנובה",
-                      "barcode": "7290004131074"}, item_id=101)
+    item = normalize(
+        {
+            "raw_name": "חלב תנובה 3% בקרטון 1 ליטר",
+            "quantity": 1,
+            "unit": "ליטר",
+            "item_code": "7290004131074",
+            "chain_id": "7290027600007",
+            "chain_name": "שופרסל",
+            "manufacturer": "תנובה",
+            "barcode": "7290004131074",
+        },
+        item_id=101,
+    )
     req = x.build_request(item)
     schema = req["params"]["output_config"]["format"]["schema"]
     assert schema["additionalProperties"] is False
@@ -145,14 +157,18 @@ def test_usage_and_estimated_cost(catalog) -> None:
     items = _items()
     x.extract(items)
     usage = x.last_usage
-    succeeded = [e["result"]["message"]["usage"] for e in RESULTS
-                 if e.get("result", {}).get("type") == "succeeded"]
+    succeeded = [
+        e["result"]["message"]["usage"]
+        for e in RESULTS
+        if e.get("result", {}).get("type") == "succeeded"
+    ]
     assert usage.input_tokens == sum(u["input_tokens"] for u in succeeded)
     assert usage.output_tokens == sum(u["output_tokens"] for u in succeeded)
     assert usage.cache_read_input_tokens == sum(u["cache_read_input_tokens"] for u in succeeded)
     assert usage.succeeded == 2 and usage.requests == len(RESULTS)
     expected = (
-        Decimal(usage.input_tokens) * 1 + Decimal(usage.output_tokens) * 5
+        Decimal(usage.input_tokens) * 1
+        + Decimal(usage.output_tokens) * 5
         + Decimal(usage.cache_read_input_tokens) * Decimal("0.1")
         + Decimal(usage.cache_creation_input_tokens) * Decimal("1.25")
     ) / 1_000_000
@@ -218,8 +234,9 @@ def test_malformed_output_goes_to_retry_and_is_never_trusted(db, catalog) -> Non
     fixed = [dict(e, result=RESULTS[0]["result"]) | {"omit": False} for e in RESULTS]
     x2, batches2 = _extractor(catalog, fixed)
     run2 = run_extraction(db, x2, batch_size=50)
-    sent = {json.loads(r["params"]["messages"][0]["content"])["raw_name"]
-            for r in batches2.created[0]}
+    sent = {
+        json.loads(r["params"]["messages"][0]["content"])["raw_name"] for r in batches2.created[0]
+    }
     assert len(sent) == 9
     assert RESULTS[0]["raw_name"] not in sent and "חלב עמיד 1% 1 ליטר" not in sent
     assert (run2.ok, run2.retry, run2.failed) == (9, 0, 0)

@@ -114,6 +114,56 @@
   border-block-end: 0;
 }
 
+/* Correct and delete (issue #70): actions and forms take the whole row under the entry. */
+.entryMain {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--sc-space-2);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.entryActions,
+.entryForm {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+
+.entryForm {
+  flex-direction: column;
+  align-items: stretch;
+  padding-block: var(--sc-space-2);
+}
+
+.snackbar {
+  position: fixed;
+  inset-inline: var(--sc-gutter);
+  inset-block-end: calc(var(--sc-bottom-nav-height) + var(--sc-space-3));
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-3);
+  max-inline-size: 520px;
+  margin-inline: auto;
+  padding: var(--sc-space-2) var(--sc-space-4);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-text);
+  color: var(--sc-bg);
+  font-size: 14px;
+  box-shadow: var(--sc-shadow-sheet);
+}
+
+.snackbar button {
+  color: var(--sc-bg);
+  text-decoration: underline;
+}
+
 /* Chart */
 
 .chart {

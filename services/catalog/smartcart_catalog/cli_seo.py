@@ -232,7 +232,8 @@ def beta_metrics(conn, since: date | None = None) -> dict[str, Any]:
         "returning": None
         if returning is None
         else {
-            "week": returning[0], "active_users": returning[1],
+            "week": returning[0],
+            "active_users": returning[1],
             "returning_users": returning[2],
             "share": None if returning[3] is None else float(returning[3]),
         },  # fmt: skip

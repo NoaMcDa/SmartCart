@@ -40,6 +40,7 @@ router = APIRouter(prefix="/events", tags=["events"])
 EVENTS_PER_SESSION_PER_MINUTE = 120
 
 FLEX_LEVELS = frozenset({"exact", "any_brand", "close"})
+PLATFORMS = ("ios", "android", "desktop", "other")
 # Speech recognizers the voice list may use: the browser's Web Speech API, a server-side
 # recognizer, or the fallback of typing instead.
 VOICE_ENGINES = ("web_speech", "server", "manual")
@@ -72,11 +73,12 @@ def _choices(*values: str, required: bool = False) -> Key:
 
 EVENT_PROPS: dict[str, dict[str, Key]] = {
     # The app (or the PWA) was opened: one per visit. The actor of return visits.
-    "app_opened": {"surface": _choices("web", "pwa")},
+    "app_opened": {"surface": _choices("web", "pwa"), "platform": _choices(*PLATFORMS)},
     # A static page was viewed (SEO pages, methodology, basket index): SEO to app funnel.
     "page_viewed": {
-        "page_type": _choices("category", "product", "methodology", "basket_index", "other",
-                              required=True)  # fmt: skip
+        "page_type": _choices(
+            "category", "product", "methodology", "basket_index", "other", required=True
+        )  # fmt: skip
     },
     # A shopping list was pasted: the start of paste-to-results.
     "list_pasted": {"item_count": Key(0, 200, required=True)},
@@ -109,7 +111,10 @@ EVENT_PROPS: dict[str, dict[str, Key]] = {
         "engine": _choices("native", "zxing", "manual"),
     },
     # A price alert was created from product detail or the alerts screen.
-    "alert_created": {"flex_level": _choices(*FLEX_LEVELS), "source": _choices("product", "alerts")},
+    "alert_created": {
+        "flex_level": _choices(*FLEX_LEVELS),
+        "source": _choices("product", "alerts"),
+    },
     # Smart cart: a suggested swap was applied, undone, or dismissed (dismissal holds until prices change).
     "swap_applied": {"flex_level": _choices(*FLEX_LEVELS), "saving_agorot": Key(0, 100_000)},
     "swap_undone": {"flex_level": _choices(*FLEX_LEVELS)},
@@ -126,6 +131,27 @@ EVENT_PROPS: dict[str, dict[str, Key]] = {
         "duration_ms": Key(0, 600_000),
         "item_count": Key(0, 200),
     },
+    # --- finish round. No ids, names, prices, barcodes or images: platform, outcomes and counts.
+    # The PWA was installed (beforeinstallprompt accepted or display-mode standalone first seen).
+    "pwa_installed": {"platform": _choices(*PLATFORMS)},
+    # Web push: the user allowed notifications; a notification was opened.
+    # The push permission prompt was shown by our flow (the denominator of the opt-in rate, D15).
+    "push_prompt_shown": {"platform": _choices(*PLATFORMS)},
+    "push_opt_in": {"platform": _choices(*PLATFORMS)},
+    "push_opened": {"platform": _choices(*PLATFORMS)},
+    # In-store mode was opened with a plan.
+    "store_mode_used": {"plan": _choices("single", "split"), "platform": _choices(*PLATFORMS)},
+    # A receipt or list photo was read (#61, #68).
+    "image_parsed": {
+        "kind": _choices("receipt", "list", required=True),
+        "outcome": _choices("parsed", "empty", "refused", "error", required=True),
+        "item_count": Key(0, 200),
+        "duration_ms": Key(0, 600_000),
+    },
+    # The user opened a chain's online store from a plan (#72): no chain id, only the action.
+    "cart_handoff": {"action": _choices("copy", "share", "open_site", "open_item", required=True)},
+    # The UI language was switched (#73).
+    "locale_changed": {"locale": _choices("he", "ar", required=True)},
 }
 
 

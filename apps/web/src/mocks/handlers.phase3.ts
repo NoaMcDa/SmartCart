@@ -4,9 +4,12 @@
  *
  *   POST /me/spend          SpendEntryIn (no id)                -> 201 SpendEntry (numeric `id`)
  *   GET  /me/spend?month=   `YYYY-MM`, default the current one  -> { month, entries, total, budget }
+ *   PUT  /me/spend/{id}     SpendEntryIn (replaces the entry)   -> 200 SpendEntry, 404 when unknown
+ *   DELETE /me/spend/{id}                                       -> 204, 404 when unknown
  *   POST /parse-recipe      { text?, url?, servings? }          -> { title, servings, items, unresolved }
  *
- * Money is a string with two decimals. The spend store is in memory and shared by every caller of
+ * A repeated POST with the same `client_id` returns the stored entry (200) instead of a duplicate,
+ * so a lost response can be retried safely. Money is a string with two decimals. The spend store is in memory and shared by every caller of
  * the handlers in one process; `resetPhase3Mock()` clears it. `budget` is always null here: the
  * budget travels with the profile (`monthly_budget` on `PUT /me/profile`, see handlers.ts).
  */
@@ -18,6 +21,8 @@ import type {
   ParsedRow,
   SpendEntry,
   SpendMonth,
+  ChainOnline,
+  ParseImageResponse,
 } from "@/api/client";
 import { parseRow } from "./parseRow";
 
@@ -25,11 +30,14 @@ const url = (path: string) => `${API_BASE_URL}${path}`;
 const latency = () => delay(process.env.NODE_ENV === "test" ? 0 : 250);
 
 const spend = new Map<number, SpendEntry>();
+/** `client_id` -> entry id, for the replay of a POST whose response was lost. */
+const byClientId = new Map<string, number>();
 let nextId = 1;
 
 /** Test hook: forget every spend entry the mock holds. */
 export function resetPhase3Mock(): void {
   spend.clear();
+  byClientId.clear();
   nextId = 1;
 }
 
@@ -48,6 +56,7 @@ type SpendBody = {
   total: number | string;
   item_count: number;
   plan: "single" | "split";
+  client_id?: string | null;
 };
 
 function validSpend(body: unknown): body is SpendBody {
@@ -61,7 +70,8 @@ function validSpend(body: unknown): body is SpendBody {
     Number.isFinite(Number(e.total)) &&
     Number(e.total) >= 0 &&
     typeof e.item_count === "number" &&
-    (e.plan === "single" || e.plan === "split")
+    (e.plan === "single" || e.plan === "split") &&
+    (e.client_id === undefined || e.client_id === null || typeof e.client_id === "string")
   );
 }
 
@@ -133,17 +143,205 @@ function finish(
   };
 }
 
+// --- photos (receipts #61, handwritten lists #68) -------------------------------------------------
+
+/** The server's limit (`Body_parse_image_parse_image_post`): JPEG, PNG or WebP, 8 MB. */
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+
+/** A file part of the form. Not `instanceof File`: Node and jsdom each have their own `File`. */
+function isUpload(value: FormDataEntryValue | null): value is File {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * Magic file names stand in for server conditions, so a test picks the case with the name of the
+ * file it uploads: `…-413.jpg` too large, `…-415.jpg` unsupported type, `…-429.jpg` monthly cap,
+ * `…-503.jpg` no OCR provider, `…-500.jpg` failure, `empty…` nothing read, `slow…` waits 1.5 s.
+ * The real limits (a type that is not JPEG, PNG or WebP, over 8 MB) answer 415 and 413 as well.
+ * A missing `X-Image-Consent: 1` header is a 403 whatever the name.
+ */
+function imageRefusal(
+  image: FormDataEntryValue | null,
+  name: string,
+): { status: number; detail: string } | null {
+  if (!isUpload(image)) return { status: 422, detail: "image is required" };
+  if (name.includes("-413") || image.size > IMAGE_MAX_BYTES) {
+    return { status: 413, detail: "image is larger than 8 MB" };
+  }
+  if (name.includes("-415") || (image.type !== "" && !IMAGE_TYPES.has(image.type))) {
+    return { status: 415, detail: "only JPEG, PNG or WebP" };
+  }
+  if (name.includes("-429")) return { status: 429, detail: "the monthly image cap is reached" };
+  if (name.includes("-503")) return { status: 503, detail: "no OCR provider is configured" };
+  if (name.includes("-500")) return { status: 500, detail: "internal error" };
+  return null;
+}
+
+/**
+ * What the mock "reads": a fixed handwritten list or receipt, with one uncertain match
+ * (`שמן זית`, the amber confirmation) and lines it could not match (`unresolved`).
+ */
+function imageResult(kind: "receipt" | "list", name: string): ParseImageResponse {
+  if (name.includes("empty")) {
+    return {
+      kind,
+      provider: "fake",
+      items: [],
+      unresolved: [],
+      receipt:
+        kind === "receipt" ? { chain_hint: null, store_hint: null, total: null, lines: [] } : null,
+      deleted: true,
+    };
+  }
+  if (kind === "list") {
+    return {
+      kind,
+      provider: "fake",
+      items: ["חלב", "2 רסק עגבניות", "שמן זית"].map((l) => parseRow(l)),
+      unresolved: ["חופן בזיליקום", "סבון כלים"],
+      receipt: null,
+      deleted: true,
+    };
+  }
+  return {
+    kind,
+    provider: "fake",
+    items: ["חלב", "3 פסטה", "עגבניות", "שמן זית"].map((l) => parseRow(l)),
+    unresolved: ["הנחת מועדון", "מע״מ 17%"],
+    receipt: {
+      chain_hint: "7290027600007",
+      store_hint: "שופרסל דיל מודיעין",
+      total: "187.40",
+      lines: [
+        { text: "חלב 3% 1 ליטר", price: "6.90", quantity: "1" },
+        { text: "פסטה ספגטי 500 גרם", price: "14.70", quantity: "3" },
+        { text: "עגבניות", price: "9.80", quantity: "1.2" },
+        { text: "שמן זית", price: "38.90", quantity: "1" },
+        { text: "הנחת מועדון", price: "-5.00", quantity: null },
+        { text: "מע״מ 17%", price: null, quantity: null },
+      ],
+    },
+    deleted: true,
+  };
+}
+
+/**
+ * The mock for `GET /chains/online` (#72), which follows services/api `routes/chains.py`: every chain row, `enabled` only when the chain is
+ * in CART_HANDOFF_CHAINS and has an address. The addresses are placeholders on a reserved
+ * `.example` host (never requested); the chain ids are the ones the mock stores use (fixtures.ts).
+ * `shufersal` carries a referral so the label is visible in the demo; `victory` has an address
+ * but is not enabled, `osher_ad` has no site search, and the numeric id has no address.
+ */
+const MOCK_SHOP = "https://chain-shop.example";
+const MOCK_CHAINS_ONLINE: ChainOnline[] = [
+  {
+    chain_id: "rami_levy",
+    chain_name: "רמי לוי",
+    online_url: `${MOCK_SHOP}/rami`,
+    search_url_template: `${MOCK_SHOP}/rami/search?q={q}`,
+    enabled: true,
+    referral: false,
+  },
+  {
+    chain_id: "shufersal",
+    chain_name: "שופרסל",
+    online_url: `${MOCK_SHOP}/shufersal`,
+    search_url_template: `${MOCK_SHOP}/shufersal/search?text={q}`,
+    enabled: true,
+    referral: true,
+  },
+  {
+    chain_id: "osher_ad",
+    chain_name: "אושר עד",
+    online_url: `${MOCK_SHOP}/osherad`,
+    search_url_template: null,
+    enabled: true,
+    referral: false,
+  },
+  {
+    chain_id: "victory",
+    chain_name: "ויקטורי",
+    online_url: `${MOCK_SHOP}/victory`,
+    search_url_template: `${MOCK_SHOP}/victory/search?q={q}`,
+    enabled: false,
+    referral: false,
+  },
+  {
+    chain_id: "7290027600007",
+    chain_name: "שופרסל",
+    online_url: null,
+    search_url_template: null,
+    enabled: false,
+    referral: false,
+  },
+];
+
 export const phase3Handlers = [
+  http.post(url("/parse-image"), async ({ request }) => {
+    const form = await request.formData();
+    const image = form.get("image");
+    const name = isUpload(image) ? image.name : "";
+    // "slow" keeps the progress state on screen long enough to test it.
+    await (name.includes("slow") ? delay(1500) : latency());
+    if (request.headers.get("X-Image-Consent") !== "1") {
+      return HttpResponse.json({ detail: "receipt processing needs consent" }, { status: 403 });
+    }
+    const refusal = imageRefusal(image, name);
+    if (refusal) return HttpResponse.json({ detail: refusal.detail }, { status: refusal.status });
+    return HttpResponse.json(
+      imageResult(form.get("kind") === "receipt" ? "receipt" : "list", name),
+    );
+  }),
+
+  http.get(url("/chains/online"), async () => {
+    await latency();
+    return HttpResponse.json(MOCK_CHAINS_ONLINE);
+  }),
+
   http.post(url("/me/spend"), async ({ request }) => {
     const body: unknown = await request.json();
     await latency();
     if (!validSpend(body)) {
       return HttpResponse.json({ detail: "invalid spend entry" }, { status: 422 });
     }
+    const known = body.client_id ? byClientId.get(body.client_id) : undefined;
+    const existing = known === undefined ? undefined : spend.get(known);
+    if (existing) return HttpResponse.json(existing, { status: 200 });
     const stored: SpendEntry = { ...body, id: nextId, total: Number(body.total).toFixed(2) };
     nextId += 1;
     spend.set(stored.id, stored);
+    if (stored.client_id) byClientId.set(stored.client_id, stored.id);
     return HttpResponse.json(stored, { status: 201 });
+  }),
+
+  http.put(url("/me/spend/:id"), async ({ request, params }) => {
+    const id = Number(params.id);
+    const body: unknown = await request.json();
+    await latency();
+    const current = spend.get(id);
+    if (!current) return HttpResponse.json({ detail: "entry not found" }, { status: 404 });
+    if (!validSpend(body)) {
+      return HttpResponse.json({ detail: "invalid spend entry" }, { status: 422 });
+    }
+    const stored: SpendEntry = {
+      ...body,
+      id,
+      client_id: body.client_id ?? current.client_id ?? null,
+      total: Number(body.total).toFixed(2),
+    };
+    spend.set(id, stored);
+    return HttpResponse.json(stored);
+  }),
+
+  http.delete(url("/me/spend/:id"), async ({ params }) => {
+    const id = Number(params.id);
+    await latency();
+    const current = spend.get(id);
+    if (!current) return HttpResponse.json({ detail: "entry not found" }, { status: 404 });
+    spend.delete(id);
+    if (current.client_id) byClientId.delete(current.client_id);
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get(url("/me/spend"), async ({ request }) => {

@@ -8,12 +8,20 @@ on:
   pull_request:
     paths:
       - "services/catalog/**"
+      - "services/api/smartcart_api/listparse.py"
+      - "services/api/smartcart_api/search.py"
+      - "services/api/smartcart_api/routes/search.py"
       - "data/gold/**"
+      - "data/canonicals.yaml"
       - ".github/workflows/matching-eval.yml"
   push:
     paths:
       - "services/catalog/**"
+      - "services/api/smartcart_api/listparse.py"
+      - "services/api/smartcart_api/search.py"
+      - "services/api/smartcart_api/routes/search.py"
       - "data/gold/**"
+      - "data/canonicals.yaml"
       - ".github/workflows/matching-eval.yml"
   workflow_dispatch:
 
@@ -77,6 +85,11 @@ jobs:
           uv run python -m smartcart_catalog.cli_matching evaluate \
             --fail-below "$MATCH_PRECISION_THRESHOLD" | tee evaluation.txt
 
+      - name: Evaluate Arabic list lines (synthetic set, #73)
+        run: |
+          set -o pipefail
+          uv run smartcart-catalog evaluate-ar --fail-below "$MATCH_PRECISION_THRESHOLD" | tee evaluation-ar.txt
+
       - name: Metrics as JSON
         if: always()
         run: |
@@ -91,6 +104,10 @@ jobs:
             echo '```'
             cat evaluation.txt 2>/dev/null || echo 'no report'
             echo '```'
+            echo '## Arabic list lines (synthetic set)'
+            echo '```'
+            cat evaluation-ar.txt 2>/dev/null || echo 'no report'
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload metrics
@@ -100,5 +117,6 @@ jobs:
           name: matching-evaluation
           path: |
             evaluation.txt
+            evaluation-ar.txt
             evaluation.json
           if-no-files-found: ignore

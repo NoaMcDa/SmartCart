@@ -24,6 +24,10 @@ import type {
   StoreResult,
 } from "@/api/client";
 import type { TravelMode } from "@/features/profile/profileState";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { splitMessages } from "@/i18n/messages/split";
+import { chainLabel } from "@/lib/storeName";
 import type { LastResult } from "./lastResult";
 
 export const toAgorot = (value: string | number | null | undefined): number =>
@@ -250,12 +254,17 @@ export function moveBlockedReason(
   model: SplitModel,
   canonicalId: number,
   targetStoreId: number,
+  locale: Locale = DEFAULT_LOCALE,
 ): string | null {
   if (model.pool.priced.get(canonicalId)?.has(targetStoreId)) return null;
   const store = model.pool.stores.get(targetStoreId);
-  const name = store?.chain_name ?? "החנות";
-  if (model.pool.missingAt.get(targetStoreId)?.has(canonicalId)) return `לא נמצא ב${name}`;
-  return `אין לנו מחיר לפריט הזה ב${name}`;
+  const name = store
+    ? chainLabel(store.chain_name, locale)
+    : translate(splitMessages, locale, "storeFallback");
+  if (model.pool.missingAt.get(targetStoreId)?.has(canonicalId)) {
+    return translate(splitMessages, locale, "notFoundAt", { store: name });
+  }
+  return translate(splitMessages, locale, "noPriceAt", { store: name });
 }
 
 // ---------------------------------------------------------------------------------------------

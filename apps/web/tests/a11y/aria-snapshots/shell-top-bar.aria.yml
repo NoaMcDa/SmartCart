@@ -1,0 +1,5 @@
+- banner:
+  - link "SmartCart, לדף הבית":
+    - /url: /
+    - text: SmartCart
+  - switch "מצב כהה"

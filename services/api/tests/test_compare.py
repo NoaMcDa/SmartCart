@@ -56,7 +56,11 @@ def test_totals_sorting_and_radius(client, w: World) -> None:
     assert D(stores[w.stores["a"]]["total"]) == D("137.60")
     assert D(stores[w.stores["b"]]["total"]) == D("50.80")
     # Complete baskets first, then by total: B is cheapest but incomplete, so it is last.
-    assert [s["store_id"] for s in resp["stores"]] == [w.stores["a"], w.stores["home"], w.stores["b"]]
+    assert [s["store_id"] for s in resp["stores"]] == [
+        w.stores["a"],
+        w.stores["home"],
+        w.stores["b"],
+    ]
     assert D(resp["home_store_total"]) == D("138.70")
     assert resp["disclaimer_he"] == "המחיר הקובע הוא בקופה."
 
@@ -155,8 +159,14 @@ def test_every_price_has_a_timestamp(client, w: World) -> None:
 
 def test_exact_barcode(client, w: World) -> None:
     body = {
-        "items": [{"canonical_id": w.canon["milk3"], "quantity": 1, "flex_level": "exact",
-                   "exact_item_id": w.items["milk3_c1_tnuva"]}],
+        "items": [
+            {
+                "canonical_id": w.canon["milk3"],
+                "quantity": 1,
+                "flex_level": "exact",
+                "exact_item_id": w.items["milk3_c1_tnuva"],
+            }
+        ],
         "location": w.location,
     }
     stores = by_store(client.post("/compare", json=body).json())
@@ -172,9 +182,24 @@ def test_online_stores_on_request(client, w: World) -> None:
 
 
 def test_empty_radius(client, w: World) -> None:
-    body = {"items": basket(w), "location": {"lon": 35.5, "lat": 33.2, "radius_m": 1000},
-            "home_store_id": w.stores["home"]}
+    body = {
+        "items": basket(w),
+        "location": {"lon": 35.5, "lat": 33.2, "radius_m": 1000},
+        "home_store_id": w.stores["home"],
+    }
     resp = client.post("/compare", json=body).json()
     assert resp["stores"] == []
     # The home store is still priced so the user sees what their usual basket costs.
     assert D(resp["home_store_total"]) == D("138.70")
+
+
+def test_priced_items_carry_the_canonicals_arabic_name(client, db, w: World) -> None:
+    db.execute(
+        "UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+        (["بيض", "بيض طازج"], w.canon["eggs"]),
+    )
+    home = by_store(post(client, w))[w.stores["home"]]
+    eggs = line(home, w.canon["eggs"])
+    assert eggs["canonical_name_ar"] == "بيض"
+    assert eggs["display_name_he"]  # the chain's item name, still Hebrew
+    assert line(home, w.canon["salmon"])["canonical_name_ar"] is None

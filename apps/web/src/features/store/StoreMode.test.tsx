@@ -9,8 +9,14 @@ import { clearComparisonCache } from "@/state/comparison";
 import { resetListStoreForTests } from "@/state/list";
 import { PROFILE_KEY } from "@/state/shopper";
 import { server } from "@/mocks/node";
+import { trackEvent } from "@/features/seo/track";
 import { StoreMode } from "./StoreMode";
 import { buildSession, clearSession, loadSession, startSession } from "./session";
+
+vi.mock("@/features/seo/track", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/seo/track")>()),
+  trackEvent: vi.fn(),
+}));
 
 const push = vi.fn();
 let search = "";
@@ -58,6 +64,25 @@ describe("store mode", () => {
   describe("with a session", () => {
     beforeEach(() => {
       startSession(buildSession(rami, result, { overhead: 0 }));
+    });
+
+    it("reports store_mode_used once, with the plan and a coarse platform (#56)", async () => {
+      vi.mocked(trackEvent).mockClear();
+      const { rerender } = render(<StoreMode />);
+      await screen.findAllByRole("checkbox");
+      rerender(<StoreMode />);
+      await userEvent.setup().click(screen.getAllByRole("checkbox")[0]!);
+      const calls = vi.mocked(trackEvent).mock.calls.filter(([n]) => n === "store_mode_used");
+      expect(calls).toEqual([
+        ["store_mode_used", { plan: "single", platform: expect.stringMatching(/^[a-z]+$/) }],
+      ]);
+    });
+
+    it("does not report store_mode_used for the empty state", () => {
+      clearSession();
+      vi.mocked(trackEvent).mockClear();
+      render(<StoreMode />);
+      expect(trackEvent).not.toHaveBeenCalled();
     });
 
     it("checking rows updates the progress and total, announces the state, and persists", async () => {

@@ -5,6 +5,11 @@ import { useEffect } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { setTrackingConsent, trackEvent } from "@/features/seo/track";
+import { formatRich } from "@/i18n/format";
+import { LegalNotice } from "@/i18n/LegalNotice";
+import { useT } from "@/i18n/LocaleProvider";
+import { consentMessages } from "@/i18n/messages/consent";
+import { detectPlatform } from "@/lib/platform";
 import styles from "./Consent.module.css";
 import { useTrackingConsent } from "./useTrackingConsent";
 
@@ -23,46 +28,42 @@ export function ConsentSheet({
   onAccept: () => void;
   onDecline: () => void;
 }) {
+  const t = useT(consentMessages);
   return (
     <BottomSheet
       open={open}
       onClose={onDecline}
-      eyebrow="בטא סגורה"
-      title="עוזרות לנו לבדוק את ההחלפות?"
+      eyebrow={t("eyebrow")}
+      title={t("title")}
       hideCloseButton
       footer={
         <>
           <Button onClick={onAccept} data-testid="consent-accept">
-            אני מסכימה
+            {t("accept")}
           </Button>
           <Button variant="secondary" onClick={onDecline} data-testid="consent-decline">
-            לא, תודה
+            {t("decline")}
           </Button>
         </>
       }
     >
       <div className={styles.body} data-testid="consent-sheet">
-        <p>
-          כדי לבדוק אם ההחלפות שהמערכת מציעה טובות, נשמרים אצלנו אירועי שימוש בסיסיים בלבד.
-          האפליקציה עובדת אותו דבר גם אם תסרבי.
-        </p>
-        <h3 className={styles.heading}>מה נשמר</h3>
+        <p>{t("intro")}</p>
+        <h3 className={styles.heading}>{t("storedHeading")}</h3>
         <ul className={styles.list}>
-          <li>מתי נפתחה האפליקציה וכמה זמן לקח להגיע לתוצאות.</li>
-          <li>
-            כמה החלפות הוצגו, כמה סימנת כ&quot;לא תחליף טוב&quot; ועל איזה זוג מוצרים, ואיזו רמת
-            גמישות בחרת.
-          </li>
-          <li>מזהה אקראי של הדפדפן, ומזהה המשתמש שלך אם התחברת.</li>
+          <li>{t("stored1")}</li>
+          <li>{t("stored2")}</li>
+          <li>{t("stored3")}</li>
         </ul>
-        <h3 className={styles.heading}>מה לא נשמר</h3>
-        <p>תוכן הרשימה שלך, טקסט חופשי, שם, כתובת, טלפון, מיקום מדויק, קבלות או מזהי מכשיר.</p>
+        <h3 className={styles.heading}>{t("notStoredHeading")}</h3>
+        <p>{t("notStored")}</p>
         <p className={styles.muted}>
-          המידע נשמר בשרתים של SmartCart בלבד, לא נמכר ולא מועבר לרשתות או לאחרים, ויימחק או יהפוך
-          לסטטיסטיקה אנונימית עד שישה חודשים אחרי סוף הבטא. אפשר לצאת בכל רגע{" "}
-          <Link href="/profile">בפרופיל</Link> ולבקש למחוק את כל הנתונים.{" "}
-          <Link href="/privacy">למדיניות הפרטיות</Link>
+          {formatRich(t("footerNote"), {
+            profile: <Link href="/profile">{t("profileLink")}</Link>,
+            policy: <Link href="/privacy">{t("policyLink")}</Link>,
+          })}
         </p>
+        <LegalNotice />
       </div>
     </BottomSheet>
   );
@@ -89,7 +90,7 @@ export function ConsentGate() {
     const standalone =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(display-mode: standalone)").matches;
-    trackEvent("app_opened", { surface: standalone ? "pwa" : "web" });
+    trackEvent("app_opened", { surface: standalone ? "pwa" : "web", platform: detectPlatform() });
   }, [consent]);
 
   return (

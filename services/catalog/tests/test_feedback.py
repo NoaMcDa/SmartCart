@@ -93,20 +93,24 @@ def test_feedback_context_columns_are_written_when_given(db) -> None:
                           list_item_id=42, flex_level="any_brand", match_confidence=0.95)  # fmt: skip
     row = db.execute(
         "SELECT list_item_id, flex_level, match_confidence::float FROM substitution_feedback"
-        " WHERE id = %s", (res.feedback_id,),
+        " WHERE id = %s",
+        (res.feedback_id,),
     ).fetchone()
     assert row == (42, "any_brand", 0.95)
     bare = record_feedback(db, None, ids["t-milk-3"], original, substitute, "accepted")
     assert db.execute(
         "SELECT list_item_id, flex_level, match_confidence FROM substitution_feedback"
-        " WHERE id = %s", (bare.feedback_id,),
+        " WHERE id = %s",
+        (bare.feedback_id,),
     ).fetchone() == (None, None, None)
     with pytest.raises(ValueError):
-        record_feedback(db, None, ids["t-milk-3"], original, substitute, "accepted",
-                        flex_level="loose")  # type: ignore[arg-type]
+        record_feedback(
+            db, None, ids["t-milk-3"], original, substitute, "accepted", flex_level="loose"
+        )  # type: ignore[arg-type]
     with pytest.raises(ValueError):
-        record_feedback(db, None, ids["t-milk-3"], original, substitute, "accepted",
-                        match_confidence=1.5)
+        record_feedback(
+            db, None, ids["t-milk-3"], original, substitute, "accepted", match_confidence=1.5
+        )
 
 
 @pytest.mark.db
@@ -126,7 +130,9 @@ def test_dismissed_swap_is_stored_with_its_source_but_does_not_flag(db) -> None:
     """A smart-cart dismissal is a weak signal: counted, never pulls the mapping from the price run."""
     ids = seed_catalog(db)
     original, substitute = _mapped(db, ids)
-    res = record_feedback(db, None, ids["t-milk-3"], original, substitute, "not_good", source="swap")
+    res = record_feedback(
+        db, None, ids["t-milk-3"], original, substitute, "not_good", source="swap"
+    )
     assert not res.flagged and res.flex_level == "any_brand"
     assert _mapping(db, substitute, ids["t-milk-3"])[4] is False
     assert db.execute(

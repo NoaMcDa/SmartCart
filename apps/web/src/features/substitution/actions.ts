@@ -5,6 +5,9 @@
  * results recompute on the next render. Feedback goes to /feedback/substitution (D5 labeling).
  */
 import { substitutionFeedback, type PricedItem } from "@/api/client";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { substitutionMessages } from "@/i18n/messages/substitution";
 import { levelForCanonical } from "@/features/compare/substitutionLevels";
 import { reportSubstitutionVerdict } from "@/features/consent/betaEvents";
 import { getListState, listActions } from "@/state/list";
@@ -31,12 +34,19 @@ export function acceptSubstitute(item: PricedItem): void {
   });
 }
 
-export function keepOriginal(item: PricedItem, originalName?: string | null): void {
+/** `locale` picks the language of the message shown afterwards (the caller's `useLocale()`). */
+export function keepOriginal(
+  item: PricedItem,
+  originalName?: string | null,
+  locale: Locale = DEFAULT_LOCALE,
+): void {
   reportVerdict(item, "kept_original");
   listActions.keepOriginal(item.canonical_id, item.original_item_id ?? null);
   substitutionFeedback(feedbackBody(item, "kept_original")).catch(() => {});
   setFlash(
-    `השארנו את המוצר המקורי${originalName ? `: ${originalName}` : ""}. הסל חושב מחדש לפי מוצר מדויק.`,
+    translate(substitutionMessages, locale, "flashKept", {
+      name: originalName ? `: ${originalName}` : "",
+    }),
   );
 }
 
@@ -45,6 +55,7 @@ export function keepOriginal(item: PricedItem, originalName?: string | null): vo
 export async function rejectSubstitute(
   item: PricedItem,
   originalName?: string | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<boolean> {
   reportVerdict(item, "not_good");
   let sent = true;
@@ -56,8 +67,10 @@ export async function rejectSubstitute(
   listActions.keepOriginal(item.canonical_id, item.original_item_id ?? null);
   setFlash(
     sent
-      ? `תודה, הדיווח נשמר ונבדק. חזרנו למוצר המקורי${originalName ? `: ${originalName}` : ""}.`
-      : "לא הצלחנו לשלוח את הדיווח, אבל חזרנו למוצר המקורי והסל חושב מחדש.",
+      ? translate(substitutionMessages, locale, "flashRejected", {
+          name: originalName ? `: ${originalName}` : "",
+        })
+      : translate(substitutionMessages, locale, "flashRejectFailed"),
   );
   return sent;
 }

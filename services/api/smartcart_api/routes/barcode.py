@@ -66,18 +66,32 @@ def barcode_variants(code: str) -> list[str]:
 
 def _store_ref(s: StoreInfo) -> schemas.StoreRef:
     return schemas.StoreRef(
-        store_id=s.store_id, chain_id=s.chain_id, chain_name=s.chain_name, store_name=s.store_name,
-        city=s.city, distance_m=s.distance_m, lat=s.lat, lon=s.lon, channel=s.channel,
+        store_id=s.store_id,
+        chain_id=s.chain_id,
+        chain_name=s.chain_name,
+        store_name=s.store_name,
+        city=s.city,
+        distance_m=s.distance_m,
+        geo_precision=s.geo_precision,
+        distance_approximate=s.distance_approximate,
+        lat=s.lat,
+        lon=s.lon,
+        channel=s.channel,
     )
 
 
 def _canonical_ref(conn: psycopg.Connection, cid: int) -> schemas.CanonicalRef:
-    cid, name, tax, base = conn.execute(
-        "SELECT id, display_name_he, taxonomy_id, base_unit FROM canonical_products WHERE id = %s",
+    cid, name, name_ar, tax, base = conn.execute(
+        "SELECT id, display_name_he, names_ar[1], taxonomy_id, base_unit FROM canonical_products"
+        " WHERE id = %s",
         (cid,),
     ).fetchone()
     return schemas.CanonicalRef(
-        canonical_id=cid, display_name_he=name, taxonomy_id=tax, base_unit=base,
+        canonical_id=cid,
+        display_name_he=name,
+        display_name_ar=name_ar,
+        taxonomy_id=tax,
+        base_unit=base,
         category_path_he=category_paths(conn, [tax]).get(tax, []),
     )
 
@@ -87,10 +101,17 @@ def _price(
 ) -> schemas.StorePrice:
     extra.setdefault("is_substitute", False)
     return schemas.StorePrice(
-        store=_store_ref(s), item_id=c.item_id, display_name_he=name, shelf_price=c.shelf_price,
-        unit_price=c.effective_unit_price, uom=c.uom, price_valid_from=c.price_valid_from,
+        store=_store_ref(s),
+        item_id=c.item_id,
+        display_name_he=name,
+        shelf_price=c.shelf_price,
+        unit_price=c.effective_unit_price,
+        uom=c.uom,
+        price_valid_from=c.price_valid_from,
         promo_description=promo_desc.get(c.promo_id) if c.promo_id else None,
-        club_required=c.club_required, club_name=c.club_name, **extra,
+        club_required=c.club_required,
+        club_name=c.club_name,
+        **extra,
     )
 
 
@@ -102,7 +123,9 @@ def lookup_barcode(
     conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
     radius_m: Annotated[int, Query(ge=500, le=15000)] = 5000,
     store_id: int | None = None,
-    clubs: Annotated[list[str] | None, Query(description="The user's clubs, as in /compare")] = None,
+    clubs: Annotated[
+        list[str] | None, Query(description="The user's clubs, as in /compare")
+    ] = None,
 ) -> schemas.BarcodeLookupResponse:
     started = time.monotonic()
     now = datetime.now(UTC)
@@ -110,15 +133,26 @@ def lookup_barcode(
     try:
         _lookup(conn, resp, barcode, lon, lat, radius_m, store_id, clubs or [], now)
     finally:
-        log.info("barcode lookup", found=resp.found, has_here=resp.here is not None,
-                 has_substitute=resp.cheaper_substitute is not None,
-                 ms=round((time.monotonic() - started) * 1000, 1))
+        log.info(
+            "barcode lookup",
+            found=resp.found,
+            has_here=resp.here is not None,
+            has_substitute=resp.cheaper_substitute is not None,
+            ms=round((time.monotonic() - started) * 1000, 1),
+        )
     return resp
 
 
 def _lookup(
-    conn: psycopg.Connection, resp: schemas.BarcodeLookupResponse, barcode: str, lon: float,
-    lat: float, radius_m: int, store_id: int | None, clubs: list[str], now: datetime,
+    conn: psycopg.Connection,
+    resp: schemas.BarcodeLookupResponse,
+    barcode: str,
+    lon: float,
+    lat: float,
+    radius_m: int,
+    store_id: int | None,
+    clubs: list[str],
+    now: datetime,
 ) -> None:
     if not _CODE.match(barcode.strip()):
         return
@@ -173,14 +207,20 @@ def _lookup(
         sids = [s.store_id for s in priced_stores if s.chain_id == chain_id]
         chain_name, chain_club_names = chains.get(chain_id, (None, []))
         per_club: dict[tuple[int, int], dict] = {}
-        opts = item_options(conn, chain_id, sids, chain_items, now,
-                            {i: base_unit for i in chain_items}, per_club)
+        opts = item_options(
+            conn, chain_id, sids, chain_items, now, {i: base_unit for i in chain_items}, per_club
+        )
         for (sid, iid), (best, noclub) in opts.items():
             pick = best
-            if best.club_required and not club_member(best.club_name, clubs, chain_name, chain_club_names):
+            if best.club_required and not club_member(
+                best.club_name, clubs, chain_name, chain_club_names
+            ):
                 pick = noclub
                 for name, alt in per_club.get((sid, iid), {}).items():
-                    if club_member(name, clubs, chain_name, chain_club_names) and alt.key() < pick.key():
+                    if (
+                        club_member(name, clubs, chain_name, chain_club_names)
+                        and alt.key() < pick.key()
+                    ):
                         pick = alt
             c = _from_option(pick)
             cur = prices.get(sid)
@@ -205,14 +245,20 @@ def _lookup(
     promo_ids = {c.promo_id for c, _ in prices.values() if c.promo_id} | {
         c.promo_id for c, _ in subs if c.promo_id
     }
-    promo_desc = dict(conn.execute(
-        "SELECT id, description FROM promos WHERE id = ANY(%s)", (sorted(promo_ids),)
-    ).fetchall())
+    promo_desc = dict(
+        conn.execute(
+            "SELECT id, description FROM promos WHERE id = ANY(%s)", (sorted(promo_ids),)
+        ).fetchall()
+    )
 
     if store_id is not None and store_id in prices:
         c, name = prices[store_id]
         resp.here = _price(by_id[store_id], c, name, promo_desc)
-    nearby = [(c, name, sid) for sid, (c, name) in prices.items() if any(s.store_id == sid for s in stores)]
+    nearby = [
+        (c, name, sid)
+        for sid, (c, name) in prices.items()
+        if any(s.store_id == sid for s in stores)
+    ]
     if nearby:
         c, name, sid = min(nearby, key=lambda t: (t[0].key(), by_id[t[2]].distance_m))
         resp.cheapest_nearby = _price(by_id[sid], c, name, promo_desc)
@@ -220,11 +266,13 @@ def _lookup(
     reference = resp.here or resp.cheapest_nearby
     if reference is None:
         return
-    same = {r[0] for r in conn.execute(
-        "SELECT id FROM items WHERE barcode = ANY(%s)", (codes,)
-    ).fetchall()}
+    same = {
+        r[0]
+        for r in conn.execute("SELECT id FROM items WHERE barcode = ANY(%s)", (codes,)).fetchall()
+    }
     better = [
-        (c, sid) for c, sid in subs
+        (c, sid)
+        for c, sid in subs
         if c.item_id not in same and c.effective_unit_price < reference.unit_price
     ]
     if not better:
@@ -234,7 +282,11 @@ def _lookup(
 
 
 def _substitute(
-    conn: psycopg.Connection, s: StoreInfo, c: _Choice, cid: int, scanned_item: int,
+    conn: psycopg.Connection,
+    s: StoreInfo,
+    c: _Choice,
+    cid: int,
+    scanned_item: int,
     promo_desc: dict[int, str],
 ) -> schemas.StorePrice:
     critical, soft, rule_keys = conn.execute(
@@ -262,10 +314,18 @@ def _substitute(
     scanned_attrs = attrs.get(scanned_item, ({}, []))[0]
     # Soft attributes are compared with the scanned product, so the tag says what differs
     # from what is in the shopper's hand (the brand, the pack size).
-    soft_vs = {**soft, **{k: v for k, v in scanned_attrs.items() if k in set(rule_keys) | set(soft)}}
+    soft_vs = {
+        **soft,
+        **{k: v for k, v in scanned_attrs.items() if k in set(rule_keys) | set(soft)},
+    }
     soft_vs = {k: v for k, v in soft_vs.items() if k not in critical}
     tags = _tags(sub_attrs, verified, critical, soft_vs, list(rule_keys))
     return _price(
-        s, c, name, promo_desc, is_substitute=True,
-        confidence=float(conf) if conf is not None else None, tags=tags,
+        s,
+        c,
+        name,
+        promo_desc,
+        is_substitute=True,
+        confidence=float(conf) if conf is not None else None,
+        tags=tags,
     )

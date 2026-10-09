@@ -1,0 +1,102 @@
+# MACHINE AUDIT verdicts, not a gold set: one reader (Claude) read each ACCEPTED mapping of the baseline run (name, attributes, canonical).
+# No human labeled these. Read data/audit/real-*.csv and docs/matching.md, section 'Real items, first audit', before using them.
+item_key,canonical_slug,verdict,reason,raw_name
+king_store:777013,onion,correct,"item names בצל יבש, no variant or derived-product word",בצל יבש
+king_store:777017,carrot,correct,"item names גזר, no variant or derived-product word",גזר ארוז
+king_store:777019,cabbage,correct,"item names כרוב לבן, no variant or derived-product word",כרוב לבן
+king_store:777027,red-pepper,correct,"item names פלפל אדום, no variant or derived-product word",פלפל אדום
+king_store:777033,zucchini,correct,"item names קישואים, no variant or derived-product word",קישואים בלדי
+king_store:777039,avocado,correct,"item names אבוקדו, no variant or derived-product word",אבוקדו אטינגר
+king_store:777043,sweet-potato,correct,"item names בטטה, no variant or derived-product word",בטטה מתוקה
+king_store:777082,watermelon,correct,"item names אבטיח, no variant or derived-product word",אבטיח
+king_store:777086,pear,correct,"item names אגסים, no variant or derived-product word",אגסים
+king_store:777105,mango,correct,"item names מנגו, no variant or derived-product word",מנגו
+king_store:777115,orange,correct,"item names תפוזים, no variant or derived-product word",תפוזים
+king_store:777158,dill,correct,"item names שמיר, no variant or derived-product word",שמיר
+king_store:777182,cauliflower,correct,"item names כרובית, no variant or derived-product word",כרובית
+king_store:888479,beef-entrecote-fresh,correct,"item names אנטריקוט בקר טרי, no variant or derived-product word",אנטריקוט  טרי (1)
+king_store:80176800,chocolate-spread,correct,"item names ממרח שוקולד, no variant or derived-product word; pack size differs only",ממרח שוקולד 750 ג' נוטלה
+king_store:37600309417,peanut-butter,correct,"item names חמאת בוטנים, no variant or derived-product word; pack size differs only",חמאת בוטנים קלאסי 454 ג' סקיפי
+king_store:37600309424,peanut-butter,unsure,"crunchy peanut butter; canonical does not say smooth or crunchy, reviewer decides",חמאת בוטנים עם שברי בוטנים 454 ג' סקיפי
+mega:3560070320868,chocolate-milk-bar,unsure,name cut at 'במיל' (probably filled); a filled bar may not be plain milk chocolate,רושה שוקולד חלב במיל
+mega:7290010002078,black-pepper,correct,"item names פלפל שחור, no variant or derived-product word (name cut by the chain; visible words suffice)",מימון פלפל שחור טחון
+mega:7290010002092,black-pepper,correct,"item names פלפל שחור, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",מימון פלפל שחור גרוס
+mega:7290010002108,black-pepper,correct,"item names פלפל שחור, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",מימון פלפל שחור גרוס
+mega:7290010003693,sweet-paprika,correct,"item names פפריקה מתוקה, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",מימון פפריקה מתוקה ש
+mega:7290010003709,black-pepper,correct,"item names פלפל שחור, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",מימון פלפל שחור טחון
+mega:7290010003754,cumin,correct,"item names כמון, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",מימון כמון טחון שקית
+mega:7290011065416,black-pepper,correct,"item names פלפל שחור, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",פלפל שחור מטחנה 60 ג
+mega:7290116536262,fabric-softener,correct,"item names מרכך כביסה, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",אקסטרה מרכך כביסה מר
+mega:7290118521075,flour-white,correct,"item names קמח לבן, no variant or derived-product word (name cut by the chain; visible words suffice)",**קמח לבן 1 קילו - ק
+mega:7290108359213,toilet-paper,correct,"item names נייר טואלט, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",נייר טואלט סנו סופט
+mega:7290116536279,fabric-softener,correct,"item names מרכך כביסה, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",אקסטרה מרכך כביסה מר
+mega:7290017812380,grape-juice,correct,"item names מיץ ענבים, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",תירוש מיץ ענבים אדום
+mega:7290017812571,grape-juice,correct,"item names מיץ ענבים, no variant or derived-product word (name cut by the chain; visible words suffice)",** תירוש מיץ ענבים א
+mega:7290017812588,grape-juice,correct,"item names מיץ ענבים, no variant or derived-product word (name cut by the chain; visible words suffice)",תירוש מיץ ענבים לבן
+mega:7290017812618,grape-juice,correct,"item names מיץ ענבים, no variant or derived-product word (name cut by the chain; visible words suffice)",מיץ ענבים רוזה תירוש
+mega:7290103705602,toilet-paper,correct,"item names נייר טואלט, no variant or derived-product word (name cut by the chain; visible words suffice)",נייר טואלט תלת שכבתי
+mega:7290010328253,tahini-raw,correct,"item names טחינה גולמית, no variant or derived-product word (name cut by the chain; visible words suffice)",טחינה גולמית אחוה 50
+mega:1963,watermelon,correct,"item names אבטיח, no variant or derived-product word",חצי  אבטיח
+mega:7290116536347,fabric-softener,correct,"item names מרכך כביסה, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",אקסטרה מרכך כביסה מר
+mega:7509546688886,toothpaste,correct,"item names משחת שיניים, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",קולגייט משחת שיניים
+mega:7290108358742,laundry-gel,unsure,laundry gel with softener; canonical is plain laundry gel,ג'ל כביסה פלוס מרכך
+mega:7290108358759,laundry-gel,unsure,laundry gel with softener; canonical is plain laundry gel,ג'ל כביסה פלוס מרכך
+mega:1489,garlic,correct,"item names שום, no variant or derived-product word",שום לח
+osherad:7290001041888,sweet-paprika,correct,"item names פפריקה מתוקה, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",פפריקה מתוקה מיה 250
+osherad:7290001041895,black-pepper,correct,"item names פלפל שחור, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",פלפל שחור מיה 250 גר
+osherad:7290009000115,cherry-tomato,correct,"item names עגבניות שרי, no variant or derived-product word",עגבניות שרי
+osherad:7290009001105,sweet-potato,correct,"item names בטטה, no variant or derived-product word",בטטה
+osherad:7290001209349,chicken-whole-fresh,correct,"item names עוף שלם טרי, no variant or derived-product word",עוף שלם טרי עטרה
+osherad:7290001209356,chicken-leg-fresh,correct,"item names כרעיים עוף טריים, no variant or derived-product word (name cut by the chain; visible words suffice)",כרעיים עוף טרי עטרה
+osherad:7290001209363,chicken-schnitzel-fresh,correct,"item names שניצל עוף טרי (חזה פרוס), no variant or derived-product word",שניצל עוף טרי עטרה
+osherad:7290001209387,chicken-drumstick-fresh,correct,"item names שוקיים עוף טריים, no variant or derived-product word (name cut by the chain; visible words suffice)",שוקיים עוף טרי עטרה
+osherad:7290001209394,chicken-wings-fresh,correct,"item names כנפיים עוף טריות, no variant or derived-product word (name cut by the chain; visible words suffice)",כנפיים עוף טרי עטרה
+osherad:7290001247082,tomato,wrong,"tomato nectar (a juice drink), canonical is fresh tomatoes",נקטר ספרינג עגבניות
+osherad:7290001327791,ice-cream-vanilla,correct,"item names גלידה וניל, no variant or derived-product word (name cut by the chain; visible words suffice)",גלידה קרמיסימו וניל
+osherad:7290004257910,chicken-breast-fresh,correct,"item names חזה עוף טרי, no variant or derived-product word (name cut by the chain; visible words suffice)",נתחי חזה עוף טרי להק
+osherad:37600223348,peanut-butter,unsure,crunchy peanut butter (name cut); canonical does not say smooth or crunchy,חמאת בוטנים עם שברים
+osherad:7290000144467,sunflower-oil,correct,"item names שמן חמניות, no variant or derived-product word (name cut by the chain; visible words suffice)",שמן חמניות בריאות עץ
+osherad:5000127014084,cornflakes,correct,"item names קורנפלקס, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)","קורנפלקס קלוגס 1 ק""ג"
+osherad:7290000144474,canola-oil,correct,"item names שמן קנולה, no variant or derived-product word (name cut by the chain; visible words suffice)",שמן קנולה בריאות עץ
+osherad:7290009001501,red-pepper,correct,"item names פלפל אדום, no variant or derived-product word",פלפל אדום
+osherad:7290000176420,coffee-instant,correct,"item names קפה נמס, no variant or derived-product word",קפה נמס 200 גרם
+osherad:7290001791349,bleach,correct,"item names אקונומיקה, no variant or derived-product word (name cut by the chain; visible words suffice)",אקונומיקה פסגה 4 ליט
+osherad:7290002007760,breadcrumbs,correct,"item names פירורי לחם, no variant or derived-product word (name cut by the chain; visible words suffice)","פירורי לחם הנמל 1 ק"""
+osherad:7290002079477,bread-standard,correct,"item names לחם אחיד, no variant or derived-product word (name cut by the chain; visible words suffice)",לחם אחיד פרוס דוידוב
+osherad:7290002008903,toilet-paper,correct,"item names נייר טואלט, no variant or derived-product word (name cut by the chain; visible words suffice)",נייר טואלט חתוך הנמל
+osherad:7290002040071,couscous,correct,"item names קוסקוס, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",קוסקוס עבה מזון 350
+osherad:7290002111764,white-beans,wrong,"white beans in sauce (canned meal), canonical is dry white beans",שעועית לבנה ברוטב מב
+osherad:7290000211442,rice-persian,correct,"item names אורז פרסי, no variant or derived-product word (name cut by the chain; visible words suffice)","אורז פרסי סוגת 1 ק""ג"
+osherad:7290002319429,sweet-paprika,correct,"item names פפריקה מתוקה, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",פפריקה מתוקה מיה 80
+osherad:7290002319436,black-pepper,correct,"item names פלפל שחור, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",פלפל שחור מיה 70 גרם
+osherad:7290002319450,turmeric,correct,"item names כורכום, no variant or derived-product word; pack size differs only",כורכום מיה 80 גרם
+osherad:7290005678677,grapes,correct,"item names ענבים, no variant or derived-product word (name cut by the chain; visible words suffice)",ענבים אדומים ענבי טל
+osherad:7290002327073,burekas-cheese,unsure,frozen state is not in the name; canonical is the frozen burekas,בורקס גבינה ש.האופים
+osherad:7290002407348,olive-oil,correct,"item names שמן זית כתית מעולה, no variant or derived-product word (name cut by the chain; visible words suffice)",שמן זית כתית מעולה ג
+osherad:7290019568209,tuna-in-oil,correct,"item names טונה בשמן, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",טונה בשמן טעמן 4*140
+ramilevy:726529154191,mineral-water,correct,"item names מים מינרליים, no variant or derived-product word (name cut by the chain; visible words suffice)",מים מינרליים טבעיים
+ramilevy:8434165671140,crackers,correct,"item names קרקרים, no variant or derived-product word (name cut by the chain; visible words suffice)",מיני קרקרים דגיגונים
+ramilevy:7290000319957,chicken-hot-dogs,correct,"item names נקניקיות עוף, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",נקניקיות עוף 1 קג יח
+ramilevy:7290119382132,tomato,wrong,"cut tomato pulp (פולפה) is canned crushed tomato, canonical is fresh tomatoes",עגבניות חתוכות פולפה
+ramilevy:7290119673131,tuna-in-oil,correct,"item names טונה בשמן, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",נתחי טונה בשמן 672 ג
+ramilevy:7290110119515,cola-zero,correct,"item names קולה זירו, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",קולה זירו 2 ליטר בוד
+ramilevy:7290002133162,bulgarian-cheese-5,correct,"item names גבינה בולגרית 5%, no variant or derived-product word (name cut by the chain; visible words suffice)",גבינה בולגרית 5% גבי
+ramilevy:8434165466166,crackers,correct,"item names קרקרים, no variant or derived-product word (name cut by the chain; visible words suffice)",קרקרים מלוחים 200 גר
+ramilevy:7290121132268,smoked-salmon-sliced,correct,"item names סלמון מעושן פרוס, no variant or derived-product word (name cut by the chain; visible words suffice)",פלטת סלמון מעושן 150
+ramilevy:7290000136554,lager-beer,correct,"item names בירה לאגר, no variant or derived-product word (name cut by the chain; visible words suffice)",בירה לאגר בהירה בבקב
+ramilevy:7290122591439,sweet-paprika,wrong,"paprika in oil is a paste, canonical is the dry spice",פפריקה מתוקה בשמן 45
+ramilevy:7290117269251,grated-mozzarella,correct,"item names גבינה מגורדת (מוצרלה), no variant or derived-product word (name cut by the chain; visible words suffice)",גבינת מוצרלה מגורדת
+ramilevy:7290121045186,baking-paper,correct,"item names נייר אפייה, no variant or derived-product word (name cut by the chain; visible words suffice)","נייר אפייה 42*37 ס""מ"
+ramilevy:8001090184375,dish-soap,correct,"item names נוזל כלים, no variant or derived-product word (name cut by the chain; visible words suffice)",נוזל כלים פיירי אורג
+shufersal:10900302814,cling-wrap,correct,"item names ניילון נצמד, no variant or derived-product word (name cut by the chain; visible words suffice)","ניילון נצמד 30ס""מ*30 מטר"
+shufersal:3046920029674,chocolate-dark-bar,wrong,"dark chocolate with salt is a flavored bar, canonical is the plain dark bar",שוקולד מריר לינדט מלח 10
+shufersal:37600311571,peanut-butter,unsure,no-added-sugar variant; canonical does not say regular or sugar free,"חמאת בוטנים ללת""ס340"
+shufersal:4005900513045,deodorant,correct,"item names דאודורנט, no variant or derived-product word (name cut by the chain; visible words suffice)",ניוואה דאודורנט  לגבר150
+shufersal:4013162036172,fabric-softener,correct,"item names מרכך כביסה, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",מרכך כביסה רוח קיץ כחול1
+shufersal:4013162036233,fabric-softener,correct,"item names מרכך כביסה, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",מרכך כביסה הדובי המפנק1ל
+shufersal:4013162038282,fabric-softener,correct,"item names מרכך כביסה, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",מרכך כביסה הדובי המפנק 1
+tivtaam:18787772324,hand-soap,wrong,"baby liquid soap, canonical is adult hand soap",סבון נוזלי לתינוק
+yohananof:183837123408,rice-basmati,correct,"item names אורז בסמטי, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",*מבצע* אורז בסמטי או
+yohananof:222363,rolls,correct,"item names לחמניות, no variant or derived-product word; pack size differs only",לחמניות 4 יח
+yohananof:24851,baguette,unsure,challah baguette; unclear if shoppers treat it as a baguette,חלת באגט
+yohananof:3179732348913,mineral-water,correct,"item names מים מינרליים, no variant or derived-product word; pack size differs only (name cut by the chain; visible words suffice)",מים מינרליים פרייה 1

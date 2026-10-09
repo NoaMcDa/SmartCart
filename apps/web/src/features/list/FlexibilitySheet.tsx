@@ -3,7 +3,11 @@
 import { useId, useState } from "react";
 import type { FlexLevel } from "@/api/client";
 import { BottomSheet, Button, CheckChip, FLEX_LEVELS, Switch } from "@/components/ui";
+import { flexLevelLabel } from "@/components/ui/Chip";
 import { reportFlexChanged } from "@/features/consent/betaEvents";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { listMessages } from "@/i18n/messages/list";
+import { productName } from "@/lib/format";
 import { levelCopy, lookupDefault, rememberLabel, softAttributes } from "@/state/flex";
 import { listActions, type ListItem } from "@/state/list";
 import styles from "./FlexibilitySheet.module.css";
@@ -22,12 +26,14 @@ export type FlexibilitySheetProps = {
  * which writes the category default (flex_defaults by taxonomy id). Cancel discards.
  */
 export function FlexibilitySheet({ item, flexDefaults, onClose }: FlexibilitySheetProps) {
+  const t = useT(listMessages);
+  const { locale } = useLocale();
   return (
     <BottomSheet
       open={item !== null}
       onClose={onClose}
-      eyebrow="רמת גמישות לפריט"
-      title={item?.canonical?.display_name_he ?? item?.inputText ?? ""}
+      eyebrow={t("sheetEyebrow")}
+      title={item?.canonical ? productName(item.canonical, locale) : (item?.inputText ?? "")}
       className={styles.sheet}
     >
       {item ? (
@@ -46,6 +52,8 @@ function SheetBody({
   flexDefaults: Record<string, FlexLevel>;
   onClose: () => void;
 }) {
+  const t = useT(listMessages);
+  const { locale } = useLocale();
   const taxonomy = item.canonical?.taxonomy_id ?? null;
   const [level, setLevel] = useState<FlexLevel>(item.flexLevel);
   const [allow, setAllow] = useState<string[]>(item.allow);
@@ -53,7 +61,7 @@ function SheetBody({
     taxonomy ? flexDefaults[taxonomy] === item.flexLevel : false,
   );
   const groupId = useId();
-  const attrs = softAttributes(taxonomy);
+  const attrs = softAttributes(taxonomy, locale);
   const inherited = taxonomy ? lookupDefault(taxonomy, flexDefaults) : undefined;
 
   function save() {
@@ -65,10 +73,11 @@ function SheetBody({
   return (
     <>
       <fieldset className={styles.options}>
-        <legend className="sr-only">רמת גמישות</legend>
+        <legend className="sr-only">{t("sheetLegend")}</legend>
         {ORDER.map((value) => {
-          const { label, tone, Icon } = FLEX_LEVELS[value];
-          const copy = levelCopy(taxonomy, value);
+          const { tone, Icon } = FLEX_LEVELS[value];
+          const label = flexLevelLabel(value, locale);
+          const copy = levelCopy(taxonomy, value, locale);
           const id = `${groupId}-${value}`;
           return (
             <label
@@ -104,7 +113,7 @@ function SheetBody({
 
       {level !== "exact" ? (
         <fieldset className={styles.soft}>
-          <legend className={styles.softTitle}>אפשר לוותר על:</legend>
+          <legend className={styles.softTitle}>{t("allowLegend")}</legend>
           <div className={styles.softList}>
             {attrs.map((a) => (
               <CheckChip
@@ -125,21 +134,21 @@ function SheetBody({
         <Switch
           checked={remember}
           onChange={setRemember}
-          label={rememberLabel(item.canonical)}
+          label={rememberLabel(item.canonical, locale)}
           description={
             inherited && !remember
-              ? `ברירת המחדל לקטגוריה: ${FLEX_LEVELS[inherited].label}`
-              : "חל על פריטים חדשים ועל הפריטים מהסוג הזה ברשימה. אפשר לשנות בפרופיל."
+              ? t("categoryDefault", { level: flexLevelLabel(inherited, locale) })
+              : t("appliesTo")
           }
         />
       ) : null}
 
       <div className={styles.footer}>
         <Button onClick={save} className={styles.save}>
-          שמרי
+          {t("save")}
         </Button>
         <Button variant="secondary" onClick={onClose}>
-          ביטול
+          {t("cancel")}
         </Button>
       </div>
     </>

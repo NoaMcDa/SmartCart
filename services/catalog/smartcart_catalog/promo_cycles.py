@@ -84,7 +84,9 @@ class ChainCycle:
     windows: tuple[Window, ...] = ()
 
 
-def merge_windows(spans: Iterable[tuple[date, date | None]], gap_days: int = MERGE_GAP_DAYS) -> list[Window]:
+def merge_windows(
+    spans: Iterable[tuple[date, date | None]], gap_days: int = MERGE_GAP_DAYS
+) -> list[Window]:
     """Overlapping or nearly adjacent promo spans as one window each, oldest first."""
     ordered = sorted((s, e if e is not None and e >= s else s) for s, e in spans)
     out: list[Window] = []
@@ -168,10 +170,15 @@ class Backtest:
 
     def as_dict(self) -> dict[str, object]:
         return {
-            "min_windows": self.min_windows, "opportunities": self.opportunities,
-            "predictions": self.predictions, "hits": self.hits, "early": self.early,
-            "false_alarms": self.false_alarms, "hit_rate": self.hit_rate,
-            "false_alarm_rate": self.false_alarm_rate, "coverage": self.coverage,
+            "min_windows": self.min_windows,
+            "opportunities": self.opportunities,
+            "predictions": self.predictions,
+            "hits": self.hits,
+            "early": self.early,
+            "false_alarms": self.false_alarms,
+            "hit_rate": self.hit_rate,
+            "false_alarm_rate": self.false_alarm_rate,
+            "coverage": self.coverage,
         }
 
 
@@ -224,7 +231,9 @@ def synthetic_history(
     return out
 
 
-def irregular_history(seed: int, start: date, end: date, low: int, high: int, duration_days: int = 7) -> list[Window]:
+def irregular_history(
+    seed: int, start: date, end: date, low: int, high: int, duration_days: int = 7
+) -> list[Window]:
     """Windows with gaps drawn uniformly from [low, high] days: no rhythm to find."""
     rng = random.Random(seed)
     out: list[Window] = []
@@ -255,9 +264,15 @@ def seed_promo_history(
             " club_only, club_name, min_qty, reward_type, reward_value)"
             " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1, %s, 20) RETURNING id",
             (
-                chain_id, store_id, f"{prefix}-{n}", f"מבצע {prefix} {n}",
-                datetime.combine(w.start, time(6), UTC), datetime.combine(w.end, time(20), UTC),
-                club_only, club_name, reward_type,
+                chain_id,
+                store_id,
+                f"{prefix}-{n}",
+                f"מבצע {prefix} {n}",
+                datetime.combine(w.start, time(6), UTC),
+                datetime.combine(w.end, time(20), UTC),
+                club_only,
+                club_name,
+                reward_type,
             ),
         ).fetchone()[0]
         for iid in item_ids:
@@ -307,7 +322,9 @@ def load_spans(
     ).fetchall()
     for chain_id, name, club_names, club_only, club_name, d0, d1 in rows:
         entry = out.setdefault(chain_id, _ChainSpans(name))
-        if club_only and (include_club is None or not include_club(club_name, name, club_names or [])):
+        if club_only and (
+            include_club is None or not include_club(club_name, name, club_names or [])
+        ):
             continue
         entry.spans.append((d0, d1))
     return out

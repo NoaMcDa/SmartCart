@@ -50,8 +50,11 @@ class Abbreviation:
 # unified to ' and ". A leading ב/ו/ה/ל/מ prefix letter is kept (בש.ז. -> בשמן זית).
 _P = rf"{_NOT_WORD_BEFORE}([בוהלמ]?)"
 ABBREVIATIONS: tuple[Abbreviation, ...] = (
-    Abbreviation(_P + r'ש(?:\.|")ז\.?' + _NOT_WORD, r"\1שמן זית",
-                 "ש.ז. = שמן זית (olive oil); general knowledge, reviewer to confirm"),
+    Abbreviation(
+        _P + r'ש(?:\.|")ז\.?' + _NOT_WORD,
+        r"\1שמן זית",
+        "ש.ז. = שמן זית (olive oil); general knowledge, reviewer to confirm",
+    ),
     Abbreviation(_P + r"מהד'", r"\1מהדורה", "מהד' מוגבלת = limited edition"),
     Abbreviation(_P + r'תפו"א' + _NOT_WORD, r"\1תפוחי אדמה"),
     Abbreviation(_P + r'ק"ג' + _NOT_WORD, r"\1קילוגרם"),
@@ -60,6 +63,17 @@ ABBREVIATIONS: tuple[Abbreviation, ...] = (
     Abbreviation(_P + r'מ"ל' + _NOT_WORD, r"\1מיליליטר"),
     Abbreviation(_P + r"גר'" + _NOT_WORD, r"\1גרם"),
     Abbreviation(_P + r"ליט'" + _NOT_WORD, r"\1ליטר"),
+    # sugar claims: ללת"ס / לל"ס are printed on "no added sugar" and "sugar free" goods (a diet
+    # variant, never the regular product); real names: חמאת בוטנים ללת"ס, סוכריות חמאה לל"ס
+    Abbreviation(_P + r'ללת"ס' + _NOT_WORD, r"\1ללא תוספת סוכר", "ללא תוספת סוכר"),
+    Abbreviation(_P + r'לל"ס' + _NOT_WORD, r"\1ללא סוכר", "ללא סוכר"),
+    Abbreviation(_P + r'חד"פ' + _NOT_WORD, r"\1חד פעמי", "disposable"),
+    # dotted chain shorthand for the first word of a name: שוק.מריר, חט.דגנים, תח.גוף, נ.כלים
+    Abbreviation(_P + r"שוק\.\s*", r"\1שוקולד ", "שוק. = שוקולד"),
+    Abbreviation(_P + r"חט\.\s*", r"\1חטיף ", "חט. = חטיף"),
+    Abbreviation(_P + r"תח\.\s*", r"\1תחליב ", "תח. = תחליב (body lotion)"),
+    Abbreviation(_P + r"מ\.כביסה" + _NOT_WORD, r"\1מרכך כביסה", "מ.כביסה"),
+    Abbreviation(_P + r"נ\.כלים" + _NOT_WORD, r"\1נוזל כלים", "נ.כלים"),
     Abbreviation(_P + r"יחי?'" + _NOT_WORD, r"\1יחידות"),
     # bare one-letter units: only right after a number, so ג'/ל' elsewhere is left alone
     Abbreviation(r"(?<=\d)(\s*)ג'" + _NOT_WORD, r"\1גרם"),
@@ -80,6 +94,43 @@ def clean_name(raw: str) -> str:
     return _SPACE.sub(" ", s).strip()
 
 
+# --- truncated names -------------------------------------------------------------------------------
+
+# Several chains publish ItemName cut at a fixed width (measured on the committed real fixtures
+# of 2026-10-08: the longest name is 20 characters for Carrefour/Mega, Osher Ad, Rami Levy and
+# Yohananof, 24 for Shufersal and 40 for Tiv Taam; King Store's longest is 55 with no pile-up at
+# one length, so it is not cut). A cut name may end inside a word ("חלבון" -> "חלב"), and may
+# have lost a flavor, a fat percentage or a size: it must not be trusted as complete.
+NAME_LIMITS: dict[str, int] = {
+    "7290055700007": 20,  # Carrefour (Mega)
+    "7290103152017": 20,  # Osher Ad
+    "7290058140886": 20,  # Rami Levy
+    "7290803800003": 20,  # Yohananof
+    "7290027600007": 24,  # Shufersal
+    "7290873255550": 40,  # Tiv Taam
+}
+
+
+def is_truncated(chain_id: str | None, raw_name: str | None) -> bool:
+    """True when ``raw_name`` is at, or one character under, its chain's cut width.
+
+    One under, because a cut right after a space is stripped, so a name cut at 20 can be 19
+    long. A name longer than the width was not cut by that chain. A false positive only sends
+    an item to review; a false negative can serve a wrong match, so the boundary errs on the
+    side of "cut"."""
+    limit = NAME_LIMITS.get(chain_id or "")
+    if limit is None or not raw_name:
+        return False
+    return limit - 1 <= len(raw_name.strip()) <= limit
+
+
+def is_full_width(chain_id: str | None, raw_name: str | None) -> bool:
+    """True when ``raw_name`` is exactly as wide as its chain cuts names: the last word may be
+    a fragment (a name cut at a space is one character shorter and ends on a whole word)."""
+    limit = NAME_LIMITS.get(chain_id or "")
+    return limit is not None and bool(raw_name) and len(raw_name.strip()) == limit
+
+
 # --- units ---------------------------------------------------------------------------------------
 
 # spelling -> (unit, factor to g / ml / unit)
@@ -95,19 +146,38 @@ for _words, _unit, _factor in (
         _UNIT_WORDS[_w] = (_unit, _factor)
 
 # count nouns that also mean "N pieces" after a number (32 גלילים, 72 מגבונים)
-_COUNT_NOUNS = ("יחידות", "יחידה", "יח", "גלילים", "שקיות", "ביצים", "טבליות", "קפסולות",
-                "מגבונים", "שקיקים", "פריטים", "כוסות", "צלחות", "ממחטות", "פיתות", "לחמניות")
+_COUNT_NOUNS = (
+    "יחידות",
+    "יחידה",
+    "יח",
+    "גלילים",
+    "שקיות",
+    "ביצים",
+    "טבליות",
+    "קפסולות",
+    "מגבונים",
+    "שקיקים",
+    "פריטים",
+    "כוסות",
+    "צלחות",
+    "ממחטות",
+    "פיתות",
+    "לחמניות",
+)
 
 _MEASURE_ALT = "|".join(
-    sorted((re.escape(w) for w, (u, _) in _UNIT_WORDS.items() if u != "unit"), key=len,
-           reverse=True)
+    sorted(
+        (re.escape(w) for w, (u, _) in _UNIT_WORDS.items() if u != "unit"), key=len, reverse=True
+    )
 )
 _COUNT_ALT = "|".join(sorted((re.escape(w) for w in _COUNT_NOUNS), key=len, reverse=True))
 _NUM = r"(\d+(?:[.,]\d+)?)"
 _X = r"\s*[*xX×]\s*"
 
 # 6*1.5 ליטר / 4X250 מיליליטר (count first) and 1.5 ליטר*6 (size first)
-_MULTI_COUNT_FIRST = re.compile(rf"{_NOT_WORD_BEFORE}{_NUM}{_X}{_NUM}\s*({_MEASURE_ALT}){_NOT_WORD}")
+_MULTI_COUNT_FIRST = re.compile(
+    rf"{_NOT_WORD_BEFORE}{_NUM}{_X}{_NUM}\s*({_MEASURE_ALT}){_NOT_WORD}"
+)
 _MULTI_SIZE_FIRST = re.compile(rf"{_NUM}\s*({_MEASURE_ALT}){_X}(\d+){_NOT_WORD}")
 _MEASURE = re.compile(rf"{_NOT_WORD_BEFORE}{_NUM}\s*-?\s*({_MEASURE_ALT}){_NOT_WORD}")
 _COUNT = re.compile(rf"{_NOT_WORD_BEFORE}(\d+)\s*({_COUNT_ALT}){_NOT_WORD}")
@@ -117,8 +187,15 @@ _PACK_WORD = re.compile(
     + rf"(?![\d.,]|\s*(?:{_MEASURE_ALT}){_NOT_WORD}|{_X})"
     + _NOT_WORD
 )
-_PACK_NAMED = {"זוג": 2, "שלישייה": 3, "שלישיית": 3, "רביעייה": 4, "רביעיית": 4,
-               "שישייה": 6, "שישיית": 6}
+_PACK_NAMED = {
+    "זוג": 2,
+    "שלישייה": 3,
+    "שלישיית": 3,
+    "רביעייה": 4,
+    "רביעיית": 4,
+    "שישייה": 6,
+    "שישיית": 6,
+}
 _PACK_NAMED_RE = re.compile(
     _NOT_WORD_BEFORE + "(?:מארז\\s*)?(" + "|".join(_PACK_NAMED) + ")" + _NOT_WORD
 )
@@ -419,3 +496,373 @@ def unit_price(price: Decimal, normalized: NormalizedItem) -> tuple[Decimal, Bas
         return Decimal(price).quantize(_PLACES), "kg"
     value = Decimal(price) * _PER[base] / total
     return value.quantize(_PLACES), base
+
+
+# --- Arabic (issue #73) ------------------------------------------------------------------------
+#
+# Pure helpers for Arabic shopping-list lines and canonical names. ``fold_ar`` is the character
+# level folding that ``search_norm_ar()`` in the database repeats (supabase migration
+# 20261011100600); ``normalize_ar`` adds the rewrites that only a query needs ("3 بالمية" -> "3%").
+# The article ال and the conjunction و are not removed here: ``ar_variants`` offers the forms
+# without them and matching tries both, the way the Hebrew prefix letters are handled.
+
+import unicodedata  # noqa: E402
+from typing import NamedTuple  # noqa: E402
+
+AR_LETTERS = "ء-غف-يٮ-ۓۺ-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿"
+_AR_RE = re.compile(f"[{AR_LETTERS}]")
+_HE_RE = re.compile("[א-ת]")
+
+
+def has_arabic(text: str) -> bool:
+    return _AR_RE.search(text) is not None
+
+
+def script_of(text: str) -> Literal["ar", "he", "other"]:
+    """The script of a list line: ``ar`` when it has more Arabic than Hebrew letters, ``he`` when
+    Hebrew wins or ties, ``other`` when it has neither (digits, Latin only). Only ``ar`` takes the
+    Arabic path; everything else keeps the Hebrew behavior."""
+    n_ar = len(_AR_RE.findall(text))
+    n_he = len(_HE_RE.findall(text))
+    if n_ar > n_he:
+        return "ar"
+    return "he" if n_he else "other"
+
+
+_FOLD_FROM = (
+    "أإآٱ" "ى" "ة" "ؤ" "ئ" "ک" "ی" "ڤ" "پ"
+    "٠١٢٣٤٥٦٧٨٩" "۰۱۲۳۴۵۶۷۸۹"
+    "٪٫،؛؟"
+    "ءـ٬" "\"'`’‘“”"
+)  # fmt: skip
+_FOLD_TO = "اااايهويكيفب01234567890123456789%.,;?"
+FOLD_TRANSLATE: dict[int, str | None] = {
+    **{ord(a): b for a, b in zip(_FOLD_FROM, _FOLD_TO, strict=False)},
+    **{ord(c): None for c in _FOLD_FROM[len(_FOLD_TO) :]},
+}
+_MARKS = re.compile("[ً-ٰٟۖ-ۭ‎‏؜‪-‮⁦-⁩]")
+_PUNCT = re.compile(r"[\s,;:!?()\[\]{}/\\*+=|<>~#&^$@«»…–—•·-]+")
+
+
+def fold_ar(text: str) -> str:
+    """Spelling-variant folding, identical to ``search_norm_ar()`` in Postgres: NFKC and lower
+    case; alef forms to ا, ى to ي, ة to ه, ؤ to و, ئ to ي, hamza and tatweel removed, tashkeel
+    removed, Arabic-Indic and Persian digits to Latin, Arabic punctuation to ASCII, quote marks
+    removed, punctuation to single spaces."""
+    s = unicodedata.normalize("NFKC", text).lower().translate(FOLD_TRANSLATE)
+    s = _MARKS.sub("", s)
+    return _PUNCT.sub(" ", s).strip()
+
+
+_NUM_RE = r"\d+(?:\.\d+)?"
+_PCT_WORD = r"(?:بالميه|بالمايه|في\s+الميه|في\s+المايه)"
+# Whole-number words, as fold_ar spells them, that precede "بالمية" ("ثلاثة بالمية" = 3%).
+_PCT_NUMBERS: dict[str, str] = {
+    "واحد ونص": "1.5", "واحد ونصف": "1.5", "واحد": "1", "اثنين": "2", "اتنين": "2",
+    "ثنتين": "2", "ثلاثه": "3", "ثلاث": "3", "تلاته": "3", "تلات": "3", "اربعه": "4",
+    "اربع": "4", "خمسه": "5", "خمس": "5", "سته": "6", "ست": "6", "سبعه": "7", "سبع": "7",
+    "ثمانيه": "8", "ثماني": "8", "تمانيه": "8", "تماني": "8", "تسعه": "9", "تسع": "9",
+    "عشره": "10", "عشر": "10", "خمستعشر": "15", "خمسه عشر": "15", "عشرين": "20",
+    "اربعه وعشرين": "24", "ثمانيه وعشرين": "28", "تمانيه وعشرين": "28", "ثلاثين": "30",
+    "تلاتين": "30", "اثنين وثلاثين": "32", "اتنين وتلاتين": "32", "ثمانيه وثلاثين": "38",
+    "تمانيه وتلاتين": "38",
+}  # fmt: skip
+_PCT_NUMBER_RE = re.compile(
+    r"(?<![\w.])("
+    + "|".join(sorted(map(re.escape, _PCT_NUMBERS), key=len, reverse=True))
+    + r")\s*(?="
+    + _PCT_WORD
+    + ")"
+)
+
+
+def normalize_ar(text: str) -> str:
+    """``fold_ar`` plus the rewrites of a shopper's query: "%3" and "3 %" become "3%", and
+    "3 بالمية", "ثلاثة بالمئة" become "3%". The article and the conjunction stay (``ar_variants``)."""
+    s = fold_ar(text)
+    s = _PCT_NUMBER_RE.sub(lambda m: _PCT_NUMBERS[m.group(1)] + " ", s)
+    s = re.sub(rf"({_NUM_RE})\s*{_PCT_WORD}", r"\1%", s)
+    s = re.sub(rf"(?<![\d.])%\s*({_NUM_RE})(?![\d%])", r"\1%", s)
+    s = re.sub(rf"({_NUM_RE})\s+%", r"\1%", s)
+    return " ".join(s.split())
+
+
+_AR_PROCLITIC_ARTICLES = ("بال", "لل", "كال")
+
+
+def ar_variants(token: str) -> list[str]:
+    """A normalized token and its forms without a removable prefix: ال ("the"), و ("and"), وال,
+    and the preposition + article forms بال ("with the") and لل ("for the"), which lists use
+    ("بالفراولة", "للطبخ"). A prefix is only removed when at least three letters remain, so ورق
+    and الف stay whole. ``"الحليب" -> ["الحليب", "حليب"]``; ``"وحليب" -> ["وحليب", "حليب"]``."""
+    out = [token]
+    rest = token
+    if token.startswith("و") and len(token) >= 4:
+        rest = token[1:]
+        out.append(rest)
+    for pre in _AR_PROCLITIC_ARTICLES:
+        if rest.startswith(pre) and len(rest) - len(pre) >= 3:
+            out.append(rest[len(pre) :])
+            break
+    else:
+        if rest.startswith("ال") and len(rest) >= 5:
+            out.append(rest[2:])
+    return list(dict.fromkeys(out))
+
+
+def ar_strip_prefixes(text: str) -> str:
+    """Normalized text with the article ال removed from every word (and the و before it)."""
+    return " ".join(
+        ar_variants(t)[-1] if t.startswith(("ال", "وال", "بال", "لل", "كال")) else t
+        for t in text.split()
+    )
+
+
+# Brands a shopper adds to a line ("حليب تنوفا 3%"). Canonicals are brand-free, so matching drops
+# them (only when another word remains); names that contain a brand (نوتيلا, ميلكي) are not here.
+AR_BRANDS: frozenset[str] = frozenset(
+    fold_ar(b)
+    for b in (
+        "تنوفا", "شتراوس", "اوسم", "عوسم", "عيليت", "عليت", "تيفع", "تارا", "زوغلوبك",
+        "زوغلوبيك", "سوغات", "يوطبتا", "ويسوتسكي", "ليبتون", "كنور", "هاينز", "باريلا",
+        "tnuva", "strauss", "osem", "elite", "tara", "zoglowek", "sugat", "wissotzky",
+        "lipton", "knorr", "heinz", "barilla",
+    )
+)  # fmt: skip
+
+
+# Politeness and soft descriptors that the canonical does not state ("close" flexibility: size,
+# family pack, novelty). Dropped from the query when another word remains.
+AR_FILLER: frozenset[str] = frozenset(
+    fold_ar(w)
+    for w in (
+        "كبير", "كبيرة", "صغير", "صغيرة", "وسط", "عائلي", "عائلية", "اقتصادي", "اقتصادية",
+        "جديد", "جديدة", "عرض", "توفير", "لو", "سمحت", "من", "فضلك", "ارجوك", "بدي", "بدنا",
+        "اريد", "نريد", "محتاج", "محتاجة", "عدد", "منتج", "نوع",
+    )
+)  # fmt: skip
+_SIZE_WORDS = frozenset({"رول", "رولات", "لفه", "لفات"})
+_BARE_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+
+def ar_clean_query(text: str) -> str:
+    """``text`` (as ``normalize_ar`` made it) without what is not part of the product: brands,
+    soft descriptors, politeness, bare numbers (pack counts and sizes such as "12", "32 رول",
+    "500 غرام"); a percentage stays. Unchanged when nothing else would be left."""
+    kept: list[str] = []
+    after_number = False
+    for tok in text.split():
+        if _BARE_NUMBER.fullmatch(tok):
+            after_number = True
+            continue
+        size = after_number and (ar_unit(tok) is not None or tok in _SIZE_WORDS)
+        after_number = False
+        if size or any(v in AR_FILLER or v in AR_BRANDS for v in ar_variants(tok)):
+            continue
+        kept.append(tok)
+    return " ".join(kept) if kept else text
+
+
+# --- units and quantity words ----------------------------------------------------------------
+
+
+class ArUnit(NamedTuple):
+    kind: Literal["mass", "volume", "count"]
+    factor: Decimal
+    """Mass in kg per unit, volume in litres per unit, count in pieces per unit."""
+    multiplier: int = 1
+    """2 for a dual form (علبتين = two boxes, كيلوين = two kilos)."""
+    plural: bool = False
+    """A plural form (اكياس, علب): only a unit after a number; alone it is product text
+    (اكياس زبالة)."""
+
+
+_DUAL_BASES = (
+    "كيلو", "غرام", "جرام", "لتر", "ليتر", "علبه", "حبه", "قطعه", "كيس", "باكيت", "زجاجه",
+    "عبوه", "كرتونه", "ربطه", "حزمه", "وحده", "صندوق", "مغلف", "طبق", "قنينه",
+)  # fmt: skip
+
+
+def _dual_forms(word: str) -> list[str]:
+    if word.endswith("ه"):
+        return [word[:-1] + "تين", word[:-1] + "تان"]
+    return [word + "ين", word + "ان"]
+
+
+_PLURAL_UNITS = frozenset({
+    "علب", "حبات", "قطع", "اكياس", "باكيتات", "زجاجات", "عبوات", "كراتين", "ربطات", "حزم",
+    "وحدات", "صناديق", "كيلوات", "غرامات", "جرامات", "لترات", "ليترات", "مليلترات",
+    "كيلوغرامات",
+})  # fmt: skip
+AR_UNITS: dict[str, ArUnit] = {}
+for _kind, _factor, _words in (
+    ("mass", Decimal(1), ("كيلو", "كيلوغرام", "كيلوجرام", "كيلوغرامات", "كغم", "كجم", "كغ",
+                          "كج", "كلغ", "كلغم", "كلجم", "كيلوات", "كلو")),
+    ("mass", Decimal("0.001"), ("غرام", "جرام", "غم", "جم", "غرامات", "جرامات", "غر")),
+    ("volume", Decimal(1), ("لتر", "ليتر", "لترات", "ليترات")),
+    ("volume", Decimal("0.001"), ("مل", "ملل", "ملي", "مليلتر", "مللتر", "ميليلتر", "مليلترات")),
+    ("count", Decimal(1), ("علبه", "علب", "حبه", "حبات", "قطعه", "قطع", "كيس", "اكياس",
+                           "باكيت", "باكيتات", "باكت", "زجاجه", "زجاجات", "قنينه", "عبوه",
+                           "عبوات", "كرتونه", "كراتين", "كرتون", "ربطه", "ربطات", "حزمه",
+                           "حزم", "وحده", "وحدات", "صندوق", "صناديق", "مغلف", "طبق")),
+):  # fmt: skip
+    for _w in _words:
+        AR_UNITS[_w] = ArUnit(_kind, _factor, 1, _w in _PLURAL_UNITS)
+        if _w in _DUAL_BASES:
+            for _d in _dual_forms(_w):
+                AR_UNITS[_d] = ArUnit(_kind, _factor, 2)
+del _kind, _factor, _words, _w
+
+
+def ar_unit(word: str) -> ArUnit | None:
+    """The unit a word names (any spelling variant, with or without ال), or None.
+
+    ``ar_unit("كغم") -> ArUnit("mass", 1)``, ``ar_unit("علبتين") -> ArUnit("count", 1, 2)``,
+    ``ar_unit("الكيلو")`` is the kilo too."""
+    w = fold_ar(word).replace(" ", "")
+    for v in ar_variants(w):
+        if v in AR_UNITS:
+            return AR_UNITS[v]
+    return None
+
+
+AR_NUMBER_WORDS: dict[str, int] = {
+    "واحد": 1, "واحده": 1, "اثنين": 2, "اتنين": 2, "اثنان": 2, "اثنتين": 2, "ثنتين": 2,
+    "ثلاث": 3, "ثلاثه": 3, "تلات": 3, "تلاته": 3, "اربع": 4, "اربعه": 4, "خمس": 5,
+    "خمسه": 5, "ست": 6, "سته": 6, "سبع": 7, "سبعه": 7, "ثمان": 8, "ثماني": 8, "ثمانيه": 8,
+    "تمان": 8, "تمانيه": 8, "تسع": 9, "تسعه": 9, "عشر": 10, "عشره": 10,
+}  # fmt: skip
+AR_FRACTION_WORDS: dict[str, Decimal] = {
+    "نص": Decimal("0.5"), "نصف": Decimal("0.5"), "ربع": Decimal("0.25"),
+    "ثلث": Decimal("0.333"), "تلت": Decimal("0.333"),
+}  # fmt: skip
+
+
+# --- query attributes (the hard checks) ---------------------------------------------------------
+
+_AR_STATE_WORDS: dict[str, tuple[str, ...]] = {
+    "fresh": ("طازج", "طازجه", "طازجين", "طازه", "طري", "طريه", "فريش"),
+    "frozen": ("مجمد", "مجمده", "مجمدين", "مجمدات", "مثلج", "مثلجه", "متجمد", "فروزن"),
+    "canned": ("معلب", "معلبه", "معلبات", "كونسروه", "بالعلبه"),
+    "dry": ("ناشف", "ناشفه", "جاف", "جافه", "يابس", "يابسه", "مجفف", "مجففه"),
+    "chilled": ("مبرد", "مبرده"),
+}
+_AR_BASE_WORDS: dict[str, tuple[str, ...]] = {
+    "soy": ("صويا", "سويا", "صوجا"),
+    "almond": ("لوز",),
+    "oat": ("شوفان",),
+    "coconut": ("كوكوس",),
+}
+_AR_FLAVOR_WORDS: dict[str, tuple[str, ...]] = {
+    "strawberry": ("فراوله", "فريز"),
+    "peach": ("خوخ", "دراق"),
+    "chocolate": ("شوكولاته", "شوكولا", "شوكولاطه", "شيكولاته", "شوكو"),
+    "vanilla": ("فانيلا", "فانيليا"),
+    "cheese": ("جبنه",),
+    "potato": ("بطاطا", "بطاطس"),
+    "grill": ("شواء", "غريل", "مشوي", "مشويه"),
+    "onion": ("بصل",),
+    "salted": ("مملح", "مملحه", "بالملح", "مالح", "مالحه"),
+    "milk": ("حليب",),
+    "dark": ("داكنه", "داكن", "مره", "مر"),
+    "lemon": ("ليمون",),
+    "plain": ("طبيعي", "طبيعيه", "ساده", "بلين"),
+    "chicken": ("دجاج",),
+}  # fmt: skip
+STATE_CONFLICTS: dict[str, frozenset[str]] = {
+    "frozen": frozenset({"fresh", "canned", "dry", "chilled"}),
+    "canned": frozenset({"fresh", "frozen", "chilled", "dry"}),
+    "fresh": frozenset({"frozen", "canned", "dry"}),
+    "dry": frozenset({"frozen", "canned"}),
+    "chilled": frozenset({"frozen", "canned"}),
+}
+"""query state -> catalog states it contradicts. A query that says "dry" does not contradict a
+fresh canonical (the catalog's dry onion is state fresh); one that says "fresh" does contradict
+frozen, canned and dry."""
+
+
+def _word_table(table: dict[str, tuple[str, ...]]) -> dict[str, str]:
+    return {fold_ar(w): key for key, words in table.items() for w in words}
+
+
+_STATE_LOOKUP = _word_table(_AR_STATE_WORDS)
+_BASE_LOOKUP = _word_table(_AR_BASE_WORDS)
+_FLAVOR_LOOKUP = _word_table(_AR_FLAVOR_WORDS)
+_FAT_RE = re.compile(rf"(?<![\w.])({_NUM_RE})%")
+_FAT_ZERO = re.compile(r"(?:^| )(?:خالي|بدون|من غير|ما فيه) (?:ال)?دسم(?: |$)")
+
+
+class ArAttributes(NamedTuple):
+    """What a query or a name states about the critical attributes. Empty = not stated."""
+
+    fat_pct: frozenset[Decimal]
+    state: frozenset[str]
+    base: frozenset[str]
+    flavor: frozenset[str]
+
+
+def _attribute_forms(token: str) -> set[str]:
+    """A token, its forms without و/ال, and without the proclitic ب/ل/ك (بالحليب -> حليب)."""
+    forms = set(ar_variants(token))
+    for form in list(forms):
+        for pre in ("بال", "لل", "كال", "فال"):
+            if form.startswith(pre) and len(form) - len(pre) >= 3:
+                forms.add(form[len(pre) :])
+        if form[:1] in ("ب", "ل", "ك") and len(form) >= 5:
+            forms.add(form[1:])
+    return forms
+
+
+def ar_attributes(text: str) -> ArAttributes:
+    """The fat percentages, states (fresh, frozen, canned, dry, chilled), plant bases and flavors
+    that an Arabic query or canonical name states, from the lexicons above. Shared by the seed
+    validation (a canonical's name must state its critical attributes) and the API's hard checks
+    (a query may not resolve to a canonical whose critical attribute it contradicts)."""
+    s = normalize_ar(text)
+    fats = {Decimal(m) for m in _FAT_RE.findall(s)}
+    if _FAT_ZERO.search(s):
+        fats.add(Decimal(0))
+    states: set[str] = set()
+    bases: set[str] = set()
+    flavors: set[str] = set()
+    for tok in s.split():
+        for v in _attribute_forms(tok):
+            if v in _STATE_LOOKUP:
+                states.add(_STATE_LOOKUP[v])
+            if v in _BASE_LOOKUP:
+                bases.add(_BASE_LOOKUP[v])
+            if v in _FLAVOR_LOOKUP:
+                flavors.add(_FLAVOR_LOOKUP[v])
+    return ArAttributes(frozenset(fats), frozenset(states), frozenset(bases), frozenset(flavors))
+
+
+def ar_conflicts(
+    query: ArAttributes,
+    critical: Mapping[str, Any],
+    sibling_flavors: frozenset[str] = frozenset(),
+) -> list[str]:
+    """Critical attributes of a canonical that the query contradicts (empty = compatible).
+
+    fat_pct and base must equal a stated value; state follows ``STATE_CONFLICTS``. A flavor
+    contradicts only when the query states a flavor of a *sibling* (``sibling_flavors``: the
+    flavors of the other canonicals of the same product type) and not the canonical's own, so a
+    generic noun in the query ("جبنة" in "جبنة كريمة") never vetoes anything. Only keys the
+    canonical has are checked."""
+    out: list[str] = []
+    fat = critical.get("fat_pct")
+    if fat is not None and query.fat_pct and Decimal(str(fat)) not in query.fat_pct:
+        out.append(f"fat_pct {fat}")
+    base = critical.get("base")
+    if base is not None and query.base and str(base) not in query.base:
+        out.append(f"base {base}")
+    flavor = critical.get("flavor")
+    if (
+        flavor is not None
+        and str(flavor) not in query.flavor
+        and query.flavor & (sibling_flavors - {str(flavor)})
+    ):
+        out.append(f"flavor {flavor}")
+    state = critical.get("state")
+    if state is not None and any(str(state) in STATE_CONFLICTS[q] for q in query.state):
+        out.append(f"state {state}")
+    return out

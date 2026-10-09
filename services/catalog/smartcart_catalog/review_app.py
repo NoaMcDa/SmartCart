@@ -6,9 +6,11 @@ Run from the repo root (needs a DATABASE_URL role that may write ``item_canonica
     uv run smartcart-catalog review          # or:
     uv run streamlit run services/catalog/smartcart_catalog/review_app.py
 
-Three tabs: the review queue (``needs_review`` mappings; items a user reported as "not a good
-substitute" first, then by canonical rank), the best-seller checklist (the 300 top-ranked
-canonicals must have every mapping human-reviewed before launch) and feedback rates.
+Three tabs: the review queue (``needs_review`` mappings, uncertain ones first: items a user
+reported as "not a good substitute", then those closest to the accept threshold, where the
+embedders disagree and by canonical rank; see ``active.select_for_review``), the best-seller
+checklist (the 300 top-ranked canonicals must have every mapping human-reviewed before launch) and
+feedback rates. The sidebar shows labels per hour from the reviewers' own timestamps.
 
 All reads and writes are plain functions below, tested without Streamlit:
 
@@ -33,44 +35,18 @@ from typing import Any
 
 import psycopg
 
+from smartcart_catalog.active import labels_per_hour, select_for_review
 from smartcart_catalog.judge import RuleJudge
 from smartcart_catalog.match import Lexicon, load_items, load_rules, match_item
 from smartcart_catalog.models import FlexLevel, Judge
 
-FEEDBACK_SQL = (
-    "(SELECT count(*) FROM substitution_feedback f WHERE f.substitute_item_id = ic.item_id"
-    " AND f.canonical_id = ic.canonical_id AND f.verdict = 'not_good')"
-)
 REJECTED_REASON = "human: not this canonical"
 
 
 def review_queue(conn: psycopg.Connection, limit: int = 100) -> list[dict[str, Any]]:
-    rows = conn.execute(
-        f"""
-        SELECT ic.item_id, ic.canonical_id, i.raw_name, i.chain_id, i.barcode, cp.slug,
-               cp.display_name_he, cp.rank, ic.flex_level, ic.confidence, ic.source,
-               a.attrs, a.verified_keys, {FEEDBACK_SQL} AS feedback, ic.reason
-        FROM item_canonical ic
-        JOIN items i ON i.id = ic.item_id
-        JOIN canonical_products cp ON cp.id = ic.canonical_id
-        LEFT JOIN item_attributes a ON a.item_id = ic.item_id
-        WHERE ic.needs_review AND NOT ic.human_rejected
-        ORDER BY feedback DESC, cp.rank ASC NULLS LAST, ic.confidence DESC, ic.item_id
-        LIMIT %s
-        """,
-        (limit,),
-    ).fetchall()
-    keys = ["item_id", "canonical_id", "item_name", "chain_id", "barcode", "canonical_slug",
-            "canonical_name", "canonical_rank", "flex_level", "confidence", "source", "attrs",
-            "verified_keys", "feedback", "reason"]  # fmt: skip
-    out = []
-    for r in rows:
-        d = dict(zip(keys, r, strict=True))
-        d["confidence"] = float(d["confidence"])
-        d["feedback_marker"] = d["feedback"] > 0
-        d["reason"] = d["reason"] or ""
-        out.append(d)
-    return out
+    """The mappings to review, most useful label first (``active.select_for_review``): user
+    reports, then closeness to the accept threshold, embedder disagreement, basket rank."""
+    return select_for_review(conn, limit)
 
 
 def explain(
@@ -262,11 +238,23 @@ def main() -> None:  # pragma: no cover - UI glue, the functions above are teste
         ["Review queue", "Best sellers (top 300)", "Feedback"]
     )
     with psycopg.connect(dsn) as conn:
+        speed = labels_per_hour(conn, days=7)
+        st.sidebar.metric(
+            "Labels per hour (7 days)",
+            "-" if speed["labels_per_hour"] is None else speed["labels_per_hour"],
+            help=f"{speed['labels']} labels in {speed['active_hours']} active hours, "
+                 "from the reviewers' own decision timestamps",
+        )  # fmt: skip
         with tab_queue:
             queue = review_queue(conn, int(limit))
-            st.caption(f"{len(queue)} mappings need review. Reported substitutes come first.")
+            st.caption(
+                f"{len(queue)} mappings need review, most uncertain first: user reports, then "
+                f"closeness to the accept threshold, embedder disagreement and basket rank."
+            )
             for row in queue:
-                marker = " · REPORTED BY USERS" if row["feedback_marker"] else ""
+                marker = (
+                    f" · REPORTED BY USERS ({row['reports']})" if row["feedback_marker"] else ""
+                )
                 title = (f"{row['item_name']} → {row['canonical_name']} "
                          f"({row['flex_level']}, {row['confidence']:.2f}){marker}")  # fmt: skip
                 with st.expander(title):

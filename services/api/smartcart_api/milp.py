@@ -219,14 +219,16 @@ def priced_lines(
     for sid, basket in baskets.items():
         lines = []
         for cid, li in basket.lines.items():
-            line = Line(cid, sid, li.item_id, li.line_total, li.shelf_price, None, None,
-                        li.is_substitute)
+            line = Line(
+                cid, sid, li.item_id, li.line_total, li.shelf_price, None, None, li.is_substitute
+            )
             joined = _join(li, cid in kg, basket.info, rows.get(li.item_id, []))
             if joined is not None:
                 n, q, price, row = joined
                 key = f"{row.terms.id if row else 'item' + str(li.item_id)}@{sid}/{n}"
-                line = Line(cid, sid, li.item_id, li.line_total, li.shelf_price, q, key,
-                            li.is_substitute)
+                line = Line(
+                    cid, sid, li.item_id, li.line_total, li.shelf_price, q, key, li.is_substitute
+                )
                 members[key].append((line, price, row))
                 names.setdefault(key, li.promo_description or "")
             lines.append(line)
@@ -242,7 +244,11 @@ def priced_lines(
         elif row is not None and row.terms.reward_type == "buy_x_get_y":
             # Mixed prices: the store gives the cheapest units free. Counting the cheapest shelf
             # price of the group never overstates the discount.
-            y = row.terms.reward_value if row.terms.reward_value and row.terms.reward_value > 0 else 1
+            y = (
+                row.terms.reward_value
+                if row.terms.reward_value and row.terms.reward_value > 0
+                else 1
+            )
             cheapest = min(line.shelf_price for line, _, _ in mem)
             fixed = -(Decimal(y) * cheapest)
             unit = {line.canonical_id: line.shelf_price for line, _, _ in mem}
@@ -269,7 +275,9 @@ def _join(
         return None
     for row in rows:
         t = row.terms
-        if row.chain_id != store.chain_id or (t.store_id is not None and t.store_id != store.store_id):
+        if row.chain_id != store.chain_id or (
+            t.store_id is not None and t.store_id != store.store_id
+        ):
             continue
         if t.description != li.promo_description or t.club_only != li.club_required:
             continue
@@ -296,7 +304,9 @@ def _weighed(conn: psycopg.Connection, canonical_ids: set[int]) -> set[int]:
 # --- group cost, exact ---------------------------------------------------------------------------
 
 
-def group_cost(group: Group, quantities: dict[int, int], shelf: dict[int, Decimal]) -> tuple[int, int]:
+def group_cost(
+    group: Group, quantities: dict[int, int], shelf: dict[int, Decimal]
+) -> tuple[int, int]:
     """(cost in agorot, bundles) of buying ``quantities`` (canonical_id -> units) under ``group``
     at its best: for b bundles the N x b units with the largest discount go in."""
     gain: list[int] = []
@@ -364,8 +374,9 @@ def solve(
         if li.group in modelled:
             own[k] = agorot(li.shelf_price) * (li.quantity or 0)  # bundles are counted apart
         elif li.group is not None:
-            own[k] = group_cost(problem.groups[li.group], {k[0]: li.quantity or 0},
-                                {k[0]: li.shelf_price})[0]
+            own[k] = group_cost(
+                problem.groups[li.group], {k[0]: li.quantity or 0}, {k[0]: li.shelf_price}
+            )[0]
         else:
             own[k] = agorot(li.line_total)
 
@@ -379,8 +390,10 @@ def solve(
         worst[k[0]] = max(worst[k[0]], c)
     trips = {s.store_id: s.trip for s in problem.stores}
     big_m = weight * (
-        sum(worst.values()) + sum(agorot(t) for t in trips.values())
-        + agorot(problem.extra_stop_value) * max_stores + 1
+        sum(worst.values())
+        + sum(agorot(t) for t in trips.values())
+        + agorot(problem.extra_stop_value) * max_stores
+        + 1
     )
     rank = {s.store_id: s.rank for s in problem.stores}
     coef = {k: weight * own[k] + (sub_pen if line_of[k].is_substitute else 0) for k in line_of}
@@ -418,8 +431,8 @@ def solve(
         missing = len(z_needs) - len(found) + sum(1 for c in x_needs if c not in covered)
         set_cost = (
             sum(v >> 6 for v in found)
-            + weight * (sum(agorot(trips[s]) for s in t)
-                        + agorot(problem.extra_stop_value) * (len(t) - 1))
+            + weight
+            * (sum(agorot(trips[s]) for s in t) + agorot(problem.extra_stop_value) * (len(t) - 1))
             + big_m * missing
             + n  # the heuristic's order among equal sets
         )
@@ -585,9 +598,14 @@ def _report(
             totals[li.canonical_id] = money(share)
             exact += li.shelf_price * (q - u) + g.unit[li.canonical_id] * u
             shelf_value += li.shelf_price * u
-        last = max((li for li in mem if units.get(li.canonical_id, 0)), default=mem[-1],
-                   key=lambda li: li.canonical_id)
-        totals[last.canonical_id] += money(exact) - sum((totals[li.canonical_id] for li in mem), ZERO)
+        last = max(
+            (li for li in mem if units.get(li.canonical_id, 0)),
+            default=mem[-1],
+            key=lambda li: li.canonical_id,
+        )
+        totals[last.canonical_id] += money(exact) - sum(
+            (totals[li.canonical_id] for li in mem), ZERO
+        )
         if count:
             in_bundles = g.fixed * count + sum(
                 (g.unit[li.canonical_id] * units.get(li.canonical_id, 0) for li in mem), ZERO
@@ -598,7 +616,7 @@ def _report(
 
 
 def suggest_additions(groups: dict[str, Group], chosen: dict[int, Line]) -> list[BundleUse]:
-    """"Add N and save X": for each promo group in the plan, the smallest addition to one of its
+    """ "Add N and save X": for each promo group in the plan, the smallest addition to one of its
     lines that lowers the group's total cost (the extra units' price included). Only strictly
     positive savings are returned; the plan itself never changes."""
     members: dict[str, list[Line]] = defaultdict(list)
@@ -636,8 +654,12 @@ def promo_bundles(sol: Solution) -> list[schemas.PromoBundle]:
         if u.count >= 1
     ]
     out += [
-        schemas.PromoBundle(promo_description=u.description, bundle_count=u.count,
-                            saving=u.saving, add_qty=Decimal(u.add_qty))
+        schemas.PromoBundle(
+            promo_description=u.description,
+            bundle_count=u.count,
+            saving=u.saving,
+            add_qty=Decimal(u.add_qty),
+        )
         for u in sol.suggestions
     ]
     return out
@@ -654,7 +676,10 @@ class BenchResult:
 
 
 def synthetic_problem(
-    n_items: int = 40, n_stores: int = 10, seed: int = 7, dispersion: str = "chains",
+    n_items: int = 40,
+    n_stores: int = 10,
+    seed: int = 7,
+    dispersion: str = "chains",
     shared_every: int = 7,
 ) -> Problem:
     """A random basket over ``n_stores`` stores for the benchmark and tests.
@@ -705,13 +730,26 @@ def synthetic_problem(
             total = shelf * q
             if key is not None:
                 total = _ils(group_cost(groups[key], {c: q}, {c: shelf})[0])
-            lines.append(Line(c, s.store_id, c * 1000 + s.store_id, money(total), shelf,
-                              q if key else None, key, sub[(ch, c)]))
+            lines.append(
+                Line(
+                    c,
+                    s.store_id,
+                    c * 1000 + s.store_id,
+                    money(total),
+                    shelf,
+                    q if key else None,
+                    key,
+                    sub[(ch, c)],
+                )
+            )
     return Problem(list(base), stores, lines, groups, Decimal(10))
 
 
 def bench(
-    runs: int = 10, n_items: int = 40, n_stores: int = 10, max_stores: int = 2,
+    runs: int = 10,
+    n_items: int = 40,
+    n_stores: int = 10,
+    max_stores: int = 2,
     dispersion: str = "chains",
 ) -> BenchResult:
     """Time the two solves /optimize makes over the candidates: one store, then up to K."""
@@ -730,5 +768,7 @@ if __name__ == "__main__":  # uv run python -m smartcart_api.milp
         for k in (2, 3):
             r = bench(max_stores=k, dispersion=disp)
             t = sorted(r.seconds)
-            print(f"{r.items} items x {r.stores} stores, K={k}, {disp}: {len(t)} solves,"
-                  f" median {t[len(t) // 2] * 1000:.1f} ms, max {t[-1] * 1000:.1f} ms")
+            print(
+                f"{r.items} items x {r.stores} stores, K={k}, {disp}: {len(t)} solves,"
+                f" median {t[len(t) // 2] * 1000:.1f} ms, max {t[-1] * 1000:.1f} ms"
+            )

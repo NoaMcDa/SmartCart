@@ -17,8 +17,17 @@ def test_health() -> None:
 
 def test_routes_declared() -> None:
     paths = set(app.openapi()["paths"])
-    assert {"/parse-list", "/search", "/compare", "/optimize", "/feedback/substitution", "/feedback/gap",
-            "/me/profile", "/me/lists", "/me/lists/{list_id}"} <= paths
+    assert {
+        "/parse-list",
+        "/search",
+        "/compare",
+        "/optimize",
+        "/feedback/substitution",
+        "/feedback/gap",
+        "/me/profile",
+        "/me/lists",
+        "/me/lists/{list_id}",
+    } <= paths
 
 
 def test_openapi_snapshot_is_current() -> None:

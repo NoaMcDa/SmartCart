@@ -1,0 +1,210 @@
+name: SEO check
+
+# Run by hand the day the domain exists (and after each deploy): fetches the live site and checks what
+# search engines see. Offline JSON-LD validation already runs in CI (apps/web/tests/unit/structured-data*);
+# this is the part that needs the real origin. Google's Rich Results Test is still a one-time manual
+# check after the first deploy (docs/seo.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: "Public origin to check, e.g. https://www.example.co.il. Leave empty until the domain exists (the job then passes with a notice)."
+        required: false
+        default: ""
+        type: string
+      sample_size:
+        description: "How many sitemap pages to fetch and check (evenly spread over the sitemap)"
+        required: false
+        default: "10"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seo-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  seo-check:
+    name: robots.txt, sitemap.xml and sampled pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SITE_URL: ${{ inputs.site_url }}
+      SAMPLE_SIZE: ${{ inputs.sample_size }}
+
+    steps:
+      - name: No site URL yet
+        if: ${{ inputs.site_url == '' }}
+        run: |
+          echo "::notice title=SEO check skipped::No site_url given, so there is nothing to fetch. Run this workflow again with the public origin once the domain exists."
+          {
+            echo "## SEO check"
+            echo
+            echo "Skipped: no \`site_url\` input. Run it again with the public origin once the domain exists."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check robots.txt, sitemap.xml and sampled pages
+        if: ${{ inputs.site_url != '' }}
+        shell: python3 {0}
+        run: |
+          import json, os, re, sys, urllib.error, urllib.parse, urllib.request
+          from html.parser import HTMLParser
+
+          site = os.environ["SITE_URL"].strip().rstrip("/")
+          sample_size = max(1, int(os.environ.get("SAMPLE_SIZE") or "10"))
+          parsed = urllib.parse.urlparse(site)
+          if parsed.scheme not in ("http", "https") or not parsed.netloc:
+              print(f"::error title=Bad site_url::{site!r} is not an absolute http(s) URL")
+              sys.exit(1)
+          origin = f"{parsed.scheme}://{parsed.netloc}"
+          rows = []      # (area, check, ok, detail)
+          warnings = []
+
+          def record(area, check, ok, detail=""):
+              rows.append((area, check, ok, detail))
+              print(("PASS" if ok else "FAIL"), f"[{area}]", check, detail)
+
+          def fetch(url):
+              req = urllib.request.Request(url, headers={"User-Agent": "SmartCart-seo-check/1"})
+              for attempt in (1, 2):
+                  try:
+                      with urllib.request.urlopen(req, timeout=30) as res:
+                          return res.status, dict(res.headers), res.read().decode("utf-8", "replace"), res.geturl()
+                  except urllib.error.HTTPError as e:
+                      return e.code, dict(e.headers), e.read().decode("utf-8", "replace"), url
+                  except Exception as e:  # network error: one retry
+                      if attempt == 2:
+                          return 0, {}, str(e), url
+              return 0, {}, "", url
+
+          def norm(url):
+              u = urllib.parse.urlparse(url)
+              return f"{u.scheme}://{u.netloc}{u.path.rstrip('/') or '/'}"
+
+          # ---- robots.txt
+          status, headers, body, _ = fetch(f"{site}/robots.txt")
+          record("robots.txt", "status 200", status == 200, f"got {status}")
+          disallows = []
+          if status == 200:
+              record("robots.txt", "content type is text/plain", "text/plain" in headers.get("Content-Type", headers.get("content-type", "")), headers.get("Content-Type", ""))
+              disallows = [l.split(":", 1)[1].strip() for l in body.splitlines() if l.lower().startswith("disallow:")]
+              record("robots.txt", "does not block the whole site", "/" not in disallows, "Disallow: / found" if "/" in disallows else "")
+              sitemaps = [l.split(":", 1)[1].strip() for l in body.splitlines() if l.lower().startswith("sitemap:")]
+              record("robots.txt", "names the sitemap on this origin", any(s.startswith(origin + "/") for s in sitemaps), f"Sitemap lines: {sitemaps}")
+
+          # ---- sitemap.xml
+          status, headers, xml, _ = fetch(f"{site}/sitemap.xml")
+          record("sitemap.xml", "status 200", status == 200, f"got {status}")
+          locs = re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", xml) if status == 200 else []
+          record("sitemap.xml", "lists at least 50 URLs (issue #35)", len(locs) >= 50, f"{len(locs)} URLs")
+          off_origin = [u for u in locs if not u.startswith(origin + "/") and u != origin]
+          record("sitemap.xml", "every URL is on the site origin", not off_origin, ", ".join(off_origin[:3]) + (" ..." if len(off_origin) > 3 else ""))
+          record("sitemap.xml", "no duplicate URLs", len(set(locs)) == len(locs), f"{len(locs) - len(set(locs))} duplicates")
+          blocked = [u for u in locs if any(d and d != "/" and urllib.parse.urlparse(u).path.startswith(d) for d in disallows)]
+          record("sitemap.xml", "no URL is disallowed by robots.txt", not blocked, ", ".join(blocked[:3]))
+
+          # ---- sampled pages
+          class Page(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.html = {}
+                  self.canonical = None
+                  self.robots = []
+                  self.title = ""
+                  self.h1 = 0
+                  self.times = 0
+                  self.jsonld = []
+                  self._in_title = False
+                  self._in_ld = False
+              def handle_starttag(self, tag, attrs):
+                  a = dict(attrs)
+                  if tag == "html": self.html = a
+                  elif tag == "link" and (a.get("rel") or "").lower() == "canonical": self.canonical = a.get("href")
+                  elif tag == "meta" and (a.get("name") or "").lower() in ("robots", "googlebot"): self.robots.append((a.get("content") or "").lower())
+                  elif tag == "title": self._in_title = True
+                  elif tag == "h1": self.h1 += 1
+                  elif tag == "time" and a.get("datetime"): self.times += 1
+                  elif tag == "script" and (a.get("type") or "").lower() == "application/ld+json":
+                      self._in_ld = True
+                      self.jsonld.append("")
+              def handle_endtag(self, tag):
+                  if tag == "title": self._in_title = False
+                  elif tag == "script": self._in_ld = False
+              def handle_data(self, data):
+                  if self._in_title: self.title += data
+                  elif self._in_ld: self.jsonld[-1] += data
+
+          def urls_in(node, found):
+              if isinstance(node, dict):
+                  for k, v in node.items():
+                      if k in ("url", "item") and isinstance(v, str): found.append(v)
+                      else: urls_in(v, found)
+              elif isinstance(node, list):
+                  for v in node: urls_in(v, found)
+              return found
+
+          sample = []
+          if locs:
+              step = max(1, len(locs) / sample_size)
+              sample = [locs[min(len(locs) - 1, int(i * step))] for i in range(min(sample_size, len(locs)))]
+              # Make sure the three kinds of page are in the sample when the sitemap has them.
+              for marker in ("/c/", "/p/", "/methodology"):
+                  if not any(marker in u for u in sample):
+                      pick = next((u for u in locs if marker in u), None)
+                      if pick: sample[-1] = pick
+              sample = list(dict.fromkeys(sample))
+          print(f"Sampled {len(sample)} of {len(locs)} sitemap pages")
+
+          for url in sample:
+              area = urllib.parse.urlparse(url).path or "/"
+              # Generated SEO pages must carry a canonical and JSON-LD; the home page is the app's
+              # list builder and only gets a warning for them.
+              generated = area.startswith(("/c/", "/p/")) or area in ("/methodology", "/basket-index", "/accessibility")
+              status, headers, html, final = fetch(url)
+              record(area, "status 200", status == 200, f"got {status}")
+              if status != 200:
+                  continue
+              p = Page(); p.feed(html)
+              record(area, 'lang="he" dir="rtl" on <html>', p.html.get("lang") == "he" and p.html.get("dir") == "rtl", f"lang={p.html.get('lang')} dir={p.html.get('dir')}")
+              record(area, "has a <title> and one <h1>", bool(p.title.strip()) and p.h1 == 1, f"title={p.title.strip()[:40]!r}, h1 count={p.h1}")
+              canonical_ok = bool(p.canonical) and norm(p.canonical) == norm(url)
+              if generated or p.canonical:
+                  record(area, "canonical is this page", canonical_ok, f"canonical={p.canonical}")
+              else:
+                  warnings.append(f"{area} has no canonical link (not a generated SEO page, so not a failure).")
+              noindex = any("noindex" in r for r in p.robots) or "noindex" in (headers.get("X-Robots-Tag") or headers.get("x-robots-tag") or "").lower()
+              record(area, "indexable, as the sitemap says (no noindex)", not noindex, "noindex while listed in sitemap.xml" if noindex else "")
+              lds, bad = [], 0
+              for raw in p.jsonld:
+                  try: lds.append(json.loads(raw))
+                  except ValueError: bad += 1
+              if generated or p.jsonld:
+                  record(area, "JSON-LD present and parses", bool(p.jsonld) and bad == 0, f"{len(p.jsonld)} blocks, {bad} unparseable")
+              else:
+                  warnings.append(f"{area} has no JSON-LD (not a generated SEO page, so not a failure).")
+              links = urls_in(lds, [])
+              wrong = [u for u in links if not (u.startswith(origin + "/") or u == origin)]
+              record(area, "JSON-LD URLs are on the site origin", not wrong, ", ".join(wrong[:3]))
+              if "offers" in json.dumps(lds):
+                  record(area, "prices come with a visible update date", p.times > 0, f"{p.times} <time datetime> elements")
+
+          if not any("/p/" in u for u in locs):
+              warnings.append("The sitemap lists no product pages. That is expected only when NEXT_PUBLIC_INDEX_UNPRICED=0 and no product has prices yet.")
+
+          failed = [r for r in rows if not r[2]]
+          lines = ["## SEO check", "", f"Site: `{origin}`", f"Sitemap URLs: {len(locs)}, sampled: {len(sample)}", f"Result: **{'FAILED' if failed else 'passed'}** ({len(rows) - len(failed)} of {len(rows)} checks)", ""]
+          lines += ["| Area | Check | Result | Detail |", "|---|---|---|---|"]
+          for area, check, ok, detail in rows:
+              lines.append(f"| `{area}` | {check} | {'pass' if ok else '**FAIL**'} | {detail.replace('|', '/')} |")
+          for w in warnings:
+              lines += ["", f"> {w}"]
+              print(f"::warning::{w}")
+          lines += ["", "Google's Rich Results Test and Search Console (submit the sitemap, record the indexed count) are still manual steps (docs/seo.md)."]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+          for area, check, ok, detail in failed:
+              print(f"::error title=SEO check failed::[{area}] {check} {detail}")
+          sys.exit(1 if failed else 0)

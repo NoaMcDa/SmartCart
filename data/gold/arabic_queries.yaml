@@ -1,0 +1,591 @@
+# SYNTHETIC Arabic query set for the Arabic list entry and search (issue #73). It is NOT evidence
+# of real precision: it was written by the same drafter as the machine-drafted names in
+# data/canonicals.yaml (names_ar), has no native-speaker review, and every line is invented. It
+# exists to catch regressions in the matching rules and to give the first number to beat once real
+# Arabic list lines (with consent) are labeled. See docs/matching.md, "Arabic queries".
+#
+# Each entry is one list line as a shopper might type it:
+#   q:      the line, sent to POST /parse-list as is (quantities, dialect spellings, typos,
+#           Arabic-Indic digits, article ال and conjunction و included)
+#   expect: the canonical slug the line must resolve to, or `none`: the line must NOT be served
+#           (not in the catalog, or too general to pick one canonical such as "حليب" without a fat
+#           percentage, or it states an attribute no canonical has such as "حليب 2%")
+#   flex:   the flexibility level the shopper set (default_flex when omitted). `exact` lines carry
+#           a brand ("حليب تنوفا 3%"), `close` lines carry soft descriptors (size, "كبير",
+#           "اقتصادي") that the canonical does not state; resolution must ignore both.
+#
+# Served = the row is not `not_found` and does not `needs_confirmation` (confidence >= 0.75).
+# Precision = served and expect == the canonical / served. Recall = served and correct / lines whose
+# expect is a slug. A line with `expect: none` that is served counts as a wrong answer.
+version: 1
+synthetic: true
+default_flex: any_brand
+queries:
+# --- dairy: fat percentage is critical -------------------------------------------------------------
+- {q: "حليب 3%", expect: milk-fresh-3}
+- {q: "حليب 1%", expect: milk-fresh-1}
+- {q: "حليب طازج 3 بالمية", expect: milk-fresh-3}
+- {q: "الحليب 1 بالمية", expect: milk-fresh-1}
+- {q: "حليب ٣٪", expect: milk-fresh-3}
+- {q: "حليب %1", expect: milk-fresh-1}
+- {q: "حليب ثلاثة بالمية", expect: milk-fresh-3}
+- {q: "حليب واحد بالمية", expect: milk-fresh-1}
+- {q: "حليب 3 %", expect: milk-fresh-3}
+- {q: "حلييب 3%", expect: milk-fresh-3}
+- {q: "حليب طازه 1%", expect: milk-fresh-1}
+- {q: "علبة حليب 3%", expect: milk-fresh-3}
+- {q: "2 لتر حليب 1%", expect: milk-fresh-1}
+- {q: "حليب تنوفا 3%", expect: milk-fresh-3, flex: exact}
+- {q: "حليب تنوفا 1%", expect: milk-fresh-1, flex: exact}
+- {q: "حليب عمر طويل 3%", expect: milk-long-life-3}
+- {q: "حليب معقم 1%", expect: milk-long-life-1}
+- {q: "حليب طويل الأمد 3%", expect: milk-long-life-3}
+- {q: "حليب بدون لاكتوز 2%", expect: milk-lactose-free-2}
+- {q: "حليب خالي اللاكتوز 2%", expect: milk-lactose-free-2}
+- {q: "حليب 2%", expect: none}
+- {q: "حليب 0%", expect: none}
+- {q: "حليب 5%", expect: none}
+- {q: "حليب", expect: none}
+- {q: "الحليب", expect: none}
+- {q: "حليب كبير", expect: none, flex: close}
+- {q: "كوتيج 5%", expect: cottage-5}
+- {q: "كوتج 5%", expect: cottage-5}
+- {q: "كوتيج 3 بالمية", expect: cottage-3}
+- {q: "جبنة كوتج 3%", expect: cottage-3}
+- {q: "كوتج ٥٪", expect: cottage-5}
+- {q: "كوتيج 9%", expect: none}
+- {q: "كوتيج", expect: none}
+- {q: "كوتج تنوفا 5%", expect: cottage-5, flex: exact}
+- {q: "جبنة بيضاء 5%", expect: white-cheese-5}
+- {q: "جبنة بيضا 9%", expect: white-cheese-9}
+- {q: "جبنة بيضاء ٣٪", expect: white-cheese-3}
+- {q: "الجبنة البيضاء 5 بالمية", expect: white-cheese-5}
+- {q: "جبنة بيضاء 7%", expect: none}
+- {q: "جبنة بيضاء", expect: none}
+- {q: "جبنه بيضاء 9%", expect: white-cheese-9}
+- {q: "جبنة بيضاء 5% عائلي", expect: white-cheese-5, flex: close}
+- {q: "لبنة", expect: labane-5}
+- {q: "لبنه 5%", expect: labane-5}
+- {q: "اللبنة", expect: labane-5}
+- {q: "لبنة 9%", expect: none}
+- {q: "جبنة صفراء شرائح 28%", expect: yellow-cheese-sliced-28}
+- {q: "جبنة صفراء 9%", expect: yellow-cheese-sliced-9}
+- {q: "جبنة صفرا شرايح 28%", expect: yellow-cheese-sliced-28}
+- {q: "جبنة صفراء", expect: none}
+- {q: "جبنة صفراء 15%", expect: none}
+- {q: "جبنة بلغارية 5%", expect: bulgarian-cheese-5}
+- {q: "جبنة بلغارية 24%", expect: bulgarian-cheese-24}
+- {q: "جبنة بلغاريه", expect: none}
+- {q: "جبنة صفدية", expect: safed-cheese-5}
+- {q: "جبنة صفد 5%", expect: safed-cheese-5}
+- {q: "جبنة كريمة 30%", expect: cream-cheese-30-plain}
+- {q: "كريم تشيز", expect: cream-cheese-30-plain}
+- {q: "موزاريلا", expect: grated-mozzarella}
+- {q: "جبنة مبشورة", expect: grated-mozzarella}
+- {q: "زبادي 3%", expect: yogurt-plain-3}
+- {q: "يوغورت طبيعي 1.5%", expect: yogurt-plain-1-5}
+- {q: "زبادي ١٫٥٪", expect: yogurt-plain-1-5}
+- {q: "زبادي واحد ونص بالمية", expect: yogurt-plain-1-5}
+- {q: "زبادي 2%", expect: none}
+- {q: "زبادي فراولة", expect: yogurt-strawberry}
+- {q: "يوغورت بالفراولة", expect: yogurt-strawberry}
+- {q: "زبادي خوخ", expect: yogurt-peach}
+- {q: "يوغورت خوخ تنوفا", expect: yogurt-peach, flex: exact}
+- {q: "زبادي يوناني", expect: greek-yogurt-plain}
+- {q: "زبادي", expect: none}
+- {q: "ميلكي شوكولاتة", expect: dessert-chocolate}
+- {q: "ميلكي فانيلا", expect: dessert-vanilla}
+- {q: "ميلكي بالكريمة شوكولاتة", expect: pudding-chocolate-cream}
+- {q: "قشطة حامضة 15%", expect: sour-cream-15}
+- {q: "كريمة حامضة 15 بالمية", expect: sour-cream-15}
+- {q: "كريمة حلوة 32%", expect: whipping-cream-32}
+- {q: "كريمة خفق 38%", expect: whipping-cream-38}
+- {q: "كريمة للطبخ 10%", expect: cooking-cream-10}
+- {q: "كريمة 20%", expect: none}
+- {q: "كريمة", expect: none}
+- {q: "زبدة", expect: butter}
+- {q: "الزبدة", expect: butter}
+- {q: "مارجرين", expect: margarine}
+- {q: "بيض L", expect: eggs-l}
+- {q: "بيض M", expect: eggs-m}
+- {q: "بيض XL", expect: eggs-xl}
+- {q: "بيض لارج", expect: eggs-l}
+- {q: "بيض بلدي L", expect: eggs-free-range-l}
+- {q: "بيض", expect: none}
+- {q: "بيضات", expect: none}
+# --- meat, poultry, fish: fresh versus frozen is critical ----------------------------------------------
+- {q: "صدر دجاج طازج", expect: chicken-breast-fresh}
+- {q: "صدور دجاج مجمدة", expect: chicken-breast-frozen}
+- {q: "صدر دجاج مجمد", expect: chicken-breast-frozen}
+- {q: "صدر دجاج", expect: none}
+- {q: "الصدور الطازجة", expect: none}
+- {q: "فرجيوت طازجة", expect: chicken-thigh-boneless-fresh}
+- {q: "فرجيوت مجمدة", expect: chicken-thigh-boneless-frozen}
+- {q: "فرجيوت", expect: none}
+- {q: "شنيتسل دجاج طازج", expect: chicken-schnitzel-fresh}
+- {q: "شنيزل مجمد", expect: breaded-schnitzel}
+- {q: "شنيتسل", expect: none}
+- {q: "سيقان دجاج طازجة", expect: chicken-drumstick-fresh}
+- {q: "افخاذ دجاج طازجة", expect: chicken-leg-fresh}
+- {q: "دجاج كامل طازج", expect: chicken-whole-fresh}
+- {q: "دجاجة كاملة مجمدة", expect: chicken-whole-frozen}
+- {q: "دجاج كامل", expect: none}
+- {q: "اجنحة دجاج", expect: chicken-wings-fresh}
+- {q: "دجاج مفروم", expect: chicken-ground-fresh}
+- {q: "كبدة دجاج", expect: none}
+- {q: "كبدة دجاج مجمدة", expect: chicken-liver-frozen}
+- {q: "نقانق دجاج", expect: chicken-hot-dogs}
+- {q: "ناجتس دجاج", expect: chicken-nuggets}
+- {q: "لحم بقر مفروم طازج", expect: beef-ground-fresh}
+- {q: "لحمة مفرومة مجمدة", expect: beef-ground-frozen}
+- {q: "لحمة بقر مفرومة", expect: none}
+- {q: "لحمة مفرومة", expect: none}
+- {q: "انتريكوت", expect: beef-entrecote-fresh}
+- {q: "لحم غولاش", expect: beef-goulash-fresh}
+- {q: "كتف بقر", expect: beef-shoulder-fresh}
+- {q: "همبرغر بقر مجمد", expect: beef-burger-frozen}
+- {q: "لحمة", expect: none}
+- {q: "لحم", expect: none}
+- {q: "صدر ديك رومي طازج", expect: turkey-breast-fresh}
+- {q: "باستراما ديك رومي", expect: turkey-pastrami}
+- {q: "سلمون طازج", expect: salmon-fillet-fresh}
+- {q: "فيليه سلمون مجمد", expect: salmon-fillet-frozen}
+- {q: "سلمون مدخن", expect: smoked-salmon-sliced}
+- {q: "سلمون", expect: none}
+- {q: "مرلوزا مجمد", expect: hake-fillet-frozen}
+- {q: "فيليه بلطي", expect: none}
+- {q: "فيليه بلطي مجمد", expect: tilapia-fillet-frozen}
+- {q: "دنيس طازج", expect: sea-bream-fresh}
+- {q: "اصابع سمك", expect: fish-fingers}
+- {q: "سمك", expect: none}
+- {q: "سلامي", expect: salami}
+# --- produce -------------------------------------------------------------------------------------------
+- {q: "بندورة", expect: tomato}
+- {q: "طماطم", expect: tomato}
+- {q: "البندورة", expect: tomato}
+- {q: "2 كيلو بندورة", expect: tomato}
+- {q: "بندوره 3 كيلو", expect: tomato}
+- {q: "بندورة شيري", expect: cherry-tomato}
+- {q: "طماطم كرزية", expect: cherry-tomato}
+- {q: "خيار", expect: cucumber}
+- {q: "الخيار", expect: cucumber}
+- {q: "كيلو خيار", expect: cucumber}
+- {q: "بصل", expect: onion}
+- {q: "بصل اخضر", expect: green-onion}
+- {q: "بصل أخضر", expect: green-onion}
+- {q: "بطاطا", expect: potato}
+- {q: "بطاطس", expect: potato}
+- {q: "بطاطا حلوة", expect: sweet-potato}
+- {q: "موز", expect: banana}
+- {q: "جزر", expect: carrot}
+- {q: "فلفل احمر", expect: red-pepper}
+- {q: "ليمون", expect: lemon}
+- {q: "افوكادو", expect: avocado}
+- {q: "أفوكادو", expect: avocado}
+- {q: "تفاح احمر", expect: apple-red}
+- {q: "تفاح أخضر", expect: apple-green}
+- {q: "تفاح", expect: none}
+- {q: "خس", expect: lettuce}
+- {q: "بقدونس", expect: parsley}
+- {q: "كزبرة", expect: coriander}
+- {q: "شبت", expect: dill}
+- {q: "باذنجان", expect: eggplant}
+- {q: "كوسا", expect: zucchini}
+- {q: "ثوم", expect: garlic}
+- {q: "برتقال", expect: orange}
+- {q: "كلمنتينا", expect: clementine}
+- {q: "بطيخ", expect: watermelon}
+- {q: "شمام", expect: melon}
+- {q: "فطر طازج", expect: mushrooms-fresh}
+- {q: "كمثرى", expect: pear}
+- {q: "عنب", expect: grapes}
+- {q: "فراولة طازجة", expect: strawberries-fresh}
+- {q: "خوخ", expect: peach}
+- {q: "مانجو", expect: mango}
+- {q: "ملفوف ابيض", expect: cabbage}
+- {q: "قرنبيط", expect: cauliflower}
+- {q: "بروكلي طازج", expect: broccoli-fresh}
+- {q: "بروكلي مجمد", expect: broccoli-frozen}
+- {q: "بروكلي", expect: none}
+- {q: "ذرة معلبة", expect: sweet-corn-canned}
+- {q: "ذرة مجمدة", expect: sweet-corn-frozen}
+- {q: "ذرة", expect: none}
+- {q: "بازلاء مجمدة", expect: peas-frozen}
+- {q: "بازيلا معلبة", expect: peas-canned}
+- {q: "بازلاء", expect: none}
+- {q: "سبانخ مجمدة", expect: spinach-frozen}
+- {q: "خضار مشكلة مجمدة", expect: mixed-vegetables-frozen}
+- {q: "فاصوليا خضراء مجمدة", expect: green-beans-frozen}
+- {q: "فطر معلب", expect: mushrooms-canned}
+- {q: "خيار مخلل", expect: pickled-cucumbers}
+- {q: "زيتون اخضر", expect: olives-green}
+- {q: "زيتون اسود", expect: olives-black}
+- {q: "زيتون", expect: none}
+# --- bread, grains, pasta ------------------------------------------------------------------------------
+- {q: "خبز موحد", expect: bread-standard}
+- {q: "خبز ابيض", expect: bread-standard}
+- {q: "خبز قمح كامل", expect: bread-whole-wheat}
+- {q: "خبز جاودار", expect: bread-rye}
+- {q: "خبز حبوب", expect: bread-multigrain}
+- {q: "خبز بيتا", expect: pita}
+- {q: "خبز عربي", expect: pita}
+- {q: "باغيت", expect: baguette}
+- {q: "خبز", expect: none}
+- {q: "خبز مجمد", expect: none}
+- {q: "رز فارسي", expect: rice-persian}
+- {q: "رز بسمتي", expect: rice-basmati}
+- {q: "أرز ياسمين", expect: rice-jasmine}
+- {q: "رز مصري", expect: rice-round}
+- {q: "رز اسمر", expect: rice-brown}
+- {q: "رز", expect: none}
+- {q: "الرز", expect: none}
+- {q: "سباغيتي", expect: pasta-spaghetti}
+- {q: "معكرونة بيني", expect: pasta-penne}
+- {q: "فوزيلي", expect: pasta-fusilli}
+- {q: "معكرونة", expect: none}
+- {q: "بتيتيم", expect: ptitim}
+- {q: "كسكس", expect: couscous}
+- {q: "نودلز بيض", expect: egg-noodles}
+- {q: "عدس احمر", expect: red-lentils}
+- {q: "كينوا", expect: quinoa}
+- {q: "فتات خبز", expect: breadcrumbs}
+- {q: "شوفان", expect: rolled-oats}
+- {q: "غرانولا", expect: granola}
+- {q: "كورن فليكس", expect: cornflakes}
+- {q: "حمص ناشف", expect: chickpeas-dry}
+- {q: "حمص معلب", expect: chickpeas-canned}
+- {q: "حمص", expect: none}
+- {q: "فاصوليا بيضاء", expect: white-beans}
+- {q: "برغل", expect: bulgur}
+- {q: "طحين ابيض", expect: flour-white}
+- {q: "طحين", expect: flour-white}
+- {q: "طحين كامل", expect: flour-whole-wheat}
+- {q: "سكر", expect: sugar-white}
+- {q: "سكر بني", expect: sugar-brown}
+- {q: "سكر فانيلا", expect: vanilla-sugar}
+- {q: "بيكنج باودر", expect: baking-powder}
+- {q: "خميرة", expect: dry-yeast}
+# --- pantry --------------------------------------------------------------------------------------------
+- {q: "زيت زيتون", expect: olive-oil}
+- {q: "زيت كانولا", expect: canola-oil}
+- {q: "زيت دوار الشمس", expect: sunflower-oil}
+- {q: "زيت صويا", expect: soybean-oil}
+- {q: "زيت", expect: none}
+- {q: "تونة بالزيت", expect: tuna-in-oil}
+- {q: "تونا بالماء", expect: tuna-in-water}
+- {q: "تونة", expect: none}
+- {q: "سردين", expect: sardines}
+- {q: "طحينة", expect: tahini-raw}
+- {q: "طحينة خام", expect: tahini-raw}
+- {q: "سلطة طحينة", expect: tahini-salad}
+- {q: "سلطة حمص", expect: hummus-plain}
+- {q: "مطبوخة", expect: matbucha}
+- {q: "سلطة باذنجان بالمايونيز", expect: eggplant-mayo-salad}
+- {q: "شوكولاتة للدهن", expect: chocolate-spread}
+- {q: "نوتيلا", expect: chocolate-spread}
+- {q: "زبدة فول سوداني", expect: peanut-butter}
+- {q: "عسل", expect: honey}
+- {q: "دبس تمر", expect: silan}
+- {q: "مربى فراولة", expect: jam-strawberry}
+- {q: "كاتشب", expect: ketchup}
+- {q: "مايونيز", expect: mayonnaise}
+- {q: "مايونيز لايت", expect: mayonnaise-light}
+- {q: "خردل", expect: mustard}
+- {q: "خل", expect: vinegar}
+- {q: "صلصة صويا", expect: soy-sauce}
+- {q: "معجون بندورة", expect: tomato-paste}
+- {q: "رب بندورة", expect: tomato-paste}
+- {q: "بندورة مهروسة", expect: crushed-tomatoes}
+- {q: "بندورة معلبة", expect: crushed-tomatoes}
+- {q: "ملح", expect: salt}
+- {q: "فلفل اسود", expect: black-pepper}
+- {q: "بابريكا", expect: sweet-paprika}
+- {q: "كمون", expect: cumin}
+- {q: "كركم", expect: turmeric}
+- {q: "بودرة مرق دجاج", expect: soup-powder-chicken}
+- {q: "حلاوة", expect: halva}
+- {q: "بسكويت شاي", expect: tea-biscuits}
+- {q: "كراكرز", expect: crackers}
+- {q: "بريتزل", expect: pretzels}
+- {q: "ماتساه", expect: matzah}
+# --- snacks and drinks ---------------------------------------------------------------------------------
+- {q: "بمبا", expect: bamba}
+- {q: "بيسلي غريل", expect: bisli-grill}
+- {q: "بيسلي بصل", expect: bisli-onion}
+- {q: "بيسلي", expect: none}
+- {q: "شيبس بطاطا مملح", expect: potato-chips-salted}
+- {q: "شوكولاتة حليب", expect: chocolate-milk-bar}
+- {q: "شوكولاتة داكنة", expect: chocolate-dark-bar}
+- {q: "شوكولاتة مرة", expect: chocolate-dark-bar}
+- {q: "شوكولاتة", expect: none}
+- {q: "شوكو", expect: chocolate-milk}
+- {q: "حليب شوكولاتة", expect: none}
+- {q: "ويفر شوكولاتة", expect: wafers-chocolate}
+- {q: "بزر عباد الشمس", expect: sunflower-seeds}
+- {q: "كولا", expect: cola}
+- {q: "كولا زيرو", expect: cola-zero}
+- {q: "كوكا كولا زيرو", expect: cola-zero, flex: exact}
+- {q: "سبرايت", expect: lemon-lime-soda}
+- {q: "عصير برتقال", expect: none}
+- {q: "عصير عنب", expect: grape-juice}
+- {q: "مياه معدنية", expect: mineral-water}
+- {q: "مي معدنية", expect: mineral-water}
+- {q: "صودا", expect: soda-water}
+- {q: "مشروب لوز", expect: almond-drink}
+- {q: "حليب لوز", expect: almond-drink}
+- {q: "حليب صويا", expect: soy-drink}
+- {q: "مشروب صويا", expect: soy-drink}
+- {q: "حليب شوفان", expect: oat-drink}
+- {q: "مشروب شوفان", expect: oat-drink}
+- {q: "حليب لوز 3%", expect: none}
+- {q: "قهوة تركية", expect: coffee-turkish}
+- {q: "نسكافيه", expect: coffee-instant}
+- {q: "قهوة", expect: none}
+- {q: "شاي اسود", expect: tea-black}
+- {q: "شاي", expect: tea-black}
+- {q: "بيرة لاجر", expect: lager-beer}
+- {q: "نبيذ احمر جاف", expect: red-wine-dry}
+- {q: "بوظة فانيلا", expect: ice-cream-vanilla}
+- {q: "بيتزا مجمدة", expect: frozen-pizza}
+- {q: "بوريكس جبنة", expect: burekas-cheese}
+- {q: "بوريكس بطاطا", expect: burekas-potato}
+- {q: "بوريكس", expect: none}
+- {q: "ملواح", expect: malawach}
+- {q: "بطاطا مقلية مجمدة", expect: french-fries-frozen}
+# --- household -----------------------------------------------------------------------------------------
+- {q: "ورق تواليت", expect: toilet-paper}
+- {q: "ورق حمام", expect: toilet-paper}
+- {q: "مناشف ورقية", expect: paper-towels}
+- {q: "ورق مطبخ", expect: paper-towels}
+- {q: "مناديل ورقية", expect: facial-tissues}
+- {q: "ورق خبز", expect: baking-paper}
+- {q: "ورق المنيوم", expect: aluminum-foil}
+- {q: "سلوفان", expect: cling-wrap}
+- {q: "سائل جلي", expect: dish-soap}
+- {q: "جل غسيل", expect: laundry-gel}
+- {q: "مسحوق غسيل", expect: laundry-powder}
+- {q: "منعم ملابس", expect: fabric-softener}
+- {q: "اكونوميكا", expect: bleach}
+- {q: "اكياس زبالة", expect: garbage-bags}
+- {q: "اقراص جلاية", expect: dishwasher-tablets}
+- {q: "اسفنج جلي", expect: sponges}
+- {q: "مناديل مبللة", expect: wet-wipes}
+- {q: "منظف ارضيات", expect: floor-cleaner}
+- {q: "معجون اسنان", expect: toothpaste}
+- {q: "شامبو", expect: shampoo}
+- {q: "صابون ايدي سائل", expect: hand-soap}
+- {q: "صابون استحمام", expect: body-wash}
+- {q: "مزيل عرق", expect: deodorant}
+- {q: "صحون بلاستيك", expect: disposable-plates}
+- {q: "كاسات بلاستيك", expect: disposable-cups}
+# --- quantities, conjunctions and decoration around a product ---------------------------------------------
+- {q: "نص كيلو جبنة بيضاء 5%", expect: white-cheese-5}
+- {q: "كيلو ونص تفاح احمر", expect: apple-red}
+- {q: "علبتين كوتيج 5%", expect: cottage-5}
+- {q: "٣ علب حليب 3%", expect: milk-fresh-3}
+- {q: "حليب 1% x3", expect: milk-fresh-1}
+- {q: "x2 زبدة", expect: butter}
+- {q: "ربع كيلو لبنة", expect: labane-5}
+- {q: "كيلوين بصل", expect: onion}
+- {q: "500 غرام جبنة صفراء شرائح 28%", expect: yellow-cheese-sliced-28}
+- {q: "2.5 كغم بطاطا", expect: potato}
+- {q: "ثلاث علب تونة بالزيت", expect: tuna-in-oil}
+- {q: "حبتين افوكادو", expect: avocado}
+- {q: "بيض L عدد 2", expect: eggs-l}
+- {q: "لو سمحت حليب 3%", expect: milk-fresh-3}
+- {q: "حليب 3% الجديد", expect: milk-fresh-3, flex: close}
+- {q: "رب بندورة كبير", expect: tomato-paste, flex: close}
+- {q: "زبدة اقتصادي", expect: butter, flex: close}
+- {q: "ورق تواليت 32 رول", expect: toilet-paper, flex: close}
+# --- not in the catalog: must not be served ---------------------------------------------------------------
+- {q: "بطاريات", expect: none}
+- {q: "لابتوب", expect: none}
+- {q: "حفاضات", expect: none}
+- {q: "مصباح", expect: none}
+- {q: "قلم", expect: none}
+- {q: "دفتر", expect: none}
+- {q: "مكنسة", expect: none}
+- {q: "حذاء", expect: none}
+- {q: "هاتف", expect: none}
+- {q: "علف", expect: none}
+- {q: "طعام قطط", expect: none}
+- {q: "شمع", expect: none}
+- {q: "فحم", expect: none}
+- {q: "سجق", expect: none}
+- {q: "ملوخية", expect: none}
+- {q: "كنافة", expect: none}
+- {q: "جبنة عكاوي", expect: none}
+- {q: "خبز طابون", expect: none}
+- {q: "عصير تمر هندي", expect: none}
+- {q: "نبيذ ابيض", expect: none}
+- {q: "ويسكي", expect: none}
+- {q: "تمر", expect: none}
+- {q: "طحين ذرة", expect: none}
+- {q: "حليب مجفف", expect: none}
+- {q: "جبنة بيضاء مجمدة", expect: none}
+- {q: "حليب مجمد 3%", expect: none}
+- {q: "كوتيج مجمد", expect: none}
+- {q: "بندورة مجمدة", expect: none}
+- {q: "ذرة طازجة", expect: none}
+- {q: "سلمون معلب", expect: none}
+- {q: "صدر دجاج معلب", expect: none}
+- {q: "حمص مجمد", expect: none}
+- {q: "فطر مجمد", expect: none}
+- {q: "زبادي صويا", expect: none}
+- {q: "حليب جوز هند", expect: none}
+# --- held-out batch -----------------------------------------------------------------------------------
+# Written after the matching rules were tuned on the lines above, and run once before any further
+# change (docs/matching.md reports it separately as the less optimistic number).
+- {q: "كوتيج ٣ بالمية", expect: cottage-3, holdout: true}
+- {q: "كوتيج خمسة بالمية", expect: cottage-5, holdout: true}
+- {q: "جبنة ناعمة 5%", expect: none, holdout: true}
+- {q: "لبن", expect: none, holdout: true}
+- {q: "لبن 3%", expect: none, holdout: true}
+- {q: "حليب بقر 3%", expect: milk-fresh-3, holdout: true}
+- {q: "حليب تلاتة بالميه", expect: milk-fresh-3, holdout: true}
+- {q: "حليب ثلاثه بالمائة", expect: milk-fresh-3, holdout: true}
+- {q: "%3 حليب", expect: milk-fresh-3, holdout: true}
+- {q: "٪١ حليب", expect: milk-fresh-1, holdout: true}
+- {q: "حليب ١٫٥٪", expect: none, holdout: true}
+- {q: "الحليب الطازج 3%", expect: milk-fresh-3, holdout: true}
+- {q: "حليب اللوز", expect: almond-drink, holdout: true}
+- {q: "حليب لوز 1 لتر", expect: almond-drink, holdout: true}
+- {q: "جبنة بيضاء تسعة بالمية", expect: white-cheese-9, holdout: true}
+- {q: "زبادي ١.٥٪", expect: yogurt-plain-1-5, holdout: true}
+- {q: "بيض طازج L", expect: eggs-l, holdout: true}
+- {q: "بيض حجم M", expect: eggs-m, holdout: true}
+- {q: "بيض ابيض كبير", expect: none, holdout: true}
+- {q: "طماطم حمراء", expect: tomato, holdout: true}
+- {q: "بندورة 1 كيلو", expect: tomato, holdout: true}
+- {q: "بندوره", expect: tomato, holdout: true}
+- {q: "البطاطا", expect: potato, holdout: true}
+- {q: "بطاطا كيلو ونص", expect: potato, holdout: true}
+- {q: "كيس بطاطا 5 كيلو", expect: potato, holdout: true}
+- {q: "بصل احمر", expect: none, holdout: true}
+- {q: "فلفل اخضر", expect: none, holdout: true}
+- {q: "فلفل حلو", expect: none, holdout: true}
+- {q: "جزر بيبي", expect: none, holdout: true}
+- {q: "ليمون حامض", expect: lemon, holdout: true}
+- {q: "افوكادو ناضج", expect: avocado, holdout: true}
+- {q: "مشمش", expect: none, holdout: true}
+- {q: "فراولة", expect: none, holdout: true}
+- {q: "خبز عربي 6 حبات", expect: pita, holdout: true}
+- {q: "كيس رز بسمتي", expect: rice-basmati, holdout: true}
+- {q: "5 كيلو رز فارسي", expect: rice-persian, holdout: true}
+- {q: "رز ابيض", expect: none, holdout: true}
+- {q: "ارز", expect: none, holdout: true}
+- {q: "سكر ناعم", expect: none, holdout: true}
+- {q: "ملح بحر", expect: none, holdout: true}
+- {q: "زيت طبخ", expect: none, holdout: true}
+- {q: "زيت زيتون بكر", expect: olive-oil, holdout: true}
+- {q: "زيت الزيتون", expect: olive-oil, holdout: true}
+- {q: "تونة بالزيت 3 علب", expect: tuna-in-oil, holdout: true}
+- {q: "معكرونة سباغيتي", expect: pasta-spaghetti, holdout: true}
+- {q: "سباغيتي باريلا", expect: pasta-spaghetti, flex: exact, holdout: true}
+- {q: "اسباغيتي", expect: pasta-spaghetti, holdout: true}
+- {q: "مكرونة", expect: none, holdout: true}
+- {q: "شعيرية", expect: none, holdout: true}
+- {q: "عدس", expect: none, holdout: true}
+- {q: "صدر دجاج طازج 2 كيلو", expect: chicken-breast-fresh, holdout: true}
+- {q: "دجاج طازج كامل", expect: chicken-whole-fresh, holdout: true}
+- {q: "سمك سلمون طازج", expect: salmon-fillet-fresh, holdout: true}
+- {q: "نقانق", expect: none, holdout: true}
+- {q: "حمص ناشف 1 كيلو", expect: chickpeas-dry, holdout: true}
+- {q: "حمص حب", expect: none, holdout: true}
+- {q: "فول", expect: none, holdout: true}
+- {q: "ذرة حلوة", expect: none, holdout: true}
+- {q: "بازلاء خضراء", expect: none, holdout: true}
+- {q: "ورق عنب", expect: none, holdout: true}
+- {q: "منديل ورق", expect: facial-tissues, holdout: true}
+- {q: "ورق مرحاض", expect: toilet-paper, holdout: true}
+- {q: "جل غسيل صحون", expect: none, holdout: true}
+- {q: "كلوروكس", expect: bleach, holdout: true}
+- {q: "شامبو للشعر", expect: shampoo, holdout: true}
+- {q: "معجون اسنان كولجيت", expect: toothpaste, holdout: true}
+- {q: "ماء", expect: none, holdout: true}
+- {q: "مي", expect: none, holdout: true}
+- {q: "مياه", expect: none, holdout: true}
+- {q: "2 ليتر ماء معدني", expect: mineral-water, holdout: true}
+- {q: "مياه معدنية 1.5 لتر", expect: mineral-water, holdout: true}
+- {q: "6 زجاجات مي معدنية", expect: mineral-water, holdout: true}
+- {q: "بيبسي", expect: cola, holdout: true}
+- {q: "شيبس", expect: none, holdout: true}
+- {q: "قهوة نسكافيه", expect: coffee-instant, holdout: true}
+- {q: "شاي ليبتون", expect: tea-black, flex: exact, holdout: true}
+- {q: "كاتشب هاينز", expect: ketchup, flex: exact, holdout: true}
+- {q: "قائمة التسوق", expect: none, holdout: true}
+- {q: "مطلوب", expect: none, holdout: true}
+- {q: "---", expect: none, holdout: true}
+- {q: "عصير", expect: none, holdout: true}
+- {q: "جبنة", expect: none, holdout: true}
+- {q: "قشطة", expect: none, holdout: true}
+- {q: "دجاج", expect: none, holdout: true}
+- {q: "حلوى", expect: none, holdout: true}
+- {q: "مشروب غازي", expect: none, holdout: true}
+- {q: "خيار مخلل كبير", expect: pickled-cucumbers, flex: close, holdout: true}
+- {q: "بندورة مهروسة 400 غرام", expect: crushed-tomatoes, flex: close, holdout: true}
+- {q: "كريمة حلوة للخفق 32%", expect: whipping-cream-32, holdout: true}
+- {q: "جبنة موزاريلا", expect: grated-mozzarella, holdout: true}
+- {q: "ميلكي", expect: none, holdout: true}
+- {q: "خبز حلة", expect: challah, holdout: true}
+- {q: "لحمانيات", expect: rolls, holdout: true}
+- {q: "عصير برتقال طبيعي مبرد", expect: orange-juice-chilled, holdout: true}
+- {q: "عصير برتقال معلب", expect: orange-juice, holdout: true}
+- {q: "شراب توت", expect: raspberry-concentrate, holdout: true}
+- {q: "كعكات رز منفوخة", expect: rice-cakes, holdout: true}
+- {q: "خبز سبلت", expect: bread-spelt, holdout: true}
+- {q: "بخاخ تنظيف", expect: cleaning-spray, holdout: true}
+- {q: "فيليه قاروص النيل مجمد", expect: nile-perch-fillet-frozen, holdout: true}
+- {q: "مياه بنكهة ليمون", expect: flavored-water-lemon, holdout: true}
+- {q: "عصير برتقال طبيعي", expect: none, holdout: true}
+- {q: "خبز قمح", expect: none, holdout: true}
+# exact: a brand in the line (the canonical is brand-free, the brand is dropped)
+- {q: "حليب تارا 3%", expect: milk-fresh-3, flex: exact, holdout: true}
+- {q: "حليب تارا 1%", expect: milk-fresh-1, flex: exact, holdout: true}
+- {q: "كوتيج شتراوس 5%", expect: cottage-5, flex: exact, holdout: true}
+- {q: "جبنة بيضاء تنوفا 5%", expect: white-cheese-5, flex: exact, holdout: true}
+- {q: "جبنة بيضاء تنوفا 9%", expect: white-cheese-9, flex: exact, holdout: true}
+- {q: "لبنة شتراوس", expect: labane-5, flex: exact, holdout: true}
+- {q: "زبادي شتراوس فراولة", expect: yogurt-strawberry, flex: exact, holdout: true}
+- {q: "زبدة تنوفا", expect: butter, flex: exact, holdout: true}
+- {q: "بيض لارج تنوفا", expect: eggs-l, flex: exact, holdout: true}
+- {q: "مايونيز هيلمانز", expect: mayonnaise, flex: exact, holdout: true}
+- {q: "شاي ويسوتسكي اسود", expect: tea-black, flex: exact, holdout: true}
+- {q: "سباغيتي اوسم", expect: pasta-spaghetti, flex: exact, holdout: true}
+- {q: "رز بسمتي سوغات", expect: rice-basmati, flex: exact, holdout: true}
+- {q: "كولا زيرو كوكا كولا", expect: cola-zero, flex: exact, holdout: true}
+- {q: "بمبا اوسم", expect: bamba, flex: exact, holdout: true}
+- {q: "بيسلي اوسم غريل", expect: bisli-grill, flex: exact, holdout: true}
+- {q: "شوكولاتة حليب عيليت", expect: chocolate-milk-bar, flex: exact, holdout: true}
+- {q: "شوكولاتة داكنة عيليت", expect: chocolate-dark-bar, flex: exact, holdout: true}
+- {q: "مياه معدنية نفيعوت", expect: mineral-water, flex: exact, holdout: true}
+- {q: "حليب تنوفا", expect: none, flex: exact, holdout: true}
+- {q: "حليب تنوفا 2%", expect: none, flex: exact, holdout: true}
+- {q: "كوتيج تنوفا", expect: none, flex: exact, holdout: true}
+- {q: "جبنة بيضاء تنوفا", expect: none, flex: exact, holdout: true}
+- {q: "بيض تنوفا", expect: none, flex: exact, holdout: true}
+- {q: "عصير بريغات", expect: none, flex: exact, holdout: true}
+- {q: "شوكولاتة عيليت", expect: none, flex: exact, holdout: true}
+# close: soft descriptors the canonical does not state (size, family pack, newness)
+- {q: "حليب 3% كبير", expect: milk-fresh-3, flex: close, holdout: true}
+- {q: "كوتيج 5% صغير", expect: cottage-5, flex: close, holdout: true}
+- {q: "جبنة بيضاء 5% اقتصادي", expect: white-cheese-5, flex: close, holdout: true}
+- {q: "بندورة كبيرة", expect: tomato, flex: close, holdout: true}
+- {q: "بصل وسط", expect: onion, flex: close, holdout: true}
+- {q: "خيار صغير", expect: cucumber, flex: close, holdout: true}
+- {q: "بطاطا كبيرة", expect: potato, flex: close, holdout: true}
+- {q: "بيض L كبير", expect: eggs-l, flex: close, holdout: true}
+- {q: "رز بسمتي عائلي", expect: rice-basmati, flex: close, holdout: true}
+- {q: "سكر عائلي", expect: sugar-white, flex: close, holdout: true}
+- {q: "طحين عائلي", expect: flour-white, flex: close, holdout: true}
+- {q: "ملح اقتصادي", expect: salt, flex: close, holdout: true}
+- {q: "زبدة جديدة", expect: butter, flex: close, holdout: true}
+- {q: "شامبو عائلي", expect: shampoo, flex: close, holdout: true}
+- {q: "ورق تواليت عائلي", expect: toilet-paper, flex: close, holdout: true}
+- {q: "مناديل ورقية كبير", expect: facial-tissues, flex: close, holdout: true}
+- {q: "كوتيج عائلي", expect: none, flex: close, holdout: true}
+- {q: "جبنة بيضاء كبير", expect: none, flex: close, holdout: true}
+- {q: "خبز عائلي", expect: none, flex: close, holdout: true}
+- {q: "بيض كبير", expect: none, flex: close, holdout: true}
+- {q: "حليب 2% كبير", expect: none, flex: close, holdout: true}
+- {q: "صدر دجاج كبير", expect: none, flex: close, holdout: true}

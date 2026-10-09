@@ -48,6 +48,9 @@ COPY services/dashboard/pyproject.toml services/dashboard/pyproject.toml
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --package smartcart-api --no-dev --no-install-workspace
 
+# The review UI (Streamlit with pyarrow, altair, pydeck) is the catalog's optional `review` extra and
+# is not installed here; the last check of the next step fails the build if it ever comes back.
+# pandas stays: OR-Tools depends on it.
 # The code. The members are installed editable on purpose: the packages find the migrations
 # (supabase/migrations) and the catalog data (data/) relative to the repository layout.
 COPY services/ingest/smartcart_ingest services/ingest/smartcart_ingest
@@ -59,7 +62,8 @@ COPY data/taxonomy.yaml data/canonicals.yaml data/product_type_rules.yaml data/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --package smartcart-api --no-dev \
  && /app/.venv/bin/python -c "import ortools.sat.python.cp_model, smartcart_api.main" \
- && /app/.venv/bin/smartcart-api --help >/dev/null
+ && /app/.venv/bin/smartcart-api --help >/dev/null \
+ && ! /app/.venv/bin/python -c "import streamlit" 2>/dev/null
 
 # --- runtime: the venv and the code, no build tools, non-root ------------------------------------
 # hadolint ignore=DL3006

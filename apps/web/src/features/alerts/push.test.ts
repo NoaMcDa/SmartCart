@@ -3,7 +3,13 @@ import { http, HttpResponse } from "msw";
 import { API_BASE_URL } from "@/api/config";
 import { server } from "@/mocks/node";
 import { parseThreshold } from "./threshold";
+import { trackEvent } from "@/features/seo/track";
 import { enablePush, pushSupport, urlBase64ToUint8Array } from "./push";
+
+vi.mock("@/features/seo/track", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/seo/track")>()),
+  trackEvent: vi.fn(),
+}));
 
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
@@ -107,6 +113,76 @@ describe("push feature detection", () => {
         }),
       );
       expect(body).toMatchObject({ endpoint: "https://push.example/abc", p256dh: "P", auth: "A" });
+    });
+
+    it("reports push_opt_in with the platform when the permission becomes granted through our flow", async () => {
+      vi.mocked(trackEvent).mockClear();
+      stub(w, "Notification", {
+        permission: "default",
+        requestPermission: () => Promise.resolve("granted"),
+      });
+      server.use(
+        http.post(`${API_BASE_URL}/me/push-subscriptions`, () =>
+          HttpResponse.json({ ok: true, id: 1 }, { status: 201 }),
+        ),
+      );
+      await enablePush(KEY);
+      expect(vi.mocked(trackEvent).mock.calls.filter(([n]) => n === "push_opt_in")).toHaveLength(1);
+      expect(trackEvent).toHaveBeenCalledWith("push_opt_in", {
+        platform: expect.stringMatching(/^(ios|android|desktop|other)$/),
+      });
+    });
+
+    it("reports push_prompt_shown right before the browser is asked, once, with the platform", async () => {
+      vi.mocked(trackEvent).mockClear();
+      const order: string[] = [];
+      vi.mocked(trackEvent).mockImplementation((name) => {
+        order.push(String(name));
+      });
+      stub(w, "Notification", {
+        permission: "default",
+        requestPermission: () => {
+          order.push("requestPermission");
+          return Promise.resolve("denied");
+        },
+      });
+      await enablePush(KEY);
+      expect(order).toEqual(["push_prompt_shown", "requestPermission"]);
+      expect(trackEvent).toHaveBeenCalledWith("push_prompt_shown", {
+        platform: expect.stringMatching(/^(ios|android|desktop|other)$/),
+      });
+      vi.mocked(trackEvent).mockReset();
+    });
+
+    it("does not report push_prompt_shown when no prompt can appear (already granted or blocked, or no key)", async () => {
+      vi.mocked(trackEvent).mockClear();
+      stub(w, "Notification", {
+        permission: "denied",
+        requestPermission: () => Promise.resolve("denied"),
+      });
+      await enablePush(KEY);
+      await enablePush("");
+      expect(trackEvent).not.toHaveBeenCalledWith("push_prompt_shown", expect.anything());
+    });
+
+    it("does not report push_opt_in for a denied or an already granted permission", async () => {
+      vi.mocked(trackEvent).mockClear();
+      stub(w, "Notification", {
+        permission: "default",
+        requestPermission: () => Promise.resolve("denied"),
+      });
+      await enablePush(KEY);
+      stub(w, "Notification", {
+        permission: "granted",
+        requestPermission: () => Promise.resolve("granted"),
+      });
+      server.use(
+        http.post(`${API_BASE_URL}/me/push-subscriptions`, () =>
+          HttpResponse.json({ ok: true, id: 1 }, { status: 201 }),
+        ),
+      );
+      await enablePush(KEY);
+      expect(trackEvent).not.toHaveBeenCalledWith("push_opt_in", expect.anything());
     });
 
     it("handles a denied permission without subscribing or breaking", async () => {

@@ -22,4 +22,6 @@ export const ROUTES: ReadonlyArray<{ path: string; h1: string }> = [
   { path: "/lists/accept/inv-1-abc", h1: "הצטרפות לרשימה משותפת" },
   { path: "/offline", h1: "אין חיבור לאינטרנט" },
   { path: "/design-system", h1: "ערכת עיצוב" },
+  { path: "/beta", h1: "הבטא של SmartCart" },
+  { path: "/beta/join/BETA-KOSHER", h1: "הבטא של SmartCart" },
 ];

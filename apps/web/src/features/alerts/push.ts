@@ -7,6 +7,11 @@
  */
 import { addPushSubscription, deletePushSubscription } from "@/api/client";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
+import { trackEvent } from "@/features/seo/track";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { alertMessages, type AlertMessageKey } from "@/i18n/messages/alerts";
+import { detectPlatform } from "@/lib/platform";
 
 export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
@@ -71,8 +76,13 @@ export async function enablePush(key: string = VAPID_PUBLIC_KEY): Promise<Enable
   const support = pushSupport(key);
   if (support !== "supported") return { ok: false, reason: support };
   try {
+    const before = Notification.permission;
+    // The denominator of the opt-in rate (#56): only when the browser will really show its prompt.
+    if (before === "default") trackEvent("push_prompt_shown", { platform: detectPlatform() });
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return { ok: false, reason: "denied" };
+    // Counted when the permission becomes granted through our button (#56), not when it already was.
+    if (before !== "granted") trackEvent("push_opt_in", { platform: detectPlatform() });
     const reg = await registration();
     if (!reg) return { ok: false, reason: "unsupported" };
     const sub =
@@ -112,13 +122,26 @@ export async function disablePush(): Promise<void> {
   }
 }
 
-export const PUSH_MESSAGES: Record<Exclude<PushSupport, "supported"> | "denied" | "error", string> =
-  {
-    "no-key": "שליחת התראות לדפדפן עוד לא מוגדרת בגרסה הזו. ההתראות נשמרות ויופיעו במסך ההתראות.",
-    unsupported: "הדפדפן הזה לא תומך בהתראות דחיפה. ההתראות יופיעו במסך ההתראות.",
-    "ios-install":
-      "ב-iPhone ובאייפד התראות דחיפה עובדות רק אחרי הוספת האפליקציה למסך הבית (iOS 16.4 ומעלה): בכפתור השיתוף של ספארי בחרי ״הוספה למסך הבית״ ופתחי משם.",
-    denied:
-      "ההתראות חסומות בדפדפן, ולכן לא נשלח אליך כלום. אפשר לאשר אותן בהגדרות האתר. עד אז ההתראות יופיעו רק במסך ההתראות.",
-    error: "לא הצלחנו להפעיל התראות בדפדפן. ההתראות עצמן נשמרו, ואפשר לנסות שוב.",
-  };
+export type PushMessageReason = Exclude<PushSupport, "supported"> | "denied" | "error";
+
+const PUSH_MESSAGE_KEYS: Record<PushMessageReason, AlertMessageKey> = {
+  "no-key": "pm_no_key",
+  unsupported: "pm_unsupported",
+  "ios-install": "pm_ios_install",
+  denied: "pm_denied",
+  error: "pm_error",
+};
+
+/** Why push is off or failed, in the UI language (Hebrew by default). */
+export function pushMessage(reason: PushMessageReason, locale: Locale = DEFAULT_LOCALE): string {
+  return translate(alertMessages, locale, PUSH_MESSAGE_KEYS[reason]);
+}
+
+/** The Hebrew texts; `pushMessage(reason, locale)` is the one to show to the user. */
+export const PUSH_MESSAGES: Record<PushMessageReason, string> = {
+  "no-key": pushMessage("no-key"),
+  unsupported: pushMessage("unsupported"),
+  "ios-install": pushMessage("ios-install"),
+  denied: pushMessage("denied"),
+  error: pushMessage("error"),
+};

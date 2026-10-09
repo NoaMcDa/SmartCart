@@ -4,8 +4,10 @@ import { Chip } from "@/components/ui/Chip";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Switch } from "@/components/ui/Switch";
 import { Tag } from "@/components/ui/Tag";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { profileMessages } from "@/i18n/messages/profile";
 import styles from "./controls/controls.module.css";
-import { ALLERGENS, KOSHER_OPTIONS } from "./dietOptions";
+import { ALLERGENS, KOSHER_OPTIONS, allergenLabel, kosherLabel } from "./dietOptions";
 import { updateProfile, useProfile, type KosherLevel } from "./profileState";
 
 /**
@@ -14,25 +16,24 @@ import { updateProfile, useProfile, type KosherLevel } from "./profileState";
  * "לא מאומת" note says so wherever they could influence a match (principle 3, D10).
  */
 export function DietSection() {
+  const t = useT(profileMessages);
+  const { locale } = useLocale();
   const profile = useProfile();
   const kosher: KosherLevel | "none" = profile.diet.kosherLevel ?? "none";
   return (
     <div className={styles.stack}>
       <div className={styles.statusRow}>
-        <Tag variant="unverified">לא מאומת</Tag>
-        <p className={styles.hint}>
-          ההתאמה לפי כשרות, תזונה ואלרגנים נשענת על מידע שחולץ אוטומטית מנתוני המוצרים, ולא תמיד
-          נבדק על ידי אדם. בדקי את האריזה לפני שקונים, ובמיוחד כשיש אלרגיה.
-        </p>
+        <Tag variant="unverified">{t("unverified")}</Tag>
+        <p className={styles.hint}>{t("dietNotice")}</p>
       </div>
 
       <div className={styles.group}>
-        <p className={styles.legend}>רמת כשרות</p>
+        <p className={styles.legend}>{t("kosherLegend")}</p>
         <SegmentedControl<KosherLevel | "none">
-          label="רמת כשרות"
+          label={t("kosherLegend")}
           options={KOSHER_OPTIONS.map((o) => ({
             value: o.value,
-            label: o.value === "none" ? "ללא" : o.label,
+            label: o.value === "none" ? t("kosherNoneShort") : kosherLabel(o.value, locale),
           }))}
           value={kosher}
           onChange={(v) =>
@@ -42,19 +43,19 @@ export function DietSection() {
       </div>
 
       <Switch
-        label="טבעוני"
+        label={t("vegan")}
         checked={profile.diet.vegan}
         onChange={(vegan) => updateProfile((p) => ({ diet: { ...p.diet, vegan } }))}
       />
       <Switch
-        label="ללא גלוטן"
+        label={t("glutenFree")}
         checked={profile.diet.glutenFree}
         onChange={(glutenFree) => updateProfile((p) => ({ diet: { ...p.diet, glutenFree } }))}
       />
 
       <div className={styles.group} role="group" aria-labelledby="allergens-legend">
         <p id="allergens-legend" className={styles.legend}>
-          אלרגנים להימנע מהם
+          {t("allergensLegend")}
         </p>
         <div className={styles.chips}>
           {ALLERGENS.map((a) => {
@@ -75,7 +76,7 @@ export function DietSection() {
                   }))
                 }
               >
-                {a.label}
+                {allergenLabel(a.key, locale)}
               </Chip>
             );
           })}

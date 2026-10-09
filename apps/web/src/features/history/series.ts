@@ -6,6 +6,9 @@
  * line is cut where consecutive points are more than MAX_JOIN_DAYS apart, and the chart says so.
  */
 import type { PriceHistoryResponse, PromoWindow } from "@/api/client";
+import { DEFAULT_LOCALE, INTL_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { historyMessages } from "@/i18n/messages/history";
 
 export const DAY_MS = 86_400_000;
 /** Two points further apart than this are not joined by a line. The mock samples every 3 days. */
@@ -130,11 +133,16 @@ export function linear(
 
 const TZ = "Asia/Jerusalem";
 
-/** "07.10" in Israel time. */
-export function formatDay(t: number): string {
-  return new Date(t)
-    .toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", timeZone: TZ })
-    .replace(/\//g, ".");
+/** "07.10" in Israel time, day first (digits are Latin in both locales). */
+export function formatDay(t: number, intl: string = INTL_LOCALE[DEFAULT_LOCALE]): string {
+  const parts = new Intl.DateTimeFormat(intl, {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: TZ,
+  }).formatToParts(new Date(t));
+  const day = parts.find((p) => p.type === "day")?.value ?? "";
+  const month = parts.find((p) => p.type === "month")?.value ?? "";
+  return `${day}.${month}`;
 }
 
 export function money(value: number): string {
@@ -175,14 +183,24 @@ export function promoAt(promos: PromoRange[], t: number): PromoRange | null {
 }
 
 /** "מבצע מועדון · רמי לוי" or "מבצע לכולם". */
-export function promoAudience(p: Pick<PromoRange, "clubOnly" | "clubName">): string {
-  if (!p.clubOnly) return "מבצע לכולם";
-  return p.clubName ? `מבצע מועדון · ${p.clubName}` : "מבצע מועדון";
+export function promoAudience(
+  p: Pick<PromoRange, "clubOnly" | "clubName">,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  const t = (key: "promoEveryone" | "promoClub" | "promoClubNamed", vars?: { club: string }) =>
+    translate(historyMessages, locale, key, vars);
+  if (!p.clubOnly) return t("promoEveryone");
+  return p.clubName ? t("promoClubNamed", { club: p.clubName }) : t("promoClub");
 }
 
 /** Confidence on a promo (D10): a percentage, or "לא נבדק" when the API has none. */
-export function promoConfidence(p: Pick<PromoRange, "confidence">): string {
+export function promoConfidence(
+  p: Pick<PromoRange, "confidence">,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
   return p.confidence === null
-    ? "ביטחון במבצע: לא נבדק"
-    : `ביטחון במבצע: ${Math.round(p.confidence * 100)}%`;
+    ? translate(historyMessages, locale, "confNotChecked")
+    : translate(historyMessages, locale, "confPercent", {
+        percent: Math.round(p.confidence * 100),
+      });
 }

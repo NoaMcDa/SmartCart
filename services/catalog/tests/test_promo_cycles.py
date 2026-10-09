@@ -19,8 +19,10 @@ TODAY = date(2026, 10, 8)
 
 
 def every(period: int, n: int, first: date, length: int = 7) -> list[Window]:
-    return [Window(first + timedelta(days=i * period), first + timedelta(days=i * period + length - 1))
-            for i in range(n)]
+    return [
+        Window(first + timedelta(days=i * period), first + timedelta(days=i * period + length - 1))
+        for i in range(n)
+    ]
 
 
 # --- math ----------------------------------------------------------------------------------------
@@ -68,7 +70,9 @@ def test_a_regular_six_week_promo_predicts_the_next_window() -> None:
 def test_advice_wait_buy_now_and_overdue() -> None:
     windows = every(42, 5, date(2026, 3, 1))
     assert pc.estimate(windows, today=date(2026, 9, 17)).advice == "wait"  # opens in 7 days
-    assert pc.estimate(windows, today=date(2026, 9, 27)).advice == "wait"  # window open, no promo yet
+    assert (
+        pc.estimate(windows, today=date(2026, 9, 27)).advice == "wait"
+    )  # window open, no promo yet
     assert pc.estimate(windows, today=date(2026, 8, 18)).advice == "buy_now"  # a promo is running
     overdue = pc.estimate(windows, today=date(2026, 10, 15))
     assert overdue.advice == "unknown" and overdue.next_from is None and overdue.cycles_seen == 4
@@ -81,8 +85,10 @@ def test_the_gate_hides_predictions() -> None:
     est = pc.estimate(two_cycles, today=date(2026, 8, 15))
     assert est.advice == "unknown" and est.next_from is None and est.next_to is None
     assert est.cycles_seen == 2 and est.median_gap_days == 30.0  # the evidence is still shown
-    irregular = [Window(date(2026, 1, 1) + timedelta(days=d), date(2026, 1, 1) + timedelta(days=d + 6))
-                 for d in (0, 15, 100, 120, 200, 215)]
+    irregular = [
+        Window(date(2026, 1, 1) + timedelta(days=d), date(2026, 1, 1) + timedelta(days=d + 6))
+        for d in (0, 15, 100, 120, 200, 215)
+    ]
     est = pc.estimate(irregular, today=date(2026, 7, 25))
     assert est.cycles_seen == 5 and est.confidence < pc.MIN_CONFIDENCE and est.advice == "unknown"
     assert pc.estimate([], TODAY).advice == "unknown"
@@ -102,13 +108,20 @@ def test_tolerance_grows_with_the_spread_of_gaps() -> None:
 
 
 def test_synthetic_history_is_deterministic() -> None:
-    a = pc.synthetic_history(7, date(2025, 1, 1), date(2026, 6, 30), 42, jitter_days=4, skip_prob=0.2)
-    b = pc.synthetic_history(7, date(2025, 1, 1), date(2026, 6, 30), 42, jitter_days=4, skip_prob=0.2)
-    c = pc.synthetic_history(8, date(2025, 1, 1), date(2026, 6, 30), 42, jitter_days=4, skip_prob=0.2)
+    a = pc.synthetic_history(
+        7, date(2025, 1, 1), date(2026, 6, 30), 42, jitter_days=4, skip_prob=0.2
+    )
+    b = pc.synthetic_history(
+        7, date(2025, 1, 1), date(2026, 6, 30), 42, jitter_days=4, skip_prob=0.2
+    )
+    c = pc.synthetic_history(
+        8, date(2025, 1, 1), date(2026, 6, 30), 42, jitter_days=4, skip_prob=0.2
+    )
     assert a == b and a != c
     assert all(w.days == 7 for w in a[:-1]) and a == sorted(a)
-    assert pc.irregular_history(3, date(2025, 1, 1), date(2026, 1, 1), 10, 90) == \
-        pc.irregular_history(3, date(2025, 1, 1), date(2026, 1, 1), 10, 90)
+    assert pc.irregular_history(
+        3, date(2025, 1, 1), date(2026, 1, 1), 10, 90
+    ) == pc.irregular_history(3, date(2025, 1, 1), date(2026, 1, 1), 10, 90)
 
 
 def test_backtest_on_regular_and_irregular_history() -> None:
@@ -136,22 +149,37 @@ def test_backtest_counts_false_alarms() -> None:
 
 
 def _world(db) -> dict[str, int]:
-    db.execute("INSERT INTO taxonomy (id, parent_id, level, name_he) VALUES ('pc', NULL, 1, 'בדיקה')")
-    db.execute("INSERT INTO product_type_rules (product_type, critical_keys, soft_keys) VALUES ('pc_coffee', '{}', '{}')")
+    db.execute(
+        "INSERT INTO taxonomy (id, parent_id, level, name_he) VALUES ('pc', NULL, 1, 'בדיקה')"
+    )
+    db.execute(
+        "INSERT INTO product_type_rules (product_type, critical_keys, soft_keys) VALUES ('pc_coffee', '{}', '{}')"
+    )
     cid = db.execute(
         "INSERT INTO canonical_products (taxonomy_id, slug, display_name_he, product_type, base_unit)"
         " VALUES ('pc', 'pc-coffee', 'קפה נמס', 'pc_coffee', '100g') RETURNING id"
     ).fetchone()[0]
-    db.execute("INSERT INTO chains (id, name, portal, club_names) VALUES ('pc-a', 'רשת א', 'other', '{}'),"
-               " ('pc-b', 'רשת ב', 'other', '{}')")
+    db.execute(
+        "INSERT INTO chains (id, name, portal, club_names) VALUES ('pc-a', 'רשת א', 'other', '{}'),"
+        " ('pc-b', 'רשת ב', 'other', '{}')"
+    )
     ids = {"cid": cid}
-    for key, chain, flex, review in (("a1", "pc-a", "exact", False), ("a2", "pc-a", "any_brand", False),
-                                     ("b1", "pc-b", "any_brand", False), ("b_close", "pc-b", "close", False),
-                                     ("b_review", "pc-b", "any_brand", True)):
-        iid = db.execute("INSERT INTO items (chain_id, item_code, raw_name) VALUES (%s, %s, %s) RETURNING id",
-                         (chain, key, f"קפה {key}")).fetchone()[0]
-        db.execute("INSERT INTO item_canonical (item_id, canonical_id, flex_level, confidence, source,"
-                   " needs_review) VALUES (%s, %s, %s, 0.95, 'rule', %s)", (iid, cid, flex, review))
+    for key, chain, flex, review in (
+        ("a1", "pc-a", "exact", False),
+        ("a2", "pc-a", "any_brand", False),
+        ("b1", "pc-b", "any_brand", False),
+        ("b_close", "pc-b", "close", False),
+        ("b_review", "pc-b", "any_brand", True),
+    ):
+        iid = db.execute(
+            "INSERT INTO items (chain_id, item_code, raw_name) VALUES (%s, %s, %s) RETURNING id",
+            (chain, key, f"קפה {key}"),
+        ).fetchone()[0]
+        db.execute(
+            "INSERT INTO item_canonical (item_id, canonical_id, flex_level, confidence, source,"
+            " needs_review) VALUES (%s, %s, %s, 0.95, 'rule', %s)",
+            (iid, cid, flex, review),
+        )
         ids[key] = iid
     return ids
 
@@ -163,15 +191,28 @@ def test_promo_cycles_from_the_promos_table(db) -> None:
     # chain A: a regular six-week promo, published on two items and per store (merged)
     pc.seed_promo_history(db, "pc-a", [ids["a1"], ids["a2"]], every(42, 6, first), prefix="A")
     # chain B: three promos only (two cycles), plus history that must not count
-    pc.seed_promo_history(db, "pc-b", [ids["b1"]], every(30, 3, TODAY - timedelta(days=80)), prefix="B")
+    pc.seed_promo_history(
+        db, "pc-b", [ids["b1"]], every(30, 3, TODAY - timedelta(days=80)), prefix="B"
+    )
     pc.seed_promo_history(db, "pc-b", [ids["b_close"]], every(10, 8, first), prefix="CLOSE")
     pc.seed_promo_history(db, "pc-b", [ids["b_review"]], every(10, 8, first), prefix="REVIEW")
-    pc.seed_promo_history(db, "pc-b", [ids["b1"]], every(10, 8, first), prefix="OTHER", reward_type="other")
-    fid = db.execute("INSERT INTO file_tracking (sha256, chain_id, kind, status) VALUES (%s, 'pc-b',"
-                     " 'promo_full', 'quarantined') RETURNING id", ("f" * 64,)).fetchone()[0]
+    pc.seed_promo_history(
+        db, "pc-b", [ids["b1"]], every(10, 8, first), prefix="OTHER", reward_type="other"
+    )
+    fid = db.execute(
+        "INSERT INTO file_tracking (sha256, chain_id, kind, status) VALUES (%s, 'pc-b',"
+        " 'promo_full', 'quarantined') RETURNING id",
+        ("f" * 64,),
+    ).fetchone()[0]
     bad = pc.seed_promo_history(db, "pc-b", [ids["b1"]], every(10, 8, first), prefix="QUAR")
     db.execute("UPDATE promos SET file_id = %s WHERE id = ANY(%s)", (fid, bad))
-    future = pc.seed_promo_history(db, "pc-b", [ids["b1"]], [Window(TODAY + timedelta(days=3), TODAY + timedelta(days=9))], prefix="FUT")
+    future = pc.seed_promo_history(
+        db,
+        "pc-b",
+        [ids["b1"]],
+        [Window(TODAY + timedelta(days=3), TODAY + timedelta(days=9))],
+        prefix="FUT",
+    )
     assert future
 
     rows = pc.promo_cycles(db, ids["cid"], TODAY)
@@ -188,28 +229,45 @@ def test_promo_cycles_from_the_promos_table(db) -> None:
 def test_club_promos_count_only_for_marked_clubs(db) -> None:
     ids = _world(db)
     first = TODAY - timedelta(days=35 * 5)
-    pc.seed_promo_history(db, "pc-a", [ids["a1"]], every(35, 6, first), prefix="CLUB",
-                          club_only=True, club_name="מועדון הזהב")
+    pc.seed_promo_history(
+        db,
+        "pc-a",
+        [ids["a1"]],
+        every(35, 6, first),
+        prefix="CLUB",
+        club_only=True,
+        club_name="מועדון הזהב",
+    )
     assert pc.promo_cycles(db, ids["cid"], TODAY) == []  # only club promos, no club marked
-    marked = pc.promo_cycles(db, ids["cid"], TODAY, include_club=lambda club, chain, own: club == "מועדון הזהב")
+    marked = pc.promo_cycles(
+        db, ids["cid"], TODAY, include_club=lambda club, chain, own: club == "מועדון הזהב"
+    )
     assert len(marked) == 1 and marked[0].estimate.cycles_seen == 5
 
 
 @pytest.mark.db
 def test_cli_prints_the_table_and_json(db, monkeypatch) -> None:
     ids = _world(db)
-    pc.seed_promo_history(db, "pc-a", [ids["a1"]], every(42, 6, TODAY - timedelta(days=42 * 5 + 10)))
+    pc.seed_promo_history(
+        db, "pc-a", [ids["a1"]], every(42, 6, TODAY - timedelta(days=42 * 5 + 10))
+    )
 
     @contextmanager
     def same_connection(settings):
         yield db
 
     monkeypatch.setattr(cli, "open_connection", same_connection)
-    result = CliRunner().invoke(cli.app, ["promo-cycles", "pc-coffee", "--as-of", TODAY.isoformat()])
+    result = CliRunner().invoke(
+        cli.app, ["promo-cycles", "pc-coffee", "--as-of", TODAY.isoformat()]
+    )
     assert result.exit_code == 0, result.output
-    assert "קפה נמס" in result.output and "רשת א (pc-a)" in result.output and "42 d" in result.output
+    assert (
+        "קפה נמס" in result.output and "רשת א (pc-a)" in result.output and "42 d" in result.output
+    )
     assert "gate: at least 3 cycles" in result.output
-    out = CliRunner().invoke(cli.app, ["promo-cycles", str(ids["cid"]), "--as-of", TODAY.isoformat(), "--json"])
+    out = CliRunner().invoke(
+        cli.app, ["promo-cycles", str(ids["cid"]), "--as-of", TODAY.isoformat(), "--json"]
+    )
     data = json.loads(out.output)
     assert data["chains"][0]["cycles_seen"] == 5 and data["chains"][0]["windows"] == 6
     missing = CliRunner().invoke(cli.app, ["promo-cycles", "no-such-slug"])
@@ -220,6 +278,14 @@ def test_cli_synthetic_backtest() -> None:
     result = CliRunner().invoke(cli.app, ["promo-backtest", "--synthetic"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert data["series"] == 80 and data["predictions"] > 0 and set(data["by_kind"]) == {
-        "regular, 28 to 49 days, jitter 0 to 2", "42 days, jitter 5, 10-day promos",
-        "35 days, jitter 3, a quarter of cycles skipped", "irregular, gaps 10 to 90 days"}
+    assert (
+        data["series"] == 80
+        and data["predictions"] > 0
+        and set(data["by_kind"])
+        == {
+            "regular, 28 to 49 days, jitter 0 to 2",
+            "42 days, jitter 5, 10-day promos",
+            "35 days, jitter 3, a quarter of cycles skipped",
+            "irregular, gaps 10 to 90 days",
+        }
+    )

@@ -1,3 +1,8 @@
+import { DEFAULT_LOCALE, INTL_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { appMessages } from "@/i18n/messages/app";
+import { formatMessages } from "@/i18n/messages/format";
+
 /** Non-breaking space placed between the shekel sign and the digits (CLAUDE.md conventions). */
 export const NBSP = "\u00A0";
 export const SHEKEL = "₪";
@@ -32,10 +37,10 @@ export function formatPrice(
   return `${sign}${SHEKEL}${NBSP}${body}`;
 }
 
-/** Hebrew relative-free timestamp: "היום 06:40" style is screen-specific; this returns HH:MM. */
-export function formatTime(iso: string): string {
+/** HH:MM in Israel time (the "היום 06:40" style is screen-specific). Latin digits in both locales. */
+export function formatTime(iso: string, locale: Locale = DEFAULT_LOCALE): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString("he-IL", {
+  return d.toLocaleTimeString(INTL_LOCALE[locale], {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -43,8 +48,95 @@ export function formatTime(iso: string): string {
   });
 }
 
-/** Distance in meters as Hebrew km: 4200 -> "4.2 ק"מ", 800 -> "800 מ'". */
-export function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)} מ'`;
-  return `${(meters / 1000).toFixed(1)} ק"מ`;
+/**
+ * A canonical product's display name: `display_name_ar` in Arabic when the API has one (machine
+ * drafted, pending native review), otherwise the Hebrew name. Hebrew is always the fallback.
+ */
+export function productName(
+  canonical: { display_name_he: string; display_name_ar?: string | null } | null | undefined,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  if (!canonical) return "";
+  if (locale === "ar" && canonical.display_name_ar) return canonical.display_name_ar;
+  return canonical.display_name_he;
+}
+
+/**
+ * A list's name in the UI language. The default list is stored with its Hebrew name
+ * ("הקנייה השבועית"); in Arabic it reads as the Arabic weekly shop. A name the person typed is
+ * returned as it is.
+ */
+export function listNameLabel(name: string, locale: Locale = DEFAULT_LOCALE): string {
+  if (locale !== DEFAULT_LOCALE && name === translate(appMessages, DEFAULT_LOCALE, "weeklyShop")) {
+    return translate(appMessages, locale, "weeklyShop");
+  }
+  return name;
+}
+
+/**
+ * The canonical's name for a priced item, a swap suggestion or a price history: the product the
+ * shopper asked for, not the shelf label. `display_name_he` on those is the chain's own item name
+ * and stays Hebrew; use it where the UI shows what the shelf says, and this where it names the
+ * product generically.
+ */
+export function itemProductName(
+  item: { display_name_he?: string | null; canonical_name_ar?: string | null },
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  if (locale === "ar" && item.canonical_name_ar) return item.canonical_name_ar;
+  return item.display_name_he ?? "";
+}
+
+/**
+ * Distance in meters as km: 4200 -> "4.2 ק"מ", 800 -> "800 מ'" (Arabic: "4.2 كم", "800 م").
+ * `approximate` puts "כ־" ("نحو") in front: use it for a store whose point is a town centre.
+ */
+export function formatDistance(
+  meters: number,
+  locale: Locale = DEFAULT_LOCALE,
+  approximate = false,
+): string {
+  const exact =
+    meters < 1000
+      ? translate(formatMessages, locale, "meters", { n: Math.round(meters) })
+      : translate(formatMessages, locale, "kilometers", { n: (meters / 1000).toFixed(1) });
+  return approximate
+    ? translate(formatMessages, locale, "approxDistance", { distance: exact })
+    : exact;
+}
+
+/** The words that mark a store's distance and position as approximate ("מיקום משוער"). */
+export function approxLocationNote(locale: Locale = DEFAULT_LOCALE): string {
+  return translate(formatMessages, locale, "approxNote");
+}
+
+/** One sentence saying why the distance is only an estimate, for tooltips and legends. */
+export function approxLocationHint(locale: Locale = DEFAULT_LOCALE): string {
+  return translate(formatMessages, locale, "approxHint");
+}
+
+/** A store as the API sends it: the distance and whether it is only an estimate. */
+export type DistanceSource = { distance_m?: number | null; distance_approximate?: boolean | null };
+
+/**
+ * The distance to a store as the UI shows it. An exact one is "4.2 ק"מ"; one with
+ * `distance_approximate` (a locality-precision store, or none at all) is "כ־3.6 ק"מ · מיקום משוער",
+ * never a bare number. `note: false` keeps the "כ־" and drops the words, for a place that carries
+ * the note once for several stores. A store without a point reports 0, which is not a measurement,
+ * so there only the note is shown.
+ */
+export function formatStoreDistance(
+  store: DistanceSource,
+  locale: Locale = DEFAULT_LOCALE,
+  { note = true }: { note?: boolean } = {},
+): string {
+  const meters = store.distance_m;
+  if (store.distance_approximate !== true)
+    return typeof meters === "number" ? formatDistance(meters, locale) : "";
+  const noteText = approxLocationNote(locale);
+  if (typeof meters !== "number" || !(meters > 0)) return noteText;
+  const distance = formatDistance(meters, locale, true);
+  return note
+    ? translate(formatMessages, locale, "approxWithNote", { distance, note: noteText })
+    : distance;
 }

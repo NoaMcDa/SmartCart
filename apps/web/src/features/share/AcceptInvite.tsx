@@ -8,18 +8,23 @@ import { IconInfo } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { reportShareAccepted } from "@/features/consent/betaEvents";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import type { Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { shareMessages, type ShareMessageKey } from "@/i18n/messages/share";
 import { rememberJoined } from "./sharedLists";
 import styles from "./Share.module.css";
 
-export function acceptError(err: unknown): string {
+export function acceptError(err: unknown, locale: Locale = "he"): string {
+  const t = (key: ShareMessageKey) => translate(shareMessages, locale, key);
   if (err instanceof ApiError) {
-    if (err.status === 401) return "צריך להתחבר כדי להצטרף לרשימה.";
+    if (err.status === 401) return t("errAcceptSignIn");
     if (err.status === 404 || err.status === 410 || err.status === 403) {
-      return "הקישור לא תקף: ייתכן שפג תוקפו או שהבעלים ביטלה אותו. בקשי קישור חדש.";
+      return t("errAcceptInvalid");
     }
-    return "השרת החזיר שגיאה. נסי שוב בעוד רגע.";
+    return t("errServer");
   }
-  return "נראה שאין חיבור לשרת. בדקי את החיבור ונסי שוב.";
+  return t("errOffline");
 }
 
 /**
@@ -30,6 +35,8 @@ export function acceptError(err: unknown): string {
 export function AcceptInvite({ token }: { token: string }) {
   const router = useRouter();
   const auth = useAuth();
+  const t = useT(shareMessages);
+  const { locale } = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const needsSignIn = auth.configured && auth.status !== "loading" && auth.status !== "signed-in";
@@ -44,7 +51,7 @@ export function AcceptInvite({ token }: { token: string }) {
       reportShareAccepted();
       router.push(`/lists/${list.id}/share`);
     } catch (err) {
-      setError(acceptError(err));
+      setError(acceptError(err, locale));
       setBusy(false);
     }
   }
@@ -53,22 +60,19 @@ export function AcceptInvite({ token }: { token: string }) {
     <div className={styles.page}>
       <Card as="section" aria-labelledby="accept-heading" data-testid="accept">
         <h2 id="accept-heading" className={styles.sectionTitle}>
-          הוזמנת לרשימת קניות משותפת
+          {t("acceptHeading")}
         </h2>
-        <p>
-          אחרי ההצטרפות תראי את הרשימה ואת השינויים בה בזמן אמת. מי שהזמינה אותך תראה שהצטרפת, אבל
-          לא תראה את המיקום או ההעדפות שלך.
-        </p>
+        <p>{t("acceptBody")}</p>
         {needsSignIn ? (
           <>
             <p className={styles.note}>
-              <IconInfo size={15} /> כדי להצטרף צריך להתחבר, כך שהרשימה נשמרת בחשבון שלך.
+              <IconInfo size={15} /> {t("acceptSignInNote")}
             </p>
-            <Button onClick={auth.openSignIn}>התחברות</Button>
+            <Button onClick={auth.openSignIn}>{t("signIn")}</Button>
           </>
         ) : (
           <Button onClick={() => void join()} disabled={busy || auth.status === "loading"}>
-            {busy ? "מצטרפת…" : "הצטרפות לרשימה"}
+            {busy ? t("joining") : t("join")}
           </Button>
         )}
         {error ? (

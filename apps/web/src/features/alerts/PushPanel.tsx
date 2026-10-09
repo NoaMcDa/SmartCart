@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui";
 import { IconBell, IconCheck, IconInfo } from "@/components/ui/icons";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { alertMessages } from "@/i18n/messages/alerts";
 import {
   currentSubscription,
   disablePush,
   enablePush,
-  PUSH_MESSAGES,
+  pushMessage,
   pushPermission,
   pushSupport,
   type PushPermission,
@@ -31,6 +33,8 @@ async function readInfo(): Promise<Info> {
  * or revoking permission never breaks alerts: they stay listed on /alerts.
  */
 export function PushPanel() {
+  const t = useT(alertMessages);
+  const { locale } = useLocale();
   const [info, setInfo] = useState<Info | null>(null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -49,10 +53,10 @@ export function PushPanel() {
     setBusy(true);
     setFailure(null);
     const result = await enablePush();
-    if (!result.ok) setFailure(PUSH_MESSAGES[result.reason]);
+    if (!result.ok) setFailure(pushMessage(result.reason, locale));
     setInfo(await readInfo());
     setBusy(false);
-  }, []);
+  }, [locale]);
 
   const turnOff = useCallback(async () => {
     setBusy(true);
@@ -67,39 +71,37 @@ export function PushPanel() {
   if (info.support !== "supported") {
     body = (
       <p className={styles.note} data-testid="push-unavailable">
-        <IconInfo size={15} /> {PUSH_MESSAGES[info.support]}
+        <IconInfo size={15} /> {pushMessage(info.support, locale)}
       </p>
     );
   } else if (info.permission === "denied") {
     body = (
       <p className={styles.note} data-testid="push-denied">
-        <IconInfo size={15} /> {PUSH_MESSAGES.denied}
+        <IconInfo size={15} /> {pushMessage("denied", locale)}
       </p>
     );
   } else if (info.subscribed) {
     body = (
       <div className={styles.pushRow}>
         <p className={styles.ok} data-testid="push-on">
-          <IconCheck size={15} /> התראות בדפדפן פעילות במכשיר הזה.
+          <IconCheck size={15} /> {t("pushOn")}
         </p>
         <Button variant="outline" size="sm" onClick={() => void turnOff()} disabled={busy}>
-          כיבוי במכשיר הזה
+          {t("pushOff")}
         </Button>
       </div>
     );
   } else {
     body = (
       <div className={styles.pushRow}>
-        <p className={styles.note}>
-          נשלח התראה למכשיר כשמוצר יורד מתחת למחיר שקבעת. הדפדפן יבקש אישור כשתלחצי על הכפתור.
-        </p>
+        <p className={styles.note}>{t("pushExplain")}</p>
         <Button
           size="sm"
           iconStart={<IconBell size={16} />}
           onClick={() => void turnOn()}
           disabled={busy}
         >
-          הפעלת התראות בדפדפן
+          {t("pushTurnOn")}
         </Button>
       </div>
     );

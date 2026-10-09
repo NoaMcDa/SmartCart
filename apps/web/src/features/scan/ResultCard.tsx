@@ -5,11 +5,14 @@ import type { BarcodeLookupResponse, StorePrice } from "@/api/client";
 import { Button, Card, Price, Stepper, Tag, UpdatedAt } from "@/components/ui";
 import { IconCheck, IconWarning } from "@/components/ui/icons";
 import { ReportGapButton } from "@/features/feedback";
-import { formatDistance } from "@/lib/format";
+import { perUnit, useRich } from "@/i18n/format-2";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { StoreText } from "@/i18n/StoreText";
+import { scanMessages } from "@/i18n/messages/scan";
+import { formatStoreDistance } from "@/lib/format";
 import controls from "@/features/profile/controls/controls.module.css";
 import { addCanonicalToList } from "./addToList";
 import styles from "./Scan.module.css";
-import { perUnitLabel } from "@/lib/attributes";
 
 const cents = (n: number) => Math.round(n * 100) / 100;
 
@@ -39,6 +42,7 @@ function PriceLine({
   note?: string;
   children?: React.ReactNode;
 }) {
+  const { locale } = useLocale();
   return (
     <li className={styles.line} data-testid={testId} data-trust-scope="scan-line">
       <div className={styles.lineHead}>
@@ -46,11 +50,22 @@ function PriceLine({
         <Price amount={price.shelf_price} size="lg" fractionDigits={2} />
       </div>
       <p className={styles.lineMeta}>
-        {price.store.chain_name} · {price.store.store_name}
-        {price.store.distance_m != null ? ` · ${formatDistance(price.store.distance_m)}` : ""}
+        <StoreText kind="chain" name={price.store.chain_name} /> ·{" "}
+        <StoreText name={price.store.store_name} />
+        {price.store.distance_m != null ? (
+          <>
+            {" · "}
+            <span
+              data-testid="scan-distance"
+              data-approximate={price.store.distance_approximate ? "true" : "false"}
+            >
+              {formatStoreDistance(price.store, locale)}
+            </span>
+          </>
+        ) : null}
       </p>
       <p className={styles.lineMeta}>
-        <Price amount={price.unit_price} fractionDigits={2} /> {perUnitLabel(price.uom)}
+        <Price amount={price.unit_price} fractionDigits={2} /> {perUnit(price.uom, locale)}
         {note ? <> · {note}</> : null}
       </p>
       {children}
@@ -71,11 +86,14 @@ export type ResultCardProps = {
  * an optional shelf price to check against ours, and add to list.
  */
 export function ResultCard({ result, store }: ResultCardProps) {
+  const t = useT(scanMessages);
+  const r = useRich(scanMessages);
+  const { locale } = useLocale();
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [shelf, setShelf] = useState("");
   const shelfId = useId();
-  const name = result.display_name_he ?? result.canonical?.display_name_he ?? "המוצר שנסרק";
+  const name = result.display_name_he ?? result.canonical?.display_name_he ?? t("scannedProduct");
   const entered = parseShelfPrice(shelf);
   const here = result.here ?? null;
   const gap = entered !== null && here ? cents(entered - Number(here.shelf_price)) : null;
@@ -99,27 +117,29 @@ export function ResultCard({ result, store }: ResultCardProps) {
           {name}
         </h2>
         <p className={styles.lineMeta}>
-          ברקוד <span dir="ltr">{result.barcode}</span>
+          {r(
+            "barcodeLine",
+            { ltr: (c) => <span dir="ltr">{c}</span> },
+            { barcode: result.barcode },
+          )}
         </p>
       </div>
 
       <ul className={styles.lines}>
         {here ? (
-          <PriceLine testId="scan-here" label="כאן" price={here} />
+          <PriceLine testId="scan-here" label={t("here")} price={here} />
         ) : (
           <li className={styles.line} data-testid="scan-here">
             <div className={styles.lineHead}>
-              <span className={styles.lineLabel}>כאן</span>
+              <span className={styles.lineLabel}>{t("here")}</span>
               {entered !== null ? (
                 <Price amount={entered} size="lg" fractionDigits={2} />
               ) : (
-                <span className={styles.lineMeta}>אין מחיר לסניף הזה</span>
+                <span className={styles.lineMeta}>{t("noPriceHere")}</span>
               )}
             </div>
             <p className={styles.lineMeta}>
-              {entered !== null
-                ? "המחיר שהקלדת מהמדף."
-                : "בחרי סניף למעלה, או הקלידי את המחיר שמופיע על המדף."}
+              {entered !== null ? t("typedFromShelf") : t("pickStoreOrType")}
             </p>
           </li>
         )}
@@ -127,48 +147,49 @@ export function ResultCard({ result, store }: ResultCardProps) {
         {cheapest ? (
           <PriceLine
             testId="scan-cheapest"
-            label="הכי זול באזור"
+            label={t("cheapestNearby")}
             price={cheapest}
             note={cheapest.display_name_he}
           >
             {cheapestIsHere ? (
               <p className={styles.good}>
-                <IconCheck size={14} /> הסניף שלך הוא הזול ביותר באזור למוצר הזה
+                <IconCheck size={14} /> {t("yourStoreCheapest")}
               </p>
             ) : null}
           </PriceLine>
         ) : null}
 
         {substitute ? (
-          <PriceLine testId="scan-substitute" label="תחליף זול" price={substitute}>
+          <PriceLine testId="scan-substitute" label={t("cheapSubstitute")} price={substitute}>
             <p className={styles.subName}>
-              <Tag variant="substitute">תחליף</Tag> <span>{substitute.display_name_he}</span>
+              <Tag variant="substitute">{t("substituteTag")}</Tag>{" "}
+              <span>{substitute.display_name_he}</span>
             </p>
             <p className={styles.reason} data-testid="scan-reason">
-              למה זה תחליף: אותו סוג מוצר ואותה כמות, במותג אחר. מוצג רק כשההתאמה בטוחה, ואפשר
-              להשאיר את המוצר המקורי.
+              {t("substituteReason")}
             </p>
             {subSaving !== null && here ? (
               <p className={styles.good}>
-                <IconCheck size={14} /> זול ב-
-                <Price amount={subSaving} tone="good" fractionDigits={2} /> {perUnitLabel(here.uom)}{" "}
-                מהמחיר כאן
+                <IconCheck size={14} />{" "}
+                {r(
+                  "cheaperBy",
+                  { price: <Price amount={subSaving} tone="good" fractionDigits={2} /> },
+                  { unit: perUnit(here.uom, locale) },
+                )}
               </p>
             ) : null}
           </PriceLine>
         ) : (
           <li className={styles.line} data-testid="scan-no-substitute">
-            <span className={styles.lineLabel}>תחליף זול</span>
-            <p className={styles.lineMeta}>
-              לא מצאנו תחליף זול יותר שמתאים למוצר הזה, ולא נציע משהו שאנחנו לא בטוחות בו.
-            </p>
+            <span className={styles.lineLabel}>{t("cheapSubstitute")}</span>
+            <p className={styles.lineMeta}>{t("noSubstitute")}</p>
           </li>
         )}
       </ul>
 
       <div className={controls.field}>
         <label htmlFor={shelfId} className={controls.label}>
-          המחיר שראית על המדף, בשקלים (לא חובה)
+          {t("shelfLabel")}
         </label>
         <input
           id={shelfId}
@@ -183,14 +204,15 @@ export function ResultCard({ result, store }: ResultCardProps) {
       {hasGap && here ? (
         <div className={styles.gap} role="status" data-testid="scan-gap">
           <p>
-            <IconWarning size={15} /> המחיר שהקלדת (
-            <Price amount={entered ?? 0} fractionDigits={2} />
-            ) שונה מהמחיר שאצלנו (<Price amount={here.shelf_price} fractionDigits={2} />
-            ). ייתכן שהמחיר בקופה שונה, או שהנתונים שלנו לא מעודכנים.
+            <IconWarning size={15} />{" "}
+            {r("gapNotice", {
+              typed: <Price amount={entered ?? 0} fractionDigits={2} />,
+              ours: <Price amount={here.shelf_price} fractionDigits={2} />,
+            })}
           </p>
           {store ? (
             <ReportGapButton
-              label="דווחי על פער"
+              label={t("reportGap")}
               context={{
                 storeId: store.storeId,
                 storeName: store.name,
@@ -223,15 +245,14 @@ export function ResultCard({ result, store }: ResultCardProps) {
               setAdded(true);
             }}
           >
-            הוסיפי לרשימה
+            {t("addToList")}
           </Button>
         </div>
       ) : null}
       <div role="status" aria-live="polite">
         {added ? (
           <p className={styles.good} data-testid="scan-added">
-            <IconCheck size={14} /> נוסף לרשימה. רמת הגמישות נקבעת לפי הקטגוריה, ואפשר לשנות אותה
-            ברשימה.
+            <IconCheck size={14} /> {t("added")}
           </p>
         ) : null}
       </div>

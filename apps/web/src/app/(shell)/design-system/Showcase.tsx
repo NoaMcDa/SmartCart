@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { DocumentTitle } from "@/components/shell/PageChrome";
+import { formatRich } from "@/i18n/format";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { appMessages } from "@/i18n/messages/app";
+import { formatDistance } from "@/lib/format";
 import {
   BottomSheet,
   Button,
@@ -65,6 +70,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function Panel({ theme }: { theme: "light" | "dark" }) {
+  const t = useT(appMessages);
+  const { locale } = useLocale();
   const [qty, setQty] = useState(2);
   const [remember, setRemember] = useState(true);
   const [view, setView] = useState<"list" | "map">("list");
@@ -81,37 +88,39 @@ function Panel({ theme }: { theme: "light" | "dark" }) {
 
   return (
     <div data-theme={theme} className={styles.panel} data-testid={`ds-panel-${theme}`}>
-      <h2 className={styles.panelTitle}>{theme === "light" ? "ערכה בהירה" : "ערכה כהה"}</h2>
+      <h2 className={styles.panelTitle}>
+        {theme === "light" ? t("dsPanelLight") : t("dsPanelDark")}
+      </h2>
 
-      <Section title="צבעים">
+      <Section title={t("dsColors")}>
         <ul className={styles.swatches}>
-          {TOKENS.map((t) => (
-            <li key={t} className={styles.swatch}>
-              <span className={styles.swatchColor} style={{ background: `var(--sc-${t})` }} />
-              <code dir="ltr">--sc-{t}</code>
+          {TOKENS.map((token) => (
+            <li key={token} className={styles.swatch}>
+              <span className={styles.swatchColor} style={{ background: `var(--sc-${token})` }} />
+              <code dir="ltr">--sc-{token}</code>
             </li>
           ))}
         </ul>
       </Section>
 
-      <Section title="כפתורים">
+      <Section title={t("dsButtons")}>
         <div className={styles.row}>
-          <Button>השווי</Button>
-          <Button variant="secondary">ביטול</Button>
+          <Button>{t("dsCompare")}</Button>
+          <Button variant="secondary">{t("dsCancel")}</Button>
           <Button variant="outline" size="sm">
-            השאירי את המקורי
+            {t("dsKeepOriginal")}
           </Button>
           <Button variant="outline" size="sm" tone="bad" iconStart={<IconClose size={14} />}>
-            לא תחליף טוב
+            {t("dsNotGoodSub")}
           </Button>
           <Button variant="ghost" size="sm" iconStart={<IconClipboard size={16} />}>
-            הדבקת רשימה
+            {t("dsPasteList")}
           </Button>
-          <Button disabled>לא זמין</Button>
+          <Button disabled>{t("dsUnavailable")}</Button>
         </div>
       </Section>
 
-      <Section title="צ'יפים של גמישות">
+      <Section title={t("dsFlexChips")}>
         <div className={styles.row}>
           <FlexChip level="exact" />
           <FlexChip level="any_brand" />
@@ -120,23 +129,28 @@ function Panel({ theme }: { theme: "light" | "dark" }) {
         </div>
         <div className={styles.row}>
           <Chip tone="neutral" selected={allowCarton} onClick={() => setAllowCarton((v) => !v)}>
-            קרטון או שקית
+            {t("dsCartonOrBag")}
           </Chip>
           <Chip tone="neutral" selected={false} onClick={() => {}}>
-            גודל אריזה אחר
+            {t("dsOtherPackSize")}
           </Chip>
           <Chip tone="accent" size="sm" icon={<IconCheck size={12} />}>
-            מומלץ
+            {t("dsRecommended")}
           </Chip>
           <Chip tone="exact" size="sm">
-            פיצול ל-2 סופרים
+            {t("dsSplitTwo")}
           </Chip>
         </div>
       </Section>
 
-      <Section title="אמון ועדכניות">
+      <Section title={t("dsTrust")}>
         <div className={styles.row} data-testid={`ds-updated-${theme}`}>
-          <UpdatedAt iso="2026-10-07T03:40:00Z" now={DS_NOW} prefix="מחירים עודכנו" withIcon />
+          <UpdatedAt
+            iso="2026-10-07T03:40:00Z"
+            now={DS_NOW}
+            prefix={t("dsPricesUpdated")}
+            withIcon
+          />
           <UpdatedAt iso="2026-10-06T15:20:00Z" now={DS_NOW} />
           <UpdatedAt iso="2026-10-04T08:00:00Z" now={DS_NOW} />
           <UpdatedAt iso={null} />
@@ -151,45 +165,52 @@ function Panel({ theme }: { theme: "light" | "dark" }) {
           />
         </div>
         <div className={styles.row} data-testid={`ds-trust-tags-${theme}`}>
-          <Tag variant="substitute">תחליף</Tag>
-          <Tag variant="club">מבצע מועדון</Tag>
+          <Tag variant="substitute">{t("dsSubstitute")}</Tag>
+          <Tag variant="club">{t("dsClubPromo")}</Tag>
           <PromoConfidence confidence={0.96} />
           <PromoConfidence confidence={0.72} />
           <PromoConfidence confidence={null} />
         </div>
-        <div className={styles.row} role="group" aria-label="אפשר לוותר על">
+        <div className={styles.row} role="group" aria-label={t("dsMayWaive")}>
           <CheckChip checked={allowBrand} onChange={setAllowBrand}>
-            מותג אחר
+            {t("dsOtherBrand")}
           </CheckChip>
           <CheckChip checked={allowFlavor} onChange={setAllowFlavor}>
-            טעם אחר
+            {t("dsOtherFlavor")}
           </CheckChip>
           <CheckChip checked={false} onChange={() => {}} disabled>
-            לא זמין
+            {t("dsUnavailable")}
           </CheckChip>
         </div>
       </Section>
 
-      <Section title="תגיות">
+      <Section title={t("dsTags")}>
         <div className={styles.row}>
-          <Tag variant="matched">אותו סוג מוצר</Tag>
-          <Tag variant="unverified">28% מוצקים · לא מאומת</Tag>
-          <Tag variant="differs">מותג פרטי במקום אסם</Tag>
-          <Tag variant="missing">1 פריט חסר</Tag>
-          <Tag variant="estimated">מחיר משוער · שקיל</Tag>
+          <Tag variant="matched">{t("dsSameType")}</Tag>
+          <Tag variant="unverified">{t("dsSolids")}</Tag>
+          <Tag variant="differs">{t("dsPrivateLabel")}</Tag>
+          <Tag variant="missing">{t("dsOneMissing")}</Tag>
+          <Tag variant="estimated">{t("dsEstimatedWeighed")}</Tag>
         </div>
       </Section>
 
-      <Section title="מחירים">
+      <Section title={t("dsPrices")}>
         <p className={styles.sentence} data-testid={`price-sentence-${theme}`}>
-          סך הסל <Price amount="389.00" size="lg" />, חוסך <Price amount={57} tone="good" /> לעומת
-          שופרסל דיל.
+          {formatRich(t("dsSentenceTotal"), {
+            total: <Price amount="389.00" size="lg" />,
+            saving: <Price amount={57} tone="good" />,
+          })}
         </p>
         <p className={styles.sentence}>
-          <Price amount="1.73" /> ל-100 ג&apos;, מחיר מדף <Price amount="4.5" fractionDigits={2} />.
+          {formatRich(t("dsSentenceUnit"), {
+            unit: <Price amount="1.73" />,
+            shelf: <Price amount="4.5" fractionDigits={2} />,
+          })}
         </p>
         <p className={styles.sentence}>
-          הערכת סל: <PriceRange from={412} to={468} size="lg" />
+          {formatRich(t("dsSentenceEstimate"), {
+            range: <PriceRange from={412} to={468} size="lg" />,
+          })}
         </p>
         <div className={styles.row} data-testid={`ds-price-sizes-${theme}`}>
           <Price amount="3.9" size="sm" />
@@ -202,81 +223,85 @@ function Panel({ theme }: { theme: "light" | "dark" }) {
         </div>
       </Section>
 
-      <Section title="כרטיסים">
+      <Section title={t("dsCards")}>
         <Card as="article" variant="recommended">
           <div className={styles.spread}>
             <Chip tone="accent" size="sm" icon={<IconCheck size={12} />}>
-              מומלץ
+              {t("dsRecommended")}
             </Chip>
             <span className={styles.meta}>
-              <IconPin size={14} /> 4.2 ק&quot;מ
+              <IconPin size={14} /> {formatDistance(4200, locale)}
             </span>
           </div>
-          <div className={styles.storeName}>רמי לוי · מודיעין</div>
+          <div className={styles.storeName}>{t("dsStoreName")}</div>
           <div className={styles.spread}>
             <Price amount={389} size="hero" />
             <span className={styles.saving}>
-              חוסך <Price amount={57} />
+              {formatRich(t("dsSaving"), { price: <Price amount={57} /> })}
             </span>
           </div>
         </Card>
         <Card padding="none">
           <CardRow>
             <div className={styles.itemText}>
-              <div className={styles.itemName}>חלב טרי 3%, 1 ליטר</div>
+              <div className={styles.itemName}>{t("dsMilk")}</div>
               <FlexChip level="any_brand" onClick={() => setSheetOpen(true)} />
             </div>
-            <Stepper value={qty} onChange={setQty} label="חלב טרי 3%, 1 ליטר" min={1} />
+            <Stepper value={qty} onChange={setQty} label={t("dsMilk")} min={1} />
           </CardRow>
           <CardRow>
             <div className={styles.itemText}>
-              <div className={styles.itemName}>עגבניות, 1 ק&quot;ג</div>
-              <Tag variant="estimated">מחיר משוער · שקיל</Tag>
+              <div className={styles.itemName}>{t("dsTomatoes")}</div>
+              <Tag variant="estimated">{t("dsEstimatedWeighed")}</Tag>
             </div>
-            <Stepper value={1} onChange={() => {}} label='עגבניות, 1 ק"ג' unit='ק"ג' step={0.5} />
+            <Stepper
+              value={1}
+              onChange={() => {}}
+              label={t("dsTomatoes")}
+              unit={t("dsKgUnit")}
+              step={0.5}
+            />
           </CardRow>
         </Card>
       </Section>
 
-      <Section title="מתג ובקרה מקטעית">
-        <Switch checked={remember} onChange={setRemember} label="זכרי בחירה זו לכל סוגי החלב" />
+      <Section title={t("dsSwitchSegmented")}>
+        <Switch checked={remember} onChange={setRemember} label={t("dsRememberMilk")} />
         <SegmentedControl
-          label="תצוגה"
+          label={t("dsView")}
           value={view}
           onChange={setView}
           options={[
-            { value: "list", label: "רשימה" },
-            { value: "map", label: "מפה", icon: <IconMap size={16} /> },
+            { value: "list", label: t("dsViewList") },
+            { value: "map", label: t("dsViewMap"), icon: <IconMap size={16} /> },
           ]}
         />
       </Section>
 
-      <Section title="גיליון תחתון">
+      <Section title={t("dsSheet")}>
         <Button variant="secondary" onClick={() => setSheetOpen(true)}>
-          פתיחת גיליון גמישות
+          {t("dsOpenSheet")}
         </Button>
         <BottomSheet
           open={sheetOpen}
           onClose={() => setSheetOpen(false)}
-          eyebrow="רמת גמישות לפריט"
-          title="חלב טרי 3%, 1 ליטר"
+          eyebrow={t("dsSheetEyebrow")}
+          title={t("dsMilk")}
           footer={
             <>
-              <Button onClick={() => setSheetOpen(false)}>שמרי</Button>
+              <Button onClick={() => setSheetOpen(false)}>{t("dsSave")}</Button>
               <Button variant="secondary" onClick={() => setSheetOpen(false)}>
-                ביטול
+                {t("dsCancel")}
               </Button>
             </>
           }
         >
-          <p className={styles.meta}>
-            אותו מוצר מכל יצרן: תנובה, טרה, יטבתה, מותג פרטי. נשמר: 3% שומן, טרי, 1 ליטר.
-          </p>
-          <Switch checked={remember} onChange={setRemember} label="זכרי בחירה זו לכל סוגי החלב" />
+          <p className={styles.meta}>{t("dsSheetBody")}</p>
+          <Switch checked={remember} onChange={setRemember} label={t("dsRememberMilk")} />
         </BottomSheet>
       </Section>
 
-      <Section title="שלד טעינה">
+      <Section title={t("dsSkeleton")}>
         <Card aria-busy="true">
           <Skeleton width="50%" height={18} />
           <SkeletonText lines={3} />
@@ -288,12 +313,12 @@ function Panel({ theme }: { theme: "light" | "dark" }) {
 }
 
 export function Showcase() {
+  const t = useT(appMessages);
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>ערכת עיצוב</h1>
-      <p className={styles.meta}>
-        כל רכיבי src/components/ui בשתי הערכות. דף פיתוח, לא מקושר מהאפליקציה.
-      </p>
+      <DocumentTitle id="designSystemTitle" />
+      <h1 className={styles.title}>{t("designSystemTitle")}</h1>
+      <p className={styles.meta}>{t("dsIntro")}</p>
       <div className={styles.grid}>
         <Panel theme="light" />
         <Panel theme="dark" />

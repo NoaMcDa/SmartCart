@@ -55,7 +55,8 @@ On the VPS the API unit reads `/etc/smartcart/ingest.env`, then `/etc/smartcart/
 
 | Variable | Required | Meaning |
 |---|---|---|
-| `DATABASE_URL` | yes | The API's connection. Use the **session** pooler (port 5432 on the pooler host) or the direct host, as `postgres` (see the note below) |
+| `DATABASE_URL` | yes | The API's connection, as the least-privilege role `smartcart_api` (see "Which role" below), through the **session** pooler (port 5432 on the pooler host), the **transaction** pooler (port 6543, with `DB_POOLER_MODE=transaction`) or the direct host |
+| `DB_POOLER_MODE` | no (`session`) | `transaction` when `DATABASE_URL` goes through the transaction pooler: no server-side prepared statements (`prepare_threshold=None`) and the time zone set per transaction (`SET LOCAL TIME ZONE 'UTC'`) instead of per connection. Any other value than `session` or `transaction` stops the API when it first opens the pool |
 | `SUPABASE_JWT_SECRET` | yes | The project's JWT secret; `/me/*` answers 503 without it |
 | `API_CORS_ORIGINS` | yes | `https://<your domain>` (comma separated; add the Vercel preview origin only if you use previews) |
 | `API_PUBLIC_WEB_URL` | yes | `https://<your domain>`: the origin of list-invite links |
@@ -66,27 +67,79 @@ On the VPS the API unit reads `/etc/smartcart/ingest.env`, then `/etc/smartcart/
 | `API_POOL_MAX` | no (10) | connections per worker; total = workers x this |
 | `SMARTCART_API_PORT` | no (8000) | loopback port of the unit; set the same in `setup.sh`'s environment |
 
-**Which connection, and why not the transaction pooler yet.** `infra-provisioning.md` section 3.2
-planned the transaction pooler (port 6543) for the API. Two things in the API code rule it out
-today, found while writing this page: `smartcart_api/db.py` sets `SET TIME ZONE 'UTC'` once per
-pooled connection (session state that a transaction pooler does not keep), and psycopg prepares
-statements automatically after five executions (`prepare_threshold`), which transaction pooling
-may break (unverified for Supavisor). Use the session pooler with `WEB_CONCURRENCY=2` and
-`API_POOL_MAX=5` (10 connections; the Pro plan's connection limits are unverified, check the
-dashboard). Moving to the transaction pooler needs both fixed in the API first.
+**Which connection: session or transaction pooler.** Both work. `infra-provisioning.md` section 3.2
+planned the transaction pooler (port 6543) for the API: many short requests. Two things in
+`smartcart_api/db.py` made that unsafe, and `DB_POOLER_MODE=transaction` fixes both. The time zone
+was set once per pooled connection (`SET TIME ZONE 'UTC'`), session state that a transaction pooler
+does not keep; in transaction mode it is `SET LOCAL TIME ZONE 'UTC'` at the start of each request's
+transaction. psycopg prepares a statement on the server after five executions
+(`prepare_threshold`), and a statement prepared on one server connection does not exist on the next;
+transaction mode sets `prepare_threshold=None`. Everything else the API keeps in the session is
+already transaction-local (`SET LOCAL ROLE`, `set_config(..., true)` for the JWT claims and the
+trigram threshold). Proven against a local Postgres by `services/api/tests/test_api_db_pooler.py`
+(the time zone ends with the request, no statement is ever prepared); **not yet run against
+Supavisor itself**, so after switching, watch the first requests' log for prepared-statement errors
+and fall back to the session pooler if any appear. The session pooler stays the default and the
+documented choice until then: `WEB_CONCURRENCY=2` and `API_POOL_MAX=5` (10 connections; the Pro
+plan's connection limits are unverified, check the dashboard). With the transaction pooler the
+pool can be larger, since the server connection is held for one transaction only.
 
-**Which role.** The signed-in routes `SET LOCAL ROLE smartcart_app`, and the migrations grant that
-role only to the role that ran them (`20261007110100_app_role.sql`), which is `postgres`. So today
-the API connects as `postgres`. A least-privilege `smartcart_api` login role (planned in
-`infra-provisioning.md` section 3.1) needs its own grants and `GRANT smartcart_app TO smartcart_api`
-in a migration; until then, treat `api.env` like the owner password.
+**Which role.** The API connects as `smartcart_api`, a login role created by migration
+`20261011100500_api_role.sql` with exactly what the API does and nothing else:
+
+- read the catalog and price tables (`chains`, `stores`, `items`, `prices`, `promos`,
+  `effective_prices`, `canonical_products`, `taxonomy`, `item_canonical`, `file_tracking`, ...);
+- write `events`, `search_misses`, `gap_reports` and `substitution_feedback`, and set
+  `item_canonical.needs_review` (that column only) when a substitute is reported;
+- reach the user tables (`profiles`, `lists`, `list_items`, `preferences`, `price_alerts`,
+  `push_subscriptions`, `spend_entries`, `list_shares`) only through `SET LOCAL ROLE smartcart_app`
+  as every `/me` route already does, so row-level security decides the rows. The role is
+  `NOINHERIT`, so a route that forgot the switch cannot read them;
+- three statements run on the service connection by design and have column-limited grants and
+  policies: taking over a push endpoint registered to another account, reading and accepting an
+  invite by the hash of its token, and the cleanup of a deleted account's shares and items;
+- no DDL and no write to the catalog or the price tables. The nightly precompute and the alerts
+  job write `effective_prices` and read every user's alerts: they keep the owner connection in
+  `jobs.env` (below). `DELETE /me` needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; the stand-in
+  `auth.users` delete used on the demo database is something this role cannot do (the API logs a
+  warning and the account's rows are removed regardless).
+
+The role exists only if a password is supplied; otherwise the migration prints a NOTICE and creates
+the function `smartcart_grant_api_role(role)` that holds the grants. Two ways, both from the laptop
+and the **direct** connection (the pooler may reject the `options` startup parameter; unverified):
+
+```bash
+# 1. with the first migration: the password reaches the migration through libpq, never a file
+export SMARTCART_API_PASSWORD="$(openssl rand -base64 24)"      # keep it in the password manager
+PGOPTIONS="-c smartcart.api_password=$SMARTCART_API_PASSWORD" \
+  DATABASE_URL="$DATABASE_URL_DIRECT" uv run smartcart-ingest migrate
+
+# 2. after the migration has run without it (the file is recorded; it does not run twice)
+psql "$DATABASE_URL_DIRECT" -c "create role smartcart_api login noinherit" -c "\password smartcart_api"
+psql "$DATABASE_URL_DIRECT" -c "select smartcart_grant_api_role('smartcart_api')"
+```
+
+`smartcart_grant_api_role` is idempotent: run it again after a migration adds a table the API
+uses. If it prints "auth schema grants ... left to a role that may grant on it", the migrating role
+may not grant on Supabase's `auth` schema; run these three as `supabase_admin` in the SQL editor
+(unverified which role owns the schema): `grant usage on schema auth to smartcart_api; grant select
+(id) on auth.users to smartcart_api; grant execute on function auth.uid() to smartcart_api;`. The
+API needs them to check that a token's account exists before storing an event and for the
+policies' `auth.uid()`. The pooler user name of a role carries the project reference (`role.projectref`,
+unverified): take the string from the Connect panel and put `smartcart_api` in front of it.
+The grants are tested on a throwaway role by `services/api/tests/test_api_role.py`, and the whole API suite
+passes as that role with `SMARTCART_TEST_AS_API_ROLE=1 uv run pytest services/api/tests`
+(one stand-in `auth.users` delete test differs on purpose). Treat `api.env` as a secret of the
+restricted role, no longer as the owner password; the owner password lives in `jobs.env` and on the
+laptop.
 
 ### Batch jobs, at run time
 
 `smartcart-precompute.service` and `smartcart-alerts.service` read `ingest.env`, `api.env`, then
 `/etc/smartcart/jobs.env`, the last one winning. Put a `DATABASE_URL` in `jobs.env` that may delete
 `effective_prices` rows (the precompute replaces them) and read every user's alerts (the alerts job
-bypasses RLS): `postgres` over the session pooler or the direct host. `SMARTCART_PRECOMPUTE_ARGS`
+bypasses RLS): the owner (`postgres`) over the session pooler or the direct host, not
+`smartcart_api`. `SMARTCART_PRECOMPUTE_ARGS`
 and `SMARTCART_ALERTS_ARGS` add flags (`--chain ID`, `--dry-run`).
 
 ### Web, at build time
@@ -105,6 +158,9 @@ browser: nothing secret belongs here.
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | for web push | the public half of the VAPID pair |
 | `NEXT_PUBLIC_BETA_EVENTS` | beta build only | `1` turns on the consented beta events (docs/web.md) |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | no | contact address on the accessibility statement |
+| `NEXT_PUBLIC_CONTACT_NAME`, `NEXT_PUBLIC_CONTACT_PHONE` | no | the accessibility coordinator's name and phone on the statement |
+| `NEXT_PUBLIC_INDEX_UNPRICED` | no | `0` keeps product pages without a price out of the index (`noindex`, not in the sitemap); default on (docs/seo.md) |
+| `SEO_STRICT_SITE_URL` | build only | `1` fails the build unless `NEXT_PUBLIC_SITE_URL` is an absolute https URL; `deploy.yml` sets it whenever the site URL variable is set |
 | `NEXT_PUBLIC_API_MOCK`, `NEXT_PUBLIC_DISABLE_SW` | never in production | test switches (mock API, no service worker) |
 
 The web image's runtime takes only `PORT` (3000) and `HOSTNAME` (0.0.0.0).
@@ -156,7 +212,7 @@ create when you add the domain to the project; unverified which record type it a
 **3. VPS environment.** On the VPS, as root:
 
 ```bash
-sudoedit /etc/smartcart/api.env     # DATABASE_URL (session pooler, postgres), SUPABASE_JWT_SECRET,
+sudoedit /etc/smartcart/api.env     # DATABASE_URL (pooler, smartcart_api), DB_POOLER_MODE, SUPABASE_JWT_SECRET,
                                     # API_CORS_ORIGINS=https://<domain>, API_PUBLIC_WEB_URL=https://<domain>,
                                     # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VAPID_* (runbook step 11)
 sudoedit /etc/smartcart/jobs.env    # DATABASE_URL for precompute and alerts (postgres)
@@ -329,7 +385,22 @@ On 2026-10-08, in the build container, with Docker 29 available:
   images (`--build-arg PYTHON_IMAGE=...`, `NODE_IMAGE=...`) because this container reaches the
   network through a TLS-inspecting proxy; the Dockerfiles are unchanged by that.
 
-Known image notes: the API image is about 1.4 GB on disk (330 MB compressed) because the catalog
-package depends on Streamlit (and with it pandas and pyarrow) for its review UI; moving Streamlit to
-an optional extra of `smartcart-catalog` would shrink it. `@zxing/library` 0.23 declares Node 24 in
+- Finish round (2026-10-08): the API image rebuilt without Streamlit (sizes in the note below);
+  from it `import smartcart_api.main` loads neither Streamlit nor pyarrow, `smartcart-api`,
+  `smartcart-ingest` and `smartcart-catalog` start, and `smartcart-catalog review` prints the hint for
+  the missing extra. The API role, the pooler mode, the idempotent spend entry and the search misses
+  are covered by tests on a local Postgres (`test_api_role.py`, `test_api_db_pooler.py`,
+  `test_api_spend_idempotency.py`, `test_api_search_misses.py`); **not run**: the role migration on
+  Supabase itself (the `auth` schema grants are the part most likely to need the manual step above),
+  and the transaction pooler against Supavisor.
+
+Known image notes: the API image was about 1.39 GB on disk (326 MB compressed) because the catalog
+package depended on Streamlit and with it pyarrow, altair and pydeck for its review UI. Streamlit is
+now the `review` extra of `smartcart-catalog`, which the API does not install (the build fails if
+`import streamlit` works in the image): **1.05 GB on disk, 248 MB compressed** (measured 2026-10-08
+with `docker image inspect`, the same base image, before and after; 25% and 24% less). The rest is dominated by Playwright (140 MB, pulled by the upstream scraper package through
+`smartcart-ingest`, which the image carries only for `smartcart-ingest migrate`), OR-Tools (80 MB),
+pandas (75 MB, a hard dependency of both OR-Tools and the upstream parser) and numpy (70 MB with its
+libraries), botocore (31 MB). Splitting a migrate-only extra out of `smartcart-ingest` would remove
+roughly 200 MB more (estimate, from those sizes); it is not done. `@zxing/library` 0.23 declares Node 24 in
 `engines` (a warning on Node 22, which CI uses too).

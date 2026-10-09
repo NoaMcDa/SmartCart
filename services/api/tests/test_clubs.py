@@ -27,24 +27,68 @@ CHAIN1, CHAIN2 = "רשת אחת", "רשת שתיים"
 @pytest.fixture
 def w(db, world: World) -> World:
     world.promos["eggs_card"] = add_promo(
-        db, "t-c1", None, "P4", [world.items["eggs_c1"]], "price", "8.50", club_only=True,
-        club_name="כרטיס אשראי", description="ביצים בכרטיס")
+        db,
+        "t-c1",
+        None,
+        "P4",
+        [world.items["eggs_c1"]],
+        "price",
+        "8.50",
+        club_only=True,
+        club_name="כרטיס אשראי",
+        description="ביצים בכרטיס",
+    )
     world.promos["eggs_c2_club"] = add_promo(
-        db, "t-c2", None, "P5", [world.items["eggs_c2"]], "price", "7.00", club_only=True,
-        club_name="מועדון לקוחות", description="ביצים למועדון שתיים")
-    add_promo(db, "t-c2", None, "P6", [world.items["eggs_c2"]], "price", "5.00", club_only=True,
-              club_name=None, description="מבצע מועדון לא מפוענח")
-    add_promo(db, "t-c2", None, "P7", [world.items["eggs_c2"]], "price", "5.00", club_only=True,
-              club_name="אחר", description="מבצע אחר")
-    db.execute("UPDATE promos SET raw = '{\"confidence\": 0.8}' WHERE id = %s",
-               (world.promos["bread_3for20"],))
+        db,
+        "t-c2",
+        None,
+        "P5",
+        [world.items["eggs_c2"]],
+        "price",
+        "7.00",
+        club_only=True,
+        club_name="מועדון לקוחות",
+        description="ביצים למועדון שתיים",
+    )
+    add_promo(
+        db,
+        "t-c2",
+        None,
+        "P6",
+        [world.items["eggs_c2"]],
+        "price",
+        "5.00",
+        club_only=True,
+        club_name=None,
+        description="מבצע מועדון לא מפוענח",
+    )
+    add_promo(
+        db,
+        "t-c2",
+        None,
+        "P7",
+        [world.items["eggs_c2"]],
+        "price",
+        "5.00",
+        club_only=True,
+        club_name="אחר",
+        description="מבצע אחר",
+    )
+    db.execute(
+        "UPDATE promos SET raw = '{\"confidence\": 0.8}' WHERE id = %s",
+        (world.promos["bread_3for20"],),
+    )
     precompute_effective_prices(db, chains=world.chains)
     return world
 
 
 def eggs_body(w: World, clubs: list[str], **kw) -> dict:
-    return {"items": [{"canonical_id": w.canon["eggs"], "quantity": 1}], "location": w.location,
-            "clubs": clubs, **kw}
+    return {
+        "items": [{"canonical_id": w.canon["eggs"], "quantity": 1}],
+        "location": w.location,
+        "clubs": clubs,
+        **kw,
+    }
 
 
 def compare(client, body: dict) -> dict[int, dict]:
@@ -98,12 +142,15 @@ def test_precompute_keeps_every_clubs_deal(db, w: World) -> None:
     assert club_required and club_name == "כרטיס אשראי"
     assert noclub["effective_price"] == "12.90" and noclub["promo_id"] is None
     assert {k: D(v["effective_price"]) for k, v in noclub["clubs"].items()} == {
-        "כרטיס אשראי": D("8.50"), "מועדון לקוחות": D("9.90")}
+        "כרטיס אשראי": D("8.50"),
+        "מועדון לקוחות": D("9.90"),
+    }
     # At B the deal without a club name is not kept; "אחר" is kept as data, and club_member
     # never matches it (test_unparseable_club_deal_never_applies).
     b = db.execute(
         "SELECT noclub FROM effective_prices WHERE canonical_id = %s AND store_id = %s"
-        " AND flex_level = 'any_brand'", (w.canon["eggs"], w.stores["b"]),
+        " AND flex_level = 'any_brand'",
+        (w.canon["eggs"], w.stores["b"]),
     ).fetchone()[0]
     assert set(b["clubs"]) == {"מועדון לקוחות", "אחר"}
 

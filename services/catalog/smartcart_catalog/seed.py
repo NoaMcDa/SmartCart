@@ -12,6 +12,14 @@ Rows that disappear from the files are reported, never deleted, because matches 
 A canonical may list ``reference_barcodes`` (issue #92): the barcodes that are exactly this
 product, stored in ``canonical_products.reference_barcodes`` and used by the judge's exact rule.
 An entry without the key leaves the stored barcodes untouched.
+
+Every canonical also lists 1-3 ``names_ar`` (issue #73): the Arabic names shoppers write, machine
+drafted and awaiting native-speaker review, stored in ``canonical_products.names_ar``. Validation
+(``validate_names_ar``): non-empty, Arabic letters, no leading article ال, no two canonicals with the same
+normalized name (two canonicals that differ in a critical attribute have names that state it, so
+their normalized names differ), and every name states the critical attributes it can state in
+Arabic (fat %, frozen or canned, soy/almond/oat, and fresh/dry/flavor wherever a sibling of the
+same product type differs) without contradicting them.
 """
 
 from __future__ import annotations
@@ -20,6 +28,7 @@ import json
 import re
 from collections import Counter
 from dataclasses import dataclass, field
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, get_args
 
@@ -33,9 +42,17 @@ from smartcart_catalog.models import (
     CanonicalProduct,
     ProductTypeRule,
 )
+from smartcart_catalog.normalize import (
+    STATE_CONFLICTS,
+    ar_attributes,
+    ar_variants,
+    has_arabic,
+    normalize_ar,
+)
 from smartcart_catalog.taxonomy import Taxonomy, default_data_dir, load_taxonomy
 
 MIN_CANONICALS, MAX_CANONICALS = 150, 300
+MAX_NAMES_AR = 3
 ATTRIBUTE_KEYS: frozenset[str] = frozenset(get_args(AttributeKey))
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _PRODUCT_TYPE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -91,7 +108,12 @@ def parse_rules(doc: dict[str, Any]) -> tuple[dict[str, ProductTypeRule], dict[s
         if {"product_type", "category_path"} & (set(crit) | set(soft)):
             problems.append(f"{pt}: product_type/category_path are implicit, do not list them")
         unknown = set(entry) - {
-            "product_type", "critical_keys", "soft_keys", "keywords", "exclude", "implied"
+            "product_type",
+            "critical_keys",
+            "soft_keys",
+            "keywords",
+            "exclude",
+            "implied",
         }
         if unknown:
             problems.append(f"{pt}: unknown fields {sorted(unknown)}")
@@ -167,6 +189,7 @@ def parse_canonicals(
             if code in owner and owner[code] != c.slug:
                 problems.append(f"{c.slug}: barcode {code} is also a reference of {owner[code]}")
             owner.setdefault(code, c.slug)
+    problems.extend(validate_names_ar(out))
     ranks = sorted(c.rank for c in out if c.rank is not None)
     if ranks != list(range(1, len(out) + 1)):
         problems.append("ranks must be 1..N without gaps or duplicates")
@@ -180,10 +203,83 @@ def parse_canonicals(
             )
         seen.setdefault(key, c.slug)
     if not MIN_CANONICALS <= len(out) <= MAX_CANONICALS:
-        problems.append(f"{len(out)} canonicals; the MVP range is {MIN_CANONICALS}-{MAX_CANONICALS}")
+        problems.append(
+            f"{len(out)} canonicals; the MVP range is {MIN_CANONICALS}-{MAX_CANONICALS}"
+        )
     if problems:
         raise SeedError("invalid canonicals:\n  " + "\n  ".join(problems))
     return tuple(out)
+
+
+def validate_names_ar(canonicals: list[CanonicalProduct]) -> list[str]:
+    """Problems with the Arabic names (an empty list = valid). See the module docstring."""
+    problems: list[str] = []
+    owner: dict[str, str] = {}
+    by_type: dict[str, list[CanonicalProduct]] = {}
+    for c in canonicals:
+        by_type.setdefault(c.product_type, []).append(c)
+    for c in canonicals:
+        slug = c.slug
+        if not 1 <= len(c.names_ar) <= MAX_NAMES_AR:
+            problems.append(f"{slug}: names_ar must list 1-{MAX_NAMES_AR} Arabic names")
+            continue
+        siblings = [o for o in by_type.get(c.product_type, []) if o is not c]
+        own: set[str] = set()
+        for name in c.names_ar:
+            norm = normalize_ar(name)
+            if not has_arabic(name):
+                problems.append(f"{slug}: names_ar {name!r} has no Arabic letters")
+                continue
+            first = norm.split()[0] if norm.split() else ""
+            if first.startswith("ال") and len(ar_variants(first)) > 1:
+                problems.append(
+                    f"{slug}: names_ar {name!r}: do not start a name with the article ال"
+                )
+            if norm in own:
+                problems.append(f"{slug}: names_ar {name!r} repeats another name after folding")
+            own.add(norm)
+            if norm in owner and owner[norm] != slug:
+                problems.append(f"{slug}: names_ar {name!r} is also a name of {owner[norm]}")
+            owner.setdefault(norm, slug)
+            problems.extend(_stated_attribute_problems(c, siblings, name))
+    return problems
+
+
+def _stated_attribute_problems(
+    c: CanonicalProduct, siblings: list[CanonicalProduct], name: str
+) -> list[str]:
+    stated = ar_attributes(name)
+    crit = c.critical_attrs
+    out: list[str] = []
+    prefix = f"{c.slug}: names_ar {name!r}"
+    if "fat_pct" in crit:
+        want = {Decimal(str(crit["fat_pct"]))}
+        if set(stated.fat_pct) != want:
+            out.append(f"{prefix} must state the fat percentage {crit['fat_pct']}%")
+    if "base" in crit:
+        if set(stated.base) != {str(crit["base"])}:
+            out.append(f"{prefix} must state the base {crit['base']}")
+    if "state" in crit:
+        value = str(crit["state"])
+        differs = any(o.critical_attrs.get("state") != crit["state"] for o in siblings)
+        if (differs or value in ("frozen", "canned")) and value not in stated.state:
+            out.append(f"{prefix} must state the state {value}")
+        if any(value in STATE_CONFLICTS[s] for s in stated.state):
+            out.append(f"{prefix} states {sorted(stated.state)}, the canonical is {value}")
+    if "flavor" in crit:
+        value = str(crit["flavor"])
+        others = {
+            str(o.critical_attrs["flavor"])
+            for o in siblings
+            if o.critical_attrs.get("flavor") not in (None, crit["flavor"])
+        }
+        if others and value not in stated.flavor:
+            out.append(f"{prefix} must state the flavor {value}")
+        if value not in stated.flavor and stated.flavor & others:
+            out.append(
+                f"{prefix} states {sorted(stated.flavor & others)}, the canonical is {value}"
+            )
+    return out
 
 
 def load_catalog(data_dir: Path | None = None) -> Catalog:
@@ -317,29 +413,37 @@ def seed_canonicals(
         row = conn.execute(
             "INSERT INTO canonical_products AS c (taxonomy_id, slug, display_name_he,"
             "   product_type, base_unit, critical_attrs, soft_attrs, is_mvp, rank,"
-            "   reference_barcodes)"
+            "   reference_barcodes, names_ar)"
             " VALUES (%(tax)s, %(slug)s, %(name)s, %(pt)s, %(bu)s, %(crit)s::jsonb,"
-            "   %(soft)s::jsonb, %(mvp)s, %(rank)s, %(codes)s)"
+            "   %(soft)s::jsonb, %(mvp)s, %(rank)s, %(codes)s, %(names_ar)s)"
             " ON CONFLICT (slug) DO UPDATE SET taxonomy_id = EXCLUDED.taxonomy_id,"
             "   display_name_he = EXCLUDED.display_name_he,"
             "   product_type = EXCLUDED.product_type, base_unit = EXCLUDED.base_unit,"
             "   critical_attrs = EXCLUDED.critical_attrs, soft_attrs = EXCLUDED.soft_attrs,"
             "   is_mvp = EXCLUDED.is_mvp, rank = EXCLUDED.rank,"
+            "   names_ar = EXCLUDED.names_ar,"
             "   reference_barcodes = CASE WHEN %(has_codes)s THEN EXCLUDED.reference_barcodes"
             "                             ELSE c.reference_barcodes END"
             " WHERE (c.taxonomy_id, c.display_name_he, c.product_type, c.base_unit,"
-            "        c.critical_attrs, c.soft_attrs, c.is_mvp, c.rank) IS DISTINCT FROM"
+            "        c.critical_attrs, c.soft_attrs, c.is_mvp, c.rank, c.names_ar) IS DISTINCT FROM"
             "   (EXCLUDED.taxonomy_id, EXCLUDED.display_name_he, EXCLUDED.product_type,"
             "    EXCLUDED.base_unit, EXCLUDED.critical_attrs, EXCLUDED.soft_attrs,"
-            "    EXCLUDED.is_mvp, EXCLUDED.rank)"
+            "    EXCLUDED.is_mvp, EXCLUDED.rank, EXCLUDED.names_ar)"
             "   OR (%(has_codes)s AND c.reference_barcodes IS DISTINCT FROM"
             "       EXCLUDED.reference_barcodes)"
             " RETURNING (xmax = 0)",
             {
-                "tax": c.taxonomy_id, "slug": c.slug, "name": c.display_name_he,
-                "pt": c.product_type, "bu": c.base_unit, "crit": _jsonb(c.critical_attrs),
-                "soft": _jsonb(c.soft_attrs), "mvp": c.is_mvp, "rank": c.rank,
+                "tax": c.taxonomy_id,
+                "slug": c.slug,
+                "name": c.display_name_he,
+                "pt": c.product_type,
+                "bu": c.base_unit,
+                "crit": _jsonb(c.critical_attrs),
+                "soft": _jsonb(c.soft_attrs),
+                "mvp": c.is_mvp,
+                "rank": c.rank,
                 "codes": list(c.reference_barcodes),
+                "names_ar": list(c.names_ar),
                 # a file entry without the key leaves the stored barcodes as they are
                 "has_codes": "reference_barcodes" in c.model_fields_set,
             },

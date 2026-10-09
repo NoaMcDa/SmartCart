@@ -18,6 +18,22 @@
   color: var(--sc-muted);
 }
 
+/* "Draft, pending legal review": a visible block with an icon-free text label, not color alone. */
+.draft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+  padding: var(--sc-space-3) var(--sc-space-4);
+  border: 1.5px solid var(--sc-warn-fg);
+  border-radius: var(--sc-radius-control);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.draft strong {
+  color: var(--sc-warn-fg);
+}
+
 .page h2 {
   margin-block-end: var(--sc-space-2);
   font-size: 18px;

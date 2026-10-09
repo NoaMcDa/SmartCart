@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { IconChevronBack } from "@/components/ui/icons";
+import { BackLink, DocumentTitle, PageHeading } from "@/components/shell/PageChrome";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { appMessages } from "@/i18n/messages/app";
 import { ResultsView } from "@/features/compare/ResultsView";
 import styles from "../core.module.css";
 
-export const metadata: Metadata = { title: "איפה הכי זול השבוע?" };
+export const metadata: Metadata = {
+  title: translate(appMessages, DEFAULT_LOCALE, "whereCheapest"),
+};
 
 export default function Page() {
   return (
     <div className={styles.screen}>
-      <Link href="/" className={styles.back}>
-        <IconChevronBack size={18} />
-        חזרה לרשימה
-      </Link>
-      <h1 className={styles.title}>איפה הכי זול השבוע?</h1>
+      <DocumentTitle id="whereCheapest" />
+      <BackLink href="/" id="backToList" className={styles.back} />
+      <PageHeading id="whereCheapest" className={styles.title} />
       <ResultsView />
     </div>
   );

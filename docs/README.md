@@ -19,6 +19,11 @@ discussions. Phases 0, 1 and 2 are built (see phase-2-status.md). Read in this o
 14. [deploy.md](deploy.md): the go-live runbook: containers, VPS units and timers, the deploy workflow, sizing from the scaled load test, rollback.
 15. [unblock.md](unblock.md): the four manual workflows that run on GitHub runners (BGE-M3 evaluation, portal probe with real fixtures, extraction pilot, provision check) and the minimum owner input per blocked issue.
 16. [promo-cycles.md](promo-cycles.md): promo cycle prediction (phase 3): method, thresholds and limits, measured on synthetic history only.
+17. [cart-transfer.md](cart-transfer.md): handing a plan to a chain's own online store as links (no scraping), the per-chain table and what an official cart integration needs.
+18. [ocr.md](ocr.md): receipt and handwritten-list photos (phase 3): in-memory processing and deletion, consent, providers, monthly caps, the synthetic evaluation.
+19. [review-packet.md](review-packet.md), [legal-review-packet.md](legal-review-packet.md), [screen-reader-test-plan.md](screen-reader-test-plan.md): what the owner's reviewers need for #15, #30 and #26, prepared so the human time is as short as possible.
+20. [phase-0-exit-dry-run.md](phase-0-exit-dry-run.md): the exit report generator run on one real day of transparency files (not the exit validation).
+21. [geocoding.md](geocoding.md): store coordinates: CBS locality centroids, OpenStreetMap address geocoding within its usage policy, precision labels, and what still lacks a location.
 
 ## Facts versus estimates
 

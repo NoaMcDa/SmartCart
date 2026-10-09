@@ -62,6 +62,26 @@ describe("scan screen: manual entry and the result card", () => {
     }
   });
 
+  it("marks the distance of a town-centre store as approximate, in the store choice and on the card", async () => {
+    const user = await renderScreen();
+    const select = screen.getByTestId("scan-store");
+    const options = within(select)
+      .getAllByRole("option")
+      .map((o) => o.textContent);
+    expect(options).toContain('יוחננוף · מודיעין · כ־3.6 ק"מ · מיקום משוער');
+    expect(options).toContain('שופרסל דיל · מודיעין · 1.1 ק"מ');
+
+    await user.selectOptions(select, "104");
+    await lookupManually(user, FOUND);
+    const card = await screen.findByTestId("scan-result");
+    const here = within(within(card).getByTestId("scan-here")).getByTestId("scan-distance");
+    expect(here).toHaveTextContent('כ־3.6 ק"מ · מיקום משוער');
+    expect(here).toHaveAttribute("data-approximate", "true");
+    const cheapest = within(within(card).getByTestId("scan-cheapest")).getByTestId("scan-distance");
+    expect(cheapest).toHaveTextContent('5.1 ק"מ');
+    expect(cheapest).not.toHaveTextContent("משוער");
+  });
+
   it("adds the canonical product with the chosen quantity and the category's level", async () => {
     const user = await renderScreen();
     await lookupManually(user, FOUND);

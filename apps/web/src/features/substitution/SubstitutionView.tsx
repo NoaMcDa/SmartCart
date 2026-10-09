@@ -23,15 +23,21 @@ import {
   type PlanKind,
   type SubstitutionContext,
 } from "@/state/comparison";
-import { attributeTagText, foldTags, perUnitLabel } from "@/lib/attributes";
+import { attributeTag, perUnit, useRich } from "@/i18n/format-2";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { StoreText } from "@/i18n/StoreText";
+import type { Locale } from "@/i18n/locales";
+import { substitutionMessages } from "@/i18n/messages/substitution";
+import { foldTags } from "@/lib/attributes";
+import { chainLabel, storeLabel } from "@/lib/storeName";
 import { MethodologyLink } from "@/features/seo/components";
 import { basketItems, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
 import { acceptSubstitute, keepOriginal, rejectSubstitute } from "./actions";
 import styles from "./Substitution.module.css";
 
-export function tagText(tag: AttributeTag): string {
-  return attributeTagText(tag, { plainDiffers: true });
+export function tagText(tag: AttributeTag, locale: Locale = "he"): string {
+  return attributeTag(tag, locale, { plainDiffers: true });
 }
 
 const TAG_ORDER: Record<AttributeTag["status"], number> = { matched: 0, unverified: 1, differs: 2 };
@@ -56,8 +62,12 @@ export function SubstitutionCard({
   onReject: () => void;
   busy: boolean;
 }) {
+  const t = useT(substitutionMessages);
+  const r = useRich(substitutionMessages);
+  const { locale } = useLocale();
   const { item, store, original, index, count } = ctx;
-  const originalName = original?.item.display_name_he ?? fallbackOriginalName ?? "המוצר המקורי";
+  const originalName =
+    original?.item.display_name_he ?? fallbackOriginalName ?? t("originalFallback");
   const saving = substitutionSaving(ctx);
   const tags = foldTags(item.tags ?? []).sort((a, b) => TAG_ORDER[a.status] - TAG_ORDER[b.status]);
   const conf = percent(item.confidence);
@@ -66,16 +76,23 @@ export function SubstitutionCard({
   return (
     <Card as="article" className={styles.card} aria-labelledby="sub-title" data-testid="sub-card">
       <div className={styles.eyebrow}>
-        החלפה <span dir="ltr">{index + 1}</span> מתוך <span dir="ltr">{count}</span> ·{" "}
-        {store.chain_name}
+        {r(
+          "eyebrow",
+          { ltr: (c) => <span dir="ltr">{c}</span> },
+          { index: index + 1, count, chain: chainLabel(store.chain_name, locale) },
+        )}
       </div>
       <h2 id="sub-title" className={styles.title}>
-        החלפנו את <strong>{originalName}</strong> ב-<strong>{item.display_name_he}</strong>
+        {r(
+          "title",
+          { b: (c) => <strong>{c}</strong> },
+          { original: originalName, substitute: item.display_name_he },
+        )}
       </h2>
 
       <div className={styles.compare}>
         <div className={styles.side} data-trust-scope="original" data-testid="sub-original">
-          <div className={styles.sideLabel}>ברשימה שלך</div>
+          <div className={styles.sideLabel}>{t("yourList")}</div>
           <div className={styles.sideName}>{originalName}</div>
           {original ? (
             <>
@@ -87,12 +104,14 @@ export function SubstitutionCard({
               />
               <div className={styles.unit}>
                 <Price amount={original.item.effective_unit_price} fractionDigits={2} />{" "}
-                {perUnitLabel(original.item.uom)}
+                {perUnit(original.item.uom, locale)}
               </div>
-              <div className={styles.where}>בסופר שלך, {original.store.store_name}</div>
+              <div className={styles.where}>
+                {t("atYourStore", { store: storeLabel(original.store.store_name, locale) })}
+              </div>
             </>
           ) : (
-            <div className={styles.unit}>אין מחיר להשוואה בסופר שלך</div>
+            <div className={styles.unit}>{t("noOriginalPrice")}</div>
           )}
         </div>
         <div
@@ -101,7 +120,7 @@ export function SubstitutionCard({
           data-testid="sub-substitute"
         >
           <div className={styles.sideLabelSub}>
-            <Tag variant="substitute">התחליף</Tag>
+            <Tag variant="substitute">{t("substituteTag")}</Tag>
           </div>
           <div className={styles.sideName}>{item.display_name_he}</div>
           <TrustedPrice
@@ -111,9 +130,12 @@ export function SubstitutionCard({
             fractionDigits={2}
           />
           <div className={styles.unit}>
-            <Price amount={item.effective_unit_price} fractionDigits={2} /> {perUnitLabel(item.uom)}
+            <Price amount={item.effective_unit_price} fractionDigits={2} />{" "}
+            {perUnit(item.uom, locale)}
           </div>
-          <div className={styles.where}>{store.store_name}</div>
+          <div className={styles.where}>
+            <StoreText name={store.store_name} />
+          </div>
         </div>
       </div>
 
@@ -121,49 +143,59 @@ export function SubstitutionCard({
         <div className={styles.saving} data-testid="sub-saving">
           <span className={styles.savingText}>
             <IconCheck size={15} />
-            חיסכון <Price amount={saving.perUnit} fractionDigits={2} /> ×{" "}
-            <span dir="ltr">{saving.quantity}</span> {saving.quantity === 1 ? "יחידה" : "יחידות"}
+            {r(
+              "saving",
+              {
+                perUnit: <Price amount={saving.perUnit} fractionDigits={2} />,
+                ltr: (c) => <span dir="ltr">{c}</span>,
+              },
+              {
+                quantity: saving.quantity,
+                units: saving.quantity === 1 ? t("unitSingular") : t("unitPlural"),
+              },
+            )}
           </span>
           <Price amount={saving.total} fractionDigits={2} size="lg" tone="good" />
         </div>
       ) : saving ? (
-        <div className={styles.noSaving}>אין חיסכון במחיר המדף בהחלפה הזו</div>
+        <div className={styles.noSaving}>{t("noSaving")}</div>
       ) : null}
 
       <div className={styles.why}>
-        <h3 className={styles.whyTitle}>למה זה תחליף מתאים</h3>
-        <ul className={styles.tags} aria-label="השוואת תכונות">
-          {tags.map((t) => (
-            <li key={`${t.status}-${t.key}`}>
-              <Tag variant={t.status}>{tagText(t)}</Tag>
+        <h3 className={styles.whyTitle}>{t("whyTitle")}</h3>
+        <ul className={styles.tags} aria-label={t("tagsLabel")}>
+          {tags.map((tag) => (
+            <li key={`${tag.status}-${tag.key}`}>
+              <Tag variant={tag.status}>{tagText(tag, locale)}</Tag>
             </li>
           ))}
         </ul>
         <p className={styles.source} data-testid="sub-source">
-          לפי שם המוצר בקובץ השקיפות
+          {t("sourceByName")}
           {conf ? (
             <>
-              {" "}
-              · ביטחון <span dir="ltr">{conf}</span>
+              {" · "}
+              {r("confidence", { ltr: (c) => <span dir="ltr">{c}</span> }, { percent: conf })}
             </>
-          ) : null}{" "}
-          · <UpdatedAt iso={item.price_valid_from} prefix="מחיר עודכן" />
+          ) : null}
+          {" · "}
+          <UpdatedAt iso={item.price_valid_from} prefix={t("priceUpdated")} />
         </p>
         <p className={styles.source} data-testid="sub-disclaimer">
-          המחיר הקובע הוא בקופה.
+          {t("checkoutGoverns")}
         </p>
         <p className={styles.methodology} data-testid="sub-methodology">
-          <MethodologyLink>איך אנחנו מחליטים מה תחליף מתאים</MethodologyLink>
+          <MethodologyLink>{t("methodology")}</MethodologyLink>
         </p>
       </div>
 
       <div className={styles.actions}>
         <Button block onClick={onContinue} disabled={busy}>
-          {isLast ? "בסדר, חזרה לתוצאות" : "בסדר, להחלפה הבאה"}
+          {isLast ? t("continueLast") : t("continueNext")}
         </Button>
         <div className={styles.secondary}>
           <Button variant="outline" size="sm" onClick={onKeep} disabled={busy}>
-            השאירי את המקורי
+            {t("keepOriginal")}
           </Button>
           <Button
             variant="outline"
@@ -173,7 +205,7 @@ export function SubstitutionCard({
             disabled={busy}
             iconStart={<IconClose size={15} />}
           >
-            לא תחליף טוב
+            {t("notGood")}
           </Button>
         </div>
       </div>
@@ -187,6 +219,8 @@ export function SubstitutionCard({
  */
 export function SubstitutionView({ itemId, plan }: { itemId: number; plan?: PlanKind }) {
   const router = useRouter();
+  const t = useT(substitutionMessages);
+  const { locale } = useLocale();
   const { state, hydrated } = useList();
   const shopper = useShopper();
   const [busy, setBusy] = useState(false);
@@ -202,7 +236,7 @@ export function SubstitutionView({ itemId, plan }: { itemId: number; plan?: Plan
   if (!hydrated || !shopper || (!data && result.status !== "error" && basket.length > 0)) {
     return (
       <>
-        <Card aria-busy="true" aria-label="טוען את פרטי ההחלפה">
+        <Card aria-busy="true" aria-label={t("loading")}>
           <Skeleton width="50%" height={14} />
           <Skeleton width="90%" height={22} />
           <SkeletonText lines={4} />
@@ -215,8 +249,8 @@ export function SubstitutionView({ itemId, plan }: { itemId: number; plan?: Plan
     return (
       <>
         <Card role="alert">
-          <p>לא הצלחנו לטעון את ההחלפה.</p>
-          <Button onClick={result.reload}>נסי שוב</Button>
+          <p>{t("loadError")}</p>
+          <Button onClick={result.reload}>{t("retry")}</Button>
         </Card>
       </>
     );
@@ -226,12 +260,9 @@ export function SubstitutionView({ itemId, plan }: { itemId: number; plan?: Plan
     return (
       <>
         <Card data-testid="sub-not-found">
-          <h2 className={styles.title}>לא מצאנו את ההחלפה הזו</h2>
-          <p className={styles.unit}>
-            ייתכן שהרשימה השתנתה מאז, או שהפריט כבר מוגדר כמוצר מדויק. אפשר לחזור לתוצאות ולראות את
-            ההחלפות העדכניות.
-          </p>
-          <Button href="/compare">חזרה לתוצאות</Button>
+          <h2 className={styles.title}>{t("notFoundTitle")}</h2>
+          <p className={styles.unit}>{t("notFoundBody")}</p>
+          <Button href="/compare">{t("backToResults")}</Button>
         </Card>
       </>
     );
@@ -256,12 +287,12 @@ export function SubstitutionView({ itemId, plan }: { itemId: number; plan?: Plan
           );
         }}
         onKeep={() => {
-          keepOriginal(ctx.item, originalName);
+          keepOriginal(ctx.item, originalName, locale);
           router.push("/compare");
         }}
         onReject={async () => {
           setBusy(true);
-          await rejectSubstitute(ctx.item, originalName);
+          await rejectSubstitute(ctx.item, originalName, locale);
           router.push("/compare");
         }}
       />

@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { appMessages } from "@/i18n/messages/app";
 import { Showcase } from "./Showcase";
 
-export const metadata: Metadata = { title: "ערכת עיצוב", robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: translate(appMessages, DEFAULT_LOCALE, "designSystemTitle"),
+  robots: { index: false, follow: false },
+};
 
 /**
  * Developer route: every src/components/ui component in the light and the dark theme side by side

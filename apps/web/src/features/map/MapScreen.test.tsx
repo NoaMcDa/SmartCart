@@ -11,6 +11,8 @@ import { server } from "@/mocks/node";
 import { clearComparisonCache } from "@/state/comparison";
 import { resetListStoreForTests } from "@/state/list";
 import { PROFILE_KEY } from "@/state/shopper";
+import { LocaleProvider } from "@/i18n/LocaleProvider";
+import { LOCALE_KEY } from "@/i18n/locales";
 import { MapScreen } from "./MapScreen";
 
 const push = vi.fn();
@@ -162,6 +164,106 @@ describe("map screen", () => {
         render(<MapScreen />);
         expect(await screen.findAllByTestId("map-pin")).toHaveLength(5);
         expect(screen.getByTestId("map-approx")).toHaveTextContent("מדויק");
+      });
+    });
+
+    describe("a store placed only at its town centre (distance_approximate)", () => {
+      it("is a hollow marker with the words, never an exact pin; the others stay solid", async () => {
+        render(<MapScreen />);
+        const pins = await screen.findAllByTestId("map-pin");
+        const approximate = pins.filter((p) => p.getAttribute("data-approximate") === "true");
+        expect(approximate).toHaveLength(1);
+        expect(approximate[0]).toHaveTextContent("יוחננוף");
+        expect(approximate[0]).toHaveTextContent("מיקום משוער");
+        expect(approximate[0]).toHaveAccessibleName(/מיקום משוער/);
+        for (const pin of pins.filter((p) => p !== approximate[0])) {
+          expect(pin).toHaveAttribute("data-approximate", "false");
+          expect(pin).not.toHaveTextContent("מיקום משוער");
+        }
+      });
+
+      it("has a legend that explains the hollow marker, and no legend without such a store", async () => {
+        const { unmount } = render(<MapScreen />);
+        expect(await screen.findByTestId("map-legend")).toHaveTextContent("חלול ומקווקו");
+        expect(screen.getByTestId("map-legend")).toHaveTextContent("המרחק אליו הוא הערכה");
+        unmount();
+        // Same comparison with every store at address precision.
+        function exact(value: unknown): unknown {
+          if (Array.isArray(value)) return value.map(exact);
+          if (value && typeof value === "object") {
+            const obj = Object.fromEntries(Object.entries(value).map(([k, v]) => [k, exact(v)]));
+            return "distance_approximate" in obj
+              ? { ...obj, distance_approximate: false, geo_precision: "address" }
+              : obj;
+          }
+          return value;
+        }
+        server.use(
+          http.post(`${API_BASE_URL}/compare`, () =>
+            HttpResponse.json(exact(compareFixture()) as object),
+          ),
+          http.post(`${API_BASE_URL}/optimize`, () =>
+            HttpResponse.json(exact(optimizeFixture()) as object),
+          ),
+        );
+        clearComparisonCache();
+        clearLastResultCache();
+        render(<MapScreen />);
+        await screen.findAllByTestId("map-pin");
+        expect(screen.queryByTestId("map-legend")).toBeNull();
+        for (const pin of screen.getAllByTestId("map-pin")) {
+          expect(pin).toHaveAttribute("data-approximate", "false");
+        }
+      });
+
+      it("the list shows the distance as approximate and exact ones as before", async () => {
+        render(<MapScreen />);
+        const rows = await screen.findAllByTestId("map-row-distance");
+        const byStore = (name: string) =>
+          rows.find((r) => r.closest("button")?.textContent?.includes(name))!;
+        expect(byStore("יוחננוף").textContent).toBe('כ־3.6 ק"מ · מיקום משוער');
+        expect(byStore("יוחננוף")).toHaveAttribute("data-approximate", "true");
+        expect(byStore("רמי לוי").textContent).toBe('4.2 ק"מ');
+        expect(
+          screen.getByRole("button", { name: /יוחננוף · מודיעין, כ־3.6 ק"מ · מיקום משוער/ }),
+        ).toBeInTheDocument();
+      });
+
+      it("the store sheet says why the distance is only an estimate", async () => {
+        const user = userEvent.setup();
+        render(<MapScreen />);
+        const pins = await screen.findAllByTestId("map-pin");
+        await user.click(pins.find((p) => p.textContent?.includes("יוחננוף"))!);
+        const distance = screen.getByTestId("sheet-distance");
+        expect(distance).toHaveTextContent('כ־3.6 ק"מ · מיקום משוער');
+        expect(distance).toHaveTextContent("מרכז היישוב");
+      });
+    });
+
+    describe("in Arabic", () => {
+      afterEach(() => {
+        document.cookie = `${LOCALE_KEY}=; path=/; max-age=0`;
+        document.documentElement.lang = "he";
+      });
+
+      it("writes chains in Latin, cities in Arabic, units and the approximate words in Arabic", async () => {
+        document.cookie = `${LOCALE_KEY}=ar; path=/`;
+        render(
+          <LocaleProvider>
+            <MapScreen />
+          </LocaleProvider>,
+        );
+        const list = await screen.findByTestId("map-store-list");
+        expect(list.textContent).toContain("Rami Levy");
+        expect(list.textContent).not.toMatch(/[֐-׿]/);
+        const approx = within(list)
+          .getAllByTestId("map-row-distance")
+          .find((r) => r.getAttribute("data-approximate") === "true")!;
+        expect(approx.textContent).toBe("نحو 3.6 كم · الموقع تقريبي");
+        for (const pin of screen.getAllByTestId("map-pin")) {
+          expect(pin.textContent).not.toMatch(/[֐-׿]/);
+        }
+        expect(screen.getByTestId("map-legend")).toHaveTextContent("موقع تقريبي");
       });
     });
 

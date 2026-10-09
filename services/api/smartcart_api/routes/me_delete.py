@@ -78,7 +78,9 @@ def supabase_admin() -> tuple[str, str] | None:
     return (url, key) if url and key else None
 
 
-def delete_auth_user(user_id: uuid.UUID, url: str, key: str, client: httpx.Client | None = None) -> None:
+def delete_auth_user(
+    user_id: uuid.UUID, url: str, key: str, client: httpx.Client | None = None
+) -> None:
     """Delete the Supabase Auth user; 404 (already gone) counts as done."""
     own = client is None
     client = client or httpx.Client(timeout=10.0)
@@ -138,7 +140,8 @@ def delete_me(
         except psycopg.Error as exc:
             log.warning(
                 "auth user not deleted; remove it in the Supabase dashboard",
-                user_id=str(user.id), error=type(exc).__name__,
+                user_id=str(user.id),
+                error=type(exc).__name__,
             )
         else:
             log.info("auth user deleted from the stand-in auth.users", user_id=str(user.id))

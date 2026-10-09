@@ -8,6 +8,8 @@ import { server } from "@/mocks/node";
 import { ProductDetail } from "./ProductDetail";
 import { formatUpdated, storeRows, unitLabel, variantsOf } from "./productData";
 import { compareFixture } from "@/mocks/fixtures";
+import { LocaleProvider } from "@/i18n/LocaleProvider";
+import { LOCALE_KEY } from "@/i18n/locales";
 
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
@@ -115,5 +117,39 @@ describe("product detail", () => {
     await user.click(within(alert).getByRole("button", { name: "יצירת התראה" }));
     expect(await within(alert).findByTestId("alert-error")).toHaveTextContent("הקלידי מחיר חיובי");
     expect(within(alert).queryByTestId("alert-existing")).toBeNull();
+  });
+});
+
+describe("product detail: approximate distances and Arabic store names", () => {
+  afterEach(() => {
+    document.cookie = `${LOCALE_KEY}=; path=/; max-age=0`;
+    document.documentElement.lang = "he";
+  });
+
+  it("marks the distance of a town-centre store as approximate and leaves the others exact", async () => {
+    render(<ProductDetail canonicalId={1001} nameHint="חלב טרי 3%, 1 ליטר" />);
+    const distances = await screen.findAllByTestId("product-distance");
+    const approximate = distances.filter((d) => d.getAttribute("data-approximate") === "true");
+    expect(approximate).toHaveLength(1);
+    expect(approximate[0]).toHaveTextContent('כ־3.6 ק"מ · מיקום משוער');
+    expect(approximate[0]?.closest("tr")).toHaveTextContent("יוחננוף");
+    for (const d of distances.filter((d) => !approximate.includes(d))) {
+      expect(d.textContent).toMatch(/^\d(\.\d)? ק"מ$/);
+    }
+  });
+
+  it("writes chains in Latin letters, cities in Arabic, and the units and the note in Arabic", async () => {
+    document.cookie = `${LOCALE_KEY}=ar; path=/`;
+    render(
+      <LocaleProvider>
+        <ProductDetail canonicalId={1001} nameHint="حليب" />
+      </LocaleProvider>,
+    );
+    const table = await screen.findByTestId("store-prices");
+    const names = table.querySelectorAll("th[scope='row'] > span:first-child");
+    expect(names.length).toBe(5);
+    for (const name of names) expect(name.textContent).not.toMatch(/[֐-׿]/);
+    expect(table.textContent).toContain("Yochananof");
+    expect(table.textContent).toContain("نحو 3.6 كم · الموقع تقريبي");
   });
 });

@@ -83,7 +83,11 @@ def test_malformed_xml_raises_on_rows() -> None:
 
 def test_read_header_stops_at_first_row() -> None:
     rows = b"".join(b"<Item><ItemCode>%d</ItemCode></Item>" % i for i in range(50_000))
-    xml = b"<Root><ChainId>7290027600007</ChainId><StoreId>001</StoreId><Items>" + rows + b"</Items></Root>"
+    xml = (
+        b"<Root><ChainId>7290027600007</ChainId><StoreId>001</StoreId><Items>"
+        + rows
+        + b"</Items></Root>"
+    )
     root = xmlutil.read_header(xml, {"Item"})
     assert xmlutil.localname(root) == "Root"
     assert xmlutil.scalar_children(root)["chainid"] == "7290027600007"
@@ -93,7 +97,10 @@ def test_read_header_stops_at_first_row() -> None:
 
 
 def test_read_header_ignores_root_with_row_name() -> None:
-    root = xmlutil.read_header(b"<Store><Branches><Branch><StoreID>1</StoreID></Branch></Branches></Store>", {"Store", "Branch"})
+    root = xmlutil.read_header(
+        b"<Store><Branches><Branch><StoreID>1</StoreID></Branch></Branches></Store>",
+        {"Store", "Branch"},
+    )
     assert xmlutil.localname(root) == "Store"
 
 
@@ -109,13 +116,17 @@ def test_iter_rows_never_yields_root_and_clears_rows() -> None:
 
 
 def test_localname_strips_namespace() -> None:
-    root = etree.fromstring(b'<asx:abap xmlns:asx="http://www.sap.com/abapxml"><asx:values/></asx:abap>')
+    root = etree.fromstring(
+        b'<asx:abap xmlns:asx="http://www.sap.com/abapxml"><asx:values/></asx:abap>'
+    )
     assert xmlutil.localname(root) == "abap"
     assert xmlutil.localname(root[0]) == "values"
 
 
 def test_scalar_children_lowercases_and_skips_nested() -> None:
-    el = etree.fromstring(b"<Row><ChainID> 1 </ChainID><Clubs><ClubId>0</ClubId></Clubs><chainid>2</chainid></Row>")
+    el = etree.fromstring(
+        b"<Row><ChainID> 1 </ChainID><Clubs><ClubId>0</ClubId></Clubs><chainid>2</chainid></Row>"
+    )
     assert xmlutil.scalar_children(el) == {"chainid": "1"}
 
 
@@ -124,5 +135,7 @@ def test_entities_are_not_resolved() -> None:
         b'<?xml version="1.0"?><!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/hostname">]>'
         b"<Root><Items><Item><ItemName>&x;</ItemName></Item></Items></Root>"
     )
-    rows = [xmlutil.scalar_children(r).get("itemname", "") for r in xmlutil.iter_rows(xml, {"Item"})]
+    rows = [
+        xmlutil.scalar_children(r).get("itemname", "") for r in xmlutil.iter_rows(xml, {"Item"})
+    ]
     assert rows == [""]

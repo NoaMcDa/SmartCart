@@ -18,9 +18,19 @@ from smartcart_catalog.extract.schema import (
 from smartcart_catalog.seed import load_catalog
 
 ISSUE_FIELDS = {
-    "category_path", "product_type", "brand", "is_private_label", "fat_pct", "state", "flavor",
-    "kosher", "diet_flags", "pack_size", "unit",
-    "base", "variety",  # issue #92
+    "category_path",
+    "product_type",
+    "brand",
+    "is_private_label",
+    "fat_pct",
+    "state",
+    "flavor",
+    "kosher",
+    "diet_flags",
+    "pack_size",
+    "unit",
+    "base",
+    "variety",  # issue #92
 }
 
 

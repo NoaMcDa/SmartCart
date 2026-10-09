@@ -230,8 +230,18 @@
   .shelfCell {
     grid-area: shelf;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--sc-space-2);
+    white-space: normal;
+  }
+
+  /* Large text (#26): the two columns get narrow, so words break instead of spilling out. */
+  .storeCell,
+  .shelfCell,
+  .finalCell {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
   }
 
   .shelfCell::before {

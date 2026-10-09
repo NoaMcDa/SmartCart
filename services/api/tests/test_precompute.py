@@ -21,8 +21,13 @@ D = Decimal
 
 def _promo(reward_type: str, value: str | None, min_qty: str | None = None) -> PromoTerms:
     return PromoTerms(
-        id=1, store_id=None, description="", club_only=False, club_name=None,
-        min_qty=D(min_qty) if min_qty else None, reward_type=reward_type,
+        id=1,
+        store_id=None,
+        description="",
+        club_only=False,
+        club_name=None,
+        min_qty=D(min_qty) if min_qty else None,
+        reward_type=reward_type,
         reward_value=D(value) if value else None,
     )
 
@@ -84,7 +89,6 @@ def test_units() -> None:
 # --- the job against the database ---------------------------------------------------------------
 
 
-
 def _row(db, w: World, canon: str, store: str, flex: str = "any_brand") -> dict | None:
     cur = db.execute(
         "SELECT item_id, shelf_price, effective_price, effective_unit_price, uom, promo_id,"
@@ -140,7 +144,11 @@ def test_one_plus_one_at_one_store(db, computed: World) -> None:
     w = computed
     a = _row(db, w, "paste", "a")
     assert a["promo_id"] == w.promos["paste_1plus1"]
-    assert (a["shelf_price"], a["effective_price"], a["promo_min_qty"]) == (D("3.00"), D("1.5000"), D(2))
+    assert (a["shelf_price"], a["effective_price"], a["promo_min_qty"]) == (
+        D("3.00"),
+        D("1.5000"),
+        D(2),
+    )
     assert a["effective_unit_price"] == D("1.5000")
     home = _row(db, w, "paste", "home")
     assert home["promo_id"] is None and home["effective_price"] == D("3.50")
@@ -183,8 +191,16 @@ def test_prices_from_unloaded_files_are_ignored(db, world: World) -> None:
         ("f" * 64,),
     ).fetchone()[0]
     # A newer, absurd price from a quarantined file must not replace the loaded one.
-    add_price(db, w.items["milk3_c1_private"], None, "0.10", "0.01", "100ml",
-              w.valid_from + timedelta(hours=1), file_id=fid)
+    add_price(
+        db,
+        w.items["milk3_c1_private"],
+        None,
+        "0.10",
+        "0.01",
+        "100ml",
+        w.valid_from + timedelta(hours=1),
+        file_id=fid,
+    )
     add_promo(db, "t-c1", None, "PQ", [w.items["milk1_c1"]], "price", "0.50", file_id=fid)
     precompute_effective_prices(db, chains=w.chains)
     assert _row(db, w, "milk3", "home")["shelf_price"] == D("6.20")
@@ -197,10 +213,27 @@ def test_prices_from_unloaded_files_are_ignored(db, world: World) -> None:
 def test_expired_and_future_promos_are_ignored(db, world: World) -> None:
     w = world
     now = datetime.now(UTC)
-    add_promo(db, "t-c1", None, "OLD", [w.items["milk1_c1"]], "price", "1.00",
-              starts_at=now - timedelta(days=10), ends_at=now - timedelta(hours=1))
-    add_promo(db, "t-c1", None, "NEW", [w.items["milk1_c1"]], "price", "1.00",
-              starts_at=now + timedelta(days=1))
+    add_promo(
+        db,
+        "t-c1",
+        None,
+        "OLD",
+        [w.items["milk1_c1"]],
+        "price",
+        "1.00",
+        starts_at=now - timedelta(days=10),
+        ends_at=now - timedelta(hours=1),
+    )
+    add_promo(
+        db,
+        "t-c1",
+        None,
+        "NEW",
+        [w.items["milk1_c1"]],
+        "price",
+        "1.00",
+        starts_at=now + timedelta(days=1),
+    )
     precompute_effective_prices(db, chains=w.chains)
     assert _row(db, w, "milk1", "home")["promo_id"] is None
     # As of a time inside the old promo, it applies.
@@ -239,8 +272,10 @@ def test_idempotent_and_records_a_run(db, world: World) -> None:
 def test_stale_rows_are_removed(db, world: World) -> None:
     w = world
     precompute_effective_prices(db, chains=w.chains)
-    db.execute("UPDATE item_canonical SET needs_review = true WHERE item_id = %s",
-               (w.items["salmon_c2_frozen"],))
+    db.execute(
+        "UPDATE item_canonical SET needs_review = true WHERE item_id = %s",
+        (w.items["salmon_c2_frozen"],),
+    )
     result = precompute_effective_prices(db, chains=w.chains)
     assert _row(db, w, "salmon", "b", "close") is None and result.rows_deleted >= 1
 

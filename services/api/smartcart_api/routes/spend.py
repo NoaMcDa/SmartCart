@@ -3,7 +3,11 @@
 * ``POST /me/spend`` records a shopping trip: a list marked as purchased with the store, the
   date, the total, the item count and whether it was a single store or a split. The total is
   what the client sends: the app's estimate, or the user's actual checkout total, which
-  replaces it (``PUT /me/spend/{id}``).
+  replaces it (``PUT /me/spend/{id}``). It is idempotent per ``client_id``: the browser makes a
+  random uuid per entry, and a repeated POST with the same id (a retry after a lost response, a
+  double tap, an offline queue replayed twice) answers 200 with the stored entry and inserts
+  nothing; the first POST answers 201. The stored row wins even if the repeated body differs, so
+  a correction goes through ``PUT``. Without a ``client_id`` every POST inserts.
 * ``GET /me/spend?month=YYYY-MM`` returns the month's entries, their total and the profile's
   ``monthly_budget`` (set with ``PUT /me/profile``).
 * ``DELETE /me/spend/{id}`` removes one entry; ``GET /me/spend/export`` returns every entry and
@@ -29,7 +33,7 @@ from smartcart_api.auth import User, user_conn
 router = APIRouter(prefix="/me/spend", tags=["me"])
 UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="function")]
 
-_COLS = "id, date, store_id, store_name, total, item_count, plan"
+_COLS = "id, date, store_id, store_name, total, item_count, plan, client_id"
 MONTH = r"^\d{4}-(0[1-9]|1[0-2])$"
 
 
@@ -38,7 +42,9 @@ def _entry(row: dict) -> schemas.SpendEntry:
 
 
 def _budget(conn: psycopg.Connection, user: User) -> Decimal | None:
-    row = conn.execute("SELECT monthly_budget FROM profiles WHERE user_id = %s", (user.id,)).fetchone()
+    row = conn.execute(
+        "SELECT monthly_budget FROM profiles WHERE user_id = %s", (user.id,)
+    ).fetchone()
     return row[0] if row else None
 
 
@@ -56,15 +62,26 @@ def _write(conn: psycopg.Connection, sql: str, params: dict) -> dict | None:
 
 
 @router.post("", response_model=schemas.SpendEntry, status_code=201)
-def create_spend(body: schemas.SpendEntryIn, uc: UserConn) -> schemas.SpendEntry:
+def create_spend(
+    body: schemas.SpendEntryIn, uc: UserConn, response: Response
+) -> schemas.SpendEntry:
     user, conn = uc
     row = _write(
         conn,
-        "INSERT INTO spend_entries (user_id, date, store_id, store_name, total, item_count, plan)"
-        " VALUES (%(uid)s, %(date)s, %(store_id)s, %(store_name)s, %(total)s, %(item_count)s,"
-        f" %(plan)s) RETURNING {_COLS}",
+        "INSERT INTO spend_entries (user_id, client_id, date, store_id, store_name, total,"
+        " item_count, plan) VALUES (%(uid)s, %(client_id)s, %(date)s, %(store_id)s, %(store_name)s,"
+        " %(total)s, %(item_count)s, %(plan)s)"
+        " ON CONFLICT (user_id, client_id) WHERE client_id IS NOT NULL DO NOTHING"
+        f" RETURNING {_COLS}",
         {"uid": user.id, **body.model_dump()},
     )
+    if row is None:  # the same client_id was stored before: a replay
+        with conn.cursor(row_factory=dict_row) as cur:
+            row = cur.execute(
+                f"SELECT {_COLS} FROM spend_entries WHERE user_id = %s AND client_id = %s",
+                (user.id, body.client_id),
+            ).fetchone()
+        response.status_code = 200
     assert row is not None
     return _entry(row)
 
@@ -72,7 +89,9 @@ def create_spend(body: schemas.SpendEntryIn, uc: UserConn) -> schemas.SpendEntry
 @router.get("", response_model=schemas.SpendMonth)
 def month_spend(
     uc: UserConn,
-    month: Annotated[str | None, Query(pattern=MONTH, description="YYYY-MM; default the current month (UTC)")] = None,
+    month: Annotated[
+        str | None, Query(pattern=MONTH, description="YYYY-MM; default the current month (UTC)")
+    ] = None,
 ) -> schemas.SpendMonth:
     user, conn = uc
     month = month or datetime.now(UTC).strftime("%Y-%m")
@@ -101,7 +120,9 @@ def export_spend(uc: UserConn) -> schemas.SpendExport:
             f"SELECT {_COLS} FROM spend_entries WHERE user_id = %s ORDER BY date, id", (user.id,)
         ).fetchall()
     return schemas.SpendExport(
-        budget=_budget(conn, user), entries=[_entry(r) for r in rows], generated_at=datetime.now(UTC)
+        budget=_budget(conn, user),
+        entries=[_entry(r) for r in rows],
+        generated_at=datetime.now(UTC),
     )
 
 

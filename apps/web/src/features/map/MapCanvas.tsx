@@ -10,7 +10,9 @@ import {
 } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { circleRing, type LatLon } from "./geo";
+import { useT } from "@/i18n/LocaleProvider";
+import { mapMessages } from "@/i18n/messages/map";
+import { APPROX_AREA_M, circleRing, type LatLon } from "./geo";
 import { PinButton, type Pin } from "./PinButton";
 import styles from "./Map.module.css";
 
@@ -85,6 +87,39 @@ function setRadius(map: MapLibreMap, center: LatLon, radiusM: number) {
   });
 }
 
+/**
+ * Draws (or updates) the dashed areas around the stores that are only placed at their town
+ * centre. Safe to call before and after load; an empty list clears them.
+ */
+function setApproxAreas(map: MapLibreMap, areas: ReadonlyArray<LatLon>) {
+  const data = {
+    type: "FeatureCollection" as const,
+    features: areas.map((c) => ({
+      type: "Feature" as const,
+      properties: {},
+      geometry: { type: "Polygon" as const, coordinates: [circleRing(c, APPROX_AREA_M)] },
+    })),
+  };
+  const existing = map.getSource("approx-areas");
+  if (existing && "setData" in existing) {
+    (existing as unknown as { setData: (d: typeof data) => void }).setData(data);
+    return;
+  }
+  map.addSource("approx-areas", { type: "geojson", data });
+  map.addLayer({
+    id: "approx-areas-fill",
+    type: "fill",
+    source: "approx-areas",
+    paint: { "fill-color": token("--sc-muted"), "fill-opacity": 0.12 },
+  });
+  map.addLayer({
+    id: "approx-areas-line",
+    type: "line",
+    source: "approx-areas",
+    paint: { "line-color": token("--sc-muted"), "line-width": 2, "line-dasharray": [1, 2] },
+  });
+}
+
 export default function MapCanvas({
   center,
   radiusM,
@@ -93,6 +128,7 @@ export default function MapCanvas({
   onSelect,
   onUnsupported,
 }: MapCanvasProps) {
+  const myLocation = useT(mapMessages)("myLocation");
   const container = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<MapLibreMap | null>(null);
 
@@ -145,7 +181,7 @@ export default function MapCanvas({
     const dot = document.createElement("div");
     dot.className = styles.userDot ?? "";
     dot.setAttribute("role", "img");
-    dot.setAttribute("aria-label", "המיקום שלי, מעוגל לשכונה");
+    dot.setAttribute("aria-label", myLocation);
     const marker = new Marker({ element: dot }).setLngLat([center.lon, center.lat]).addTo(map);
     const apply = () => setRadius(map, center, radiusM);
     try {
@@ -158,7 +194,22 @@ export default function MapCanvas({
       marker.remove();
       map.off("style.load", apply);
     };
-  }, [map, center, radiusM]);
+  }, [map, center, radiusM, myLocation]);
+
+  // The dashed areas of the stores that are only placed at their town centre.
+  useEffect(() => {
+    if (!map) return;
+    const areas = pins.filter((p) => p.approximate).map((p) => p.position);
+    const apply = () => setApproxAreas(map, areas);
+    try {
+      apply();
+    } catch {
+      map.once("style.load", apply);
+    }
+    return () => {
+      map.off("style.load", apply);
+    };
+  }, [map, pins]);
 
   // One marker per pin.
   useEffect(() => {
@@ -167,7 +218,7 @@ export default function MapCanvas({
       const element = hosts.get(pin.storeId);
       return element
         ? [
-            new Marker({ element, anchor: "bottom" })
+            new Marker({ element, anchor: pin.approximate ? "center" : "bottom" })
               .setLngLat([pin.position.lon, pin.position.lat])
               .addTo(map),
           ]
@@ -184,6 +235,7 @@ export default function MapCanvas({
     const points: [number, number][] = [
       ...circleRing(center, radiusM, 8),
       ...pins.map((p) => [p.position.lon, p.position.lat] as [number, number]),
+      ...pins.filter((p) => p.approximate).flatMap((p) => circleRing(p.position, APPROX_AREA_M, 8)),
     ];
     const lons = points.map((p) => p[0]);
     const lats = points.map((p) => p[1]);

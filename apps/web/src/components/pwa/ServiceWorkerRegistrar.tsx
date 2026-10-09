@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { startPwaEvents } from "./pwaEvents";
 
 /**
  * Registers public/sw.js in production builds. Skipped in `next dev` (a caching worker fights
@@ -8,6 +9,9 @@ import { useEffect } from "react";
  * removed so a stale production worker cannot serve old pages.
  */
 export function ServiceWorkerRegistrar() {
+  // Beta events for the native-app decision (#56): install and a tapped push notification.
+  useEffect(() => startPwaEvents(), []);
+
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     const enabled =

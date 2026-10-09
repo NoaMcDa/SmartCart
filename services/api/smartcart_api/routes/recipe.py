@@ -30,6 +30,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from smartcart_api import schemas
 from smartcart_api.db import get_conn
 from smartcart_api.listparse import Fragment
+from smartcart_api.misses import record_miss
 from smartcart_api.recipe_fetch import Fetcher, FetchError, get_fetcher
 from smartcart_api.routes.search import AMBIGUOUS_CAP, _row, resolve
 from smartcart_api.search import ancestors
@@ -59,14 +60,17 @@ def resolve_ingredients(
         hits, conf = resolve(conn, ing.name)
         if not hits or conf < RECIPE_MIN_CONFIDENCE:
             unresolved.append(ing.line)
+            record_miss(conn, ing.name, "parse_recipe", conf if hits else None)  # issue #52
         else:
             found.append((ing, hits, conf))
     if not found:
         return [], unresolved
     ids = list({h[0].canonical_id for _, h, _ in found})
-    soft = dict(conn.execute(
-        "SELECT id, soft_attrs FROM canonical_products WHERE id = ANY(%s)", (ids,)
-    ).fetchall())
+    soft = dict(
+        conn.execute(
+            "SELECT id, soft_attrs FROM canonical_products WHERE id = ANY(%s)", (ids,)
+        ).fetchall()
+    )
     chains = ancestors(conn, {h[0].taxonomy_id for _, h, _ in found})
     rows = []
     for ing, hits, conf in found:

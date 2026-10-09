@@ -1,5 +1,10 @@
+"use client";
+
 import { Price, Tag } from "@/components/ui";
-import { formatDateHe, isoDate, monthLabelHe, UNIT_LABEL } from "./format";
+import { useRich } from "@/i18n/format-2";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { seoMessages } from "@/i18n/messages/seo";
+import { formatDate, isoDate, monthLabel, unitLabel } from "./format";
 import type { BasketIndexFile, BasketMonth } from "./types";
 import styles from "./seo.module.css";
 
@@ -11,32 +16,41 @@ export function BasketMonthTable({
   month: BasketMonth;
   headingLevel?: 2 | 3;
 }) {
+  const t = useT(seoMessages);
+  const r = useRich(seoMessages);
+  const { locale } = useLocale();
+  const monthText = monthLabel(month.month, locale);
   const ranked = month.chains.filter((c) => c.complete);
   const unranked = month.chains.filter((c) => !c.complete);
   const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
     <section className={styles.month} aria-labelledby={`month-${month.month}`}>
       <Heading id={`month-${month.month}`} className={styles.h2}>
-        {monthLabelHe(month.month)}
+        {monthText}
       </Heading>
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <caption>
-            סך הסל הקבוע בכל רשת, {monthLabelHe(month.month)}
-            {month.price_date ? (
-              <>
-                {" "}
-                (מחירים נכונים לתאריך{" "}
-                <time dateTime={isoDate(month.price_date)}>{formatDateHe(month.price_date)}</time>)
-              </>
-            ) : null}
+            {month.price_date
+              ? r(
+                  "basketCaptionDate",
+                  {
+                    time: (
+                      <time dateTime={isoDate(month.price_date)}>
+                        {formatDate(month.price_date, locale)}
+                      </time>
+                    ),
+                  },
+                  { month: monthText },
+                )
+              : t("basketCaption", { month: monthText })}
           </caption>
           <thead>
             <tr>
-              <th scope="col">רשת</th>
-              <th scope="col">סך הסל</th>
-              <th scope="col">הפרש מהזולה</th>
-              <th scope="col">הפרש באחוזים</th>
+              <th scope="col">{t("colChain")}</th>
+              <th scope="col">{t("basketColTotal")}</th>
+              <th scope="col">{t("basketColDelta")}</th>
+              <th scope="col">{t("basketColPct")}</th>
             </tr>
           </thead>
           <tbody>
@@ -47,7 +61,7 @@ export function BasketMonthTable({
                   {c.estimated_items > 0 ? (
                     <>
                       {" "}
-                      <Tag variant="estimated">כולל מחירי הערכה</Tag>
+                      <Tag variant="estimated">{t("includesEstimates")}</Tag>
                     </>
                   ) : null}
                 </th>
@@ -58,7 +72,7 @@ export function BasketMonthTable({
                   {c.delta_vs_cheapest ? (
                     <Price amount={c.delta_vs_cheapest} fractionDigits={2} />
                   ) : (
-                    "הזולה ביותר"
+                    t("cheapestChain")
                   )}
                 </td>
                 <td className={styles.num}>
@@ -71,13 +85,16 @@ export function BasketMonthTable({
       </div>
       {unranked.length > 0 ? (
         <p className={styles.muted}>
-          לא מדורגות, כי חסרים להן מחירים לחלק מהסל:{" "}
-          {unranked.map((c) => `${c.name} (${c.missing.length} פריטים)`).join(", ")}.
+          {t("unranked", {
+            list: unranked
+              .map((c) => t("unrankedItem", { name: c.name, count: c.missing.length }))
+              .join(t("listSep")),
+          })}
         </p>
       ) : null}
       <p className={styles.muted}>
         <a href={`/seo/reports/basket-index-${month.month}.md`} download>
-          הדוח התמציתי לעיתונות, {monthLabelHe(month.month)}
+          {t("pressReport", { month: monthText })}
         </a>
       </p>
     </section>
@@ -86,17 +103,19 @@ export function BasketMonthTable({
 
 /** The fixed basket (version, items and amounts), published so the index can be checked. */
 export function BasketDefinition({ basket }: { basket: BasketIndexFile["basket"] }) {
+  const t = useT(seoMessages);
+  const { locale } = useLocale();
   return (
     <div className={styles.tableWrap}>
       <table className={styles.table}>
         <caption>
-          הסל הקבוע, גרסה {basket.version}: {basket.item_count} מוצרים
+          {t("basketDefinitionCaption", { version: basket.version, count: basket.item_count })}
         </caption>
         <thead>
           <tr>
-            <th scope="col">מוצר</th>
-            <th scope="col">כמות בסל</th>
-            <th scope="col">מחיר נמדד ל</th>
+            <th scope="col">{t("basketColProduct")}</th>
+            <th scope="col">{t("basketColAmount")}</th>
+            <th scope="col">{t("basketColUnit")}</th>
           </tr>
         </thead>
         <tbody>
@@ -104,7 +123,7 @@ export function BasketDefinition({ basket }: { basket: BasketIndexFile["basket"]
             <tr key={item.slug}>
               <th scope="row">{item.name_he}</th>
               <td>{item.label_he}</td>
-              <td>{UNIT_LABEL[item.base_unit]}</td>
+              <td>{unitLabel(item.base_unit, locale)}</td>
             </tr>
           ))}
         </tbody>

@@ -53,6 +53,24 @@ describe("split view", () => {
     expect(screen.getByRole("link", { name: "חזרה להשוואה" })).toHaveAttribute("href", "/compare");
   });
 
+  it("shows each store's distance, approximate only for the one at its town centre", async () => {
+    seed();
+    const res = optimizeFixture();
+    const second = res.split!.stores[1]!.store;
+    second.distance_approximate = true;
+    second.geo_precision = "locality";
+    second.distance_m = 5100;
+    server.use(http.post(`${API_BASE_URL}/optimize`, () => HttpResponse.json(res)));
+    await renderSplit();
+    const first = res.split!.stores[0]!.store;
+    expect(screen.getByTestId(`split-distance-${first.store_id}`).textContent).toMatch(
+      /^\d(\.\d)? ק"מ$/,
+    );
+    expect(screen.getByTestId(`split-distance-${second.store_id}`)).toHaveTextContent(
+      'כ־5.1 ק"מ · מיקום משוער',
+    );
+  });
+
   it("shows another empty state when no split is worth it", async () => {
     seed();
     server.use(

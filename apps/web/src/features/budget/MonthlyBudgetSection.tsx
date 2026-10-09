@@ -5,9 +5,12 @@ import { Button, Card, IconInfo, Price } from "@/components/ui";
 import { useAuth } from "@/features/auth/AuthProvider";
 import controls from "@/features/profile/controls/controls.module.css";
 import { totalSaved, useSavings } from "@/features/profile/savingsHistory";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { budgetMessages } from "@/i18n/messages/budget";
 import { clearBudget, MAX_BUDGET, saveBudget, useBudget } from "./budgetState";
-import { currentMonth, dayLabel, israelDate, monthName, monthOf, monthsEndingAt } from "./month";
+import { currentMonth, israelDate, monthName, monthOf, monthsEndingAt } from "./month";
 import { SpendChart } from "./SpendChart";
+import { SpendEntries } from "./SpendEntries";
 import { budgetStatus, monthlyTotals, useSpend } from "./spendState";
 import { syncSpend } from "./sync";
 import styles from "./Budget.module.css";
@@ -20,6 +23,8 @@ import styles from "./Budget.module.css";
  * appear here; signed out, everything stays on this device.
  */
 export function MonthlyBudgetSection({ className }: { className?: string }) {
+  const t = useT(budgetMessages);
+  const { locale, intl } = useLocale();
   const headingId = useId();
   const fieldId = useId();
   const auth = useAuth();
@@ -52,11 +57,11 @@ export function MonthlyBudgetSection({ className }: { className?: string }) {
     e.preventDefault();
     if (saveBudget(shown)) {
       setDraft(null);
-      setMessage({ kind: "ok", text: "התקציב נשמר." });
+      setMessage({ kind: "ok", text: t("budgetSaved") });
     } else {
       setMessage({
         kind: "error",
-        text: `הזיני סכום חיובי בשקלים, עד ${MAX_BUDGET.toLocaleString("he-IL")}.`,
+        text: t("budgetInvalid", { max: MAX_BUDGET.toLocaleString(intl) }),
       });
     }
   }
@@ -64,7 +69,7 @@ export function MonthlyBudgetSection({ className }: { className?: string }) {
   function onClear() {
     clearBudget();
     setDraft(null);
-    setMessage({ kind: "ok", text: "התקציב נוקה." });
+    setMessage({ kind: "ok", text: t("budgetCleared") });
   }
 
   return (
@@ -76,13 +81,13 @@ export function MonthlyBudgetSection({ className }: { className?: string }) {
       data-testid="budget-section"
     >
       <h2 id={headingId} className={styles.sectionTitle}>
-        תקציב חודשי
+        {t("sectionTitle")}
       </h2>
 
       <form className={styles.form} onSubmit={onSubmit} noValidate>
         <div className={controls.field}>
           <label htmlFor={fieldId} className={controls.label}>
-            כמה את רוצה להוציא על מכולת בחודש? (₪)
+            {t("question")}
           </label>
           <input
             id={fieldId}
@@ -104,11 +109,11 @@ export function MonthlyBudgetSection({ className }: { className?: string }) {
         </div>
         <div className={styles.actions}>
           <Button type="submit" size="sm" disabled={shown.trim() === ""}>
-            שמירת תקציב
+            {t("saveBudget")}
           </Button>
           {budget !== null ? (
             <Button type="button" size="sm" variant="outline" onClick={onClear}>
-              ניקוי התקציב
+              {t("clearBudget")}
             </Button>
           ) : null}
         </div>
@@ -126,13 +131,13 @@ export function MonthlyBudgetSection({ className }: { className?: string }) {
 
       <dl className={styles.facts} data-testid="budget-facts">
         <div>
-          <dt>הוצאה ב{monthName(month)}</dt>
+          <dt>{t("spentIn", { month: monthName(month, "long", locale) })}</dt>
           <dd>
             <Price amount={spent} size="lg" data-testid="budget-spent" />
           </dd>
         </div>
         <div>
-          <dt>{status && status.remaining < 0 ? "חריגה מהתקציב" : "נותר החודש"}</dt>
+          <dt>{status && status.remaining < 0 ? t("overBudget") : t("leftThisMonth")}</dt>
           <dd>
             {status ? (
               <Price
@@ -141,13 +146,13 @@ export function MonthlyBudgetSection({ className }: { className?: string }) {
                 data-testid="budget-remaining-value"
               />
             ) : (
-              <span className={styles.muted}>לא הוגדר תקציב</span>
+              <span className={styles.muted}>{t("noBudget")}</span>
             )}
           </dd>
         </div>
         {monthSavings.length > 0 ? (
           <div>
-            <dt>חיסכון נטו מול הסופר שלך</dt>
+            <dt>{t("netSavingVsHome")}</dt>
             <dd>
               <Price
                 amount={saved}
@@ -162,46 +167,31 @@ export function MonthlyBudgetSection({ className }: { className?: string }) {
 
       {entries.length === 0 ? (
         <p className={styles.muted} data-testid="spend-empty">
-          עוד לא נרשמה קנייה. כשתלחצי &quot;סיימתי לקנות&quot; במצב חנות, הסכום יתווסף לכאן.
+          {t("spendEmpty")}
         </p>
       ) : (
         <>
-          <h3 className={styles.subTitle}>שישה חודשים אחרונים</h3>
+          <h3 className={styles.subTitle}>{t("lastSixMonths")}</h3>
           <SpendChart data={totals} budget={budget} highlight={month} />
-          {thisMonth.length > 0 ? (
-            <>
-              <h3 className={styles.subTitle}>הקניות ב{monthName(month)}</h3>
-              <ul className={styles.entries} data-testid="spend-entries">
-                {thisMonth.slice(0, 8).map((e) => (
-                  <li key={e.id}>
-                    <span>
-                      <span dir="ltr">{dayLabel(e.date)}</span> · {e.store_name}
-                      {e.plan === "split" ? " (פיצול)" : ""}
-                      <span className={styles.muted}>
-                        {" · "}
-                        <span dir="ltr">{e.item_count}</span> פריטים
-                      </span>
-                    </span>
-                    <Price amount={e.total} />
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
         </>
       )}
 
+      {/* Always mounted: its undo window must outlive the last shop leaving the list. */}
+      <SpendEntries
+        entries={thisMonth}
+        signedIn={signedIn}
+        heading={t("shopsIn", { month: monthName(month, "long", locale) })}
+      />
+
       <p className={styles.note} data-testid="budget-method">
-        הסכומים הם לפי המחירים שהוצגו באפליקציה ברגע הקנייה, לא לפי קבלות, ולכן הם הערכה. המחיר
-        הקובע הוא בקופה. החיסכון נטו נמדד תמיד מול הסופר שלך ואחרי נסיעה, באותה שיטה כמו
-        ב&quot;החיסכון שלי&quot;. שומרים רק תאריך, חנות, סכום ומספר פריטים, בלי שמות מוצרים.
+        {t("method")}
       </p>
       <p className={styles.note}>
         {signedIn
           ? pending.length > 0
-            ? `${pending.length} קניות ממתינות לשמירה בחשבון.`
-            : "הקניות שנרשמו כשהיית מחוברת נשמרות גם בחשבון שלך."
-          : "בלי חשבון, הנתונים נשמרים במכשיר הזה בלבד. הם לא נמכרים ולא משותפים."}
+            ? t("pendingSave", { n: pending.length })
+            : t("syncedNote")
+          : t("localOnly")}
       </p>
     </Card>
   );

@@ -3,7 +3,7 @@ import {
   absoluteUrl,
   ACCESSIBILITY_PATH,
   BASKET_INDEX_PATH,
-  INDEX_UNPRICED,
+  isIndexable,
   METHODOLOGY_PATH,
   METHODOLOGY_UPDATED,
 } from "./config";
@@ -39,7 +39,7 @@ export function sitemapEntries(): MetadataRoute.Sitemap {
     });
   }
   for (const p of productPages()) {
-    if (p.no_prices_yet && !INDEX_UNPRICED) continue;
+    if (!isIndexable(p)) continue;
     entries.push({
       url: absoluteUrl(`/p/${p.slug}`),
       lastModified: p.price_valid_from ? new Date(p.price_valid_from) : productsAt,

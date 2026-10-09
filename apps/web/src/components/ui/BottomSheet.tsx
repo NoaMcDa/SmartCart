@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useT } from "@/i18n/LocaleProvider";
+import { uiMessages } from "@/i18n/messages/ui";
 import { IconClose } from "./icons";
 import styles from "./BottomSheet.module.css";
 
@@ -38,6 +40,7 @@ export function BottomSheet({
   hideCloseButton,
   className,
 }: BottomSheetProps) {
+  const t = useT(uiMessages);
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -60,6 +63,9 @@ export function BottomSheet({
     const raf = requestAnimationFrame(() => {
       const dialog = dialogRef.current;
       if (!dialog) return;
+      // The person (or a test) already put focus inside the sheet before this frame: keep it there
+      // rather than pulling it back to the first control mid-typing.
+      if (document.activeElement instanceof Node && dialog.contains(document.activeElement)) return;
       const first = dialog.querySelector<HTMLElement>(FOCUSABLE);
       (first ?? dialog).focus();
     });
@@ -121,7 +127,12 @@ export function BottomSheet({
             </h2>
           </div>
           {hideCloseButton ? null : (
-            <button type="button" className={styles.close} onClick={onClose} aria-label="סגירה">
+            <button
+              type="button"
+              className={styles.close}
+              onClick={onClose}
+              aria-label={t("sheetClose")}
+            >
               <IconClose size={18} />
             </button>
           )}

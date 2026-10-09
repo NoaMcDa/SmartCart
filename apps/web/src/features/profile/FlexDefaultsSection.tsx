@@ -3,10 +3,12 @@
 import { useId } from "react";
 import type { FlexLevel } from "@/api/client";
 import { Button } from "@/components/ui/Button";
-import { FLEX_LEVELS } from "@/components/ui/Chip";
+import { flexLevelLabel } from "@/components/ui/Chip";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { profileMessages } from "@/i18n/messages/profile";
 import styles from "./controls/controls.module.css";
 import profileStyles from "./Profile.module.css";
-import { DEPARTMENTS, categoryLabel, smartDefault } from "./dietOptions";
+import { DEPARTMENTS, categoryLabel, departmentLabel, smartDefault } from "./dietOptions";
 import { listActions, useFlexDefaults } from "@/state/list";
 
 const LEVELS: ReadonlyArray<FlexLevel> = ["exact", "any_brand", "close"];
@@ -17,19 +19,19 @@ const LEVELS: ReadonlyArray<FlexLevel> = ["exact", "any_brand", "close"];
  * the list builder by "remember this for all milk". Only changes are stored; reset empties them.
  */
 export function FlexDefaultsSection() {
+  const t = useT(profileMessages);
+  const { locale } = useLocale();
   const overrides = useFlexDefaults();
   const departmentIds = new Set(DEPARTMENTS.map((d) => d.id));
   const extra = Object.keys(overrides).filter((k) => !departmentIds.has(k));
   const rows = [
-    ...extra.map((id) => ({ id, label: categoryLabel(id) })),
-    ...DEPARTMENTS.map((d) => ({ id: d.id, label: d.label })),
+    ...extra.map((id) => ({ id, label: categoryLabel(id, locale) })),
+    ...DEPARTMENTS.map((d) => ({ id: d.id, label: departmentLabel(d.id, locale) })),
   ];
   const changed = Object.keys(overrides).length;
   return (
     <div className={styles.stack}>
-      <p className={styles.hint}>
-        הרמה שנבחרת אוטומטית לכל מוצר חדש בקטגוריה. תמיד אפשר לשנות פריט בודד ברשימה.
-      </p>
+      <p className={styles.hint}>{t("flexHint")}</p>
       <ul className={profileStyles.flexList} data-testid="flex-defaults">
         {rows.map((row) => (
           <FlexRow
@@ -50,10 +52,10 @@ export function FlexDefaultsSection() {
             for (const id of Object.keys(overrides)) listActions.setFlexDefault(id, null);
           }}
         >
-          איפוס לברירות המחדל החכמות
+          {t("flexReset")}
         </Button>
         <span className={styles.status} role="status">
-          {changed === 0 ? "כל הקטגוריות על ברירת המחדל." : `${changed} קטגוריות שונו.`}
+          {changed === 0 ? t("flexAllDefault") : t("flexChangedCount", { count: changed })}
         </span>
       </div>
     </div>
@@ -71,12 +73,14 @@ function FlexRow({
   value: FlexLevel;
   isOverride: boolean;
 }) {
+  const t = useT(profileMessages);
+  const { locale } = useLocale();
   const selectId = useId();
   return (
     <li className={profileStyles.flexRow}>
       <label htmlFor={selectId} className={profileStyles.flexLabel}>
         {label}
-        {isOverride ? <span className={profileStyles.changed}> · שונה</span> : null}
+        {isOverride ? <span className={profileStyles.changed}>{t("flexChangedMark")}</span> : null}
       </label>
       <select
         id={selectId}
@@ -89,7 +93,7 @@ function FlexRow({
       >
         {LEVELS.map((l) => (
           <option key={l} value={l}>
-            {FLEX_LEVELS[l].label}
+            {flexLevelLabel(l, locale)}
           </option>
         ))}
       </select>

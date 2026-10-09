@@ -1,0 +1,11 @@
+- navigation "ניווט ראשי":
+  - link "רשימות":
+    - /url: /
+  - link "השוואה":
+    - /url: /compare
+  - link "סריקת ברקוד":
+    - /url: /scan
+  - link "התראות":
+    - /url: /alerts
+  - link "פרופיל":
+    - /url: /profile

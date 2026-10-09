@@ -1,5 +1,8 @@
 import type { CompareResponse, PricedItem, StoreResult } from "@/api/client";
-import { perUnitLabel } from "@/lib/attributes";
+import { perUnit } from "@/i18n/format-2";
+import { DEFAULT_LOCALE, INTL_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { productMessages } from "@/i18n/messages/product";
 
 export type Variant = {
   /** Chain item name, the variant's identity. */
@@ -22,8 +25,8 @@ export type StoreRow = {
   shelf: number;
 };
 
-export function unitLabel(uom: string): string {
-  return perUnitLabel(uom);
+export function unitLabel(uom: string, locale: Locale = DEFAULT_LOCALE): string {
+  return perUnit(uom, locale);
 }
 
 /** The canonical's lines in a compare result, one per store, cheapest effective price first. */
@@ -44,7 +47,10 @@ export function storeRows(compare: CompareResponse, canonicalId: number): StoreR
 }
 
 /** Variants (distinct chain items) ranked by unit price, ascending (D6). */
-export function variantsOf(rows: ReadonlyArray<StoreRow>): Variant[] {
+export function variantsOf(
+  rows: ReadonlyArray<StoreRow>,
+  locale: Locale = DEFAULT_LOCALE,
+): Variant[] {
   const byName = new Map<string, StoreRow[]>();
   for (const row of rows) {
     const list = byName.get(row.item.display_name_he) ?? [];
@@ -59,7 +65,7 @@ export function variantsOf(rows: ReadonlyArray<StoreRow>): Variant[] {
     variants.push({
       name,
       unitPrice: Number(best.item.effective_unit_price),
-      unitLabel: unitLabel(best.item.uom),
+      unitLabel: unitLabel(best.item.uom, locale),
       isEstimated: list.some((r) => r.item.is_estimated),
       isSubstitute: list.every((r) => r.item.is_substitute),
       storeCount: list.length,
@@ -70,17 +76,27 @@ export function variantsOf(rows: ReadonlyArray<StoreRow>): Variant[] {
 }
 
 /** "היום 06:40" for today's prices, "06.10 06:40" otherwise (Israel time). */
-export function formatUpdated(iso: string, now: Date = new Date()): string {
+export function formatUpdated(
+  iso: string,
+  now: Date = new Date(),
+  locale: Locale = DEFAULT_LOCALE,
+): string {
   const d = new Date(iso);
   const tz = "Asia/Jerusalem";
+  const intl = INTL_LOCALE[locale];
   const day = (x: Date) => x.toLocaleDateString("en-CA", { timeZone: tz });
-  const time = d.toLocaleTimeString("he-IL", {
+  const time = d.toLocaleTimeString(intl, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
     timeZone: tz,
   });
-  if (day(d) === day(now)) return `היום ${time}`;
-  const date = d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", timeZone: tz });
-  return `${date.replace(/\//g, ".")} ${time}`;
+  if (day(d) === day(now)) return `${translate(productMessages, locale, "today")} ${time}`;
+  const parts = new Intl.DateTimeFormat(intl, {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: tz,
+  }).formatToParts(d);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("day")}.${part("month")} ${time}`;
 }

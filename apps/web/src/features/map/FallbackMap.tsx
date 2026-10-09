@@ -1,8 +1,10 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { useT } from "@/i18n/LocaleProvider";
+import { mapMessages } from "@/i18n/messages/map";
 import { PinButton, type Pin } from "./PinButton";
-import type { LatLon } from "./geo";
+import { APPROX_AREA_M, type LatLon } from "./geo";
 import styles from "./Map.module.css";
 
 type Props = {
@@ -19,6 +21,7 @@ type Props = {
  * physical right (the container is laid out with container-query units, not left/right).
  */
 export function FallbackMap({ center, radiusM, pins, selectedId, onSelect }: Props) {
+  const t = useT(mapMessages);
   const metersEast = (p: LatLon) =>
     (p.lon - center.lon) * Math.cos((center.lat * Math.PI) / 180) * 111_320;
   const metersNorth = (p: LatLon) => (p.lat - center.lat) * 110_540;
@@ -32,14 +35,31 @@ export function FallbackMap({ center, radiusM, pins, selectedId, onSelect }: Pro
       className={styles.fallback}
       data-testid="map-fallback"
       role="group"
-      aria-label="תרשים סניפים, מפה לא זמינה במכשיר הזה"
+      aria-label={t("fallbackLabel")}
     >
       <span
         className={styles.fbRing}
         style={{ "--rr": `${(radiusM / extent) * 42}` } as CSSProperties}
         aria-hidden="true"
       />
-      <span className={styles.fbUser} role="img" aria-label="המיקום שלי, מעוגל לשכונה" />
+      <span className={styles.fbUser} role="img" aria-label={t("myLocation")} />
+      {pins
+        .filter((pin) => pin.approximate)
+        .map((pin) => (
+          <span
+            key={`area-${pin.storeId}`}
+            className={styles.fbArea}
+            data-testid="map-approx-area"
+            aria-hidden="true"
+            style={
+              {
+                "--dx": `${(metersEast(pin.position) / extent) * 42}`,
+                "--dy": `${(-metersNorth(pin.position) / extent) * 30}`,
+                "--ar": `${(APPROX_AREA_M / extent) * 42}`,
+              } as CSSProperties
+            }
+          />
+        ))}
       {pins.map((pin) => (
         <span
           key={pin.storeId}

@@ -6,7 +6,8 @@
 2. ``stores``: the file's store records, with ``channel`` from ``smartcart_ingest.channel``
    (source declaration, the adapter's ``online_store_rule``, then the shared heuristic);
    location goes to ``stores.geog`` when that column exists (it
-   needs PostGIS) and the record has lat/lon. A price or promo file that names a store the
+   needs PostGIS): the record's own lat/lon, else the geocode / locality tables of
+   ``data/geo`` (``_set_locations``, docs/geocoding.md). A price or promo file that names a store the
    Stores file has not delivered yet gets a placeholder row (name = store code) that the next
    Stores file fills in.
 3. ``items``: upsert on ``(chain_id, item_code)``.
@@ -50,6 +51,7 @@ from psycopg.types.json import Jsonb
 from smartcart_ingest import tracking
 from smartcart_ingest.adapters.base import ChainAdapter
 from smartcart_ingest.channel import tag_channel
+from smartcart_ingest.geocode.resolve import load_index as load_geo_index
 from smartcart_ingest.models import ParsedFile, PriceRecord, PromoRecord, StoreRecord
 
 log = structlog.get_logger("smartcart_ingest.loader")
@@ -80,6 +82,8 @@ class LoadResult:
     promos: int = 0
     promo_items: int = 0
     promo_items_unknown: int = 0
+    stores_located: dict[str, int] = field(default_factory=dict)
+    """Stores that got a location from this file, by precision (docs/geocoding.md)."""
     warnings: list[str] = field(default_factory=list)
 
 
@@ -193,6 +197,81 @@ def _upsert_chains(conn: psycopg.Connection, parsed: ParsedFile, adapter: ChainA
         )
 
 
+_RANK_SQL = "coalesce(array_position(ARRAY['address','street','locality'], {col}), 99)"
+
+
+def _set_locations(
+    conn: psycopg.Connection,
+    cur: psycopg.Cursor,
+    records: list[StoreRecord],
+    online: set[tuple[str, str]],
+    result: LoadResult,
+) -> None:
+    """Set ``stores.geog`` (and its precision and source) for the file's stores.
+
+    Order of preference (docs/geocoding.md): coordinates the chain published in this file
+    (``chain``, precision ``address``); else a row of ``data/geo/store_geocodes.csv``; else the
+    centroid of the store's CBS locality; else the column stays as it was (NULL for a new store,
+    listed by the ``stores_missing_geo`` view). A lookup never replaces a better location than
+    it finds: a chain-published point is kept, and a locality centroid does not overwrite a
+    street or address.
+    """
+    labelled = _has_column(conn, "stores", "geo_precision")
+    counts: dict[str, int] = {}
+    published = [s for s in records if s.lat is not None and s.lon is not None]
+    if published:
+        if labelled:
+            cur.executemany(
+                "UPDATE stores SET geog = ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,"
+                "   geo_precision = 'address', geo_source = 'chain'"
+                " WHERE chain_id = %s AND store_code = %s",
+                [(s.lon, s.lat, s.chain_id, s.store_code) for s in published],
+            )
+        else:
+            cur.executemany(
+                "UPDATE stores SET geog = ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography"
+                " WHERE chain_id = %s AND store_code = %s",
+                [(s.lon, s.lat, s.chain_id, s.store_code) for s in published],
+            )
+        counts["address"] = len(published)
+    # An online store (delivery channel) has no place to be found at: it gets no looked-up location.
+    rest = [
+        s
+        for s in records
+        if (s.lat is None or s.lon is None) and (s.chain_id, s.store_code) not in online
+    ]
+    if rest and labelled:
+        try:
+            index = load_geo_index()
+        except OSError as exc:  # an unreadable data/geo must not fail a price load
+            log.warning("geo_index_unreadable", error=str(exc))
+            index = None
+        if index is not None:
+            for s in rest:
+                point = index.resolve(s.chain_id, s.store_code, s.city)
+                if point is None:
+                    continue
+                cur.execute(
+                    "UPDATE stores SET geog = ST_SetSRID(ST_MakePoint(%(lon)s, %(lat)s), 4326)::geography,"
+                    "   geo_precision = %(precision)s, geo_source = %(source)s"
+                    " WHERE chain_id = %(chain)s AND store_code = %(code)s"
+                    "   AND geo_source IS DISTINCT FROM 'chain'"
+                    f"   AND {_RANK_SQL.format(col='geo_precision')}"
+                    f"       >= {_RANK_SQL.format(col='%(precision)s::text')}",
+                    {
+                        "lon": point.lon,
+                        "lat": point.lat,
+                        "precision": point.precision,
+                        "source": point.source,
+                        "chain": s.chain_id,
+                        "code": s.store_code,
+                    },
+                )
+                if cur.rowcount:
+                    counts[point.precision] = counts.get(point.precision, 0) + 1
+    result.stores_located = counts
+
+
 def _upsert_stores(
     conn: psycopg.Connection, parsed: ParsedFile, adapter: ChainAdapter, result: LoadResult
 ) -> dict[tuple[str, str], int]:
@@ -213,13 +292,9 @@ def _upsert_stores(
             "   IS DISTINCT FROM (EXCLUDED.name, EXCLUDED.address, EXCLUDED.city, EXCLUDED.channel)",
             rows,
         )
-        located = [s for s in records.values() if s.lat is not None and s.lon is not None]
-        if located and _has_column(conn, "stores", "geog"):
-            cur.executemany(
-                "UPDATE stores SET geog = ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography"
-                " WHERE chain_id = %s AND store_code = %s",
-                [(s.lon, s.lat, s.chain_id, s.store_code) for s in located],
-            )
+        if _has_column(conn, "stores", "geog"):
+            online = {(r[0], r[1]) for r in rows if r[5] == "online"}
+            _set_locations(conn, cur, list(records.values()), online, result)
         # Stores named by price or promo records but not (yet) delivered by a Stores file.
         referenced = {(p.chain_id, p.store_code) for p in parsed.prices if p.store_code is not None}
         referenced |= {(p.chain_id, p.store_code) for p in parsed.promos}

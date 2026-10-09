@@ -1,0 +1,181 @@
+name: OCR evaluation
+
+# Issues #61 (receipt scan) and #68 (handwritten list photo). The build sandbox has no Tesseract
+# and cannot reach model hosts; a GitHub-hosted runner can install Tesseract with the Hebrew data.
+# This job generates SYNTHETIC receipts and handwritten-style lists (scripts/ocr/render.py: the
+# repo's canonical catalog drawn with Noto Sans Hebrew, light rotation, blur and noise, ground
+# truth next to each image), reads them with the real provider and the real receipt structurer,
+# and reports per-field accuracy and list-item recall and precision against the catalog. It is a
+# measurement: it never fails because a number is low. Numbers are on generated images, not real
+# receipts or real handwriting (docs/ocr.md). Read the output in the job log or the job summary.
+#
+# provider "claude" needs the ANTHROPIC_API_KEY repository secret and costs about 0.01 USD per
+# image (estimate); it is capped at 100 images per run. Without the secret it says so and exits 0.
+
+on:
+  workflow_dispatch:
+    inputs:
+      receipts:
+        description: "Synthetic receipts to generate and read (1 to 200)"
+        required: false
+        default: 40
+        type: number
+      lists:
+        description: "Synthetic handwritten-style lists to generate and read (0 to 200)"
+        required: false
+        default: 20
+        type: number
+      seed:
+        description: "Random seed of the generator (same seed, same images)"
+        required: false
+        default: 7
+        type: number
+      debug_samples:
+        description: "Print the raw provider lines next to the printed lines for this many receipts and this many lists (synthetic images; 0 turns it off)"
+        required: false
+        default: 3
+        type: number
+      provider:
+        description: "OCR provider to evaluate (claude is key-gated, about 0.01 USD per image, estimate)"
+        required: false
+        default: tesseract
+        type: choice
+        options:
+          - tesseract
+          - claude
+
+concurrency:
+  group: ocr-eval
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: generate, read and score synthetic receipts and lists
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    services:
+      # Same image and tag as ci.yml; the catalog metrics resolve against a seeded MVP catalog.
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      RECEIPTS: ${{ inputs.receipts || 40 }}
+      LISTS: ${{ inputs.lists || 20 }}
+      SEED: ${{ inputs.seed || 7 }}
+      PROVIDER: ${{ inputs.provider || 'tesseract' }}
+      DEBUG_SAMPLES: ${{ inputs.debug_samples }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the inputs and the spend cap
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -eu
+          DEBUG_SAMPLES="${DEBUG_SAMPLES:-3}"
+          echo "DEBUG_SAMPLES=$DEBUG_SAMPLES" >> "$GITHUB_ENV"
+          for v in "$RECEIPTS" "$LISTS" "$SEED" "$DEBUG_SAMPLES"; do
+            case "$v" in ''|*[!0-9]*) echo "::error::inputs must be whole numbers"; exit 1;; esac
+          done
+          if [ "$RECEIPTS" -lt 1 ] || [ "$RECEIPTS" -gt 200 ] || [ "$LISTS" -gt 200 ]; then
+            echo "::error::receipts must be 1 to 200 and lists 0 to 200"; exit 1
+          fi
+          if [ "$PROVIDER" = "claude" ]; then
+            if [ -z "$ANTHROPIC_API_KEY" ]; then
+              echo "::notice::set the ANTHROPIC_API_KEY repository secret to evaluate the claude provider"
+              echo "Set the ANTHROPIC_API_KEY repository secret to evaluate the claude provider (Settings, Secrets and variables, Actions)." >> "$GITHUB_STEP_SUMMARY"
+              echo "SKIP=1" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            if [ $((RECEIPTS + LISTS)) -gt 100 ]; then
+              echo "::error::the claude provider is capped at 100 images per run (about 1 USD, estimate)"; exit 1
+            fi
+          fi
+
+      - name: Install Tesseract (with Hebrew data) and the Hebrew font
+        if: env.SKIP != '1'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-heb fonts-noto-core
+          tesseract --version
+          tesseract --list-langs
+          fc-list | grep -i "NotoSansHebrew" | head -3
+
+      - name: Set up uv and Python 3.12
+        if: env.SKIP != '1'
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - name: Install
+        if: env.SKIP != '1'
+        run: uv sync
+
+      - name: Migrate the database
+        if: env.SKIP != '1'
+        run: uv run --no-sync smartcart-ingest migrate
+
+      - name: Generate the synthetic images
+        if: env.SKIP != '1'
+        run: |
+          set -o pipefail
+          # images/ are what the provider reads; truth-images/ are the same pictures that carry
+          # their own text, so the fake provider gives a perfect reading (the upper bound).
+          uv run --no-sync python scripts/ocr/render.py --out "$RUNNER_TEMP/images" \
+            --receipts "$RECEIPTS" --lists "$LISTS" --seed "$SEED"
+          uv run --no-sync python scripts/ocr/render.py --out "$RUNNER_TEMP/truth-images" \
+            --receipts "$RECEIPTS" --lists "$LISTS" --seed "$SEED" --embed-truth
+
+      - name: Upper bound, perfect reading (fake provider, structurer and catalog only)
+        if: env.SKIP != '1'
+        run: |
+          set -o pipefail
+          {
+            echo "## Upper bound: perfect reading"
+            echo
+            echo "Same synthetic images, but the text is read straight from the file. What is left is the receipt structurer and the catalog matcher."
+          } >> "$GITHUB_STEP_SUMMARY"
+          uv run --no-sync python scripts/ocr/evaluate.py --dir "$RUNNER_TEMP/truth-images" \
+            --provider fake --prepare-db --json-out "$RUNNER_TEMP/upper-bound.json" | tee "$RUNNER_TEMP/upper-bound.txt"
+
+      - name: Read the images with the provider and score them
+        if: env.SKIP != '1'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -o pipefail
+          echo "## Provider: $PROVIDER" >> "$GITHUB_STEP_SUMMARY"
+          uv run --no-sync python scripts/ocr/evaluate.py --dir "$RUNNER_TEMP/images" \
+            --provider "$PROVIDER" --debug-samples "$DEBUG_SAMPLES" \
+            --json-out "$RUNNER_TEMP/result.json" | tee "$RUNNER_TEMP/result.txt"
+
+      - name: Upload the images, truth and reports
+        if: always() && env.SKIP != '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-eval-${{ inputs.provider || 'tesseract' }}
+          path: |
+            ${{ runner.temp }}/images
+            ${{ runner.temp }}/result.json
+            ${{ runner.temp }}/result.txt
+            ${{ runner.temp }}/upper-bound.json
+            ${{ runner.temp }}/upper-bound.txt
+          retention-days: 14
+          if-no-files-found: ignore

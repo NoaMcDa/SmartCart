@@ -1,0 +1,53 @@
+- group:
+  - text: פירוט הסל ברמי לוי
+  - heading "רמי לוי · מודיעין" [level=3]
+  - list:
+    - listitem:
+      - link "חלב טרי 3% יטבתה, 1 ליטר":
+        - /url: /product/1001?name=%D7%97%D7%9C%D7%91%20%D7%98%D7%A8%D7%99%203%25%2C%201%20%D7%9C%D7%99%D7%98%D7%A8
+      - 'link "תחליף: חלב טרי 3% יטבתה, 1 ליטר, למה?"':
+        - /url: /compare/substitution/10101?plan=single
+        - text: תחליף · למה?
+      - text: × 2 ₪ 11.80
+      - time: עודכן אתמול HH:MM
+    - listitem:
+      - link "משקה סויה ללא סוכר מותג פרטי, 1 ליטר":
+        - /url: /product/1003?name=%D7%9E%D7%A9%D7%A7%D7%94%20%D7%A1%D7%95%D7%99%D7%94%20%D7%9C%D7%9C%D7%90%20%D7%A1%D7%95%D7%9B%D7%A8%2C%201%20%D7%9C%D7%99%D7%98%D7%A8
+      - 'link "תחליף: משקה סויה ללא סוכר מותג פרטי, 1 ליטר, למה?"':
+        - /url: /compare/substitution/10103?plan=single
+        - text: תחליף · למה?
+      - text: × 1 ₪ 9.90
+      - time: עודכן אתמול HH:MM
+    - listitem:
+      - link "רסק עגבניות מותג פרטי, 260 ג'":
+        - /url: /product/1004?name=%D7%A8%D7%A1%D7%A7%20%D7%A2%D7%92%D7%91%D7%A0%D7%99%D7%95%D7%AA%2C%20260%20%D7%92'
+      - 'link "תחליף: רסק עגבניות מותג פרטי, 260 ג'', למה?"':
+        - /url: /compare/substitution/10104?plan=single
+        - text: תחליף · למה?
+      - text: × 2 ₪ 9.00
+      - time: עודכן אתמול HH:MM
+    - listitem:
+      - link "שמן זית כתית מעולה יד מרדכי, 750 מ\"ל":
+        - /url: /product/1005?name=%D7%A9%D7%9E%D7%9F%20%D7%96%D7%99%D7%AA%20%D7%9B%D7%AA%D7%99%D7%AA%20%D7%9E%D7%A2%D7%95%D7%9C%D7%94%2C%20750%20%D7%9E%22%D7%9C
+      - text: × 1 ₪ 39.90
+      - time: עודכן אתמול HH:MM
+    - listitem:
+      - link "פסטה פנה אסם, 500 ג'":
+        - /url: /product/1006?name=%D7%A4%D7%A1%D7%98%D7%94%20%D7%A4%D7%A0%D7%94%2C%20500%20%D7%92'
+      - text: "מבצע: 3 ב-₪14.70 לא נבדק × 3 ₪ 14.70"
+      - time: עודכן אתמול HH:MM
+    - listitem:
+      - link "עגבניות, 1 ק\"ג":
+        - /url: /product/1007?name=%D7%A2%D7%92%D7%91%D7%A0%D7%99%D7%95%D7%AA%2C%201%20%D7%A7%22%D7%92
+      - text: מחיר משוער · שקיל × 1 ₪ 4.90
+      - time: עודכן אתמול HH:MM
+    - listitem:
+      - link "פילה סלמון נורבגי טרי":
+        - /url: /product/1008?name=%D7%A4%D7%99%D7%9C%D7%94%20%D7%A1%D7%9C%D7%9E%D7%95%D7%9F%20%D7%98%D7%A8%D7%99
+      - text: מבצע מועדון · רמי לוי מחיר משוער · שקיל לא נבדק × 2 ₪ 273.00
+      - time: עודכן אתמול HH:MM
+    - listitem:
+      - link "ביצים L, 12 יחידות":
+        - /url: /product/1009?name=%D7%91%D7%99%D7%A6%D7%99%D7%9D%20L%2C%2012%20%D7%99%D7%97%D7%99%D7%93%D7%95%D7%AA
+      - text: × 2 ₪ 25.80
+      - time: עודכן אתמול HH:MM

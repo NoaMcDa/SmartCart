@@ -1,12 +1,17 @@
 "use client";
 
+import { DocumentTitle } from "@/components/shell/PageChrome";
 import { ThemePreferenceControl } from "@/components/theme/ThemePreferenceControl";
+import { LocaleSwitch } from "@/i18n/LocaleSwitch";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Price } from "@/components/ui/Price";
 import { IconInfo } from "@/components/ui/icons";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { MonthlyBudgetSection } from "@/features/budget/MonthlyBudgetSection";
+import { formatRich, stripBidiMarks } from "@/i18n/format";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { profileMessages } from "@/i18n/messages/profile";
 import { ChainControls } from "./controls/ChainControls";
 import { LocationControls } from "./controls/LocationControls";
 import { TravelControls } from "./controls/TravelControls";
@@ -18,13 +23,14 @@ import { useProfile } from "./profileState";
 import styles from "./Profile.module.css";
 
 function SavingsSection() {
+  const t = useT(profileMessages);
+  const { intl } = useLocale();
   const entries = useSavings();
   const total = totalSaved(entries);
   if (entries.length === 0) {
     return (
       <p className={styles.muted} data-testid="savings-empty">
-        עוד אין חיסכון להציג. אחרי שתסיימי קנייה במצב חנות נחשב כמה באמת חסכת, מול החנות שלך ואחרי
-        נסיעה. אנחנו לא מציגים הערכות.
+        {t("savingsEmpty")}
       </p>
     );
   }
@@ -34,7 +40,7 @@ function SavingsSection() {
       <div className={styles.savingsTotal} data-testid="savings-total">
         <Price amount={total} size="xl" tone={total > 0 ? "good" : "default"} />
         <span className={styles.muted}>
-          מצטבר מתוך <span dir="ltr">{entries.length}</span> קניות, מול החנות שלך, אחרי נסיעה
+          {formatRich(t("savingsTotalNote"), { n: <span dir="ltr">{entries.length}</span> })}
         </span>
       </div>
       <ul className={styles.savingsList}>
@@ -44,7 +50,9 @@ function SavingsSection() {
               {e.storeName}
               <span className={styles.muted}>
                 {" · "}
-                {new Date(e.at).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}
+                {stripBidiMarks(
+                  new Date(e.at).toLocaleDateString(intl, { day: "numeric", month: "numeric" }),
+                )}
               </span>
             </span>
             <Price amount={e.net} tone={e.net > 0 ? "good" : "default"} />
@@ -56,26 +64,25 @@ function SavingsSection() {
 }
 
 function AccountSection() {
+  const t = useT(profileMessages);
   const auth = useAuth();
   if (auth.status === "signed-in") {
     return (
       <div className={styles.account}>
         <p className={styles.muted}>
-          מחוברת כ-<span dir="ltr">{auth.email}</span>. ההעדפות נשמרות גם בחשבון.
+          {formatRich(t("accountSignedIn"), { email: <span dir="ltr">{auth.email}</span> })}
         </p>
         <Button size="sm" variant="outline" onClick={() => void auth.signOut()}>
-          התנתקות
+          {t("signOut")}
         </Button>
       </div>
     );
   }
   return (
     <div className={styles.account}>
-      <p className={styles.muted}>
-        בלי חשבון, ההעדפות נשמרות במכשיר הזה בלבד. התחברות שומרת אותן גם בין מכשירים.
-      </p>
+      <p className={styles.muted}>{t("accountSignedOut")}</p>
       <Button size="sm" onClick={auth.openSignIn} disabled={auth.status === "loading"}>
-        התחברות עם אימייל
+        {t("signInWithEmail")}
       </Button>
     </div>
   );
@@ -83,37 +90,34 @@ function AccountSection() {
 
 /** Everything the app knows about the user, in one place (issues #55 and #30). */
 export function ProfileScreen() {
+  const t = useT(profileMessages);
   const profile = useProfile();
   return (
     <div className={styles.page}>
+      <DocumentTitle text={t("title")} />
       <header>
-        <h1 className={styles.title}>פרופיל</h1>
-        <p className={styles.lead}>
-          כל מה שהאפליקציה יודעת עלייך, במקום אחד. שינוי כאן משפיע על ההשוואה הבאה.
-        </p>
+        <h1 className={styles.title}>{t("title")}</h1>
+        <p className={styles.lead}>{t("lead")}</p>
       </header>
 
       {!profile.homeChainId ? (
         <p className={styles.hintBanner} data-testid="baseline-banner">
           <IconInfo size={18} />
-          <span>
-            עוד לא בחרת את הסופר שלך. בלי חנות בסיס לא נוכל להראות חיסכון נטו, כי החיסכון נמדד תמיד
-            מול החנות שבה את קונה בדרך כלל.
-          </span>
+          <span>{t("baselineBanner")}</span>
         </p>
       ) : null}
 
       <div className={styles.grid}>
         <Card as="section" aria-labelledby="account-heading">
           <h2 id="account-heading" className={styles.sectionTitle}>
-            חשבון
+            {t("accountHeading")}
           </h2>
           <AccountSection />
         </Card>
 
         <Card as="section" aria-labelledby="savings-heading">
           <h2 id="savings-heading" className={styles.sectionTitle}>
-            החיסכון שלי
+            {t("savingsHeading")}
           </h2>
           <SavingsSection />
         </Card>
@@ -122,49 +126,50 @@ export function ProfileScreen() {
 
         <Card as="section" aria-labelledby="location-heading">
           <h2 id="location-heading" className={styles.sectionTitle}>
-            מיקום ורדיוס
+            {t("locationHeading")}
           </h2>
           <LocationControls />
         </Card>
 
         <Card as="section" aria-labelledby="chains-heading">
           <h2 id="chains-heading" className={styles.sectionTitle}>
-            רשתות ומועדונים
+            {t("chainsHeading")}
           </h2>
           <ChainControls />
         </Card>
 
         <Card as="section" aria-labelledby="travel-heading">
           <h2 id="travel-heading" className={styles.sectionTitle}>
-            איך אני קונה
+            {t("travelHeading")}
           </h2>
           <TravelControls />
         </Card>
 
         <Card as="section" aria-labelledby="diet-heading">
           <h2 id="diet-heading" className={styles.sectionTitle}>
-            כשרות ותזונה
+            {t("dietHeading")}
           </h2>
           <DietSection />
         </Card>
 
         <Card as="section" aria-labelledby="flex-heading" className={styles.wide}>
           <h2 id="flex-heading" className={styles.sectionTitle}>
-            ברירות מחדל לגמישות
+            {t("flexHeading")}
           </h2>
           <FlexDefaultsSection />
         </Card>
 
         <Card as="section" aria-labelledby="theme-heading">
           <h2 id="theme-heading" className={styles.sectionTitle}>
-            ערכת צבעים
+            {t("themeHeading")}
           </h2>
           <ThemePreferenceControl />
+          <LocaleSwitch />
         </Card>
 
         <Card as="section" aria-labelledby="privacy-heading">
           <h2 id="privacy-heading" className={styles.sectionTitle}>
-            פרטיות ונתונים
+            {t("privacyHeading")}
           </h2>
           <PrivacySection />
         </Card>
