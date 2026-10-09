@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { KEYS, mockApi, profileSeed, seed } from "./secondary.helpers";
+import { settle } from "./settle";
 
 /**
  * Issue #73, workstream AR-1: with the `sc-locale=ar` cookie the shell, the ui components, the
@@ -155,6 +156,7 @@ test.describe("Arabic, every route in the AR-1 scope", () => {
       test(`${route.path}: no horizontal scroll at ${width} px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 844 });
         await open(page, route);
+        await settle(page);
         const { scroll, client } = await page.evaluate(() => ({
           scroll: document.documentElement.scrollWidth,
           client: document.documentElement.clientWidth,

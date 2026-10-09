@@ -15,7 +15,12 @@ const heeboFont = localFont({
   ],
   variable: "--font-heebo",
   display: "swap",
-  fallback: ["system-ui", "Arial", "sans-serif"],
+  // No generic fallbacks here, and no Arial-based metric fallback face: next/font would put them
+  // inside --font-heebo, BEFORE Noto Sans Arabic in --sc-font, and any system font with Arabic
+  // glyphs (Arial on Windows and macOS, system-ui on Android and Linux) would then render Arabic
+  // text instead of Noto. The generic fallbacks are listed once, after both faces, in tokens.css.
+  fallback: [],
+  adjustFontFallback: false,
 });
 
 /**
@@ -35,7 +40,8 @@ export const notoArabic = localFont({
   variable: "--font-noto-arabic",
   display: "swap",
   preload: false,
-  fallback: ["Geeza Pro", "Segoe UI", "Tahoma", "system-ui", "sans-serif"],
+  fallback: [],
+  adjustFontFallback: false,
 });
 
 /**

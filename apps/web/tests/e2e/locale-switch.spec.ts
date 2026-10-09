@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { loadArabicFont, settle } from "./settle";
 
 /**
  * Language switch (#73). The test-only page /locale-test mounts LocaleSwitch inside the real shell
@@ -62,12 +63,16 @@ test.describe("locale switch", () => {
     const stack = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
     expect(stack).toMatch(/heebo/i);
     expect(stack).toMatch(/noto/i);
+    // Nothing that may carry Arabic glyphs comes before Noto Sans Arabic.
+    const families = stack.split(",").map((f) => f.trim().replace(/^"|"$/g, ""));
+    const noto = families.findIndex((f) => /noto/i.test(f));
+    expect(families.slice(0, noto).every((f) => /heebo/i.test(f))).toBe(true);
     // The Arabic file really loads once an Arabic glyph needs it.
-    const loaded = await page.evaluate(async () => {
-      await document.fonts.ready;
-      return [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family);
-    });
+    // Ask for the Arabic face explicitly and wait: document.fonts.ready alone can resolve before
+    // the browser has even requested a face it does not preload.
+    const loaded = await loadArabicFont(page);
     expect(loaded.some((f) => /noto|__.*arabic/i.test(f))).toBe(true);
+    await settle(page);
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

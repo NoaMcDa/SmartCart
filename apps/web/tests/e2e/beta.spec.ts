@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { mockBetaFeedback, resetBetaMock, setBetaMockMember } from "../../src/mocks/handlers.beta";
 import { mockApi, type ApiCall } from "./core-helpers";
+import { settle } from "./settle";
 
 /**
  * Closed beta (issue #40): the join page behind an invite link, joining, sending feedback, leaving.
@@ -21,6 +22,7 @@ test.beforeEach(async ({ page }) => {
 const beta = () => calls.filter((c) => /\/beta|\/me\/beta/.test(c.path));
 
 async function axe(page: Page, context: string) {
+  await settle(page);
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   const blocking = results.violations.filter(
     (v) => v.impact === "serious" || v.impact === "critical",
