@@ -49,7 +49,7 @@ export function joinErrorMessage(err: unknown, t: Translate): string {
 export function BetaJoin({ code }: { code?: string }) {
   const t = useT(betaMessages);
   const auth = useAuth();
-  const beta = useBetaMembership();
+  const beta = useBetaMembership({ askWithoutSession: true });
   const consent = useTrackingConsent();
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);

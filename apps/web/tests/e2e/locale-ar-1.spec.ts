@@ -75,7 +75,11 @@ async function open(page: Page, route: Route) {
   await page.goto(route.path);
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");
   await expect(page.locator("main h1").first()).toHaveText(route.h1);
-  if (route.backLink) await expect(page.getByRole("link", { name: route.backLink })).toBeVisible();
+  // `.first()` is the page's own back link (first in the DOM). The substitution card's not-found
+  // state adds a second link to the same place with the same words (AR-2 migrated its copy), so
+  // a strict locator would match two links.
+  if (route.backLink)
+    await expect(page.getByRole("link", { name: route.backLink }).first()).toBeVisible();
 }
 
 /** Hebrew letters in the text, the labels and the titles of the regions, minus skipped pieces. */
@@ -86,7 +90,11 @@ async function hebrewIn(page: Page, route: Route): Promise<string[]> {
       const hebrew = /[֐-׿]+/g;
       for (const selector of regions) {
         for (const root of document.querySelectorAll(selector)) {
+          // Text marked `lang="he"` is Hebrew on purpose (the language switch labels each option
+          // in its own language), so it is exempt, root and descendants alike. Nothing else is.
+          if (root.closest('[lang="he"]')) continue;
           const clone = root.cloneNode(true) as Element;
+          clone.querySelectorAll('[lang="he"]').forEach((n) => n.remove());
           for (const section of skipSections)
             clone.querySelectorAll(section).forEach((n) => n.remove());
           for (const label of clone.querySelectorAll("label")) {

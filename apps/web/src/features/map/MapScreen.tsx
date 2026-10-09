@@ -20,9 +20,11 @@ import {
 import { netSavingForStore } from "@/features/split/savings";
 import { buildSession, startSession } from "@/features/store/session";
 import { useRich } from "@/i18n/format-2";
-import { useT } from "@/i18n/LocaleProvider";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { StoreText } from "@/i18n/StoreText";
 import { mapMessages } from "@/i18n/messages/map";
-import { formatDistance, formatTime } from "@/lib/format";
+import { approxLocationHint, formatStoreDistance, formatTime } from "@/lib/format";
+import { chainLabel, storeLabel } from "@/lib/storeName";
 import { useRouter } from "next/navigation";
 import { FallbackMap } from "./FallbackMap";
 import { storePosition, type LatLon } from "./geo";
@@ -77,6 +79,7 @@ function recommendedStoreIds(result: LastResult): Set<number> {
 export function MapScreen() {
   const t = useT(mapMessages);
   const r = useRich(mapMessages);
+  const { locale } = useLocale();
   const { status, result } = useComparison();
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -116,6 +119,7 @@ export function MapScreen() {
         recommended: recommended.has(s.store_id),
         cheapest:
           s.missing.length === 0 && cheapestTotal !== null && Number(s.total) === cheapestTotal,
+        approximate: s.distance_approximate === true,
         position,
       };
     });
@@ -141,7 +145,9 @@ export function MapScreen() {
     );
   }
   const selected = stores.find((s) => s.store_id === selectedId) ?? null;
-  const homeName = homeStoreOf(result)?.chain_name ?? null;
+  const homeChain = homeStoreOf(result)?.chain_name ?? null;
+  const homeName = homeChain ? chainLabel(homeChain, locale) : null;
+  const hasApproximate = pins.some((p) => p.approximate);
 
   function startShopping() {
     if (!selected || !result) return;
@@ -190,6 +196,18 @@ export function MapScreen() {
           />
         )}
       </div>
+      {hasApproximate ? (
+        <ul className={styles.legend} data-testid="map-legend" aria-label={t("legendLabel")}>
+          <li>
+            <span className={styles.legendPin} aria-hidden="true" />
+            <span>{t("legendExact")}</span>
+          </li>
+          <li>
+            <span className={styles.legendApprox} aria-hidden="true" />
+            <span>{t("legendApprox")}</span>
+          </li>
+        </ul>
+      ) : null}
       <p className={styles.attribution}>
         {unsupported ? t("mapUnavailable") : null}
         {r("attribution", {
@@ -221,15 +239,22 @@ export function MapScreen() {
                     className={styles.storeRow}
                     onClick={() => setSelectedId(pin.storeId)}
                     aria-label={t("storeRowAria", {
-                      store: store.store_name,
-                      distance: formatDistance(store.distance_m),
+                      store: storeLabel(store.store_name, locale),
+                      distance: formatStoreDistance(store, locale),
                       total: pin.total,
                     })}
                   >
                     <span className={styles.storeMain}>
-                      <span className={styles.storeName}>{store.store_name}</span>
+                      <span className={styles.storeName}>
+                        <StoreText name={store.store_name} />
+                      </span>
                       <span className={styles.muted}>
-                        {formatDistance(store.distance_m)}
+                        <span
+                          data-testid="map-row-distance"
+                          data-approximate={pin.approximate ? "true" : "false"}
+                        >
+                          {formatStoreDistance(store, locale)}
+                        </span>
                         {pin.recommended ? ` · ${t("recommended")}` : ""}
                         {pin.cheapest ? ` · ${t("cheapest")}` : ""}
                         {pin.missingCount > 0
@@ -251,8 +276,8 @@ export function MapScreen() {
       <BottomSheet
         open={selected !== null}
         onClose={() => setSelectedId(null)}
-        eyebrow={selected?.chain_name}
-        title={selected?.store_name ?? ""}
+        eyebrow={selected ? <StoreText kind="chain" name={selected.chain_name} /> : undefined}
+        title={selected ? <StoreText name={selected.store_name} /> : ""}
         footer={
           selected ? (
             <>
@@ -281,13 +306,18 @@ function StoreDetails({
 }) {
   const t = useT(mapMessages);
   const r = useRich(mapMessages);
+  const { locale } = useLocale();
   const saving = netSavingForStore(result, store);
+  const approximate = store.distance_approximate === true;
   return (
     <div className={styles.details} data-testid="store-sheet">
       <dl className={styles.facts}>
         <div>
           <dt>{t("distance")}</dt>
-          <dd>{formatDistance(store.distance_m)}</dd>
+          <dd data-testid="sheet-distance" data-approximate={approximate ? "true" : "false"}>
+            {formatStoreDistance(store, locale)}
+            {approximate ? <span className={styles.hint}>{approxLocationHint(locale)}</span> : null}
+          </dd>
         </div>
         <div>
           <dt>{t("basketTotal")}</dt>

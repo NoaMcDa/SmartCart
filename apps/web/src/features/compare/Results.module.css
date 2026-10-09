@@ -105,6 +105,11 @@
   white-space: nowrap;
 }
 
+/* The approximate-location words are long: let them wrap at 195 px instead of overflowing. */
+.metaWrap {
+  white-space: normal;
+}
+
 .planHead {
   display: flex;
   flex-direction: column;

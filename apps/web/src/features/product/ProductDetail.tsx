@@ -22,8 +22,12 @@ import { ReportGapButton } from "@/features/feedback/GapReportSheet";
 import { useShopper } from "@/state/shopper";
 import { useRich } from "@/i18n/format-2";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
+import type { Locale } from "@/i18n/locales";
 import { productMessages, type ProductMessageKey } from "@/i18n/messages/product";
-import { formatDistance } from "@/lib/format";
+import { DataText } from "@/i18n/DataText";
+import { StoreText } from "@/i18n/StoreText";
+import { formatStoreDistance } from "@/lib/format";
+import { chainLabel } from "@/lib/storeName";
 import { listActions } from "@/state/list";
 import { formatUpdated, storeRows, variantsOf, type StoreRow } from "./productData";
 import styles from "./Product.module.css";
@@ -256,9 +260,17 @@ export function ProductDetail({
                     return (
                       <tr key={store.store_id}>
                         <th scope="row" className={styles.storeCell}>
-                          <span className={styles.storeName}>{store.store_name}</span>
+                          <span className={styles.storeName}>
+                            <StoreText name={store.store_name} />
+                          </span>
                           <span className={styles.muted}>
-                            {formatDistance(store.distance_m)} · {item.display_name_he}
+                            <span
+                              data-testid="product-distance"
+                              data-approximate={store.distance_approximate ? "true" : "false"}
+                            >
+                              {formatStoreDistance(store, locale)}
+                            </span>{" "}
+                            · <DataText>{item.display_name_he}</DataText>
                           </span>
                           {item.is_substitute ? (
                             <Tag variant="differs">{t("substitute")}</Tag>
@@ -326,7 +338,7 @@ export function ProductDetail({
       {state.kind !== "loading" ? (
         <PriceHistory
           canonicalId={canonicalId}
-          stores={historyStores(rows, home, t)}
+          stores={historyStores(rows, home, t, locale)}
           unitLabel={unitText}
         />
       ) : null}
@@ -371,20 +383,23 @@ function historyStores(
   rows: ReadonlyArray<StoreRow>,
   homeStoreId: number | null,
   t: (key: ProductMessageKey, vars?: Record<string, string | number>) => string,
+  locale: Locale,
 ): HistoryStoreOption[] {
   const options: HistoryStoreOption[] = [];
   if (homeStoreId !== null) {
     const mine = rows.find((r) => r.store.store_id === homeStoreId);
     options.push({
       storeId: homeStoreId,
-      label: mine ? t("historyMineChain", { chain: mine.store.chain_name }) : t("historyMine"),
+      label: mine
+        ? t("historyMineChain", { chain: chainLabel(mine.store.chain_name, locale) })
+        : t("historyMine"),
     });
   }
   const cheapest = rows[0];
   if (cheapest && cheapest.store.store_id !== homeStoreId) {
     options.push({
       storeId: cheapest.store.store_id,
-      label: t("historyCheapest", { chain: cheapest.store.chain_name }),
+      label: t("historyCheapest", { chain: chainLabel(cheapest.store.chain_name, locale) }),
     });
   }
   options.push({ storeId: null, label: t("historyBase") });

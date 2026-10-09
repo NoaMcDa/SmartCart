@@ -19,7 +19,7 @@ import { formatRich } from "@/i18n/format";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { compareMessages } from "@/i18n/messages/compare";
 import { sharedMessages } from "@/i18n/messages/shared";
-import { formatDistance } from "@/lib/format";
+import { formatStoreDistance } from "@/lib/format";
 import { chainLabel, storeLabel } from "@/lib/storeName";
 import { planPromos, planSubstitutions, planUpdatedAt } from "@/state/comparison";
 import { Count } from "./Count";
@@ -91,9 +91,13 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
             <span dir="ltr">+{plan.extra_minutes}</span> {t("minutes")}
           </span>
         ) : first ? (
-          <span className={styles.meta}>
+          <span
+            className={[styles.meta, first.distance_approximate ? styles.metaWrap : ""].join(" ")}
+            data-testid="plan-distance"
+            data-approximate={first.distance_approximate ? "true" : "false"}
+          >
             <IconPin size={14} />
-            {formatDistance(first.distance_m, locale)}
+            {formatStoreDistance(first, locale)}
           </span>
         ) : null}
       </div>

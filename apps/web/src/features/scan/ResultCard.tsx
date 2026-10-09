@@ -7,8 +7,9 @@ import { IconCheck, IconWarning } from "@/components/ui/icons";
 import { ReportGapButton } from "@/features/feedback";
 import { perUnit, useRich } from "@/i18n/format-2";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { StoreText } from "@/i18n/StoreText";
 import { scanMessages } from "@/i18n/messages/scan";
-import { formatDistance } from "@/lib/format";
+import { formatStoreDistance } from "@/lib/format";
 import controls from "@/features/profile/controls/controls.module.css";
 import { addCanonicalToList } from "./addToList";
 import styles from "./Scan.module.css";
@@ -49,8 +50,19 @@ function PriceLine({
         <Price amount={price.shelf_price} size="lg" fractionDigits={2} />
       </div>
       <p className={styles.lineMeta}>
-        {price.store.chain_name} · {price.store.store_name}
-        {price.store.distance_m != null ? ` · ${formatDistance(price.store.distance_m)}` : ""}
+        <StoreText kind="chain" name={price.store.chain_name} /> ·{" "}
+        <StoreText name={price.store.store_name} />
+        {price.store.distance_m != null ? (
+          <>
+            {" · "}
+            <span
+              data-testid="scan-distance"
+              data-approximate={price.store.distance_approximate ? "true" : "false"}
+            >
+              {formatStoreDistance(price.store, locale)}
+            </span>
+          </>
+        ) : null}
       </p>
       <p className={styles.lineMeta}>
         <Price amount={price.unit_price} fractionDigits={2} /> {perUnit(price.uom, locale)}

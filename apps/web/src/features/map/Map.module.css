@@ -108,6 +108,22 @@
   border: 2.5px solid var(--sc-accent-fg);
 }
 
+/* A store placed only at its town centre: hollow and dashed, so it never reads as an exact pin.
+   The words "מיקום משוער" are on the marker too, so nothing is carried by the outline alone. */
+.pin[data-approximate="true"] {
+  border: 2px dashed var(--sc-muted);
+  background: var(--sc-surface);
+  box-shadow: none;
+}
+
+.pin[data-approximate="true"][data-recommended="true"] {
+  border-color: var(--sc-accent-fg);
+}
+
+.flagApprox {
+  color: var(--sc-muted);
+}
+
 .pin[data-selected="true"] {
   background: var(--sc-accent-soft);
   color: var(--sc-accent-fg);
@@ -188,6 +204,21 @@
   border-radius: 50%;
   background: var(--sc-accent);
   transform: translate(50%, -50%);
+}
+
+/* The area around a store placed only at its town centre: dashed and unfilled-looking. */
+.fbArea {
+  position: absolute;
+  inset-block-start: calc(50% + var(--dy) * 1cqw);
+  inset-inline-start: 50%;
+  inline-size: calc(var(--ar) * 2cqw);
+  block-size: calc(var(--ar) * 2cqw);
+  translate: calc(var(--dx) * 1cqw) 0;
+  transform: translate(50%, -50%);
+  border: 2px dashed var(--sc-muted);
+  border-radius: 50%;
+  background: rgb(110 110 110 / 8%);
+  pointer-events: none;
 }
 
 .fbPin {
@@ -278,6 +309,52 @@
   gap: 2px;
   margin: 0;
   font-weight: 700;
+}
+
+.hint {
+  max-inline-size: 28ch;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--sc-muted);
+  text-align: end;
+}
+
+/* Legend under the map: what a solid and a hollow marker mean. Shown only when a store is at
+   locality precision. */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--sc-muted);
+}
+
+.legend li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-2);
+}
+
+.legendPin,
+.legendApprox {
+  flex: none;
+  inline-size: 22px;
+  block-size: 16px;
+  margin-block-start: 2px;
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+}
+
+.legendPin {
+  border: 1.5px solid var(--sc-border);
+  box-shadow: var(--sc-shadow-raised);
+}
+
+.legendApprox {
+  border: 2px dashed var(--sc-muted);
 }
 
 .tags {
