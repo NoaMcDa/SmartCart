@@ -63,6 +63,7 @@ describe("store choice", () => {
       store_name: "ס",
       channel: "physical",
       distance_m: distance,
+      distance_approximate: false,
     },
   });
   const options = [option(101, 4200), option(102, 5100), option(103, 1100)];
