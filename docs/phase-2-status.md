@@ -40,7 +40,7 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 | #49 | Hourly deltas for the main chains | done by tests | Delta polling still has to be watched against the real portals on the VPS. |
 | #53 | Online-store record and channel tag | done with synthetic data | Every per-chain rule and the placeholder store codes are provisional until real Stores files confirm them. Osher Ad is listed as having no online record (to confirm). |
 | #57 | Dual schema (v1 and v2) | done with synthetic data | `PROVISIONAL_V2_MARKER` is a placeholder. A real file in the authority's new model is needed to confirm it. |
-| #60 | Phase 0 exit validation | blocked | Fourteen consecutive nightly loads on the VPS after #14 and #22. Meanwhile "Portal probe" runs daily from a GitHub runner: on 2026-10-08 seven of ten chains (Shufersal, Rami Levy, Mega/Carrefour, Tiv Taam, Osher Ad, Yohananof, King Store) handed over real Stores and PriceFull files; Victory and Machsanei Hashuk timed out and Hazi Hinam answered 403 to the non-Israeli IP. Go/no-go stays NO-GO. |
+| #60 | Phase 0 exit validation | blocked | Fourteen consecutive nightly loads on the VPS after #14 and #22. Prepared: a dry run of the exit report on one real day of files (`phase-0-exit-dry-run.md`: 14 real files from 7 of 10 chains load with no gate failure; no real promo file yet); coordinates for 769 of 827 real stores (200 address, 304 street, 265 town centre; `geocoding.md`); the daily "Portal probe". Go/no-go stays NO-GO. |
 | #81 | Adapters for Machsanei Hashuk and King Store | done with synthetic data | Both adapters are built on synthetic fixtures (laibcatalog JSON and Bina layouts) and covered by the quality-gate adapter test; all ten D13 chains load in `scripts/demo/up.sh`. Real files need the VPS (`fetch_fixtures`). |
 
 ## Phase 1, MVP (milestone 2)
@@ -55,22 +55,22 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 | #10 | Taxonomy v1 | done by tests | 203 nodes. The 19 departments are our own list, not Hazol's (the research does not list Hazol's categories). The reviewer should compare. |
 | #11 | Next.js PWA scaffold | done by tests | Install on a real Android Chrome and iOS Safari device by hand (steps in `docs/web.md`). |
 | #12 | Trust signals | done by tests | Promo confidence is recorded by every adapter (`promos.raw.confidence`, rubric in `docs/adapters.md`) and shown when present. The substitution card carries the checkout disclaimer; every substitute is labeled. |
-| #15 | 150 to 300 canonical products | blocked | Person-hours: a domain-aware reviewer signs off the 245 canonicals (`catalog.md` section 2). The rank is an estimate until real data loads. |
+| #15 | 150 to 300 canonical products | blocked | Person-hours: a domain-aware reviewer signs off the 245 canonicals with the review packet (`review-packet.md`: HTML and CSV with real example items for 133 canonicals, an import that writes the sign-off file and the implied diff). The first machine audit on real items (`matching.md`, "Real items, first audit") lists what to check first. |
 | #16 | Report-a-gap button | done by tests | UI and `POST /feedback/gap`; gap reports feed the quality checks (`gap_report_pressure`, the `quality_gap_reports_7d` view, a soft ingest warning that never quarantines, a dashboard panel). The threshold `GAP_REPORT_PRESSURE_MIN=3` is a placeholder. |
 | #18 | Onboarding | done by tests | Eye check of dark theme at 390 px. |
 | #20 | Rule normalization | done with synthetic data | 50 table cases with realistic, not real, names. Turn the issue list from `smartcart-catalog normalize` on real loads into test cases. |
 | #21 | Methodology page and quality metric | done with synthetic data | The published metric comes from the synthetic gold set and is labeled so. Links from results and the substitution card are open (#91). Structured data has not been run through an external validator. |
 | #24 | List builder | done by tests | Against the mock API. The estimate's reaction to a flexibility change needs the real API. |
 | #25 | LLM attribute extraction | blocked | One secret: set `ANTHROPIC_API_KEY` and run the "Extraction pilot" workflow (default 200 synthetic items, about 0.40 to 0.60 USD, estimate). Then read the comparison and confirm or change D14. The full-catalog cost run waits for loaded items. |
-| #26 | Accessibility audit (Israeli standard 5568) | blocked | Human only: the Hebrew screen-reader pass (VoiceOver, TalkBack) and a legal read of the statement. The 195 px overflow is closed (#101); the non-drag split path and a contact detail on the statement page remain as small engineering items. Automated coverage is complete; it is not a conformance claim. |
+| #26 | Accessibility audit (Israeli standard 5568) | blocked | Human only: the Hebrew screen-reader pass with `screen-reader-test-plan.md` (about two hours, estimate) and a legal read of the statement (`legal-review-packet.md`). Automated: axe in both themes, 195 px and text-only 200% scaling on every route, accessibility-tree snapshots of the core flows, non-drag split move. It is not a conformance claim. |
 | #29 | BGE-M3 embeddings, blocking, HNSW | done with synthetic data | BGE-M3 ran on a GitHub runner on 2026-10-08 ("BGE-M3 evaluation" workflow, full synthetic gold set): any-brand precision 1.00, any-brand recall 0.92 (hash embedder: 0.81), retrieval recall@10 0.998. Synthetic numbers; the thresholds are hash-calibrated. The real-data recall needs real labels (#38) and the search switch to `API_QUERY_EMBEDDER=bge-m3` follows the real embed. |
-| #30 | Privacy by design | blocked | Legal review of the privacy text only (`DELETE /me` is done, #90). |
+| #30 | Privacy by design | blocked | Legal review only: the privacy page now covers events, photos, voice, spend and the online handoff, marked as a draft awaiting legal review, and `legal-review-packet.md` collects every text with 38 questions. |
 | #31 | Flexibility bottom sheet | done by tests | Soft-attribute checkboxes are stored on the row; the API has no field for them yet, so they do not change matching. |
 | #33 | Match judge with hard rules | done with synthetic data | The LLM judge is wired and tested but never measured (no key). Compare it with the rule judge on the real gold set. |
-| #35 | Static SEO pages | blocked | A domain and host (owner), `NEXT_PUBLIC_SITE_URL`, a decision on `INDEX_UNPRICED`, then the sitemap in Search Console. The web container and the Vercel config are ready (`deploy.md`). Offers need real prices. |
+| #35 | Static SEO pages | blocked | A domain and host (owner), then `NEXT_PUBLIC_SITE_URL`; the deploy build refuses a missing or non-https site URL. `NEXT_PUBLIC_INDEX_UNPRICED` decides unpriced pages. Structured data is validated offline in CI; the "SEO check" workflow checks the live site the day it exists. Offers need real prices. |
 | #36 | Comparison results screen | done by tests | Against the mock API (the mock prices every flexibility level the same). |
 | #38 | Review UI, gold set, evaluation harness | done with synthetic data | The CI gate passes at 1.00 any-brand precision on 2,419 synthetic pairs (recall 0.81). Real labels and the human review of the 300 best-sellers are pending. |
-| #40 | Closed beta, 20 to 50 users | blocked | Confirm the thresholds, a legal review of the consent text, recruit 20 to 50 people. Needs real prices first. |
+| #40 | Closed beta, 20 to 50 users | blocked | People and a decision: confirm the thresholds and recruit. The tooling exists: invite codes per segment (`smartcart-catalog beta-invite`), the join and leave page, member feedback, the report by segment and a weekly "Beta report" workflow (`beta-plan.md` sections 9 and 10). Needs real prices first. |
 | #41 | Cart split view | done by tests | Touch drag onto the other tab is to verify on a device. Keyboard and button paths are in e2e. |
 | #43 | Feedback loop | done by tests | Context columns and RLS are in the phase 2 migration; see #92. No rejection rate exists until the beta. |
 | #44 | Monthly basket index | done with synthetic data | No month can be published until real prices load. Basket composition and check thresholds are estimates. |
@@ -107,8 +107,8 @@ and real users.
 | #34 | Shared family lists in real time | done with synthetic data | Invite link, accept, members, revoke by `share_id`, per-item `checked`, offline queue, Supabase Realtime with a polling fallback. Realtime itself needs the real project. |
 | #39 | Barcode scanning in the PWA | done by tests | BarcodeDetector with a ZXing fallback and a manual field; the lookup joins to effective prices in the radius. Device check of the camera flow remains. `/scan` reads no code from the URL yet. |
 | #45 | Smart cart: single best swap | done by tests | Swap suggestions, apply, undo and dismiss (dismissal holds until the saving changes by ₪1 and 25%); verdicts stored as catalog feedback with `source=swap`; a dismissal never flags the mapping for review. |
-| #52 | Catalog expansion with active learning | blocked | Real labeled pairs (review UI and the beta's rejections). Time-bound. |
-| #56 | Native app decision | blocked | Retention data from real users. Time-bound. Not a build task. |
+| #52 | Catalog expansion with active learning | blocked | Real labels and time. Built: search-miss logging without personal data, the expansion backlog (`smartcart-catalog backlog`), an uncertainty-first review queue with labels per hour, and the real-item audit. |
+| #56 | Native app decision | blocked | Retention data from real users. Built: install, push and store-mode events with platform; D1/D7/D30 cohort and install/push views and `smartcart-catalog native-report`; proposed criteria in `decisions.md` D15 for the owner to confirm before the data is seen. |
 
 ## MVP completion round (2026-10-07)
 
@@ -131,11 +131,21 @@ stack became deployable (`deploy.md`); and the phase 3 features that need no rea
 | #70 | Monthly budget and spend tracking | done by tests | `profiles.monthly_budget`, `spend_entries` with RLS, `POST`/`GET`/`PUT`/`DELETE /me/spend`, export; "נותר החודש" on results and split, "סיימתי לקנות" records the plan total; six-month chart on Profile. Correct-a-total and per-entry delete exist in the API, not yet in the UI. |
 | #71 | Recipe to list | done with synthetic data | `POST /parse-recipe` with a rule-based Hebrew ingredient parser, JSON-LD recipe extraction for URLs, servings scaling; "ממתכון" in the list builder. Resolved against the synthetic catalog; re-check on the real one. |
 | #69 | Promo cycle prediction | done with synthetic data | `GET /promo-cycles/{canonical_id}`, advice only with 3 cycles and confidence 0.6 (`promo-cycles.md`). Synthetic backtest: hit rate 0.88, false alarms 0.02; no real history exists yet. |
-| #61, #68 | Receipt and handwritten-list photo | open, phase 3 | Need server-side OCR with Hebrew and real receipts to test on. |
-| #72 | Cart transfer to chain online stores | open, phase 3 | Needs the chains' online-store integration; never scraped. |
-| #73 | Arabic UI | open, phase 3 | A full second locale; the MVP keeps Hebrew copy as literal text (conventions). |
+| #61, #68 | Receipt and handwritten-list photo | done with synthetic data | `POST /parse-image` (image in memory only, consent, monthly caps, Tesseract or Claude vision), a rule-based receipt structurer, "מצילום" in the list builder with a confirm step. On 40 synthetic receipts read by Tesseract: item recall 277/293, auto-accepted row precision 270/270 (`ocr.md`). Real receipts, real handwriting and the Claude provider (needs the key) are not measured yet. |
+| #72 | Cart transfer to chain online stores | open, phase 3 | Built: a per-chain flag and links to the chain's own public site and site search, copy and share, with a disclaimer and a test that ranking ignores it (`cart-transfer.md`). Still open: items landing in the chain's cart needs an official integration; the seeded URLs are unverified. |
+| #73 | Arabic UI | done with synthetic data | Every screen in Hebrew and Arabic (language switch in Profile, Noto Sans Arabic, Arabic product names from the API, a translation notice on legal texts), Arabic list parsing and search with precision 1.00 at every level on a synthetic Arabic set. The Arabic copy and names are machine-drafted and need a native-speaker review. |
 | — | Deploy packaging | done by tests | API and web containers built and run here, VPS units and timers, `deploy.yml` (images to GHCR always; deploy only when secrets exist), scaled load test (`optimizer.md`, `deploy.md`). |
 | — | Manual workflows | done by tests | "BGE-M3 evaluation" (ran: see #29), "Portal probe" (ran: see #60; `commit_fixtures` pushes real regression fixtures), "Extraction pilot" (waits on the key), "Provision check" (waits on secrets). |
+
+## Finish round (2026-10-08 to 2026-10-09)
+
+Fifteen parallel workstreams on `finish-round`, merged in one PR to `main`. Besides the rows above:
+
+| Area | Status | What landed |
+|---|---|---|
+| Real-item matching (#2, #20, #33, #38) | done with real data, machine audit | The rule pipeline on 1,400 real chain items served 6 wrong products in 91 judged (0.93 precision); seven tested rules fix those classes (truncated names, product forms such as nectar or in sauce, diet variants). The after-figure is not independent: real precision needs the human gold set. |
+| Store coordinates (#60, #1) | done with real data | 769 of 827 real stores located through Wikidata's CBS municipal IDs and OpenStreetMap; the API marks town-centre distances as approximate. |
+| Deploy and CI | done by tests | Production web builds refuse a missing site URL; CI checks Python formatting; migrations verified on the Supabase Postgres 17 image. |
 
 ## Owner runbook
 

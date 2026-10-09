@@ -67,11 +67,13 @@ list"). A product surface must show the missing list next to the total.
 ```python
 from smartcart_ingest import db, report
 
-with db.connect() as conn:                      # $DATABASE_URL
+with db.connect() as conn:  # $DATABASE_URL
     rows = report.run_basket_query(
         conn,
         ["7290000000011", "7290000000012", "7290000000013"],
-        lon=34.7918, lat=32.0744, radius_m=3000,
+        lon=34.7918,
+        lat=32.0744,
+        radius_m=3000,
         include_online=False,
     )
 ```

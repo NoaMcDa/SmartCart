@@ -78,9 +78,10 @@ effect. Catalog expansion with active learning. Decide on a native app from rete
 
 ## Phase 3: Smart (6 months and beyond)
 
-**Status (2026-10-08).** Built ahead of schedule because they need no real data: voice list input, monthly
-budget and spend tracking, recipe to list, and promo cycle prediction on synthetic history. Receipt and
-handwritten-list OCR, cart transfer and the Arabic UI are open. See [phase-2-status.md](phase-2-status.md).
+**Status (2026-10-09).** Built ahead of schedule on synthetic data: voice list input, monthly budget and
+spend tracking, recipe to list, promo cycle prediction, receipt and handwritten-list photos, the Arabic UI,
+and a link-based handoff to chains' online stores. Open: an official cart integration with a chain, and
+everything that needs real users or real receipts. See [phase-2-status.md](phase-2-status.md).
 
 Receipt scanning (server-side OCR with Hebrew support, then LLM) to build a list. Voice list.
 Handwritten list photo. Promo cycle prediction ("coffee promo returns roughly every 6 weeks").
