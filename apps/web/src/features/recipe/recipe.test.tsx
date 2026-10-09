@@ -69,7 +69,11 @@ async function openRecipe() {
   const user = userEvent.setup();
   render(<ListBuilder />);
   await user.click(await screen.findByTestId("recipe-open"));
-  return { user, dialog: screen.getByRole("dialog", { name: "מתכון לרשימה" }) };
+  const dialog = screen.getByRole("dialog", { name: "מתכון לרשימה" });
+  // BottomSheet moves focus into itself one animation frame after opening. Wait for that, or on a
+  // slow runner it lands after the test focused the text field and the paste goes elsewhere.
+  await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+  return { user, dialog };
 }
 
 const RECIPE_TEXT = "פסטה ברוטב עגבניות\n500 גרם פסטה\n2 רסק עגבניות\nעגבניות\nחופן בזיליקום";

@@ -63,6 +63,9 @@ export function BottomSheet({
     const raf = requestAnimationFrame(() => {
       const dialog = dialogRef.current;
       if (!dialog) return;
+      // The person (or a test) already put focus inside the sheet before this frame: keep it there
+      // rather than pulling it back to the first control mid-typing.
+      if (document.activeElement instanceof Node && dialog.contains(document.activeElement)) return;
       const first = dialog.querySelector<HTMLElement>(FOCUSABLE);
       (first ?? dialog).focus();
     });

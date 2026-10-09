@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BottomSheet } from "./BottomSheet";
 import { Button } from "./Button";
 
@@ -85,5 +85,26 @@ describe("BottomSheet", () => {
     await user.click(screen.getByTestId("sheet-scrim"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(document.body.style.overflow).toBe("");
+  });
+});
+
+describe("BottomSheet initial focus", () => {
+  it("keeps focus that is already inside the sheet when its first frame runs", () => {
+    const frames: FrameRequestCallback[] = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    render(
+      <BottomSheet open onClose={() => {}} title="בדיקה">
+        <button type="button">ראשון</button>
+        <textarea aria-label="שדה" />
+      </BottomSheet>,
+    );
+    const field = screen.getByLabelText("שדה");
+    field.focus();
+    frames.forEach((cb) => cb(0));
+    expect(document.activeElement).toBe(field);
+    raf.mockRestore();
   });
 });
