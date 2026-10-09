@@ -176,7 +176,9 @@ describe("the recipe sheet", () => {
     await user.click(within(dialog).getByLabelText("המתכון או רשימת המצרכים"));
     await user.paste("בלה בלה");
     await user.click(screen.getByTestId("recipe-read"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("לא מצאנו מצרכים");
+    // Wait for the server's answer, not the first alert: on a slow runner the empty-input hint can
+    // still be the alert on screen when findByRole resolves.
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("לא מצאנו מצרכים"));
 
     server.use(http.post(`${API_BASE_URL}/parse-recipe`, () => HttpResponse.error()));
     await user.click(screen.getByTestId("recipe-read"));
