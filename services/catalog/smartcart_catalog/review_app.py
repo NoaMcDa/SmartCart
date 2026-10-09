@@ -252,7 +252,9 @@ def main() -> None:  # pragma: no cover - UI glue, the functions above are teste
                 f"closeness to the accept threshold, embedder disagreement and basket rank."
             )
             for row in queue:
-                marker = f" · REPORTED BY USERS ({row['reports']})" if row["feedback_marker"] else ""
+                marker = (
+                    f" · REPORTED BY USERS ({row['reports']})" if row["feedback_marker"] else ""
+                )
                 title = (f"{row['item_name']} → {row['canonical_name']} "
                          f"({row['flex_level']}, {row['confidence']:.2f}){marker}")  # fmt: skip
                 with st.expander(title):

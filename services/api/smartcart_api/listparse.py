@@ -42,9 +42,25 @@ _SEPARATORS = re.compile(r"[\n\r,;،؛]+|(?:^|\s)[•·▪\-–*]\s+")
 _VAV_SPLIT = re.compile(r"\s+ו(?=[א-ת])")
 _NUM = r"\d+(?:[.,]\d+)?"
 _WORD_NUMBERS = {
-    "שני": 2, "שתי": 2, "שניים": 2, "שתיים": 2, "שלוש": 3, "שלושה": 3, "ארבע": 4, "ארבעה": 4,
-    "חמש": 5, "חמישה": 5, "שש": 6, "שישה": 6, "שבע": 7, "שבעה": 7, "שמונה": 8, "תשע": 9,
-    "תשעה": 9, "עשר": 10, "עשרה": 10,
+    "שני": 2,
+    "שתי": 2,
+    "שניים": 2,
+    "שתיים": 2,
+    "שלוש": 3,
+    "שלושה": 3,
+    "ארבע": 4,
+    "ארבעה": 4,
+    "חמש": 5,
+    "חמישה": 5,
+    "שש": 6,
+    "שישה": 6,
+    "שבע": 7,
+    "שבעה": 7,
+    "שמונה": 8,
+    "תשע": 9,
+    "תשעה": 9,
+    "עשר": 10,
+    "עשרה": 10,
 }
 _KG = r"(?:ק\"ג|ק״ג|קג|קילו(?:גרם)?|kg)"
 _GRAM = r"(?:גרם|גר'?|g)"
@@ -128,13 +144,13 @@ _AR_FRACTION_PATTERN = "|".join(("نص", "نصف", "ربع", "ثلث", "تلت")
 _WAW_SPLIT = re.compile(
     rf"\s+و(?!\s*(?:{_AR_FRACTION_PATTERN})(?![{AR_LETTERS}]))\s*(?=[{AR_LETTERS}])"
 )
-_DIGITS_ONLY = {k: v for k, v in FOLD_TRANSLATE.items() if v is not None and (v.isdigit() or v in ".,")}
+_DIGITS_ONLY = {
+    k: v for k, v in FOLD_TRANSLATE.items() if v is not None and (v.isdigit() or v in ".,")
+}
 _AR_NUM = re.compile(r"\d+(?:[.,]\d+)?")
 _AR_ATTACHED = re.compile(r"(\d+(?:[.,]\d+)?)([^\d\s.,]+)")
 _AR_LEAD_MARK = re.compile(rf"^(?:[x×*]\s*({_NUM})|({_NUM})\s*[x×*])\s+(.+)$", re.IGNORECASE)
-_AR_TRAIL_MARK = re.compile(
-    rf"^(.+?)\s+(?:[x×*]\s*({_NUM})|({_NUM})\s*[x×*])$", re.IGNORECASE
-)
+_AR_TRAIL_MARK = re.compile(rf"^(.+?)\s+(?:[x×*]\s*({_NUM})|({_NUM})\s*[x×*])$", re.IGNORECASE)
 _AR_HALVES = {"ونص": "نص", "ونصف": "نصف", "وربع": "ربع", "وثلث": "ثلث", "وتلت": "تلت"}
 
 
@@ -216,7 +232,9 @@ def _leading_quantity_ar(
         if nxt in _AR_HALVES:
             amount += AR_FRACTION_WORDS[_AR_HALVES[nxt]]
             used += 1
-        elif nxt == "و" and used + 1 < len(tokens) and fold_ar(tokens[used + 1]) in AR_FRACTION_WORDS:
+        elif (
+            nxt == "و" and used + 1 < len(tokens) and fold_ar(tokens[used + 1]) in AR_FRACTION_WORDS
+        ):
             amount += AR_FRACTION_WORDS[fold_ar(tokens[used + 1])]
             used += 2
     if unit.kind == "mass":

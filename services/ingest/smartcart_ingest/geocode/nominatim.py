@@ -83,7 +83,17 @@ def _urllib_fetch(url: str, headers: Mapping[str, str], timeout: float) -> Any:
         return json.loads(resp.read().decode("utf-8"))
 
 
-_KEEP = ("lat", "lon", "category", "class", "type", "addresstype", "name", "display_name", "address")
+_KEEP = (
+    "lat",
+    "lon",
+    "category",
+    "class",
+    "type",
+    "addresstype",
+    "name",
+    "display_name",
+    "address",
+)
 
 
 def _trim(result: dict[str, Any]) -> dict[str, Any]:
@@ -169,7 +179,9 @@ class NominatimClient:
         self._last_request = self._clock()
         self.requests_made += 1
         try:
-            data = self._fetch(url, {"User-Agent": self.user_agent, "Accept": "application/json"}, self.timeout)
+            data = self._fetch(
+                url, {"User-Agent": self.user_agent, "Accept": "application/json"}, self.timeout
+            )
         except urllib.error.HTTPError as exc:
             if exc.code in (403, 429):
                 raise Blocked(f"Nominatim answered HTTP {exc.code}; stopping") from exc

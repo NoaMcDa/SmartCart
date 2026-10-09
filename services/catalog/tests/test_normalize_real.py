@@ -68,9 +68,9 @@ def test_name_limits_are_the_longest_names_measured_per_chain() -> None:
         (OSHER_AD, "שוקיים עוף טרי עטרה", True),  # 19: cut right after a space, then stripped
         (OSHER_AD, "עגבניות שרי", False),
         (SHUFERSAL, "שוקולד מריר לינדט מלח 10", True),  # 24 characters
-        (SHUFERSAL, "ניילון נצמד 30ס\"מ*30 מטר", True),
-        (SHUFERSAL, "רוטב טבסקו 60 מ\"ל", False),
-        (MEGA, "קורנפלקס קלוגס 1 ק\"ג תנובה במבצע", False),  # longer than the width: not cut by it
+        (SHUFERSAL, 'ניילון נצמד 30ס"מ*30 מטר', True),
+        (SHUFERSAL, 'רוטב טבסקו 60 מ"ל', False),
+        (MEGA, 'קורנפלקס קלוגס 1 ק"ג תנובה במבצע', False),  # longer than the width: not cut by it
         (KING_STORE, "חמאת בוטנים עם שברי בוטנים 454 ג' סקיפי", False),  # this chain does not cut
         (None, "ענבים אדומים ענבי טל", False),
     ],

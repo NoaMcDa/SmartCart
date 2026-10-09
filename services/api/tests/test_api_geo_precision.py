@@ -42,8 +42,10 @@ def items(w: World) -> list[dict]:
 
 
 def compare(client, w: World) -> dict:
-    r = client.post("/compare", json={"items": items(w), "location": w.location,
-                                      "home_store_id": w.stores["home"]})
+    r = client.post(
+        "/compare",
+        json={"items": items(w), "location": w.location, "home_store_id": w.stores["home"]},
+    )
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -87,8 +89,15 @@ def test_ranking_and_radius_do_not_depend_on_precision(client, db, w: World) -> 
 @pytest.mark.parametrize("solver", ["heuristic", "milp"])
 def test_optimize_plans_carry_precision(client, db, w: World, solver: str) -> None:
     set_precision(db, w, a="locality")
-    r = client.post("/optimize", json={"items": items(w), "location": w.location,
-                                       "home_store_id": w.stores["home"], "solver": solver})
+    r = client.post(
+        "/optimize",
+        json={
+            "items": items(w),
+            "location": w.location,
+            "home_store_id": w.stores["home"],
+            "solver": solver,
+        },
+    )
     assert r.status_code == 200, r.text
     seen = {}
     for kind in ("single", "split", "minimum_effort"):
@@ -105,8 +114,12 @@ def test_optimize_plans_carry_precision(client, db, w: World, solver: str) -> No
 
 @pytest.mark.parametrize("solver", ["heuristic", "milp"])
 def test_optimize_choice_does_not_depend_on_precision(client, db, w: World, solver: str) -> None:
-    body = {"items": items(w), "location": w.location, "home_store_id": w.stores["home"],
-            "solver": solver}
+    body = {
+        "items": items(w),
+        "location": w.location,
+        "home_store_id": w.stores["home"],
+        "solver": solver,
+    }
     before = client.post("/optimize", json=body).json()
     set_precision(db, w, home="locality", a="locality", b="locality")
     after = client.post("/optimize", json=body).json()
@@ -115,7 +128,9 @@ def test_optimize_choice_does_not_depend_on_precision(client, db, w: World, solv
 
 def test_stores_nearest_round_trips_precision(client, db, w: World) -> None:
     def nearest() -> dict:
-        r = client.get("/stores/nearest", params={"chain_id": "t-c1", "lon": ORIGIN[0], "lat": ORIGIN[1]})
+        r = client.get(
+            "/stores/nearest", params={"chain_id": "t-c1", "lon": ORIGIN[0], "lat": ORIGIN[1]}
+        )
         assert r.status_code == 200, r.text
         return r.json()
 
@@ -129,11 +144,15 @@ def test_stores_nearest_round_trips_precision(client, db, w: World) -> None:
 
 def test_barcode_store_refs_carry_precision(client, db, w: World) -> None:
     set_precision(db, w, a="locality")
-    r = client.get("/items/barcode/7290000000000",
-                   params={"lon": ORIGIN[0], "lat": ORIGIN[1], "store_id": w.stores["home"]})
+    r = client.get(
+        "/items/barcode/7290000000000",
+        params={"lon": ORIGIN[0], "lat": ORIGIN[1], "store_id": w.stores["home"]},
+    )
     assert r.status_code == 200, r.text
     resp = r.json()
-    refs = [resp[k]["store"] for k in ("here", "cheapest_nearby", "cheaper_substitute") if resp.get(k)]
+    refs = [
+        resp[k]["store"] for k in ("here", "cheapest_nearby", "cheaper_substitute") if resp.get(k)
+    ]
     assert refs
     for st in refs:
         assert st["geo_precision"] in ("address", "locality")
@@ -162,4 +181,7 @@ def test_basket_layer_flags_locality_and_missing_coordinates(db, w: World) -> No
 
 def test_add_store_helper_sets_precision(db, w: World) -> None:
     sid = add_store(db, "t-c1", "LOC", 1.2, geo_precision="locality")
-    assert db.execute("SELECT geo_precision FROM stores WHERE id = %s", (sid,)).fetchone()[0] == "locality"
+    assert (
+        db.execute("SELECT geo_precision FROM stores WHERE id = %s", (sid,)).fetchone()[0]
+        == "locality"
+    )

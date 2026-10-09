@@ -41,7 +41,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", type=Path, default=GEO / "store_geocodes.csv")
     ap.add_argument("--localities", type=Path, default=GEO / "localities.csv")
     ap.add_argument("--cache", type=Path, default=GEO / "cache" / "nominatim.jsonl")
-    ap.add_argument("--no-network", action="store_true", help="only summarize coverage; no requests")
+    ap.add_argument(
+        "--no-network", action="store_true", help="only summarize coverage; no requests"
+    )
     args = ap.parse_args(argv)
 
     if args.origin == "database":
@@ -52,9 +54,14 @@ def main(argv: list[str] | None = None) -> int:
         stores = sources.stores_from_fixtures()
     localities = load_localities(args.localities)
     existing = load_store_geocodes(args.out)
-    print(f"stores: {len(stores)} physical; localities: {len(localities)}; existing rows: {len(existing)}")
+    print(
+        f"stores: {len(stores)} physical; localities: {len(localities)}; existing rows: {len(existing)}"
+    )
     if not localities:
-        print("the locality table is empty: run scripts/geo/fetch_localities.py first", file=sys.stderr)
+        print(
+            "the locality table is empty: run scripts/geo/fetch_localities.py first",
+            file=sys.stderr,
+        )
 
     client = None
     if not args.no_network:
@@ -80,8 +87,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     if stats.stopped:
         print(f"stopped early: {stats.stopped}")
-    print("new rows by source: " + (", ".join(f"{k}={v}" for k, v in sorted(stats.by_source.items())) or "none"))
-    print("new rows by precision: " + (", ".join(f"{k}={v}" for k, v in sorted(stats.by_precision.items())) or "none"))
+    print(
+        "new rows by source: "
+        + (", ".join(f"{k}={v}" for k, v in sorted(stats.by_source.items())) or "none")
+    )
+    print(
+        "new rows by precision: "
+        + (", ".join(f"{k}={v}" for k, v in sorted(stats.by_precision.items())) or "none")
+    )
     index = GeoIndex(localities, merged)
     cov: Counter[str] = sources.coverage(stores, index)
     print(

@@ -233,7 +233,9 @@ def test_dry_does_not_contradict_the_catalogs_fresh_onion() -> None:
 
 def test_flavor_conflict_needs_a_sibling_flavor() -> None:
     q = ar_attributes("بوريكس بطاطا")
-    assert ar_conflicts(q, {"flavor": "cheese"}, frozenset({"cheese", "potato"})) == ["flavor cheese"]
+    assert ar_conflicts(q, {"flavor": "cheese"}, frozenset({"cheese", "potato"})) == [
+        "flavor cheese"
+    ]
     assert ar_conflicts(q, {"flavor": "potato"}, frozenset({"cheese", "potato"})) == []
     # a generic noun in the query is not a flavor of a sibling: no veto
     assert ar_conflicts(ar_attributes("جبنة كريمة"), {"flavor": "plain"}, frozenset()) == []

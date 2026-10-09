@@ -193,7 +193,9 @@ def test_db_mode_aggregates_effective_prices_like_the_app(db, prices: PriceWorld
     p.put("milk-fresh-3", "b1", "0.60")
     p.put("milk-fresh-3", "c_online", "0.10")  # online stores never count
     p.put("milk-fresh-3", "c1", "0.40", level="exact")  # only the any-brand level counts
-    p.put("milk-fresh-3", "b2", "0.20", club=True, noclub="0.80")  # club promo: use the no-club option
+    p.put(
+        "milk-fresh-3", "b2", "0.20", club=True, noclub="0.80"
+    )  # club promo: use the no-club option
     p.put("cottage-5", "a1", "0.99", club=True)  # club-only and no alternative: left out
     p.put("tomato", "a1", "6.90", estimated=True)
 
@@ -243,7 +245,11 @@ def test_quality_comes_from_the_run_not_from_text() -> None:
 
 
 def test_quality_omits_levels_without_a_precision() -> None:
-    row = {"id": 1, "finished_at": NOW, "metrics": {"precision": {"any_brand": 0.99}, "support": {}}}
+    row = {
+        "id": 1,
+        "finished_at": NOW,
+        "metrics": {"precision": {"any_brand": 0.99}, "support": {}},
+    }
     q = build_quality(row, NOW)
     assert list(q["precision"]) == ["any_brand"] and q["synthetic"] is True  # unknown = synthetic
 
@@ -260,8 +266,10 @@ def test_db_mode_reads_the_latest_finished_evaluate_run(db, tmp_path) -> None:
                " '2026-10-05', %s::jsonb)", (json.dumps(new),))  # fmt: skip
     db.execute("INSERT INTO match_runs (kind, finished_at, metrics) VALUES ('judge',"
                " '2026-10-06', '{}'::jsonb)")  # fmt: skip
-    db.execute("INSERT INTO match_runs (kind, metrics) VALUES ('evaluate', %s::jsonb)",
-               (json.dumps({"precision": {"any_brand": 0.1}}),))  # unfinished: ignored
+    db.execute(
+        "INSERT INTO match_runs (kind, metrics) VALUES ('evaluate', %s::jsonb)",
+        (json.dumps({"precision": {"any_brand": 0.1}}),),
+    )  # unfinished: ignored
     result = export_from_db(db, tmp_path, now=NOW)
     q = json.loads((tmp_path / QUALITY_FILE).read_text(encoding="utf-8"))
     assert result.quality == q

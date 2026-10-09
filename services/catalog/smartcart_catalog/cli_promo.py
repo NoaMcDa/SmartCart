@@ -41,8 +41,15 @@ def _include_clubs(clubs: list[str]) -> pc.IncludeClub | None:
 
 def promo_cycles_cmd(
     canonical: Annotated[str, typer.Argument(help="Canonical product id or slug.")],
-    club: Annotated[list[str], typer.Option(help="A club the user marked (repeat). Club-only promos count only for these, by exact name.")] = [],  # noqa: B006
-    as_of: Annotated[str | None, typer.Option(help="Today, YYYY-MM-DD (default: today, UTC).")] = None,
+    club: Annotated[
+        list[str],
+        typer.Option(
+            help="A club the user marked (repeat). Club-only promos count only for these, by exact name."
+        ),
+    ] = [],  # noqa: B006
+    as_of: Annotated[
+        str | None, typer.Option(help="Today, YYYY-MM-DD (default: today, UTC).")
+    ] = None,
     as_json: Annotated[bool, typer.Option("--json", help="Print JSON instead of a table.")] = False,
 ) -> None:
     """Print the promo cycle estimate per chain for one canonical product."""
@@ -53,26 +60,55 @@ def promo_cycles_cmd(
         cid, name = _canonical_id(conn, canonical)
         rows = pc.promo_cycles(conn, cid, today, _include_clubs(club))
     if as_json:
-        typer.echo(json.dumps(
-            {"canonical_id": cid, "as_of": today.isoformat(), "chains": [
-                {"chain_id": r.chain_id, "chain_name": r.chain_name, "windows": len(r.windows),
-                 **{k: (v.isoformat() if isinstance(v, date) else v)
-                    for k, v in r.estimate.__dict__.items()}}
-                for r in rows
-            ]}, ensure_ascii=False, indent=2,
-        ))
+        typer.echo(
+            json.dumps(
+                {
+                    "canonical_id": cid,
+                    "as_of": today.isoformat(),
+                    "chains": [
+                        {
+                            "chain_id": r.chain_id,
+                            "chain_name": r.chain_name,
+                            "windows": len(r.windows),
+                            **{
+                                k: (v.isoformat() if isinstance(v, date) else v)
+                                for k, v in r.estimate.__dict__.items()
+                            },
+                        }
+                        for r in rows
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return
     typer.echo(f"{name} (canonical {cid}), as of {today.isoformat()}")
     if not rows:
         typer.echo("no promo history")
         return
-    head = ("chain", "windows", "cycles", "median gap", "confidence", "last ends", "next from", "next to", "advice")
+    head = (
+        "chain",
+        "windows",
+        "cycles",
+        "median gap",
+        "confidence",
+        "last ends",
+        "next from",
+        "next to",
+        "advice",
+    )
     table = [head] + [
         (
-            f"{r.chain_name} ({r.chain_id})", str(len(r.windows)), str(r.estimate.cycles_seen),
+            f"{r.chain_name} ({r.chain_id})",
+            str(len(r.windows)),
+            str(r.estimate.cycles_seen),
             "-" if r.estimate.median_gap_days is None else f"{r.estimate.median_gap_days:g} d",
             f"{r.estimate.confidence:.2f}",
-            *("-" if d is None else d.isoformat() for d in (r.estimate.last_end, r.estimate.next_from, r.estimate.next_to)),
+            *(
+                "-" if d is None else d.isoformat()
+                for d in (r.estimate.last_end, r.estimate.next_from, r.estimate.next_to)
+            ),
             r.estimate.advice,
         )
         for r in rows
@@ -90,13 +126,16 @@ def synthetic_series(start: date, end: date) -> dict[str, list[list[pc.Window]]]
     """The fixed synthetic mix the docs quote, 20 series of each kind."""
     return {
         "regular, 28 to 49 days, jitter 0 to 2": [
-            pc.synthetic_history(s, start, end, 28 + s % 4 * 7, jitter_days=s % 3) for s in range(20)
+            pc.synthetic_history(s, start, end, 28 + s % 4 * 7, jitter_days=s % 3)
+            for s in range(20)
         ],
         "42 days, jitter 5, 10-day promos": [
-            pc.synthetic_history(100 + s, start, end, 42, jitter_days=5, duration_days=10) for s in range(20)
+            pc.synthetic_history(100 + s, start, end, 42, jitter_days=5, duration_days=10)
+            for s in range(20)
         ],
         "35 days, jitter 3, a quarter of cycles skipped": [
-            pc.synthetic_history(200 + s, start, end, 35, jitter_days=3, skip_prob=0.25) for s in range(20)
+            pc.synthetic_history(200 + s, start, end, 35, jitter_days=3, skip_prob=0.25)
+            for s in range(20)
         ],
         "irregular, gaps 10 to 90 days": [
             pc.irregular_history(300 + s, start, end, 10, 90) for s in range(20)
@@ -105,8 +144,12 @@ def synthetic_series(start: date, end: date) -> dict[str, list[list[pc.Window]]]
 
 
 def promo_backtest_cmd(
-    synthetic: Annotated[bool, typer.Option(help="Generated history instead of the database.")] = False,
-    min_windows: Annotated[int, typer.Option(help="Windows of history before the first prediction.")] = pc.MIN_CYCLES + 1,
+    synthetic: Annotated[
+        bool, typer.Option(help="Generated history instead of the database.")
+    ] = False,
+    min_windows: Annotated[
+        int, typer.Option(help="Windows of history before the first prediction.")
+    ] = pc.MIN_CYCLES + 1,
     days: Annotated[int, typer.Option(help="History length in days.")] = 540,
 ) -> None:
     """Walk-forward backtest: hit rate and false-alarm rate of the predictions that pass the gate."""
@@ -127,15 +170,15 @@ def promo_backtest_cmd(
                 " JOIN item_canonical AS ic ON ic.item_id = pi.item_id"
                 " WHERE ic.flex_level IN ('exact', 'any_brand')"
             ).fetchall()
-            series = [
-                list(c.windows)
-                for (cid,) in pairs
-                for c in pc.promo_cycles(conn, cid, end)
-            ]
+            series = [list(c.windows) for (cid,) in pairs for c in pc.promo_cycles(conn, cid, end)]
         source = "database"
     result = pc.backtest(series, min_windows=min_windows)
-    out: dict[str, object] = {"source": source, "series": len(series), "history_days": days,
-                              **result.as_dict()}
+    out: dict[str, object] = {
+        "source": source,
+        "series": len(series),
+        "history_days": days,
+        **result.as_dict(),
+    }
     if by_kind:
         out["by_kind"] = by_kind
     typer.echo(json.dumps(out, indent=2))

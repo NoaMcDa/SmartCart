@@ -32,7 +32,7 @@ def rows(lines: list[str]) -> list[tuple[str, Decimal | None, str | None, Decima
     [
         (['שופרסל דיל בע"מ', "סניף רמת אביב"], "7290027600007"),
         (["שופרסל"], "7290027600007"),
-        (["רמי לוי שיווק השקמה 2006 בע\"מ"], "7290058140886"),
+        (['רמי לוי שיווק השקמה 2006 בע"מ'], "7290058140886"),
         (["שיווק השקמה"], "7290058140886"),
         (["ויקטורי"], "7290696200003"),
         (["יינות ביתן"], "7290055700007"),
@@ -144,11 +144,11 @@ def test_weighed_item_on_two_lines() -> None:
 
 
 def test_weighed_item_with_per_kg_price_label() -> None:
-    assert rows(["מלפפונים 1.250 ק\"ג 12.50", 'מחיר 9.99 ל-ק"ג'])[0][1:3] == (D("1.250"), "kg")
+    assert rows(['מלפפונים 1.250 ק"ג 12.50', 'מחיר 9.99 ל-ק"ג'])[0][1:3] == (D("1.250"), "kg")
 
 
 def test_weight_with_three_decimals_alone_is_a_weight() -> None:
-    assert rows(["בננות", "1.120 ק\"ג 11.20"]) == [("בננות", D("1.120"), "kg", D("11.20"))]
+    assert rows(["בננות", '1.120 ק"ג 11.20']) == [("בננות", D("1.120"), "kg", D("11.20"))]
 
 
 def test_a_size_in_the_name_is_not_a_weight() -> None:
@@ -194,7 +194,7 @@ def test_deposit_vat_payment_and_fiscal_lines_are_skipped() -> None:
         "מזומן 30.00",
         "עודף 2.50",
         "תאריך 08/10/2026 שעה 18:32",
-        'חשבונית מס מספר 12345',
+        "חשבונית מס מספר 12345",
         "קופה 4 קופאית דנה",
         "ח.פ 520022732",
         "מועדון שופרסל 1234",
@@ -236,7 +236,10 @@ def test_letter_o_and_l_inside_numbers() -> None:
 
 
 def test_space_inside_the_price_and_decimal_comma() -> None:
-    assert rows(["חלב 8 .90", "לחם 7,50"]) == [("חלב", None, None, D("8.90")), ("לחם", None, None, D("7.50"))]
+    assert rows(["חלב 8 .90", "לחם 7,50"]) == [
+        ("חלב", None, None, D("8.90")),
+        ("לחם", None, None, D("7.50")),
+    ]
 
 
 def test_trailing_minus_marks_a_discount() -> None:
@@ -244,7 +247,10 @@ def test_trailing_minus_marks_a_discount() -> None:
 
 
 def test_shekel_signs_are_ignored() -> None:
-    assert rows(["חלב ₪8.90", 'לחם 7.50 ש"ח']) == [("חלב", None, None, D("8.90")), ("לחם", None, None, D("7.50"))]
+    assert rows(["חלב ₪8.90", 'לחם 7.50 ש"ח']) == [
+        ("חלב", None, None, D("8.90")),
+        ("לחם", None, None, D("7.50")),
+    ]
 
 
 def test_reversed_digit_order_is_fixed_only_when_the_sums_need_it() -> None:
@@ -352,7 +358,7 @@ def test_a_receipt_read_in_visual_order_with_junk_lines() -> None:
         "7.50 לחם אחיד פרוס",
         "_ _ _ _",
         "27.50 לתשלום",
-        "27.50 סה\"כ",
+        '27.50 סה"כ',
     ]
     r = parse_receipt(lines)
     assert r.chain_id == "7290027600007"
@@ -378,9 +384,15 @@ def test_empty_and_garbage_input() -> None:
 
 
 def test_two_discounts_and_a_return_still_add_up_to_the_total() -> None:
-    r = parse_receipt([
-        "חלב 8.90", "לחם 7.50", "הנחת מועדון -1.00", "קופון -0.50", 'לתשלום 14.90',
-    ])
+    r = parse_receipt(
+        [
+            "חלב 8.90",
+            "לחם 7.50",
+            "הנחת מועדון -1.00",
+            "קופון -0.50",
+            "לתשלום 14.90",
+        ]
+    )
     assert sum((i.price for i in r.items), D(0)) + sum(r.discounts, D(0)) == r.total
 
 
@@ -393,7 +405,10 @@ def test_two_discounts_and_a_return_still_add_up_to_the_total() -> None:
         ("חלב תנובה 3% 1 ליטר", ["חלב תנובה 3% 1 ליטר", "חלב תנובה 3%", "חלב 3%"]),
         ("קוטג' 250 גרם", ["קוטג' 250 גרם", "קוטג'"]),
         ("עגבניות", ["עגבניות"]),
-        ("במבה אסם 80 גרם", ["במבה אסם 80 גרם", "במבה אסם"]),  # both words are brands: nothing is left to ask
+        (
+            "במבה אסם 80 גרם",
+            ["במבה אסם 80 גרם", "במבה אסם"],
+        ),  # both words are brands: nothing is left to ask
         ("במבה", ["במבה"]),  # a brand that is the whole name is not removed
     ],
 )
@@ -410,8 +425,12 @@ def test_query_variants_keep_the_fat_percentage() -> None:
 
 def test_a_lost_multiplication_sign_is_recovered_from_the_two_prices() -> None:
     # the "X" came back as the letter א; unit price 20.88 and total 41.76 say it was 2
-    assert rows(["קפה סוגת שחור טחון", "2 א 20.88 41.76"]) == [("קפה סוגת שחור טחון", D(2), None, D("41.76"))]
-    assert rows(["קפה סוגת שחור טחון", "א 20.88 41.76"]) == [("קפה סוגת שחור טחון", D(2), None, D("41.76"))]
+    assert rows(["קפה סוגת שחור טחון", "2 א 20.88 41.76"]) == [
+        ("קפה סוגת שחור טחון", D(2), None, D("41.76"))
+    ]
+    assert rows(["קפה סוגת שחור טחון", "א 20.88 41.76"]) == [
+        ("קפה סוגת שחור טחון", D(2), None, D("41.76"))
+    ]
 
 
 def test_a_unit_price_under_a_priced_line_gives_the_count_only_when_the_sums_say_so() -> None:
@@ -422,13 +441,17 @@ def test_a_unit_price_under_a_priced_line_gives_the_count_only_when_the_sums_say
 
 def test_the_sign_printed_before_the_count() -> None:
     assert rows(["מרגרינה", "X2 17.41 34.82"]) == [("מרגרינה", D(2), None, D("34.82"))]
-    assert rows(["מרגרינה", "7.32X2"]) == [("מרגרינה", D(2), None, None)]  # no printed total, none computed
+    assert rows(["מרגרינה", "7.32X2"]) == [
+        ("מרגרינה", D(2), None, None)
+    ]  # no printed total, none computed
     # one price after "X2" is a unit price: the total was not read, so there is no price
     assert rows(["שעועית ירוקה קפואה", "X2 42.36"]) == [("שעועית ירוקה קפואה", D(2), None, None)]
 
 
 def test_weights_with_the_sign_read_as_a_letter() -> None:
-    assert rows(["קישואים", '0.841 ק"ג א 14.57 12.25']) == [("קישואים", D("0.841"), "kg", D("12.25"))]
+    assert rows(["קישואים", '0.841 ק"ג א 14.57 12.25']) == [
+        ("קישואים", D("0.841"), "kg", D("12.25"))
+    ]
     assert rows(["עוף טרה שלם קפוא 400 גרם", "1.583 א 19.16 30.33"]) == [
         ("עוף טרה שלם קפוא 400 גרם", D("1.583"), "kg", D("30.33"))
     ]
@@ -446,10 +469,23 @@ def test_a_price_that_was_not_read_makes_no_item() -> None:
 
 def test_a_receipt_as_the_provider_returns_it() -> None:
     lines = [
-        "טיב טעם", "סניף: נתניה", "ח.פ 562992312", "חשבונית מס מספר 95319",
-        "תאריך 02/10/2026 שעה 09:52", "מטבוחה 1.5 ל' 12.35", "גב' טרה לבנה 3% 56.38", "X2 28.19",
-        "פיתות 11.55", "תירס שטראוס קפוא 500 גרם 14.64", "7.32X2", "נאגטס עוף 26.32",
-        'סה"כ פריטים 5', 'סה"כ 121.24', "לתשלום 121.24", 'מע"מ 18% 18.49', "אשראי ויזה ****1234",
+        "טיב טעם",
+        "סניף: נתניה",
+        "ח.פ 562992312",
+        "חשבונית מס מספר 95319",
+        "תאריך 02/10/2026 שעה 09:52",
+        "מטבוחה 1.5 ל' 12.35",
+        "גב' טרה לבנה 3% 56.38",
+        "X2 28.19",
+        "פיתות 11.55",
+        "תירס שטראוס קפוא 500 גרם 14.64",
+        "7.32X2",
+        "נאגטס עוף 26.32",
+        'סה"כ פריטים 5',
+        'סה"כ 121.24',
+        "לתשלום 121.24",
+        'מע"מ 18% 18.49',
+        "אשראי ויזה ****1234",
     ]
     r = parse_receipt(lines)
     assert (r.chain_id, r.store_hint, r.total) == ("7290873255550", "נתניה", D("121.24"))
@@ -468,4 +504,7 @@ def test_the_shekel_sign_does_not_eat_words_that_contain_it() -> None:
         ("קפה שחור טחון", None, None, D("3.55")),
         ("פלפל שחור", None, None, D("9.90")),
     ]
-    assert rows(['לחם 7.50 ש"ח', "חלב 8.90 שח"]) == [("לחם", None, None, D("7.50")), ("חלב", None, None, D("8.90"))]
+    assert rows(['לחם 7.50 ש"ח', "חלב 8.90 שח"]) == [
+        ("לחם", None, None, D("7.50")),
+        ("חלב", None, None, D("8.90")),
+    ]

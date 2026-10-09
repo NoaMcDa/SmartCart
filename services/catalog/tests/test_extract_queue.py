@@ -30,12 +30,20 @@ def _seed(db: psycopg.Connection) -> list[int]:
     ids = []
     for n, name in enumerate(NAMES):
         chain = "7290058140886" if n == len(NAMES) - 1 else "7290027600007"
-        ids.append(db.execute(
-            "INSERT INTO items (chain_id, item_code, raw_name, quantity, unit, is_weighed)"
-            " VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-            (chain, f"72900{n:05d}", name, 1 if n == 3 else None, "קילוגרם" if n == 3 else None,
-             n == 3),
-        ).fetchone()[0])
+        ids.append(
+            db.execute(
+                "INSERT INTO items (chain_id, item_code, raw_name, quantity, unit, is_weighed)"
+                " VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                (
+                    chain,
+                    f"72900{n:05d}",
+                    name,
+                    1 if n == 3 else None,
+                    "קילוגרם" if n == 3 else None,
+                    n == 3,
+                ),
+            ).fetchone()[0]
+        )
     return ids
 
 
@@ -51,8 +59,14 @@ def test_only_humans_verify() -> None:
 
 
 def test_attrs_json_keeps_set_values_as_numbers() -> None:
-    a = Attributes(product_type="milk", fat_pct=Decimal("1.5"), pack_size=Decimal(1000),
-                   diet_flags=("vegan",), confidence=0.5, verified_keys=("fat_pct",))
+    a = Attributes(
+        product_type="milk",
+        fat_pct=Decimal("1.5"),
+        pack_size=Decimal(1000),
+        diet_flags=("vegan",),
+        confidence=0.5,
+        verified_keys=("fat_pct",),
+    )
     assert attrs_json(a) == (
         '{"diet_flags": ["vegan"], "fat_pct": 1.5, "pack_size": 1000, "product_type": "milk"}'
     )
@@ -69,9 +83,13 @@ def test_each_item_is_processed_once(db, rx) -> None:
     again = run_extraction(db, rx, batch_size=2)
     assert again.items == 0
 
-    rows = {r[0]: r[1:] for r in db.execute(
-        "SELECT item_id, status, attrs, verified_keys, extractor, model, confidence"
-        " FROM item_attributes").fetchall()}
+    rows = {
+        r[0]: r[1:]
+        for r in db.execute(
+            "SELECT item_id, status, attrs, verified_keys, extractor, model, confidence"
+            " FROM item_attributes"
+        ).fetchall()
+    }
     milk = rows[ids[0]]
     assert milk[0] == "ok" and milk[3:5] == ("rule", None)
     assert milk[1]["product_type"] == "milk" and milk[1]["fat_pct"] == 3
@@ -100,10 +118,21 @@ def test_chain_filter_and_limit(db, rx) -> None:
 def test_ok_rows_are_not_overwritten(db, rx) -> None:
     ids = _seed(db)
     run_extraction(db, rx)
-    write_result(db, ids[0], Attributes(product_type="cola"), extractor="rule", model=None,
-                 attempts=0, max_attempts=3)
-    assert db.execute("SELECT attrs->>'product_type' FROM item_attributes WHERE item_id = %s",
-                      (ids[0],)).fetchone()[0] == "milk"
+    write_result(
+        db,
+        ids[0],
+        Attributes(product_type="cola"),
+        extractor="rule",
+        model=None,
+        attempts=0,
+        max_attempts=3,
+    )
+    assert (
+        db.execute(
+            "SELECT attrs->>'product_type' FROM item_attributes WHERE item_id = %s", (ids[0],)
+        ).fetchone()[0]
+        == "milk"
+    )
 
 
 def test_human_source_is_refused(rx) -> None:

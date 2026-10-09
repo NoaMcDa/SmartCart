@@ -52,13 +52,20 @@ def test_ten_stores_two_per_plan_is_55_subsets(client, w: World) -> None:
 
 
 def test_three_alternatives_and_the_net_saving_identity(client, w: World) -> None:
-    resp = post(client, w, home_store_id=w.stores["home"], min_split_saving=1,
-                travel={"mode": "car", "cost_per_km": 0, "extra_stop_value": 0})
+    resp = post(
+        client,
+        w,
+        home_store_id=w.stores["home"],
+        min_split_saving=1,
+        travel={"mode": "car", "cost_per_km": 0, "extra_stop_value": 0},
+    )
     for kind in ("single", "split", "minimum_effort"):
         plan = resp[kind]
         assert plan is not None and plan["kind"] == kind
         b = plan["breakdown"]
-        assert D(b["net_saving"]) == D(b["basket_saving"]) - D(b["travel_cost"]) - D(b["extra_stop_cost"])
+        assert D(b["net_saving"]) == D(b["basket_saving"]) - D(b["travel_cost"]) - D(
+            b["extra_stop_cost"]
+        )
     # Without travel cost the cheapest single store is A (137.60 versus 138.70 at home)...
     assert resp["single"]["stores"][0]["store"]["store_id"] == w.stores["a"]
     assert D(resp["single"]["breakdown"]["net_saving"]) == D("1.10")
@@ -78,8 +85,13 @@ def test_split_only_above_the_minimum_saving(client, w: World) -> None:
     # Default extra-stop value (25 ILS) makes the 2.00 bread saving not worth a second stop.
     resp = post(client, w, home_store_id=w.stores["home"])
     assert resp["split"] is None and resp["single"]["recommended"]
-    resp = post(client, w, home_store_id=w.stores["home"], min_split_saving=5,
-                travel={"cost_per_km": 0, "extra_stop_value": 0})
+    resp = post(
+        client,
+        w,
+        home_store_id=w.stores["home"],
+        min_split_saving=5,
+        travel={"cost_per_km": 0, "extra_stop_value": 0},
+    )
     assert resp["split"] is None  # saves 2.00 < 5
 
 
@@ -94,7 +106,9 @@ def test_travel_cost_by_car_is_charged_relative_to_home(client, w: World) -> Non
 
 
 def test_walk_transit_and_delivery(client, w: World) -> None:
-    resp = post(client, w, travel={"mode": "walk_transit", "extra_stop_value": 0}, min_split_saving=0)
+    resp = post(
+        client, w, travel={"mode": "walk_transit", "extra_stop_value": 0}, min_split_saving=0
+    )
     assert D(resp["single"]["travel_cost"]) == D("11.00")
     resp = post(client, w, travel={"mode": "delivery", "extra_stop_value": 0}, min_split_saving=1)
     assert D(resp["single"]["travel_cost"]) == 0
@@ -113,9 +127,13 @@ def test_missing_items_are_kept(client, w: World) -> None:
 
 
 def test_empty_radius(client, w: World) -> None:
-    resp = client.post("/optimize", json={
-        "items": items(w), "location": {"lon": 35.5, "lat": 33.2, "radius_m": 1000},
-    }).json()
+    resp = client.post(
+        "/optimize",
+        json={
+            "items": items(w),
+            "location": {"lon": 35.5, "lat": 33.2, "radius_m": 1000},
+        },
+    ).json()
     assert resp["subsets_evaluated"] == 0 and resp["single"]["stores"] == []
     assert len(resp["single"]["missing"]) == 5
 
@@ -156,10 +174,18 @@ def test_matches_an_exhaustive_reference(db, w: World, max_stores: int, travel: 
         if len(used) > max_stores:
             continue
         basket_total = sum(
-            (baskets[s].lines[c].line_total for c, s in zip(cids, choice, strict=True) if s is not None),
+            (
+                baskets[s].lines[c].line_total
+                for c, s in zip(cids, choice, strict=True)
+                if s is not None
+            ),
             D(0),
         )
-        cost = basket_total + sum((trip[s] for s in used), D(0)) + t.extra_stop_value * max(0, len(used) - 1)
+        cost = (
+            basket_total
+            + sum((trip[s] for s in used), D(0))
+            + t.extra_stop_value * max(0, len(used) - 1)
+        )
         key = (sum(1 for s in choice if s is None), money(cost))
         ref = key if ref is None or key < ref else ref
     assert (len(best.missing), money(best.cost)) == ref

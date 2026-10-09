@@ -113,7 +113,8 @@ def native_metrics(conn, weeks: int | None = None) -> dict[str, Any]:
     """
     weeks = weeks or NATIVE_CRITERIA["window_weeks"]
     since = conn.execute(
-        "SELECT date_trunc('week', now() AT TIME ZONE 'Asia/Jerusalem')::date - %s * 7", (weeks - 1,)
+        "SELECT date_trunc('week', now() AT TIME ZONE 'Asia/Jerusalem')::date - %s * 7",
+        (weeks - 1,),
     ).fetchone()[0]
 
     cohorts = conn.execute(
@@ -124,7 +125,13 @@ def native_metrics(conn, weeks: int | None = None) -> dict[str, Any]:
     ).fetchall()
     retention = {
         "cohorts": [
-            {"week": r[0], "size": r[1], "d1": (r[3], r[2]), "d7": (r[5], r[4]), "d30": (r[7], r[6])}
+            {
+                "week": r[0],
+                "size": r[1],
+                "d1": (r[3], r[2]),
+                "d7": (r[5], r[4]),
+                "d30": (r[7], r[6]),
+            }
             for r in cohorts
         ],
         "users": sum(r[1] for r in cohorts),
@@ -132,7 +139,11 @@ def native_metrics(conn, weeks: int | None = None) -> dict[str, Any]:
     for n, (ie, ir) in {"d1": (2, 3), "d7": (4, 5), "d30": (6, 7)}.items():
         eligible = sum(r[ie] for r in cohorts)
         retained = sum(r[ir] for r in cohorts)
-        retention[n] = {"eligible": eligible, "retained": retained, "rate": _ratio(retained, eligible)}
+        retention[n] = {
+            "eligible": eligible,
+            "retained": retained,
+            "rate": _ratio(retained, eligible),
+        }
 
     installs = conn.execute(
         "SELECT platform, sum(installs), sum(installers) FROM native_installs_by_platform"
@@ -172,20 +183,32 @@ def native_metrics(conn, weeks: int | None = None) -> dict[str, Any]:
         "since": since,
         "weeks": weeks,
         "retention": retention,
-        "installs": [{"platform": p, "installs": int(i), "installers": int(u)} for p, i, u in installs],
+        "installs": [
+            {"platform": p, "installs": int(i), "installers": int(u)} for p, i, u in installs
+        ],
         "push": {
-            "user_weeks": int(push[0]), "opt_in_user_weeks": int(push[1]),
+            "user_weeks": int(push[0]),
+            "opt_in_user_weeks": int(push[1]),
             "opt_in_rate": _ratio(push[1], push[0]),
-            "sent": int(push[2]), "opened": int(push[3]), "open_rate": _ratio(push[3], push[2]),
+            "sent": int(push[2]),
+            "opened": int(push[3]),
+            "open_rate": _ratio(push[3], push[2]),
         },  # fmt: skip
         "store_mode": {
-            "user_weeks": int(store[0]), "store_mode_user_weeks": int(store[1]),
-            "share": _ratio(store[1], store[0]), "events": int(store[2]),
-            "single": int(store[3]), "split": int(store[4]),
+            "user_weeks": int(store[0]),
+            "store_mode_user_weeks": int(store[1]),
+            "share": _ratio(store[1], store[0]),
+            "events": int(store[2]),
+            "single": int(store[3]),
+            "split": int(store[4]),
             "events_per_user_week": _ratio(store[2], store[1]),
         },  # fmt: skip
-        "scans": {"started": scans[0], "completed": scans[1], "found": scans[2],
-                  "success_rate": _ratio(scans[2], scans[1])},  # fmt: skip
+        "scans": {
+            "started": scans[0],
+            "completed": scans[1],
+            "found": scans[2],
+            "success_rate": _ratio(scans[2], scans[1]),
+        },  # fmt: skip
         "platforms": funnel,
         "ios": {
             "actors": funnel.get("ios", {}).get("actors", 0),
@@ -209,25 +232,60 @@ def native_verdicts(m: dict[str, Any], c: dict[str, Any] = NATIVE_CRITERIA) -> l
 
     d30 = m["retention"]["d30"]
     return [
-        row("C1 D30 retention (pooled cohorts)", d30["rate"], pct,
-            f">= {c['d30_retention']:.0%}", d30["eligible"], c["d30_min_eligible"],
-            lambda v: v >= c["d30_retention"]),
-        row("C2 iOS share of platform-tagged actors", m["ios"]["share"], pct,
-            f">= {c['ios_share']:.0%}", sum(f["actors"] for f in m["platforms"].values()),
-            c["ios_min_actors"], lambda v: v >= c["ios_share"]),
-        row("C3 iOS actors who never installed the PWA (no web push)",
-            m["ios"]["not_installed_share"], pct, f">= {c['ios_not_installed_share']:.0%}",
-            m["ios"]["actors"], c["ios_not_installed_min_actors"],
-            lambda v: v >= c["ios_not_installed_share"]),
-        row("C4 push open rate (opens / pushes sent)", m["push"]["open_rate"], pct,
-            f">= {c['push_open_rate']:.0%}", m["push"]["sent"], c["push_min_sent"],
-            lambda v: v >= c["push_open_rate"]),
-        row("C5 store mode used (share of active user-weeks)", m["store_mode"]["share"], pct,
-            f">= {c['store_mode_share']:.0%}", m["store_mode"]["user_weeks"],
-            c["store_mode_min_user_weeks"], lambda v: v >= c["store_mode_share"]),
-        row("C6 barcode scan success in the PWA", m["scans"]["success_rate"], pct,
+        row(
+            "C1 D30 retention (pooled cohorts)",
+            d30["rate"],
+            pct,
+            f">= {c['d30_retention']:.0%}",
+            d30["eligible"],
+            c["d30_min_eligible"],
+            lambda v: v >= c["d30_retention"],
+        ),
+        row(
+            "C2 iOS share of platform-tagged actors",
+            m["ios"]["share"],
+            pct,
+            f">= {c['ios_share']:.0%}",
+            sum(f["actors"] for f in m["platforms"].values()),
+            c["ios_min_actors"],
+            lambda v: v >= c["ios_share"],
+        ),
+        row(
+            "C3 iOS actors who never installed the PWA (no web push)",
+            m["ios"]["not_installed_share"],
+            pct,
+            f">= {c['ios_not_installed_share']:.0%}",
+            m["ios"]["actors"],
+            c["ios_not_installed_min_actors"],
+            lambda v: v >= c["ios_not_installed_share"],
+        ),
+        row(
+            "C4 push open rate (opens / pushes sent)",
+            m["push"]["open_rate"],
+            pct,
+            f">= {c['push_open_rate']:.0%}",
+            m["push"]["sent"],
+            c["push_min_sent"],
+            lambda v: v >= c["push_open_rate"],
+        ),
+        row(
+            "C5 store mode used (share of active user-weeks)",
+            m["store_mode"]["share"],
+            pct,
+            f">= {c['store_mode_share']:.0%}",
+            m["store_mode"]["user_weeks"],
+            c["store_mode_min_user_weeks"],
+            lambda v: v >= c["store_mode_share"],
+        ),
+        row(
+            "C6 barcode scan success in the PWA",
+            m["scans"]["success_rate"],
+            pct,
             f">= {c['scan_success']:.0%} (below = a native camera is worth it)",
-            m["scans"]["completed"], c["scan_min_completed"], lambda v: v >= c["scan_success"]),
+            m["scans"]["completed"],
+            c["scan_min_completed"],
+            lambda v: v >= c["scan_success"],
+        ),
     ]
 
 
@@ -253,7 +311,10 @@ def native_outcome(rows: list[dict[str, Any]]) -> tuple[str, str]:
             " wrapper (same Next.js code) is worth a pilot."
         )
     if "not_met" in (by["C2"], by["C3"], by["C4"]):  # all three are needed, so one miss settles it
-        return "stay_pwa_fix_gaps", "Retention holds but the native-push case is not made: stay PWA."
+        return (
+            "stay_pwa_fix_gaps",
+            "Retention holds but the native-push case is not made: stay PWA.",
+        )
     return "inconclusive", "Retention holds, but the push case (C2 to C4) has too few users."
 
 
@@ -284,9 +345,12 @@ def render_native_report(m: dict[str, Any], today: datetime) -> str:
                  for k in ("d1", "d7", "d30")]  # fmt: skip
         lines.append(f"| {c['week']} | {c['size']} | {' | '.join(cells)} |")
     lines += [
-        f"| **pooled** | {r['users']} | " + " | ".join(
-            f"**{pct(r[k]['rate'])}** ({r[k]['retained']}/{r[k]['eligible']})" for k in ("d1", "d7", "d30")
-        ) + " |",
+        f"| **pooled** | {r['users']} | "
+        + " | ".join(
+            f"**{pct(r[k]['rate'])}** ({r[k]['retained']}/{r[k]['eligible']})"
+            for k in ("d1", "d7", "d30")
+        )
+        + " |",
         "",
         "Each cell is retained/eligible: an actor is eligible for Dn only once day n is over.",
         "",
@@ -300,7 +364,7 @@ def render_native_report(m: dict[str, Any], today: datetime) -> str:
         "## Push, store mode and scans",
         "",
         f"- Push opt-in: {m['push']['opt_in_user_weeks']} opt-in user-weeks of {m['push']['user_weeks']}"
-        f" active user-weeks ({pct(m['push']['opt_in_rate'])}); there is no \"prompt shown\" event,"
+        f' active user-weeks ({pct(m["push"]["opt_in_rate"])}); there is no "prompt shown" event,'
         " so this is a floor.",
         f"- Push opened: {m['push']['opened']} of {m['push']['sent']} pushes sent"
         f" ({pct(m['push']['open_rate'])}).",
@@ -314,16 +378,22 @@ def render_native_report(m: dict[str, Any], today: datetime) -> str:
         "",
         "| Platform | Actors | Installed PWA | Push opt-in | Store mode | Never installed |",
         "|---|---|---|---|---|---|",
-        *[f"| {p} | {f['actors']} | {f['installers']} | {f['push_opt_in']} | {f['store_mode']} |"
-          f" {pct(f['not_installed_share'])} |" for p, f in m["platforms"].items()],
+        *[
+            f"| {p} | {f['actors']} | {f['installers']} | {f['push_opt_in']} | {f['store_mode']} |"
+            f" {pct(f['not_installed_share'])} |"
+            for p, f in m["platforms"].items()
+        ],
         *([] if m["platforms"] else ["| (none yet) | 0 | 0 | 0 | 0 | n/a |"]),
         "",
         "## D15 criteria against the numbers",
         "",
         "| Criterion | Observed | Threshold | Sample (minimum) | Status |",
         "|---|---|---|---|---|",
-        *[f"| {v['criterion']} | {v['observed'] or 'n/a'} | {v['threshold']} |"
-          f" {v['sample']} ({v['minimum']}) | {v['status']} |" for v in rows],
+        *[
+            f"| {v['criterion']} | {v['observed'] or 'n/a'} | {v['threshold']} |"
+            f" {v['sample']} ({v['minimum']}) | {v['status']} |"
+            for v in rows
+        ],
         "",
         f"**Outcome by the D15 rules: {outcome}.** {why} The owner decides.",
         "",

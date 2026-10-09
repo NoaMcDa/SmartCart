@@ -73,7 +73,9 @@ def alerts_run(
 
     sender = None if dry_run else WebPushSender.from_env()
     if sender is None and not dry_run:
-        typer.echo("VAPID keys not set: deliveries are recorded as 'log', no push is sent", err=True)
+        typer.echo(
+            "VAPID keys not set: deliveries are recorded as 'log', no push is sent", err=True
+        )
     with _connect() as conn:  # commits on success
         result = evaluate_alerts(conn, sender)
     typer.echo(json.dumps(result.metrics(), ensure_ascii=False))

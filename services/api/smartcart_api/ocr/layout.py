@@ -30,7 +30,9 @@ _HEBREW = re.compile(r"[א-ת]")
 _NUMERIC = re.compile(r"^[(\[]?[-+]?[\d.,:%/xX×*+\-]*\d[\d.,:%/xX×*+\-]*[)\]]?$")
 _MULT = re.compile(r"^[xX×*]$")
 _PRICEISH = re.compile(r"\d+[.,]\d{2,3}")
-_SIZE_LETTER = re.compile(r"^(?:XXL|XL|L|M|S)$")  # egg sizes and the like: real Latin on a Hebrew receipt
+_SIZE_LETTER = re.compile(
+    r"^(?:XXL|XL|L|M|S)$"
+)  # egg sizes and the like: real Latin on a Hebrew receipt
 MIN_CONF = 10.0  # percent; below it a word is noise
 CONF_MARGIN = 20.0  # the first pass keeps a number only when it is this much surer
 
@@ -85,7 +87,12 @@ def parse_tsv(tsv: str) -> list[Word]:
         try:
             conf = float(cols[10])
             word = Word(
-                int(cols[6]), int(cols[7]), int(cols[8]), int(cols[9]), conf, text,
+                int(cols[6]),
+                int(cols[7]),
+                int(cols[8]),
+                int(cols[9]),
+                conf,
+                text,
                 (int(cols[2]), int(cols[3]), int(cols[4])),
             )
         except ValueError:
@@ -95,7 +102,9 @@ def parse_tsv(tsv: str) -> list[Word]:
     return words
 
 
-_BIDI = dict.fromkeys([0x200E, 0x200F, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069])
+_BIDI = dict.fromkeys(
+    [0x200E, 0x200F, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069]
+)
 
 
 def order_rtl(words: list[Word]) -> list[Word]:

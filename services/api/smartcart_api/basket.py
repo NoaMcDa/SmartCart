@@ -86,7 +86,9 @@ class StoreBasket:
     def total(self) -> Decimal:
         return money(sum((li.line_total for li in self.lines.values()), ZERO))
 
-    def result(self, home: StoreBasket | None = None, only: set[int] | None = None) -> schemas.StoreResult:
+    def result(
+        self, home: StoreBasket | None = None, only: set[int] | None = None
+    ) -> schemas.StoreResult:
         lines = [li for cid, li in self.lines.items() if only is None or cid in only]
         total = money(sum((li.line_total for li in lines), ZERO))
         updated = max((li.price_valid_from for li in lines), default=None)
@@ -168,7 +170,9 @@ def club_member(
     return False
 
 
-def chain_clubs(conn: psycopg.Connection, chain_ids: Iterable[str]) -> dict[str, tuple[str, list[str]]]:
+def chain_clubs(
+    conn: psycopg.Connection, chain_ids: Iterable[str]
+) -> dict[str, tuple[str, list[str]]]:
     """chain_id -> (chain name, club names) for ``club_member``."""
     return {
         r[0]: (r[1], list(r[2] or []))
@@ -289,9 +293,19 @@ def gate_club(
 
 
 def _from_option(o: Option) -> _Choice:
-    return _Choice(o.item_id, o.shelf_price, o.effective_price, o.effective_unit_price, o.uom,
-                   o.promo_id, o.promo_min_qty, o.club_required, o.club_name,
-                   o.price_valid_from, o.is_estimated)
+    return _Choice(
+        o.item_id,
+        o.shelf_price,
+        o.effective_price,
+        o.effective_unit_price,
+        o.uom,
+        o.promo_id,
+        o.promo_min_qty,
+        o.club_required,
+        o.club_name,
+        o.price_valid_from,
+        o.is_estimated,
+    )
 
 
 def line_total(c: _Choice, quantity: Decimal, by_weight: bool) -> tuple[Decimal, bool]:
@@ -400,8 +414,19 @@ def price_baskets(
     offers: dict[tuple[int, int, str], _Choice] = {}
     for r in rows:
         cid, sid, flex = r[0], r[1], r[2]
-        c = _Choice(r[3], r[4], r[5] if r[5] is not None else r[4], r[6], r[7], r[8], r[9],
-                    r[10], r[11], r[12], r[13])
+        c = _Choice(
+            r[3],
+            r[4],
+            r[5] if r[5] is not None else r[4],
+            r[6],
+            r[7],
+            r[8],
+            r[9],
+            r[10],
+            r[11],
+            r[12],
+            r[13],
+        )
         pick, offer = gate_club(c, r[14], clubs, store_chain.get(sid))
         if pick is None:
             continue
@@ -447,7 +472,12 @@ def price_baskets(
     promo_desc = {r[0]: r[1] for r in promo_rows}
     promo_conf = {r[0]: promo_confidence(r[2]) for r in promo_rows}
     for (sid, cid), (c, qty, _flex, ex) in chosen.items():
-        base_unit, critical, soft, rule_keys = canon[cid][1], canon[cid][2], canon[cid][3], canon[cid][4]
+        base_unit, critical, soft, rule_keys = (
+            canon[cid][1],
+            canon[cid][2],
+            canon[cid][3],
+            canon[cid][4],
+        )
         raw_name, mappings, attrs, verified = info.get(c.item_id, ("", {}, {}, []))
         mapping = mappings.get(cid)
         level = mapping[0] if mapping else "exact"
@@ -564,8 +594,15 @@ def _exact_choices(
             chain_items = [r[0] for r in rows if r[1] == chain_id]
             chain_name, chain_club_names = chains.get(chain_id, (None, []))
             per_club: dict[tuple[int, int], dict] = {}
-            opts = item_options(conn, chain_id, by_chain.get(chain_id, []), chain_items, as_of,
-                                {i: base_unit for i in chain_items}, per_club)
+            opts = item_options(
+                conn,
+                chain_id,
+                by_chain.get(chain_id, []),
+                chain_items,
+                as_of,
+                {i: base_unit for i in chain_items},
+                per_club,
+            )
             for (sid, iid), (best, noclub) in opts.items():
                 offer = None
                 pick = best
@@ -574,7 +611,10 @@ def _exact_choices(
                 ):
                     offer, pick = best, noclub
                     for name, alt in per_club.get((sid, iid), {}).items():
-                        if club_member(name, clubs, chain_name, chain_club_names) and alt.key() < pick.key():
+                        if (
+                            club_member(name, clubs, chain_name, chain_club_names)
+                            and alt.key() < pick.key()
+                        ):
                             pick = alt
                 cur = out.get((cid, exact_id, sid))
                 if cur is None or pick.effective_unit_price < cur.effective_unit_price:

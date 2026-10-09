@@ -71,7 +71,9 @@ def _served(db, q: str) -> str | None:
     hits, conf = resolve(db, q)
     if not hits or conf < CONFIRM_BELOW:
         return None
-    return db.execute("SELECT slug FROM canonical_products WHERE id = %s", (hits[0].canonical_id,)).fetchone()[0]
+    return db.execute(
+        "SELECT slug FROM canonical_products WHERE id = %s", (hits[0].canonical_id,)
+    ).fetchone()[0]
 
 
 # --- the basics ------------------------------------------------------------------------------------
@@ -124,7 +126,20 @@ def test_ambiguous_lines_are_not_served(db, ar, query: str) -> None:
 
 @pytest.mark.parametrize(
     "query",
-    ["بطاريات", "لابتوب", "حذاء", "هاتف", "ملوخية", "ويسكي", "ورق عنب", "قائمة التسوق", "ء", "-", "٣", "%"],
+    [
+        "بطاريات",
+        "لابتوب",
+        "حذاء",
+        "هاتف",
+        "ملوخية",
+        "ويسكي",
+        "ورق عنب",
+        "قائمة التسوق",
+        "ء",
+        "-",
+        "٣",
+        "%",
+    ],
 )
 def test_unknown_lines_are_not_served(db, ar, query: str) -> None:
     assert _served(db, query) is None
@@ -321,7 +336,10 @@ def test_the_arabic_retriever_reads_the_arabic_name_vectors(db, ar) -> None:
 
     q = "حليب طازج 3%"
     with db.transaction(force_rollback=True):
-        assert dict((cid, s) for cid, s, _ in search._vector_ar(db, q, 20)).get(ar["milk-fresh-3"], 0) < 0.99
+        assert (
+            dict((cid, s) for cid, s, _ in search._vector_ar(db, q, 20)).get(ar["milk-fresh-3"], 0)
+            < 0.99
+        )
         embed_canonicals(db, query_embedder().inner)
         arabic = {cid: s for cid, s, _ in search._vector_ar(db, q, 20)}
         # the query is one of the canonical's own names: the same vector

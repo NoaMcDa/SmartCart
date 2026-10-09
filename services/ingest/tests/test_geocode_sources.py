@@ -52,7 +52,11 @@ def test_every_request_has_a_descriptive_user_agent_and_accept(monkeypatch) -> N
     assert get_json("https://data.gov.il/api/3/action/x?q=1", log=log) == {"ok": True}
     get_json("https://query.wikidata.org/sparql?query=x", accept=wikidata.ACCEPT, log=log)
     ua = seen[0].get_header("User-agent")
-    assert ua.startswith("SmartCart-geo/") and "github.com/NoaMcDa/SmartCart" in ua and "contact:" in ua
+    assert (
+        ua.startswith("SmartCart-geo/")
+        and "github.com/NoaMcDa/SmartCart" in ua
+        and "contact:" in ua
+    )
     assert "Python-urllib" not in ua and "Mozilla" not in ua  # honest, no browser impersonation
     assert seen[0].get_header("Accept") == "application/json"
     assert seen[1].get_header("Accept") == wikidata.ACCEPT
@@ -146,7 +150,10 @@ def test_discovery_prefers_the_property_that_holds_the_known_codes() -> None:
     prop, how = wikidata.discover_property(wikidata_router(), lines.append)
     assert prop == "P99999" and "signature" in how
     text = "\n".join(lines)
-    assert "P99999 | Israel Central Bureau of Statistics locality code | identifier of an Israeli" in text
+    assert (
+        "P99999 | Israel Central Bureau of Statistics locality code | identifier of an Israeli"
+        in text
+    )
     assert "P88888" in text and "matches 2 of 3" in text  # every candidate is logged
 
 
@@ -178,7 +185,11 @@ def test_discovery_survives_failing_searches() -> None:
 def test_searches_cover_the_requested_terms() -> None:
     urls: list[str] = []
     wikidata.discover_property(wikidata_router(urls=urls))
-    queries = [urllib.parse.parse_qs(urllib.parse.urlparse(u).query) for u in urls if u.startswith(wikidata.API)]
+    queries = [
+        urllib.parse.parse_qs(urllib.parse.urlparse(u).query)
+        for u in urls
+        if u.startswith(wikidata.API)
+    ]
     assert {(q["language"][0], q["search"][0]) for q in queries} >= {
         ("en", "Central Bureau of Statistics"),
         ("en", "Israeli settlement"),
@@ -196,7 +207,9 @@ def test_fetch_localities_discovers_then_runs_one_data_query() -> None:
     data_queries = [u for u in sparql if "wdt%3AP99999" in u]
     assert len(data_queries) == 1
     urls.clear()
-    rows, _, prop = wikidata.fetch_localities(wikidata_router(urls=urls), retrieved_at="d", prop="P1")
+    rows, _, prop = wikidata.fetch_localities(
+        wikidata_router(urls=urls), retrieved_at="d", prop="P1"
+    )
     assert prop == "P1" and len(urls) == 1  # a pinned property skips discovery
 
 
@@ -223,7 +236,9 @@ def _xlsx(rows: list[list[object]]) -> bytes:
         out.append(f'<row r="{r}">{"".join(cells)}</row>')
     ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     sheet = f'<worksheet xmlns="{ns}"><sheetData>{"".join(out)}</sheetData></worksheet>'
-    sst = f'<sst xmlns="{ns}">' + "".join(f"<si><t>{escape(s)}</t></si>" for s in strings) + "</sst>"
+    sst = (
+        f'<sst xmlns="{ns}">' + "".join(f"<si><t>{escape(s)}</t></si>" for s in strings) + "</sst>"
+    )
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("xl/worksheets/sheet1.xml", sheet)
@@ -363,10 +378,15 @@ def test_script_reads_the_resource_file_when_the_datastore_is_refused(
     rc = script.main(["--out", str(out), "--needed-from", "none"])
     stdout = capsys.readouterr().out
     assert rc == 0
-    assert "SOURCE data.gov.il CKAN: " in stdout and "ckan file r-cbs: 2 records, 1 with coordinates" in stdout
+    assert (
+        "SOURCE data.gov.il CKAN: " in stdout
+        and "ckan file r-cbs: 2 records, 1 with coordinates" in stdout
+    )
     assert "ckan datastore r-list: HttpFailure: HTTP 403" in stdout  # tried, refused, reported
     table = load_localities(out)
-    assert table["5000"].source == "data.gov.il resource r-cbs (file)"  # the CBS file wins over Wikidata
+    assert (
+        table["5000"].source == "data.gov.il resource r-cbs (file)"
+    )  # the CBS file wins over Wikidata
     assert table["3000"].source == "wikidata" and table["874"].source == "wikidata"
 
 
@@ -401,5 +421,8 @@ def test_script_fails_clearly_when_every_source_returns_nothing(
     stdout = capsys.readouterr().out
     assert rc == 1
     assert "::error::no source returned any locality row" in stdout
-    assert "SOURCE data.gov.il CKAN: HTTP 403" in stdout and "SOURCE Wikidata SPARQL: HTTP 403" in stdout
+    assert (
+        "SOURCE data.gov.il CKAN: HTTP 403" in stdout
+        and "SOURCE Wikidata SPARQL: HTTP 403" in stdout
+    )
     assert not out.exists()

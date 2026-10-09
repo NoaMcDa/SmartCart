@@ -108,7 +108,15 @@ def write_localities(path: Path, rows: Iterable[Locality]) -> int:
         writer.writerow(FIELDS)
         for r in ordered:
             writer.writerow(
-                [r.code, r.name_he, r.name_en, f"{r.lat:.6f}", f"{r.lon:.6f}", r.source, r.retrieved_at]
+                [
+                    r.code,
+                    r.name_he,
+                    r.name_en,
+                    f"{r.lat:.6f}",
+                    f"{r.lon:.6f}",
+                    r.source,
+                    r.retrieved_at,
+                ]
             )
     return len(ordered)
 
@@ -116,16 +124,49 @@ def write_localities(path: Path, rows: Iterable[Locality]) -> int:
 # --- reading the source list (data.gov.il CKAN records) ---------------------------------------
 
 _COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
-    "code": ("סמל יישוב", "סמל ישוב", "סמל_ישוב", "סמל_יישוב", "קוד יישוב", "yishuv_code",
-             "locality_code", "code", "symbol", "סמל"),  # fmt: skip
-    "name_he": ("שם יישוב", "שם ישוב", "שם_ישוב", "שם_יישוב", "yishuv_name", "locality_name",
-                "name_he", "name"),  # fmt: skip
-    "name_en": ("שם יישוב באנגלית", "שם_ישוב_לועזי", "שם_יישוב_לועזי", "english_name",
-                "name_en", "yishuv_name_en"),  # fmt: skip
+    "code": (
+        "סמל יישוב",
+        "סמל ישוב",
+        "סמל_ישוב",
+        "סמל_יישוב",
+        "קוד יישוב",
+        "yishuv_code",
+        "locality_code",
+        "code",
+        "symbol",
+        "סמל",
+    ),  # fmt: skip
+    "name_he": (
+        "שם יישוב",
+        "שם ישוב",
+        "שם_ישוב",
+        "שם_יישוב",
+        "yishuv_name",
+        "locality_name",
+        "name_he",
+        "name",
+    ),  # fmt: skip
+    "name_en": (
+        "שם יישוב באנגלית",
+        "שם_ישוב_לועזי",
+        "שם_יישוב_לועזי",
+        "english_name",
+        "name_en",
+        "yishuv_name_en",
+    ),  # fmt: skip
     "lat": ("lat", "latitude", "קו רוחב", "רוחב"),
     "lon": ("lon", "lng", "long", "longitude", "קו אורך", "אורך"),
     "x": ("x", "itm_x", "x_itm", "east", "easting", "קואורדינטה x", "קואורדינטת x", "קואורדינטה_x"),
-    "y": ("y", "itm_y", "y_itm", "north", "northing", "קואורדינטה y", "קואורדינטת y", "קואורדינטה_y"),
+    "y": (
+        "y",
+        "itm_y",
+        "y_itm",
+        "north",
+        "northing",
+        "קואורדינטה y",
+        "קואורדינטת y",
+        "קואורדינטה_y",
+    ),
 }
 
 
@@ -214,7 +255,10 @@ def localities_from_records(
         lat = _number(record.get(columns.get("lat", "")))
         lon = _number(record.get(columns.get("lon", "")))
         if lat is None or lon is None:
-            x, y = _number(record.get(columns.get("x", ""))), _number(record.get(columns.get("y", "")))
+            x, y = (
+                _number(record.get(columns.get("x", ""))),
+                _number(record.get(columns.get("y", ""))),
+            )
             if x is None or y is None or x <= 0 or y <= 0:
                 skipped["no_coordinates"] += 1
                 continue

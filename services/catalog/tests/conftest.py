@@ -67,7 +67,9 @@ def utf8_database(utf8_dsn: str, pg_dsn: str, database) -> str:
         missing = set(_module.EXTENSION_MARKERS.values()) - set(database.extensions)
         with dbmod.connect(utf8_dsn, autocommit=True) as conn:
             if missing and os.environ.get("SMARTCART_REQUIRE_EXTENSIONS") == "1":
-                pytest.fail(f"SMARTCART_REQUIRE_EXTENSIONS=1 but the server lacks: {sorted(missing)}")
+                pytest.fail(
+                    f"SMARTCART_REQUIRE_EXTENSIONS=1 but the server lacks: {sorted(missing)}"
+                )
             dbmod.migrate(conn, skip_requires=missing)
     return utf8_dsn
 

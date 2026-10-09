@@ -42,7 +42,9 @@ def _entry(row: dict) -> schemas.SpendEntry:
 
 
 def _budget(conn: psycopg.Connection, user: User) -> Decimal | None:
-    row = conn.execute("SELECT monthly_budget FROM profiles WHERE user_id = %s", (user.id,)).fetchone()
+    row = conn.execute(
+        "SELECT monthly_budget FROM profiles WHERE user_id = %s", (user.id,)
+    ).fetchone()
     return row[0] if row else None
 
 
@@ -60,7 +62,9 @@ def _write(conn: psycopg.Connection, sql: str, params: dict) -> dict | None:
 
 
 @router.post("", response_model=schemas.SpendEntry, status_code=201)
-def create_spend(body: schemas.SpendEntryIn, uc: UserConn, response: Response) -> schemas.SpendEntry:
+def create_spend(
+    body: schemas.SpendEntryIn, uc: UserConn, response: Response
+) -> schemas.SpendEntry:
     user, conn = uc
     row = _write(
         conn,
@@ -85,7 +89,9 @@ def create_spend(body: schemas.SpendEntryIn, uc: UserConn, response: Response) -
 @router.get("", response_model=schemas.SpendMonth)
 def month_spend(
     uc: UserConn,
-    month: Annotated[str | None, Query(pattern=MONTH, description="YYYY-MM; default the current month (UTC)")] = None,
+    month: Annotated[
+        str | None, Query(pattern=MONTH, description="YYYY-MM; default the current month (UTC)")
+    ] = None,
 ) -> schemas.SpendMonth:
     user, conn = uc
     month = month or datetime.now(UTC).strftime("%Y-%m")
@@ -114,7 +120,9 @@ def export_spend(uc: UserConn) -> schemas.SpendExport:
             f"SELECT {_COLS} FROM spend_entries WHERE user_id = %s ORDER BY date, id", (user.id,)
         ).fetchall()
     return schemas.SpendExport(
-        budget=_budget(conn, user), entries=[_entry(r) for r in rows], generated_at=datetime.now(UTC)
+        budget=_budget(conn, user),
+        entries=[_entry(r) for r in rows],
+        generated_at=datetime.now(UTC),
     )
 
 

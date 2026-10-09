@@ -47,15 +47,13 @@ def compare(
         if home_info is None:
             home_info = store_info(conn, body.home_store_id, body.location)
     priced = price_baskets(
-        conn, body.items, stores + ([home_info] if home_info and home_info not in stores else []),
+        conn,
+        body.items,
+        stores + ([home_info] if home_info and home_info not in stores else []),
         body.clubs,
     )
     home = priced.get(home_info.store_id) if home_info else None
-    results = [
-        priced[s.store_id].result(home)
-        for s in stores
-        if priced[s.store_id].lines
-    ]
+    results = [priced[s.store_id].result(home) for s in stores if priced[s.store_id].lines]
     results.sort(key=sort_key)
     return schemas.CompareResponse(
         stores=results,

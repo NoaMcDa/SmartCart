@@ -146,7 +146,9 @@ def normalize_cmd(
             if result.issues:
                 flagged += 1
                 if len(examples) < show:
-                    examples.append(f"  {row['id']} {row['raw_name']!r}: {'; '.join(result.issues)}")
+                    examples.append(
+                        f"  {row['id']} {row['raw_name']!r}: {'; '.join(result.issues)}"
+                    )
     typer.echo(f"{total} items" + (f" in chain {chain}" if chain else ""))
     typer.echo(f"size from: {dict(sources)}")
     typer.echo(f"base unit: {dict(base_units)}")
@@ -176,9 +178,11 @@ def extract(
     with open_connection(settings) as conn:
         typer.echo(f"{count_pending(conn, chain)} items pending")
         run = run_extraction(
-            conn, impl,
+            conn,
+            impl,
             batch_size=batch_size or settings.extraction_batch_size,
-            limit=limit, chain=chain,
+            limit=limit,
+            chain=chain,
             max_attempts=settings.extraction_max_attempts,
             commit=True,
         )
@@ -208,8 +212,10 @@ def cost_report_cmd(
     if not lines:
         typer.echo("no model extraction batches recorded")
         return
-    typer.echo("run  batch                          model              requests  in_tok  out_tok"
-               "  cache_rd  est_usd")
+    typer.echo(
+        "run  batch                          model              requests  in_tok  out_tok"
+        "  cache_rd  est_usd"
+    )
     total_in = total_out = 0
     total_usd = Decimal(0)
     for ln in lines:

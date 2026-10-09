@@ -126,9 +126,7 @@ def test_chain_published_coordinates_win_and_are_never_replaced(db, geo_env) -> 
 def test_radius_queries_work_on_locality_points(db, geo_env) -> None:
     stores = [store("1", "תל אביב", city="5000"), store("2", "ירושלים", city="3000")]
     _load_stores(db, parsed_file("stores", encode(stores=stores)))
-    near = db.execute(
-        "SELECT chain_id, store_id FROM stores_within(34.78, 32.08, 5000)"
-    ).fetchall()
+    near = db.execute("SELECT chain_id, store_id FROM stores_within(34.78, 32.08, 5000)").fetchall()
     ids = dict(db.execute("SELECT store_code, id FROM stores WHERE chain_id = 'fake'").fetchall())
     assert near == [("fake", ids["1"])]  # Jerusalem is about 55 km away
 
@@ -144,7 +142,9 @@ STORES_FILES = [(slug, p) for slug, p in REAL_FILES if p.name.startswith("Stores
 
 
 @pytest.mark.skipif(not STORES_FILES, reason="no real Stores fixtures")
-def test_real_stores_files_get_locality_coordinates_where_the_city_is_in_the_table(db, geo_env) -> None:
+def test_real_stores_files_get_locality_coordinates_where_the_city_is_in_the_table(
+    db, geo_env
+) -> None:
     from smartcart_ingest.geocode.localities import load_localities
 
     table = load_localities(SAMPLE)

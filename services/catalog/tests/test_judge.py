@@ -41,7 +41,12 @@ RULES = {
 
 
 def canon(
-    cid: int, slug: str, ptype: str, crit: dict, soft: dict, name: str = "",
+    cid: int,
+    slug: str,
+    ptype: str,
+    crit: dict,
+    soft: dict,
+    name: str = "",
     barcodes: tuple[str, ...] = (),
 ) -> CanonicalProduct:
     return CanonicalProduct(id=cid, taxonomy_id="x.y", slug=slug, display_name_he=name or slug,

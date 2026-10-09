@@ -30,9 +30,18 @@ router = APIRouter(prefix="/promo-cycles", tags=["history"])
 def get_promo_cycles(
     canonical_id: int,
     conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
-    clubs: Annotated[list[str] | None, Query(max_length=20, description="Clubs the user marked; club-only promos count only for these")] = None,
+    clubs: Annotated[
+        list[str] | None,
+        Query(
+            max_length=20,
+            description="Clubs the user marked; club-only promos count only for these",
+        ),
+    ] = None,
 ) -> schemas.PromoCycleResponse:
-    if conn.execute("SELECT 1 FROM canonical_products WHERE id = %s", (canonical_id,)).fetchone() is None:
+    if (
+        conn.execute("SELECT 1 FROM canonical_products WHERE id = %s", (canonical_id,)).fetchone()
+        is None
+    ):
         raise HTTPException(status_code=404, detail="canonical product not found")
     marked = [c for c in (clubs or []) if c.strip()]
 

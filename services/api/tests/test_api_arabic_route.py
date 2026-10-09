@@ -51,7 +51,13 @@ def _rows(client: TestClient, text: str) -> list[dict]:
 
 def test_an_arabic_list_is_split_parsed_and_resolved(client) -> None:
     rows = _rows(client, "حليب 3%\n2 كيلو بندورة\nكوتيج 5%، علبتين لبنة\nلابتوب")
-    assert [r["input_text"] for r in rows] == ["حليب 3%", "2 كيلو بندورة", "كوتيج 5%", "علبتين لبنة", "لابتوب"]
+    assert [r["input_text"] for r in rows] == [
+        "حليب 3%",
+        "2 كيلو بندورة",
+        "كوتيج 5%",
+        "علبتين لبنة",
+        "لابتوب",
+    ]
     milk, tomato, cottage, labane, laptop = rows
     assert milk["canonical"]["display_name_he"] == "חלב טרי 3%" and not milk["needs_confirmation"]
     assert float(tomato["quantity"]) == 2 and tomato["unit"] == "kg" and tomato["is_weighed"]

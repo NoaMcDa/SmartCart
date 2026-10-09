@@ -155,7 +155,9 @@ def parse_filename(filename: str) -> FileName:
     store = normalize_store_code(parts[-1]) if parts else None
     if kind == "stores" or store == "0":
         store = None
-    return FileName(kind=kind, chain_id=match.group("chain"), store_code=store, published_at=published)
+    return FileName(
+        kind=kind, chain_id=match.group("chain"), store_code=store, published_at=published
+    )
 
 
 def _parse_compact(value: str) -> datetime:
@@ -413,9 +415,7 @@ class RegulationAdapter(ChainAdapter):
         except ValueError as exc:
             raise AdapterError(self.chain_id, str(exc)) from exc
         if info.chain_id not in self.accepted_chain_ids():
-            raise AdapterError(
-                self.chain_id, f"filename {filename!r} is for chain {info.chain_id}"
-            )
+            raise AdapterError(self.chain_id, f"filename {filename!r} is for chain {info.chain_id}")
         return info
 
     def raw_file_for(self, filename: str, data: bytes, path: str | None = None) -> RawFile:
@@ -455,9 +455,7 @@ class RegulationAdapter(ChainAdapter):
         if row_chain and row_chain not in self.accepted_chain_ids():
             raise AdapterError(self.chain_id, f"{where}: row ChainId is {row_chain}")
 
-    def _parse_stores(
-        self, raw: RawFile, xml: bytes, row_tags: set[str]
-    ) -> tuple[int, ParsedFile]:
+    def _parse_stores(self, raw: RawFile, xml: bytes, row_tags: set[str]) -> tuple[int, ParsedFile]:
         stores: list[StoreRecord] = []
         seen = 0
         for index, row in enumerate(xmlutil.iter_rows(xml, row_tags)):
@@ -553,7 +551,9 @@ class RegulationAdapter(ChainAdapter):
             if not store_code:
                 raise ValueError(f"promo row {index}: no StoreId in header, row or filename")
             items_el = _child(row, "PromotionItems")
-            item_rows = [xmlutil.scalar_children(it) for it in items_el] if items_el is not None else []
+            item_rows = (
+                [xmlutil.scalar_children(it) for it in items_el] if items_el is not None else []
+            )
             if not item_rows and fields.get("itemcode"):
                 item_rows = [fields]  # flat <Sale> rows carry one item each
             restrictions_el = _child(row, "AdditionalRestrictions")

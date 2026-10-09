@@ -166,8 +166,13 @@ def run_extraction(
             raise RuntimeError(f"{name} returned {len(results)} results for {len(items)} items")
         for row, result in zip(rows, results, strict=True):
             status = write_result(
-                conn, row["id"], result, extractor=name, model=model,
-                attempts=row["attempts"], max_attempts=max_attempts,
+                conn,
+                row["id"],
+                result,
+                extractor=name,
+                model=model,
+                attempts=row["attempts"],
+                max_attempts=max_attempts,
             )
             setattr(run, status, getattr(run, status) + 1)
         run.items += len(rows)

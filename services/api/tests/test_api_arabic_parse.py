@@ -23,7 +23,10 @@ D = Decimal
         ("حليب؛ خبز", ["حليب", "خبز"]),  # Arabic semicolon
         ("حليب; خبز", ["حليب", "خبز"]),
         ("- حليب\n• خبز\n\n", ["حليب", "خبز"]),
-        ("1,5 كيلو بندورة، حليب", ["1,5 كيلو بندورة", "حليب"]),  # a comma between digits is a decimal mark
+        (
+            "1,5 كيلو بندورة، حليب",
+            ["1,5 كيلو بندورة", "حليب"],
+        ),  # a comma between digits is a decimal mark
         ("١٫٥ كيلو بندورة\nحليب", ["١٫٥ كيلو بندورة", "حليب"]),
         ("حليب 3%, كوتيج 5%", ["حليب 3%", "كوتيج 5%"]),
         ("‏حليب‎\n‏خبز", ["حليب", "خبز"]),  # bidirectional marks are dropped
@@ -45,7 +48,10 @@ def test_split_items_arabic(text: str, items: list[str]) -> None:
         ("كيلو و نص بندورة", ["كيلو و نص بندورة"]),
         ("2 كيلو وربع بصل", ["2 كيلو وربع بصل"]),
         ("حليب 3%", ["حليب 3%"]),
-        ("2 حليب و3 خبز", ["2 حليب و3 خبز"]),  # waw before a digit is not split, like the Hebrew vav
+        (
+            "2 حليب و3 خبز",
+            ["2 حليب و3 خبز"],
+        ),  # waw before a digit is not split, like the Hebrew vav
         ("ورق تواليت", ["ورق تواليت"]),  # a word that starts with waw at the front stays
         ("حليب والخبز", ["حليب", "الخبز"]),  # the article is stripped later, in matching
         ("بندورة", ["بندورة"]),

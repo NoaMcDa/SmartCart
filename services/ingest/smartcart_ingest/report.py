@@ -46,7 +46,9 @@ LOCAL_TZ = "Asia/Jerusalem"
 MAX_LISTED_STORES = 50
 MAX_LISTED_FAILURES = 50
 
-BASKET_QUERY_PATH = Path(__file__).resolve().parents[3] / "supabase" / "queries" / "basket_radius.sql"
+BASKET_QUERY_PATH = (
+    Path(__file__).resolve().parents[3] / "supabase" / "queries" / "basket_radius.sql"
+)
 
 
 @dataclass(frozen=True)
@@ -250,7 +252,9 @@ def _has_geog(conn: psycopg.Connection) -> bool:
 
 def _stores_section(conn: psycopg.Connection) -> tuple[int, int, list[StoreException]]:
     if _has_geog(conn):
-        reason = "no coordinates (stores.geog is NULL): not published by the chain, not geocoded yet"
+        reason = (
+            "no coordinates (stores.geog is NULL): not published by the chain, not geocoded yet"
+        )
         with_coords_sql = "count(*) FILTER (WHERE geog IS NOT NULL)"
         missing_filter = "AND geog IS NULL"
     else:
@@ -258,9 +262,7 @@ def _stores_section(conn: psycopg.Connection) -> tuple[int, int, list[StoreExcep
         with_coords_sql = "0"
         missing_filter = ""
     with conn.cursor() as cur:
-        cur.execute(
-            f"SELECT count(*), {with_coords_sql} FROM stores WHERE channel = 'physical'"
-        )
+        cur.execute(f"SELECT count(*), {with_coords_sql} FROM stores WHERE channel = 'physical'")
         total, with_coords = cur.fetchone()
         cur.execute(
             "SELECT id, chain_id, store_code, name, city, address FROM stores"
@@ -447,9 +449,7 @@ def render_markdown(report: ExitReport) -> str:
         [c.chain.name, _pct(c.rate), *("ok" if c.days[d] else "FAIL" for d in days)]
         for c in r.chains
     ]
-    rows.append(
-        ["**All chains**", _pct(r.success_rate), *(_pct(s.rate) for s in r.days)]
-    )
+    rows.append(["**All chains**", _pct(r.success_rate), *(_pct(s.rate) for s in r.days)])
     lines += _table(header, rows)
     add("")
     if r.failed_files:
@@ -477,10 +477,7 @@ def render_markdown(report: ExitReport) -> str:
         shown_stores = r.store_exceptions[:MAX_LISTED_STORES]
         lines += _table(
             ["Chain id", "Store", "Name", "City", "Address", "Reason"],
-            [
-                (s.chain_id, s.store_code, s.name, s.city, s.address, s.reason)
-                for s in shown_stores
-            ],
+            [(s.chain_id, s.store_code, s.name, s.city, s.address, s.reason) for s in shown_stores],
         )
         if len(r.store_exceptions) > len(shown_stores):
             add("")
@@ -512,8 +509,18 @@ def render_markdown(report: ExitReport) -> str:
             continue
         lines += _table(
             [
-                "Promo", "Store", "Raw description", "Reward", "Value", "Min qty", "Max qty",
-                "Club", "Dates", "Hours", "Items", "Checked",
+                "Promo",
+                "Store",
+                "Raw description",
+                "Reward",
+                "Value",
+                "Min qty",
+                "Max qty",
+                "Club",
+                "Dates",
+                "Hours",
+                "Items",
+                "Checked",
             ],  # fmt: skip
             [
                 (

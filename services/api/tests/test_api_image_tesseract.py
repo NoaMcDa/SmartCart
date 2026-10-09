@@ -65,8 +65,11 @@ def test_a_hebrew_line_is_read_from_the_right_edge() -> None:
 
 def test_list_lines_use_boxes_not_the_printed_order() -> None:
     words = [
-        w("חמוצים", 100, line=(1, 1, 1)), w("מלפפונים", 200, line=(1, 1, 1)), w("2", 330, line=(1, 1, 1)),
-        w("אדום", 120, top=180, line=(1, 1, 2)), w("פלפל", 220, top=180, line=(1, 1, 2)),
+        w("חמוצים", 100, line=(1, 1, 1)),
+        w("מלפפונים", 200, line=(1, 1, 1)),
+        w("2", 330, line=(1, 1, 1)),
+        w("אדום", 120, top=180, line=(1, 1, 2)),
+        w("פלפל", 220, top=180, line=(1, 1, 2)),
     ]
     assert layout.list_lines(words) == ["2 מלפפונים חמוצים", "פלפל אדום"]
 
@@ -91,10 +94,23 @@ def merged(a: str, b: str) -> list[str]:
 
 def test_recorded_receipt_prices_come_from_the_english_pass() -> None:
     assert merged("tesseract_receipt_heb_eng.tsv", "tesseract_receipt_eng.tsv") == [
-        "טיב טעם", "סניף: נתניה", "ח.פ 562992312", "חשבונית מס מספר 95319",
-        "תאריך 02/10/2026 שעה 09:52", "מטבוחה 1.5 ל' 12.35", "גב' טרה לבנה 3% 56.38", "X2 28.19",
-        "פיתות 11.55", "תירס שטראוס קפוא 500 גרם 14.64", "7.32X2", "נאגטס עוף 26.32",
-        'סה"כ פריטים 5', 'סה"כ 121.24', "לתשלום 121.24", 'מע"מ 18% 18.49', "אשראי ויזה ****1234",
+        "טיב טעם",
+        "סניף: נתניה",
+        "ח.פ 562992312",
+        "חשבונית מס מספר 95319",
+        "תאריך 02/10/2026 שעה 09:52",
+        "מטבוחה 1.5 ל' 12.35",
+        "גב' טרה לבנה 3% 56.38",
+        "X2 28.19",
+        "פיתות 11.55",
+        "תירס שטראוס קפוא 500 גרם 14.64",
+        "7.32X2",
+        "נאגטס עוף 26.32",
+        'סה"כ פריטים 5',
+        'סה"כ 121.24',
+        "לתשלום 121.24",
+        'מע"מ 18% 18.49',
+        "אשראי ויזה ****1234",
         "תודה ולהתראות",
     ]
 
@@ -128,7 +144,9 @@ def test_the_first_pass_keeps_a_number_it_is_much_surer_about() -> None:
 
 def test_digits_the_english_pass_invents_over_hebrew_are_ignored() -> None:
     a = [w("סבון", 900), w("יטבתה", 800)]
-    assert layout.merge_receipt(a, [w("1120", 895, conf=80)]) == ["סבון יטבתה"]  # over a Hebrew word
+    assert layout.merge_receipt(a, [w("1120", 895, conf=80)]) == [
+        "סבון יטבתה"
+    ]  # over a Hebrew word
     junk = [w("סבון", 900), w("DON", 700, conf=40)]
     assert layout.merge_receipt(junk, [w("1120", 700, conf=80)]) == ["סבון"]  # over Latin garbage
 
@@ -137,7 +155,11 @@ def test_a_price_the_english_pass_finds_alone_joins_its_row_or_starts_one() -> N
     a = [w("חסה", 900, top=100, line=(1, 1, 1))]
     same_row = [w("27.93", 50, top=102, width=80, conf=90)]
     assert layout.merge_receipt(a, same_row) == ["חסה 27.93"]
-    below = [w("2", 880, top=300, conf=90), w("X", 800, top=300, conf=90), w("5.67", 700, top=300, width=70, conf=90)]
+    below = [
+        w("2", 880, top=300, conf=90),
+        w("X", 800, top=300, conf=90),
+        w("5.67", 700, top=300, width=70, conf=90),
+    ]
     lines = layout.merge_receipt(a, below)
     assert lines == ["חסה", "X 5.67"]  # the price and the sign start a line; the bare "2" is noise
     assert layout.merge_receipt(a, [w("5", 100, top=300)]) == ["חסה"]  # a lone digit is noise
@@ -188,7 +210,10 @@ def fake_tesseract(monkeypatch):
 def test_a_receipt_is_read_twice_and_a_list_once(fake_tesseract) -> None:
     img = Image.new("RGB", (700, 700), "white")
     result = TesseractProvider().read(img, "receipt")
-    langs_psm = [(c["cmd"][c["cmd"].index("-l") + 1], c["cmd"][c["cmd"].index("--psm") + 1]) for c in fake_tesseract.calls]
+    langs_psm = [
+        (c["cmd"][c["cmd"].index("-l") + 1], c["cmd"][c["cmd"].index("--psm") + 1])
+        for c in fake_tesseract.calls
+    ]
     assert langs_psm == [("heb+eng", "4"), ("eng", "4")]
     assert "מטבוחה 1.5 ל' 12.35" in result.lines and result.provider == "tesseract"
     fake_tesseract.calls.clear()

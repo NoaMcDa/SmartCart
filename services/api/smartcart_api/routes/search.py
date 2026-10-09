@@ -103,7 +103,11 @@ def _row(
         )
     top = hits[0]
     flex = next(
-        (flex_defaults[t] for t in chains.get(top.taxonomy_id, [top.taxonomy_id]) if t in flex_defaults),
+        (
+            flex_defaults[t]
+            for t in chains.get(top.taxonomy_id, [top.taxonomy_id])
+            if t in flex_defaults
+        ),
         "any_brand",
     )
     needs = conf < CONFIRM_BELOW
@@ -147,4 +151,3 @@ def parse_list(
         if not hits or conf < NOT_FOUND_BELOW:  # the rows that came back not_found (issue #52)
             record_miss(conn, frag.text, "parse_list", conf if hits else None)
     return schemas.ParseListResponse(rows=rows, generated_at=datetime.now(UTC))
-

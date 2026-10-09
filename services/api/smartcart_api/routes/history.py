@@ -69,9 +69,7 @@ WHERE pi.item_id = %(item)s AND p.chain_id = %(chain)s
 ORDER BY p.starts_at NULLS FIRST, p.id
 """
 
-_MAPPED = (
-    " ic.canonical_id = %(cid)s AND NOT ic.needs_review AND NOT ic.human_rejected"
-)
+_MAPPED = " ic.canonical_id = %(cid)s AND NOT ic.needs_review AND NOT ic.human_rejected"
 
 
 def _pick_item(conn: psycopg.Connection, cid: int, store_id: int | None) -> int | None:
@@ -128,9 +126,14 @@ def daily_series(
             bi += 1
         ev = store_ev[si] if si >= 0 else (base_ev[bi] if bi >= 0 else None)
         if ev is not None:
-            points.append(schemas.PricePoint(
-                date=day, unit_price=unit(ev), shelf_price=ev[1], store_id=ev[0],
-            ))
+            points.append(
+                schemas.PricePoint(
+                    date=day,
+                    unit_price=unit(ev),
+                    shelf_price=ev[1],
+                    store_id=ev[0],
+                )
+            )
         day += timedelta(days=1)
     return points
 
@@ -140,22 +143,29 @@ def price_history(
     canonical_id: int,
     conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
     store_id: int | None = None,
-    days: Annotated[int, Query(ge=1, le=365, description="Days back from today, 90 by default")] = 90,
+    days: Annotated[
+        int, Query(ge=1, le=365, description="Days back from today, 90 by default")
+    ] = 90,
 ) -> schemas.PriceHistoryResponse:
     canon = conn.execute(
         "SELECT base_unit, names_ar[1] FROM canonical_products WHERE id = %s", (canonical_id,)
     ).fetchone()
     if canon is None:
         raise HTTPException(status_code=404, detail="canonical product not found")
-    if store_id is not None and conn.execute(
-        "SELECT 1 FROM stores WHERE id = %s", (store_id,)
-    ).fetchone() is None:
+    if (
+        store_id is not None
+        and conn.execute("SELECT 1 FROM stores WHERE id = %s", (store_id,)).fetchone() is None
+    ):
         raise HTTPException(status_code=404, detail="store not found")
     now = datetime.now(UTC)
     start = datetime.combine(now.date() - timedelta(days=days - 1), time.min, tzinfo=UTC)
     item_id = _pick_item(conn, canonical_id, store_id)
     resp = schemas.PriceHistoryResponse(
-        canonical_id=canonical_id, store_id=store_id, days=days, points=[], generated_at=now,
+        canonical_id=canonical_id,
+        store_id=store_id,
+        days=days,
+        points=[],
+        generated_at=now,
         canonical_name_ar=canon[1],
     )
     if item_id is None:
@@ -175,8 +185,13 @@ def price_history(
     points = daily_series(events, start, now, unit_of)
     windows = [
         schemas.PromoWindow(
-            starts_at=r[0], ends_at=r[1], description=r[2], promo_type=r[3], club_only=r[4],
-            club_name=r[5] if r[4] else None, confidence=promo_confidence(r[6]),
+            starts_at=r[0],
+            ends_at=r[1],
+            description=r[2],
+            promo_type=r[3],
+            club_only=r[4],
+            club_name=r[5] if r[4] else None,
+            confidence=promo_confidence(r[6]),
         )
         for r in conn.execute(
             _PROMOS_SQL, {**params, "chain": chain_id, "store": store_id}
@@ -185,7 +200,8 @@ def price_history(
     for p in points:  # the promo of each day, a non-club one first
         day_end = p.date + timedelta(days=1)
         active = [
-            w for w in windows
+            w
+            for w in windows
             if (w.starts_at is None or w.starts_at < day_end)
             and (w.ends_at is None or w.ends_at > p.date)
         ]
@@ -193,7 +209,9 @@ def price_history(
         if active:
             w = active[0]
             p.promo_description = (
-                f"{w.description} (מועדון: {w.club_name or 'לא ידוע'})" if w.club_only else w.description
+                f"{w.description} (מועדון: {w.club_name or 'לא ידוע'})"
+                if w.club_only
+                else w.description
             )
     resp.points = points
     resp.promos = windows

@@ -42,7 +42,7 @@ def soft(by_slug, name: str, slug: str) -> list[str]:
         ("חטיף שיבולת שועל עם סירופ מייפל 210 ג' ניטשר ואלי", "rolled-oats"),
         ("ג'לי תנובה אפרסק", "peach"),
         ("קראנצי שיבולת שועל ושוקולד מריר 210 גר", "rolled-oats"),  # Tiv Taam: a bar
-        ('סוכריות חמאה 50 גרם ורטר', "butter"),  # butter candy
+        ("סוכריות חמאה 50 גרם ורטר", "butter"),  # butter candy
         ("בצק עלים חמאה מעדנות", "butter"),  # puff pastry
         ("אשבול דגן חמאה 150 ג", "butter"),  # a cereal
         # flour and dough of a thing are not the thing
@@ -117,7 +117,7 @@ def test_a_word_after_the_flavor_marker_is_a_flavor_not_the_product(by_slug, nam
 
 
 def test_the_product_before_the_flavor_marker_is_kept(by_slug) -> None:
-    assert not refused(by_slug, "גלידה בטעם וניל 500 מ\"ל", "ice-cream-vanilla")
+    assert not refused(by_slug, 'גלידה בטעם וניל 500 מ"ל', "ice-cream-vanilla")
 
 
 def test_diet_variant_is_a_close_substitute_never_any_brand(by_slug) -> None:

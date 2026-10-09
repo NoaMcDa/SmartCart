@@ -266,7 +266,9 @@ def match_items(
     extractor = RuleExtractor(catalog)
     judge = RuleJudge()
     embedder = HashEmbedder()
-    canon_vecs = [_sparse(v) for v in embedder.embed([c.display_name_he for c in catalog.canonicals])]
+    canon_vecs = [
+        _sparse(v) for v in embedder.embed([c.display_name_he for c in catalog.canonicals])
+    ]
     # canonical ids are positions in the catalog (1-based), like database ids in file order
     canon_ids = {c.slug: i for i, c in enumerate(catalog.canonicals, start=1)}
     item_vecs = [_sparse(v) for v in embedder.embed([i.raw_name for i in items])]
@@ -344,8 +346,14 @@ def examples_from_matches(
         if m.canonical_slug is None or m.level is None:
             continue
         pool[m.canonical_slug].append(
-            Example(m.item.raw_name.strip(), m.item.chain_name, m.item.source, m.level,
-                    m.confidence, m.needs_review)  # fmt: skip
+            Example(
+                m.item.raw_name.strip(),
+                m.item.chain_name,
+                m.item.source,
+                m.level,
+                m.confidence,
+                m.needs_review,
+            )  # fmt: skip
         )
     return {slug: pick_examples(found, per_canonical) for slug, found in pool.items()}
 
@@ -564,7 +572,9 @@ def parse_attrs_cell(text: str) -> dict[str, Any]:
         key, _, value = part.partition("=")
         key = key.strip()
         if key not in ATTRIBUTE_KEYS:
-            raise ValueError(f"unknown attribute {key!r}; known: {', '.join(sorted(ATTRIBUTE_KEYS))}")
+            raise ValueError(
+                f"unknown attribute {key!r}; known: {', '.join(sorted(ATTRIBUTE_KEYS))}"
+            )
         value = value.strip()
         try:
             parsed = yaml.safe_load(value) if value else None
@@ -693,7 +703,7 @@ def _attr_cells(attrs: Mapping[str, Any]) -> str:
             key = "pack_size, unit"
         lines.append(
             f'<span class="kv"><b>{_e(KEY_HE.get(k, k))}:</b> <bdi>{_e(value)}</bdi>'
-            f' <code>{_e(key)}</code></span>'
+            f" <code>{_e(key)}</code></span>"
         )
     return "".join(lines)
 
@@ -723,7 +733,8 @@ def _row_html(r: PacketRow) -> str:
     tier = f' <span class="tag est">שכבה {r.tier} (הערכה)</span>' if r.tier else ""
     barcodes = (
         f'<br><span class="muted">ברקודים: <code>{_e(", ".join(r.reference_barcodes))}</code></span>'
-        if r.reference_barcodes else ""
+        if r.reference_barcodes
+        else ""
     )
     kw = ", ".join(r.keywords[:6]) + (" …" if len(r.keywords) > 6 else "")
     return (
@@ -731,7 +742,7 @@ def _row_html(r: PacketRow) -> str:
         f'<td class="num"><b>{r.rank}</b><br><span class="tag est">הערכה</span></td>'
         f'<td><span class="name">{_e(r.name_he)}</span><br><span class="slug">{_e(r.slug)}</span>'
         f'{tier}<br><span class="muted">{_e(r.taxonomy_path_he)}</span>{barcodes}</td>'
-        f'<td>{_e(BASE_UNIT_HE.get(r.base_unit, r.base_unit))}<br><code>{_e(r.base_unit)}</code></td>'
+        f"<td>{_e(BASE_UNIT_HE.get(r.base_unit, r.base_unit))}<br><code>{_e(r.base_unit)}</code></td>"
         f"<td>{_attr_cells(r.critical_attrs)}</td>"
         f"<td>{_attr_cells(r.soft_attrs)}</td>"
         f'<td class="rule"><code>{_e(r.product_type)}</code><br>'
@@ -788,7 +799,7 @@ def render_html(rows: Sequence[PacketRow], meta: PacketMeta, dept_order: Sequenc
                 parts.append(f"<h3>{_e(cat)}</h3>")
             parts.append(
                 "<table><thead><tr>"
-                '<th>דירוג<br>(הערכה)</th><th>מוצר</th><th>יחידת בסיס</th>'
+                "<th>דירוג<br>(הערכה)</th><th>מוצר</th><th>יחידת בסיס</th>"
                 "<th>מאפיינים קריטיים<br>(לא משתנים ב״כל מותג״)</th>"
                 "<th>מאפיינים רכים<br>(נפתחים ב״תחליף קרוב״)</th>"
                 "<th>כלל סוג המוצר</th><th>עד 5 דוגמאות</th><th>החלטה</th></tr></thead><tbody>"
@@ -799,10 +810,13 @@ def render_html(rows: Sequence[PacketRow], meta: PacketMeta, dept_order: Sequenc
         sections.append("".join(parts))
 
     seen = meta.items_seen
-    sources_line = ", ".join(
-        f"{SOURCE_HE.get(s, s)}: {seen.get(s, 0)} פריטים נבדקו, {meta.items_mapped.get(s, 0)} שויכו"
-        for s in meta.examples_sources
-    ) or "אין דוגמאות (הופעל --examples none)"
+    sources_line = (
+        ", ".join(
+            f"{SOURCE_HE.get(s, s)}: {seen.get(s, 0)} פריטים נבדקו, {meta.items_mapped.get(s, 0)} שויכו"
+            for s in meta.examples_sources
+        )
+        or "אין דוגמאות (הופעל --examples none)"
+    )
     return f"""<!doctype html>
 <html lang="he" dir="rtl">
 <head>
@@ -1072,7 +1086,9 @@ def parse_filled_csv(
 _PROPOSED = ("display_name_he", "base_unit", "critical_attrs", "soft_attrs", "rank")
 
 
-def _read_proposed(row: Mapping[str, str], line: int, slug: str, problems: list[str]) -> dict[str, Any]:
+def _read_proposed(
+    row: Mapping[str, str], line: int, slug: str, problems: list[str]
+) -> dict[str, Any]:
     proposed: dict[str, Any] = {}
     where = f"line {line} ({slug})"
     if row.get("proposed_display_name_he"):
@@ -1167,7 +1183,9 @@ def render_entries(entries: Sequence[Mapping[str, Any]]) -> list[str]:
 def validate_entries(catalog: Catalog, entries: Sequence[Mapping[str, Any]]) -> list[str]:
     """What ``smartcart-catalog seed`` would object to in the proposed entries (empty if none)."""
     try:
-        canonicals = parse_canonicals({"canonicals": list(entries)}, catalog.taxonomy, catalog.rules)
+        canonicals = parse_canonicals(
+            {"canonicals": list(entries)}, catalog.taxonomy, catalog.rules
+        )
     except SeedError as exc:
         return [line.strip() for line in str(exc).splitlines()[1:]] or [str(exc)]
     problems: list[str] = []
@@ -1286,7 +1304,9 @@ def review_packet(
         str,
         typer.Option(help="Example sources in order: real, gold, db or none (comma separated)."),
     ] = "real,gold",
-    per_canonical: Annotated[int, typer.Option(min=0, max=10, help="Examples per canonical.")] = PER_CANONICAL,
+    per_canonical: Annotated[
+        int, typer.Option(min=0, max=10, help="Examples per canonical.")
+    ] = PER_CANONICAL,
 ) -> None:
     """Write the HTML and CSV packet for the canonical sign-off (issue #15)."""
     from smartcart_catalog.settings import load_settings
@@ -1318,13 +1338,21 @@ def review_packet(
 
 
 def review_import(
-    csv_file: Annotated[Path, typer.Argument(help="The filled review CSV.", exists=True, dir_okay=False)],
+    csv_file: Annotated[
+        Path, typer.Argument(help="The filled review CSV.", exists=True, dir_okay=False)
+    ],
     reviewer: Annotated[str, typer.Option(help="Reviewer's name, recorded in the sign-off.")],
-    reviewed_on: Annotated[str | None, typer.Option("--date", help="YYYY-MM-DD (default: today).")] = None,
+    reviewed_on: Annotated[
+        str | None, typer.Option("--date", help="YYYY-MM-DD (default: today).")
+    ] = None,
     note: Annotated[str, typer.Option(help="Free text for the record (role, scope).")] = "",
     out_dir: Annotated[Path | None, typer.Option(help="Default: <data dir>/signoff.")] = None,
-    allow_partial: Annotated[bool, typer.Option(help="Accept canonicals without a decision.")] = False,
-    allow_stale: Annotated[bool, typer.Option(help="Accept rows changed since the packet.")] = False,
+    allow_partial: Annotated[
+        bool, typer.Option(help="Accept canonicals without a decision.")
+    ] = False,
+    allow_stale: Annotated[
+        bool, typer.Option(help="Accept rows changed since the packet.")
+    ] = False,
     force: Annotated[bool, typer.Option(help="Overwrite an existing sign-off file.")] = False,
     patch_out: Annotated[Path | None, typer.Option(help="Also save the diff to this file.")] = None,
 ) -> None:

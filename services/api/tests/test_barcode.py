@@ -34,24 +34,37 @@ def w(db, world: World) -> World:
         (code("milk3_c1_tnuva"), "חלב תנובה 3% 1 ליטר"),
     ).fetchone()[0]
     world.items["milk3_c2_tnuva"] = iid
-    db.execute("INSERT INTO item_canonical (item_id, canonical_id, flex_level, confidence, source)"
-               " VALUES (%s, %s, 'exact', 0.99, 'rule')", (iid, world.canon["milk3"]))
-    db.execute("INSERT INTO item_attributes (item_id, attrs, verified_keys, extractor)"
-               " VALUES (%s, '{\"fat_pct\": 3, \"brand\": \"תנובה\"}', '{}', 'rule')", (iid,))
+    db.execute(
+        "INSERT INTO item_canonical (item_id, canonical_id, flex_level, confidence, source)"
+        " VALUES (%s, %s, 'exact', 0.99, 'rule')",
+        (iid, world.canon["milk3"]),
+    )
+    db.execute(
+        "INSERT INTO item_attributes (item_id, attrs, verified_keys, extractor)"
+        " VALUES (%s, '{\"fat_pct\": 3, \"brand\": \"תנובה\"}', '{}', 'rule')",
+        (iid,),
+    )
     add_price(db, iid, None, "6.70", "0.67", "100ml", world.valid_from)
     # A product nobody mapped, and a UPC-A code published without the leading zero.
-    db.execute("INSERT INTO items (chain_id, item_code, barcode, raw_name)"
-               " VALUES ('t-c1', 'mystery', '7290011111111', 'מוצר לא ממופה')")
-    db.execute("UPDATE items SET barcode = '123456789012' WHERE id = %s", (world.items["bread_c1"],))
-    db.execute("UPDATE canonical_products SET reference_barcodes = '{7290099999999}' WHERE id = %s",
-               (world.canon["cream"],))
+    db.execute(
+        "INSERT INTO items (chain_id, item_code, barcode, raw_name)"
+        " VALUES ('t-c1', 'mystery', '7290011111111', 'מוצר לא ממופה')"
+    )
+    db.execute(
+        "UPDATE items SET barcode = '123456789012' WHERE id = %s", (world.items["bread_c1"],)
+    )
+    db.execute(
+        "UPDATE canonical_products SET reference_barcodes = '{7290099999999}' WHERE id = %s",
+        (world.canon["cream"],),
+    )
     precompute_effective_prices(db, chains=world.chains)
     return world
 
 
 def scan(client, barcode: str, **params) -> dict:
-    r = client.get(f"/items/barcode/{barcode}",
-                   params={"lon": ORIGIN[0], "lat": ORIGIN[1], **params})
+    r = client.get(
+        f"/items/barcode/{barcode}", params={"lon": ORIGIN[0], "lat": ORIGIN[1], **params}
+    )
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -62,7 +75,10 @@ def test_here_cheapest_nearby_and_a_labeled_substitute(client, w: World) -> None
     assert resp["canonical"]["category_path_he"] == ["מוצרי חלב", "חלב"]
     assert resp["display_name_he"] == "חלב תנובה 3% 1 ליטר"
     here = resp["here"]
-    assert here["store"]["store_id"] == w.stores["home"] and here["item_id"] == w.items["milk3_c1_tnuva"]
+    assert (
+        here["store"]["store_id"] == w.stores["home"]
+        and here["item_id"] == w.items["milk3_c1_tnuva"]
+    )
     assert D(here["shelf_price"]) == D("6.90") and D(here["unit_price"]) == D("0.6900")
     assert here["price_valid_from"] and not here["is_substitute"]
     near = resp["cheapest_nearby"]
@@ -132,9 +148,17 @@ def test_rejected_mappings_are_never_used(client, db, w: World) -> None:
         ([w.items["milk3_c1_tnuva"], w.items["milk3_c2_tnuva"]], w.canon["milk3"]),
     )
     assert scan(client, code("milk3_c1_tnuva"))["found"] is False
-    body = {"items": [{"canonical_id": w.canon["milk3"], "quantity": 1, "flex_level": "exact",
-                       "exact_item_id": w.items["milk3_c1_tnuva"]}],
-            "location": {"lon": ORIGIN[0], "lat": ORIGIN[1], "radius_m": 5000}}
+    body = {
+        "items": [
+            {
+                "canonical_id": w.canon["milk3"],
+                "quantity": 1,
+                "flex_level": "exact",
+                "exact_item_id": w.items["milk3_c1_tnuva"],
+            }
+        ],
+        "location": {"lon": ORIGIN[0], "lat": ORIGIN[1], "radius_m": 5000},
+    }
     r = client.post("/compare", json=body)
     assert r.status_code == 200 and r.json()["stores"] == []
 
@@ -142,16 +166,20 @@ def test_rejected_mappings_are_never_used(client, db, w: World) -> None:
 def test_parameters_are_validated(client, w: World) -> None:
     r = client.get(f"/items/barcode/{code('eggs_c1')}", params={"lon": ORIGIN[0], "lat": 100})
     assert r.status_code == 422
-    r = client.get(f"/items/barcode/{code('eggs_c1')}",
-                   params={"lon": ORIGIN[0], "lat": ORIGIN[1], "radius_m": 100})
+    r = client.get(
+        f"/items/barcode/{code('eggs_c1')}",
+        params={"lon": ORIGIN[0], "lat": ORIGIN[1], "radius_m": 100},
+    )
     assert r.status_code == 422
 
 
 def test_barcode_canonical_carries_the_arabic_name(client, db, w: World) -> None:
     code_ = code("milk3_c1_tnuva")
     assert scan(client, code_)["canonical"]["display_name_ar"] is None
-    db.execute("UPDATE canonical_products SET names_ar = %s WHERE id = %s",
-               (["حليب 3%", "حليب طازج 3%"], w.canon["milk3"]))
+    db.execute(
+        "UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+        (["حليب 3%", "حليب طازج 3%"], w.canon["milk3"]),
+    )
     resp = scan(client, code_)
     assert resp["canonical"]["display_name_ar"] == "حليب 3%"
     assert resp["canonical"]["display_name_he"] and resp["display_name_he"] == "חלב תנובה 3% 1 ליטר"

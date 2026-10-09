@@ -28,23 +28,69 @@ SCHEMA_VERSION = 2
 """2: ``base`` and ``variety`` added (issue #92)."""
 
 FLAVORS: tuple[str, ...] = (
-    "plain", "strawberry", "peach", "banana", "chocolate", "vanilla", "coffee", "lemon",
-    "orange", "apple", "grape", "raspberry", "mint", "honey", "grill", "onion", "salted",
-    "barbecue", "spicy", "cheese", "potato", "chicken", "beef", "mushroom", "olive", "garlic",
-    "pine_nut", "milk", "dark", "white", "other",
+    "plain",
+    "strawberry",
+    "peach",
+    "banana",
+    "chocolate",
+    "vanilla",
+    "coffee",
+    "lemon",
+    "orange",
+    "apple",
+    "grape",
+    "raspberry",
+    "mint",
+    "honey",
+    "grill",
+    "onion",
+    "salted",
+    "barbecue",
+    "spicy",
+    "cheese",
+    "potato",
+    "chicken",
+    "beef",
+    "mushroom",
+    "olive",
+    "garlic",
+    "pine_nut",
+    "milk",
+    "dark",
+    "white",
+    "other",
 )
 """Flavor slugs. Chocolate bars use milk / dark / white. ``other`` = a flavor not listed."""
 
 DIET_FLAGS: tuple[str, ...] = (
-    "gluten_free", "lactose_free", "sugar_free", "no_added_sugar", "vegan", "vegetarian",
-    "organic", "low_sodium", "low_fat",
+    "gluten_free",
+    "lactose_free",
+    "sugar_free",
+    "no_added_sugar",
+    "vegan",
+    "vegetarian",
+    "organic",
+    "low_sodium",
+    "low_fat",
 )
 UNITS: tuple[str, ...] = ("g", "ml", "unit")
 STATES: tuple[str, ...] = get_args(ProductState)
 BASES: tuple[str, ...] = get_args(PlantBase)
 OUTPUT_KEYS: tuple[str, ...] = (
-    "category_path", "product_type", "brand", "is_private_label", "fat_pct", "state", "flavor",
-    "kosher", "diet_flags", "pack_size", "unit", "base", "variety", "confidence",
+    "category_path",
+    "product_type",
+    "brand",
+    "is_private_label",
+    "fat_pct",
+    "state",
+    "flavor",
+    "kosher",
+    "diet_flags",
+    "pack_size",
+    "unit",
+    "base",
+    "variety",
+    "confidence",
 )
 
 

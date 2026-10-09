@@ -89,7 +89,10 @@ def load_store_geocodes(path: Path) -> dict[tuple[str, str], StoreGeocode]:
             except (KeyError, TypeError, ValueError):
                 continue
             precision = (row.get("precision") or "").strip()
-            chain_id, code = (row.get("chain_id") or "").strip(), (row.get("store_code") or "").strip()
+            chain_id, code = (
+                (row.get("chain_id") or "").strip(),
+                (row.get("store_code") or "").strip(),
+            )
             if precision not in RANK or not chain_id or not code or not in_israel(lat, lon):
                 continue
             out[(chain_id, code)] = StoreGeocode(
@@ -113,8 +116,16 @@ def write_store_geocodes(path: Path, rows: list[StoreGeocode]) -> int:
         writer.writerow(STORE_FIELDS)
         for r in ordered:
             writer.writerow(
-                [r.chain_id, r.store_code, f"{r.lat:.6f}", f"{r.lon:.6f}", r.precision, r.source,
-                 r.query_hash, r.geocoded_at]  # fmt: skip
+                [
+                    r.chain_id,
+                    r.store_code,
+                    f"{r.lat:.6f}",
+                    f"{r.lon:.6f}",
+                    r.precision,
+                    r.source,
+                    r.query_hash,
+                    r.geocoded_at,
+                ]  # fmt: skip
             )
     return len(ordered)
 

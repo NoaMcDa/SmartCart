@@ -66,7 +66,9 @@ class _ImageRoute(APIRoute):
 
         async def handler(request: Request) -> Response:
             if request.headers.get(CONSENT_HEADER) != "1":
-                raise HTTPException(status_code=403, detail="photo processing needs consent (X-Image-Consent: 1)")
+                raise HTTPException(
+                    status_code=403, detail="photo processing needs consent (X-Image-Consent: 1)"
+                )
             declared = request.headers.get("content-length")
             if declared and declared.isdigit() and int(declared) > MAX_BODY:
                 raise HTTPException(status_code=413, detail="the image is larger than 8 MB")
@@ -117,7 +119,9 @@ def parse_image(
     except ImageError as exc:
         raise HTTPException(status_code=exc.status, detail=exc.detail) from None
     except OcrError:
-        raise HTTPException(status_code=502, detail="the image could not be read, try again") from None
+        raise HTTPException(
+            status_code=502, detail="the image could not be read, try again"
+        ) from None
     finally:
         data = pil = None
         image.file.close()
@@ -146,7 +150,12 @@ def parse_image(
         lines = []  # drop the raw OCR text
     log.info(
         "parse-image kind=%s provider=%s lines=%d items=%d unresolved=%d usd=%.4f",
-        kind, provider_name, n_lines, len(rows), len(unresolved), cost,
+        kind,
+        provider_name,
+        n_lines,
+        len(rows),
+        len(unresolved),
+        cost,
     )
     return schemas.ParseImageResponse(
         kind=kind,

@@ -215,7 +215,9 @@ def fetch(
                 entry["parse"] = {
                     "schema": parsed.raw.schema_version,
                     "stores": len(parsed.stores),
-                    "online_stores": sorted(s.store_code for s in parsed.stores if s.channel == "online"),
+                    "online_stores": sorted(
+                        s.store_code for s in parsed.stores if s.channel == "online"
+                    ),
                     "items": len(parsed.items),
                     "prices": len(parsed.prices),
                     "promos": len(parsed.promos),

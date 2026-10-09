@@ -52,14 +52,19 @@ def reference(p: milp.Problem, max_stores: int, min_stores: int = 1) -> tuple[in
                         pools.setdefault(li.group, {})[c] = li.quantity
                     elif li.group is not None:
                         g = p.groups[li.group]
-                        total += D(milp.group_cost(g, {c: li.quantity}, {c: li.shelf_price})[0]) / 100
+                        total += (
+                            D(milp.group_cost(g, {c: li.quantity}, {c: li.shelf_price})[0]) / 100
+                        )
                     else:
                         total += li.line_total
                 for key, qty in pools.items():
                     shelf = {c: by[(c, p.groups[key].store_id)].shelf_price for c in qty}
                     total += D(milp.group_cost(p.groups[key], qty, shelf)[0]) / 100
-                cost = money(total + sum((trips[s] for s in used), D(0))
-                             + p.extra_stop_value * max(0, len(used) - 1))
+                cost = money(
+                    total
+                    + sum((trips[s] for s in used), D(0))
+                    + p.extra_stop_value * max(0, len(used) - 1)
+                )
                 key = (sum(1 for s in choice if s is None), cost)
                 best = key if best is None or key < best else best
     assert best is not None
@@ -68,8 +73,11 @@ def reference(p: milp.Problem, max_stores: int, min_stores: int = 1) -> tuple[in
 
 def mixed_problem() -> milp.Problem:
     """Three stores; two needs share "3 for 12" at stores 1 and 2, one need has a 1+1."""
-    stores = [milp.StoreCost(1, D("2.00"), 0), milp.StoreCost(2, D("3.00"), 1),
-              milp.StoreCost(3, D("1.00"), 2)]
+    stores = [
+        milp.StoreCost(1, D("2.00"), 0),
+        milp.StoreCost(2, D("3.00"), 1),
+        milp.StoreCost(3, D("1.00"), 2),
+    ]
     groups = {
         "p@1": milp.Group("p@1", 1, "3 ב-12", 3, D(12), {10: D(0), 11: D(0)}),
         "p@2": milp.Group("p@2", 2, "3 ב-12", 3, D(12), {10: D(0), 11: D(0)}),
@@ -77,10 +85,14 @@ def mixed_problem() -> milp.Problem:
     }
     L = milp.Line
     lines = [
-        L(10, 1, 101, D("10.00"), D("5.00"), 2, "p@1"), L(11, 1, 111, D("5.00"), D("5.00"), 1, "p@1"),
-        L(10, 2, 102, D("9.80"), D("4.90"), 2, "p@2"), L(11, 2, 112, D("5.50"), D("5.50"), 1, "p@2"),
-        L(10, 3, 103, D("9.00"), D("4.50"), None), L(11, 3, 113, D("4.60"), D("4.60"), None),
-        L(12, 1, 121, D("16.00"), D("8.00"), None), L(12, 3, 123, D("7.00"), D("7.00"), 2, "one@3"),
+        L(10, 1, 101, D("10.00"), D("5.00"), 2, "p@1"),
+        L(11, 1, 111, D("5.00"), D("5.00"), 1, "p@1"),
+        L(10, 2, 102, D("9.80"), D("4.90"), 2, "p@2"),
+        L(11, 2, 112, D("5.50"), D("5.50"), 1, "p@2"),
+        L(10, 3, 103, D("9.00"), D("4.50"), None),
+        L(11, 3, 113, D("4.60"), D("4.60"), None),
+        L(12, 1, 121, D("16.00"), D("8.00"), None),
+        L(12, 3, 123, D("7.00"), D("7.00"), 2, "one@3"),
         L(13, 2, 132, D("3.00"), D("3.00"), None, None, True),
     ]
     return milp.Problem([10, 11, 12, 13], stores, lines, groups, D(5))
@@ -148,18 +160,35 @@ def test_benchmark_40_items_10_stores(max_stores: int, capsys: pytest.CaptureFix
             assert sol is not None and sol.status == "optimal"
     times.sort()
     with capsys.disabled():
-        print(f"\n[milp bench] 40x10 K={max_stores}: median {times[len(times) // 2] * 1000:.0f} ms,"
-              f" max {times[-1] * 1000:.0f} ms")
+        print(
+            f"\n[milp bench] 40x10 K={max_stores}: median {times[len(times) // 2] * 1000:.0f} ms,"
+            f" max {times[-1] * 1000:.0f} ms"
+        )
     assert times[-1] < 1.0
 
 
 def test_without_shared_promos_equals_the_heuristic_enumeration() -> None:
     """No line shares a promo: the MILP is the heuristic (cheapest store of the best set)."""
     p = milp.synthetic_problem(40, 10, seed=3)
-    plain = milp.Problem(p.canonical_ids, p.stores,
-                         [milp.Line(li.canonical_id, li.store_id, li.item_id, li.line_total,
-                                    li.shelf_price, None, None, li.is_substitute) for li in p.lines],
-                         {}, p.extra_stop_value)
+    plain = milp.Problem(
+        p.canonical_ids,
+        p.stores,
+        [
+            milp.Line(
+                li.canonical_id,
+                li.store_id,
+                li.item_id,
+                li.line_total,
+                li.shelf_price,
+                None,
+                None,
+                li.is_substitute,
+            )
+            for li in p.lines
+        ],
+        {},
+        p.extra_stop_value,
+    )
     for k in (1, 2, 3):
         sol = milp.solve(plain, k)
         best = None
@@ -211,8 +240,13 @@ def post(client, w: World, items: list[dict] | None = None, **kw) -> dict:
 def _key(plan: dict | None) -> tuple | None:
     if plan is None:
         return None
-    return (D(plan["total"]), D(plan["travel_cost"]), sorted(a["store"]["store_id"] for a in plan["stores"]),
-            plan["missing"], plan["recommended"])
+    return (
+        D(plan["total"]),
+        D(plan["travel_cost"]),
+        sorted(a["store"]["store_id"] for a in plan["stores"]),
+        plan["missing"],
+        plan["recommended"],
+    )
 
 
 TRAVELS = [
@@ -235,8 +269,12 @@ def test_db_api_equals_the_heuristic_without_shared_promos(
 ) -> None:
     """Acceptance (#13): no cross-item promo in the world, so the MILP's plans are the
     heuristic's: same totals, same stores, same breakdown."""
-    kw = {"home_store_id": w.stores["home"], "max_stores": max_stores, "travel": travel,
-          "min_split_saving": min_split_saving}
+    kw = {
+        "home_store_id": w.stores["home"],
+        "max_stores": max_stores,
+        "travel": travel,
+        "min_split_saving": min_split_saving,
+    }
     h = post(client, w, **kw)
     m = post(client, w, solver="milp", **kw)
     assert h["solver"] == "heuristic" and m["solver"] == "milp"
@@ -252,7 +290,9 @@ def test_db_api_equals_the_heuristic_without_shared_promos(
 @pytest.mark.pgvector
 @pytest.mark.parametrize("max_stores", [1, 2, 3])
 @pytest.mark.parametrize("travel", TRAVELS[:4])
-def test_db_milp_equals_an_exhaustive_reference(db, w: World, max_stores: int, travel: dict) -> None:
+def test_db_milp_equals_an_exhaustive_reference(
+    db, w: World, max_stores: int, travel: dict
+) -> None:
     """The existing exhaustive reference (test_optimize.py) applied to the MILP's best plan."""
     req = [schemas.BasketItem(**i) for i in basket(w)] + [
         schemas.BasketItem(canonical_id=w.canon["salmon"], quantity=1, flex_level="close")
@@ -262,8 +302,13 @@ def test_db_milp_equals_an_exhaustive_reference(db, w: World, max_stores: int, t
     baskets = price_baskets(db, req, cands, [])
     cids = list(dict.fromkeys(i.canonical_id for i in req))
     lines, groups = milp.priced_lines(db, baskets)
-    p = milp.Problem(cids, [milp.StoreCost(s.store_id, travel_cost(s, t), n) for n, s in enumerate(cands)],
-                     [li for s in cands for li in lines[s.store_id]], groups, t.extra_stop_value)
+    p = milp.Problem(
+        cids,
+        [milp.StoreCost(s.store_id, travel_cost(s, t), n) for n, s in enumerate(cands)],
+        [li for s in cands for li in lines[s.store_id]],
+        groups,
+        t.extra_stop_value,
+    )
     sol = milp.solve(p, max_stores)
     evals = evaluate_subsets(cands, baskets, cids, max_stores, t)
     best = min(evals, key=lambda e: (len(e.missing), e.cost))
@@ -306,10 +351,28 @@ def promos(db, world: World) -> World:
     yv = _add_product(db, w, "yog_v", "יוגורט וניל", "t-c1", "5.00")
     h1 = _add_product(db, w, "hum_a", "חומוס א", "t-c1", "8.00")
     h2 = _add_product(db, w, "hum_b", "חומוס ב", "t-c1", "6.00")
-    add_promo(db, "t-c1", None, "MIX", [ys, yv], "bundle", "12", min_qty="3",
-              description="3 יוגורטים ב-12")
-    add_promo(db, "t-c1", None, "B2G1", [h1, h2], "buy_x_get_y", "1", min_qty="2",
-              description="קנה 2 קבל 1 חינם")
+    add_promo(
+        db,
+        "t-c1",
+        None,
+        "MIX",
+        [ys, yv],
+        "bundle",
+        "12",
+        min_qty="3",
+        description="3 יוגורטים ב-12",
+    )
+    add_promo(
+        db,
+        "t-c1",
+        None,
+        "B2G1",
+        [h1, h2],
+        "buy_x_get_y",
+        "1",
+        min_qty="2",
+        description="קנה 2 קבל 1 חינם",
+    )
     precompute_effective_prices(db, chains=w.chains)
     return w
 
@@ -319,8 +382,10 @@ def promos(db, world: World) -> World:
 @pytest.mark.pgvector
 def test_db_three_for_twelve_across_two_products(client, promos: World) -> None:
     w = promos
-    items = [{"canonical_id": w.canon["yog_s"], "quantity": 2},
-             {"canonical_id": w.canon["yog_v"], "quantity": 1}]
+    items = [
+        {"canonical_id": w.canon["yog_s"], "quantity": 2},
+        {"canonical_id": w.canon["yog_v"], "quantity": 1},
+    ]
     kw = {"items": items, "travel": {"cost_per_km": "0", "extra_stop_value": "0"}}
     h = post(client, w, **kw)
     m = post(client, w, solver="milp", **kw)
@@ -329,7 +394,12 @@ def test_db_three_for_twelve_across_two_products(client, promos: World) -> None:
     assert D(m["single"]["total"]) == D("12.00")
     assert h["single"]["promo_bundles"] == []
     assert m["single"]["promo_bundles"] == [
-        {"promo_description": "3 יוגורטים ב-12", "bundle_count": 1, "saving": "3.00", "add_qty": None}
+        {
+            "promo_description": "3 יוגורטים ב-12",
+            "bundle_count": 1,
+            "saving": "3.00",
+            "add_qty": None,
+        }
     ]
     store_items = m["single"]["stores"][0]["store"]["items"]
     assert sum(D(i["line_total"]) for i in store_items) == D("12.00")
@@ -341,10 +411,15 @@ def test_db_three_for_twelve_across_two_products(client, promos: World) -> None:
 @pytest.mark.pgvector
 def test_db_buy_two_get_one_across_two_products(client, promos: World) -> None:
     w = promos
-    items = [{"canonical_id": w.canon["hum_a"], "quantity": 2},
-             {"canonical_id": w.canon["hum_b"], "quantity": 1}]
-    kw = {"items": items, "home_store_id": w.stores["home"],
-          "travel": {"cost_per_km": "0", "extra_stop_value": "0"}}
+    items = [
+        {"canonical_id": w.canon["hum_a"], "quantity": 2},
+        {"canonical_id": w.canon["hum_b"], "quantity": 1},
+    ]
+    kw = {
+        "items": items,
+        "home_store_id": w.stores["home"],
+        "travel": {"cost_per_km": "0", "extra_stop_value": "0"},
+    }
     h = post(client, w, **kw)
     m = post(client, w, solver="milp", **kw)
     assert D(h["single"]["total"]) == D("22.00")
@@ -384,8 +459,9 @@ def test_db_max_stores_and_min_split_saving(client, w: World) -> None:
     free = {"cost_per_km": "0", "extra_stop_value": "0"}
     one = post(client, w, solver="milp", max_stores=1, travel=free, min_split_saving="0")
     assert one["split"] is None and len(one["single"]["stores"]) == 1
-    two = post(client, w, solver="milp", travel=free, min_split_saving="1",
-               home_store_id=w.stores["home"])
+    two = post(
+        client, w, solver="milp", travel=free, min_split_saving="1", home_store_id=w.stores["home"]
+    )
     assert two["split"] is not None and len(two["split"]["stores"]) == 2
     saving = D(two["single"]["total"]) - D(two["split"]["total"])
     assert saving == D("2.00")
@@ -401,8 +477,12 @@ def test_db_solver_flag_round_trips(client, w: World) -> None:
     assert post(client, w)["solver"] == "heuristic"
     assert post(client, w, solver="heuristic")["solver"] == "heuristic"
     assert post(client, w, solver="milp")["solver"] == "milp"
-    assert client.post("/optimize", json={"items": basket(w), "location": w.location,
-                                          "solver": "cplex"}).status_code == 422
+    assert (
+        client.post(
+            "/optimize", json={"items": basket(w), "location": w.location, "solver": "cplex"}
+        ).status_code
+        == 422
+    )
 
 
 @pytest.mark.db
@@ -422,7 +502,13 @@ def test_db_falls_back_to_the_heuristic(client, w: World, monkeypatch: pytest.Mo
 def test_db_missing_items_and_empty_radius(client, w: World) -> None:
     items = basket(w) + [{"canonical_id": w.canon["wafer"], "quantity": 1}]
     assert post(client, w, items=items, solver="milp")["single"]["missing"] == [w.canon["wafer"]]
-    r = client.post("/optimize", json={"items": basket(w), "solver": "milp",
-                                       "location": {"lon": 35.5, "lat": 33.2, "radius_m": 1000}})
+    r = client.post(
+        "/optimize",
+        json={
+            "items": basket(w),
+            "solver": "milp",
+            "location": {"lon": 35.5, "lat": 33.2, "radius_m": 1000},
+        },
+    )
     resp = r.json()
     assert resp["single"]["stores"] == [] and len(resp["single"]["missing"]) == 5

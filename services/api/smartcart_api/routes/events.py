@@ -76,8 +76,9 @@ EVENT_PROPS: dict[str, dict[str, Key]] = {
     "app_opened": {"surface": _choices("web", "pwa"), "platform": _choices(*PLATFORMS)},
     # A static page was viewed (SEO pages, methodology, basket index): SEO to app funnel.
     "page_viewed": {
-        "page_type": _choices("category", "product", "methodology", "basket_index", "other",
-                              required=True)  # fmt: skip
+        "page_type": _choices(
+            "category", "product", "methodology", "basket_index", "other", required=True
+        )  # fmt: skip
     },
     # A shopping list was pasted: the start of paste-to-results.
     "list_pasted": {"item_count": Key(0, 200, required=True)},
@@ -110,7 +111,10 @@ EVENT_PROPS: dict[str, dict[str, Key]] = {
         "engine": _choices("native", "zxing", "manual"),
     },
     # A price alert was created from product detail or the alerts screen.
-    "alert_created": {"flex_level": _choices(*FLEX_LEVELS), "source": _choices("product", "alerts")},
+    "alert_created": {
+        "flex_level": _choices(*FLEX_LEVELS),
+        "source": _choices("product", "alerts"),
+    },
     # Smart cart: a suggested swap was applied, undone, or dismissed (dismissal holds until prices change).
     "swap_applied": {"flex_level": _choices(*FLEX_LEVELS), "saving_agorot": Key(0, 100_000)},
     "swap_undone": {"flex_level": _choices(*FLEX_LEVELS)},

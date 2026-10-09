@@ -66,9 +66,11 @@ def resolve_ingredients(
     if not found:
         return [], unresolved
     ids = list({h[0].canonical_id for _, h, _ in found})
-    soft = dict(conn.execute(
-        "SELECT id, soft_attrs FROM canonical_products WHERE id = ANY(%s)", (ids,)
-    ).fetchall())
+    soft = dict(
+        conn.execute(
+            "SELECT id, soft_attrs FROM canonical_products WHERE id = ANY(%s)", (ids,)
+        ).fetchall()
+    )
     chains = ancestors(conn, {h[0].taxonomy_id for _, h, _ in found})
     rows = []
     for ing, hits, conf in found:

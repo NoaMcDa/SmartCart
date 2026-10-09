@@ -70,7 +70,9 @@ def test_a_code_with_one_place_admits_exactly_one_person(client, db) -> None:
 def test_a_code_with_several_places_stops_at_max_uses(client, db) -> None:
     users = make_users(db, 4)
     code = invite(db, max_uses=3)
-    statuses = [client.post("/beta/join", json={"code": code}, headers=h(u)).status_code for u in users]
+    statuses = [
+        client.post("/beta/join", json={"code": code}, headers=h(u)).status_code for u in users
+    ]
     assert statuses == [200, 200, 200, 410]
     assert uses(db, code) == 3
     assert db.execute("SELECT count(*) FROM beta_members").fetchone()[0] == 3
@@ -158,8 +160,10 @@ def test_rls_a_member_reads_only_their_own_row_and_nobody_reads_invites(client, 
                 db.execute(f"SELECT * FROM {table}")
     with pytest.raises(psycopg.errors.InsufficientPrivilege):  # no way to add oneself
         with db.transaction():
-            db.execute("INSERT INTO beta_members (user_id, code, segment) VALUES (%s, %s, 'general')",
-                       (a, code))
+            db.execute(
+                "INSERT INTO beta_members (user_id, code, segment) VALUES (%s, %s, 'general')",
+                (a, code),
+            )
     # deleting someone else's row matches nothing
     assert db.execute("DELETE FROM beta_members WHERE user_id = %s", (b,)).rowcount == 0
     db.execute("RESET ROLE")
@@ -180,8 +184,9 @@ def test_rls_no_policy_for_a_caller_without_an_identity(client, db) -> None:
 def test_members_send_feedback_stored_with_the_segment_and_no_user(client, db) -> None:
     (a,) = make_users(db, 1)
     client.post("/beta/join", json={"code": invite(db, segment="large_family")}, headers=h(a))
-    r = client.post("/beta/feedback", json={"rating": 4, "text": "  התחליף לגבינה היה מצוין  "},
-                    headers=h(a))
+    r = client.post(
+        "/beta/feedback", json={"rating": 4, "text": "  התחליף לגבינה היה מצוין  "}, headers=h(a)
+    )
     assert r.status_code == 201 and r.json()["ok"] is True
     assert client.post("/beta/feedback", json={"rating": 2}, headers=h(a)).status_code == 201
     cols = [c.name for c in db.execute("SELECT * FROM beta_feedback").description]
@@ -195,11 +200,20 @@ def test_feedback_is_for_members_and_is_validated(client, db) -> None:
     client.post("/beta/join", json={"code": invite(db)}, headers=h(a))
     assert client.post("/beta/feedback", json={"rating": 5}, headers=h(b)).status_code == 403
     assert client.post("/beta/feedback", json={"rating": 5}).status_code == 401
-    for bad in ({"rating": 0}, {"rating": 6}, {"rating": 3, "text": "א" * 1001},
-                {"rating": 3, "email": "a@b.co"}, {"text": "no rating"}):
+    for bad in (
+        {"rating": 0},
+        {"rating": 6},
+        {"rating": 3, "text": "א" * 1001},
+        {"rating": 3, "email": "a@b.co"},
+        {"text": "no rating"},
+    ):
         assert client.post("/beta/feedback", json=bad, headers=h(a)).status_code == 422, bad
-    assert client.post("/beta/feedback", json={"rating": 3, "text": "א" * 1000},
-                       headers=h(a)).status_code == 201
+    assert (
+        client.post(
+            "/beta/feedback", json={"rating": 3, "text": "א" * 1000}, headers=h(a)
+        ).status_code
+        == 201
+    )
     assert db.execute("SELECT count(*) FROM beta_feedback").fetchone()[0] == 1
 
 
@@ -217,15 +231,20 @@ def test_feedback_survives_leaving_without_a_link_back_to_the_person(client, db)
 
 def test_segment_views_join_events_to_the_members_segment(client, db) -> None:
     a, b, c = make_users(db, 3)
-    kosher, periphery = invite(db, segment="kosher", max_uses=2), invite(db, "PER-12345", "periphery")
+    kosher, periphery = (
+        invite(db, segment="kosher", max_uses=2),
+        invite(db, "PER-12345", "periphery"),
+    )
     client.post("/beta/join", json={"code": kosher}, headers=h(a))
     client.post("/beta/join", json={"code": periphery}, headers=h(b))
 
     def ev(user, name, props):
         import json as _json
 
-        db.execute("INSERT INTO events (user_id, session_id, name, props) VALUES (%s, 'sess-abcdef12', %s, %s::jsonb)",
-                   (user, name, _json.dumps(props)))
+        db.execute(
+            "INSERT INTO events (user_id, session_id, name, props) VALUES (%s, 'sess-abcdef12', %s, %s::jsonb)",
+            (user, name, _json.dumps(props)),
+        )
 
     ev(a, "substitutions_shown", {"flex_level": "close", "count": 10})
     ev(a, "substitution_verdict", {"flex_level": "close", "verdict": "not_good"})
@@ -238,11 +257,17 @@ def test_segment_views_join_events_to_the_members_segment(client, db) -> None:
         " FROM beta_rejection_rate_by_segment ORDER BY segment"
     ).fetchall()
     assert [(s, f, sh, u, rj) for s, f, sh, u, rj, _ in rows] == [
-        ("kosher", "close", 10, 1, 1), ("periphery", "close", 4, 1, 0)]
+        ("kosher", "close", 10, 1, 1),
+        ("periphery", "close", 4, 1, 0),
+    ]
     assert float(rows[0][5]) == 0.1
-    seg = db.execute("SELECT segment, results_shown, users, median_ms FROM beta_paste_to_results_by_segment").fetchall()
+    seg = db.execute(
+        "SELECT segment, results_shown, users, median_ms FROM beta_paste_to_results_by_segment"
+    ).fetchall()
     assert seg == [("kosher", 2, 1, 4000)]
-    overview = db.execute("SELECT segment, codes, places, uses, members FROM beta_segment_overview ORDER BY segment").fetchall()
+    overview = db.execute(
+        "SELECT segment, codes, places, uses, members FROM beta_segment_overview ORDER BY segment"
+    ).fetchall()
     assert overview == [("kosher", 1, 2, 1, 1), ("periphery", 1, 1, 1, 1)]
 
 

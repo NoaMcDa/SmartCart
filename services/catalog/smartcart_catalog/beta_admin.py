@@ -175,7 +175,9 @@ def beta_feedback_cmd(
         datetime | None, typer.Option(formats=["%Y-%m-%d"], help="Only feedback from this day on.")
     ] = None,
     segment: Annotated[Segment | None, typer.Option(help="Only this segment.")] = None,
-    limit: Annotated[int, typer.Option(min=1, max=5000, help="Newest first, at most this many.")] = 200,
+    limit: Annotated[
+        int, typer.Option(min=1, max=5000, help="Newest first, at most this many.")
+    ] = 200,
 ) -> None:
     """Print what beta members wrote in the app (stored without their identity)."""
     with _connect() as conn:
@@ -216,7 +218,8 @@ def segment_metrics(conn, since: date | None = None) -> dict[str, Any]:
     }
     paste = {
         seg: {
-            "results": int(n), "users": int(users),
+            "results": int(n),
+            "users": int(users),
             "median_ms": None if med is None else float(med),
             "p90_ms": None if p90 is None else float(p90),
         }  # fmt: skip

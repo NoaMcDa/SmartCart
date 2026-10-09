@@ -40,7 +40,15 @@ def nearest_store(
     if row is None:
         raise HTTPException(status_code=404, detail="no physical store of this chain")
     return schemas.StoreRef(
-        store_id=row[0], chain_id=row[1], chain_name=row[2], store_name=row[3], city=row[4],
-        distance_m=row[5], lat=row[6], lon=row[7], channel=row[8],
-        geo_precision=row[9], distance_approximate=distance_is_approximate(row[9]),
+        store_id=row[0],
+        chain_id=row[1],
+        chain_name=row[2],
+        store_name=row[3],
+        city=row[4],
+        distance_m=row[5],
+        lat=row[6],
+        lon=row[7],
+        channel=row[8],
+        geo_precision=row[9],
+        distance_approximate=distance_is_approximate(row[9]),
     )

@@ -247,7 +247,9 @@ def relabel_csv(path: Path, verdicts: Mapping[tuple[str, str], Verdict]) -> Audi
 
     Only the verdict columns and the counts are recomputed; the rows are the file's own, so the
     pipeline that produced them does not have to exist any more."""
-    lines = [ln for ln in path.read_text(encoding="utf-8-sig").splitlines() if not ln.startswith("#")]
+    lines = [
+        ln for ln in path.read_text(encoding="utf-8-sig").splitlines() if not ln.startswith("#")
+    ]
     rows = list(csv.DictReader(lines))
     report = AuditReport(rows=[], items=len(rows))
     for r in rows:
@@ -305,7 +307,9 @@ def wrong_rows(rows: Iterable[AuditRow]) -> list[AuditRow]:
 
 
 def audit_real(
-    out: Annotated[Path | None, typer.Option(help="Output CSV (default data/audit/real-<date>.csv).")] = None,
+    out: Annotated[
+        Path | None, typer.Option(help="Output CSV (default data/audit/real-<date>.csv).")
+    ] = None,
     day: Annotated[str | None, typer.Option("--date", help="YYYY-MM-DD for the file name.")] = None,
     verdicts_file: Annotated[Path | None, typer.Option(help="Machine verdicts CSV.")] = None,
     show_wrong: Annotated[int, typer.Option(help="Print up to N accepted rows judged wrong.")] = 20,
@@ -314,7 +318,9 @@ def audit_real(
     ] = False,
     relabel: Annotated[
         Path | None,
-        typer.Option(help="Do not run the pipeline: re-apply the verdicts to this earlier audit CSV."),
+        typer.Option(
+            help="Do not run the pipeline: re-apply the verdicts to this earlier audit CSV."
+        ),
     ] = None,
 ) -> None:
     """Run the rule pipeline over every real item; write data/audit/real-<date>.csv."""
@@ -348,4 +354,3 @@ def audit_real(
 def register(app: typer.Typer) -> None:
     """Add ``audit-real`` to the catalog CLI."""
     app.command("audit-real")(audit_real)
-

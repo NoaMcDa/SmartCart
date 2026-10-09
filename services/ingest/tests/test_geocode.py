@@ -106,7 +106,7 @@ def test_name_matching_ignores_quotes_hyphens_and_kiryat_spelling() -> None:
     assert names_match("תל אביב -יפו", "תל־אביב–יפו")  # OSM: Hebrew maqaf and an en dash
     assert names_match("מודיעין-מכבים-רעות", "מודיעין־מכבים־רעות")
     assert names_match("תל אביב", "תל אביב-יפו")  # the short name is a leading part
-    assert names_match("ראשון לציון", 'ראשון לציון')
+    assert names_match("ראשון לציון", "ראשון לציון")
     assert not names_match("רמת גן", "גן")  # a trailing fragment is not a match
     assert not names_match("אשדוד", "אשקלון")
     assert not names_match("", "אשדוד")
@@ -155,7 +155,8 @@ def test_localities_csv_round_trip_and_bad_rows(tmp_path: Path) -> None:
     assert write_localities(path, rows) == 1
     assert load_localities(path)["874"].name_he == "מגדל העמק"
     path.write_text(
-        path.read_text(encoding="utf-8") + "5,מחוץ,,10.0,10.0,s,d\n6,בלי,,x,y,s,d\n", encoding="utf-8"
+        path.read_text(encoding="utf-8") + "5,מחוץ,,10.0,10.0,s,d\n6,בלי,,x,y,s,d\n",
+        encoding="utf-8",
     )
     assert set(load_localities(path)) == {"874"}  # outside Israel and non-numeric rows ignored
     assert load_localities(tmp_path / "missing.csv") == {}
@@ -269,7 +270,9 @@ class Clock:
         self.now += seconds
 
 
-def _client(tmp_path: Path, fake: FakeNominatim, clock: Clock | None = None, **kw) -> NominatimClient:
+def _client(
+    tmp_path: Path, fake: FakeNominatim, clock: Clock | None = None, **kw
+) -> NominatimClient:
     clock = clock or Clock()
     return NominatimClient(
         tmp_path / "cache.jsonl",
@@ -332,7 +335,9 @@ def test_budget_blocks_and_errors(tmp_path: Path) -> None:
     def blocked(url, headers, timeout):
         raise urllib.error.HTTPError(url, 429, "Too Many Requests", {}, None)  # type: ignore[arg-type]
 
-    stopped = NominatimClient(tmp_path / "b.jsonl", contact="x@y.z", fetch=blocked, sleep=lambda s: None)
+    stopped = NominatimClient(
+        tmp_path / "b.jsonl", contact="x@y.z", fetch=blocked, sleep=lambda s: None
+    )
     with pytest.raises(Blocked):
         stopped.search("a")
     assert not (tmp_path / "b.jsonl").exists()  # a failure is not cached
@@ -382,9 +387,30 @@ def test_build_queries_asks_for_the_house_then_the_street() -> None:
     assert build_queries("", "רמלה") == [] and build_queries("רחוב 1", "") == []
 
 
-def hit(city: str, *, road="האיצטדיון", house="11", lat="32.678", lon="35.239", category="building", **extra):
-    address = {"road": road, "city": city, "country_code": "il", **({"house_number": house} if house else {})}
-    return {"lat": lat, "lon": lon, "category": category, "type": "yes", "address": address, **extra}
+def hit(
+    city: str,
+    *,
+    road="האיצטדיון",
+    house="11",
+    lat="32.678",
+    lon="35.239",
+    category="building",
+    **extra,
+):
+    address = {
+        "road": road,
+        "city": city,
+        "country_code": "il",
+        **({"house_number": house} if house else {}),
+    }
+    return {
+        "lat": lat,
+        "lon": lon,
+        "category": category,
+        "type": "yes",
+        "address": address,
+        **extra,
+    }
 
 
 def test_a_result_is_kept_only_in_the_stores_own_city() -> None:
@@ -426,12 +452,23 @@ def S(code: str, name: str, address: str | None, city: str | None, chain: str = 
     return StoreInput(chain, code, name, address, city)
 
 
-def test_run_prefers_address_then_street_then_leaves_the_locality_to_the_loader(tmp_path: Path) -> None:
+def test_run_prefers_address_then_street_then_leaves_the_locality_to_the_loader(
+    tmp_path: Path,
+) -> None:
     fake = FakeNominatim(
         {
             "האיצטדיון 11, מגדל העמק": [hit("מגדל העמק")],
             # store 2: the house number is unknown to OSM, the street query finds the street
-            "בן ציון גליס, פתח תקווה": [hit("פתח תקווה", road="בן ציון גליס", house=None, category="highway", lat="32.1", lon="34.88")],
+            "בן ציון גליס, פתח תקווה": [
+                hit(
+                    "פתח תקווה",
+                    road="בן ציון גליס",
+                    house=None,
+                    category="highway",
+                    lat="32.1",
+                    lon="34.88",
+                )
+            ],
             # store 3: the only hit is in another city
             "שרפה 22, אום אלפחם": [hit("חיפה", road="שרפה", house="22")],
         }
@@ -439,13 +476,16 @@ def test_run_prefers_address_then_street_then_leaves_the_locality_to_the_loader(
     client = _client(tmp_path, fake)
     stores = [
         S("1", "אושר עד", "האיצטדיון 11", "874"),
-        S("2", "פ\"ת", "בן ציון גליס 30", "7900"),
+        S("2", 'פ"ת', "בן ציון גליס 30", "7900"),
         S("3", "אום", "שרפה 22, כביש ראשי של העיר 0", "2710"),
     ]
     rows, stats = geocode_stores(stores, LOCALITIES, client)
     by_code = {r.store_code: r for r in rows}
     assert by_code["1"].precision == "address" and by_code["1"].source == "nominatim"
-    assert by_code["2"].precision == "street" and (by_code["2"].lat, by_code["2"].lon) == (32.1, 34.88)
+    assert by_code["2"].precision == "street" and (by_code["2"].lat, by_code["2"].lon) == (
+        32.1,
+        34.88,
+    )
     assert "3" not in by_code and stats.no_match == 1
     assert dict(stats.by_precision) == {"address": 1, "street": 1}
     assert len(by_code["1"].query_hash) == 16 and by_code["1"].geocoded_at.endswith("Z")
@@ -485,12 +525,16 @@ def test_run_stops_at_max_stores_and_when_blocked(tmp_path: Path) -> None:
     def blocked(url, headers, timeout):
         raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)  # type: ignore[arg-type]
 
-    client = NominatimClient(tmp_path / "x.jsonl", contact="a@b.c", fetch=blocked, sleep=lambda s: None)
+    client = NominatimClient(
+        tmp_path / "x.jsonl", contact="a@b.c", fetch=blocked, sleep=lambda s: None
+    )
     _, stats = geocode_stores(stores, LOCALITIES, client)
     assert "403" in stats.stopped and stats.attempted == 0
 
 
-def test_unknown_city_falls_back_to_an_exact_name_match_when_the_text_gives_nothing(tmp_path: Path) -> None:
+def test_unknown_city_falls_back_to_an_exact_name_match_when_the_text_gives_nothing(
+    tmp_path: Path,
+) -> None:
     fake = FakeNominatim()  # answers nothing
     stores = [
         S("1", "אום אלפחם", "שרפה 22", "0"),  # the store is named after the locality
@@ -499,10 +543,14 @@ def test_unknown_city_falls_back_to_an_exact_name_match_when_the_text_gives_noth
         S("4", "x", "", "99999"),  # a code the table does not have, and no address
     ]
     rows, stats = geocode_stores(stores, LOCALITIES, _client(tmp_path, fake))
-    assert [(r.store_code, r.precision, r.source) for r in rows] == [("1", "locality", "cbs-name-match")]
+    assert [(r.store_code, r.precision, r.source) for r in rows] == [
+        ("1", "locality", "cbs-name-match")
+    ]
     assert (rows[0].lat, rows[0].lon) == (32.52, 35.15)
     assert stats.unknown_city_code == 3 and stats.no_city == 1
-    assert stats.no_match == 2 and stats.skipped_online_or_no_address == 2  # "רחוב 1" has no street name
+    assert (
+        stats.no_match == 2 and stats.skipped_online_or_no_address == 2
+    )  # "רחוב 1" has no street name
     assert infer_by_name(S("9", "תל אביב", None, "0"), LOCALITIES) is None
 
 
@@ -528,19 +576,26 @@ def test_unknown_city_is_geocoded_from_the_city_in_its_own_text(tmp_path: Path) 
     )
     stores = [
         S("1", "שלי פרדסיה- הנשיא", "הנשיא 1 צ.פרדסיה", "0"),
-        S("2", "דליית אל כרמל", "ואדי אלפש, כביש 672 0", "0"),  # the only hit is in a city not in its text
+        S(
+            "2", "דליית אל כרמל", "ואדי אלפש, כביש 672 0", "0"
+        ),  # the only hit is in a city not in its text
     ]
     rows, stats = geocode_stores(stores, LOCALITIES, _client(tmp_path, fake))
     by_code = {r.store_code: r for r in rows}
     assert (by_code["1"].precision, by_code["1"].source) == ("address", "nominatim:city-from-text")
-    assert (by_code["1"].lat, by_code["1"].lon) == (32.30, 34.91)  # the city in the store's text wins
+    assert (by_code["1"].lat, by_code["1"].lon) == (
+        32.30,
+        34.91,
+    )  # the city in the store's text wins
     assert "2" not in by_code and stats.no_match == 1
     assert dict(stats.by_source) == {"nominatim:city-from-text": 1}
     assert all("limit=10" in u and "countrycodes=il" in u for u in fake.urls)
 
 
 def test_text_geocoding_also_serves_a_code_missing_from_the_table(tmp_path: Path) -> None:
-    fake = FakeNominatim({"הרצל 5": [hit("בית שאן", road="הרצל", house="5", lat="32.5", lon="35.5")]})
+    fake = FakeNominatim(
+        {"הרצל 5": [hit("בית שאן", road="הרצל", house="5", lat="32.5", lon="35.5")]}
+    )
     rows, stats = geocode_stores(
         [S("1", "דיל בית שאן", "הרצל 5", "9200")], LOCALITIES, _client(tmp_path, fake)
     )
@@ -551,7 +606,9 @@ def test_text_geocoding_also_serves_a_code_missing_from_the_table(tmp_path: Path
 def test_store_geocodes_csv_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "store_geocodes.csv"
     rows = [
-        StoreGeocode("7290058140886", "10", 32.1, 34.9, "address", "nominatim", "abc", "2026-10-08T00:00:00Z"),
+        StoreGeocode(
+            "7290058140886", "10", 32.1, 34.9, "address", "nominatim", "abc", "2026-10-08T00:00:00Z"
+        ),
         StoreGeocode("7290027600007", "2", 32.2, 34.8, "locality", "cbs-name-match"),
     ]
     assert write_store_geocodes(path, rows) == 2
@@ -559,7 +616,10 @@ def test_store_geocodes_csv_round_trip(tmp_path: Path) -> None:
     assert header == "chain_id,store_code,lat,lon,precision,source,query_hash,geocoded_at"
     loaded = load_store_geocodes(path)
     assert loaded[("7290058140886", "10")].precision == "address"
-    path.write_text(path.read_text(encoding="utf-8") + "c,1,32,34,bogus,s,,\nc,2,0,0,address,s,,\n", encoding="utf-8")
+    path.write_text(
+        path.read_text(encoding="utf-8") + "c,1,32,34,bogus,s,,\nc,2,0,0,address,s,,\n",
+        encoding="utf-8",
+    )
     assert set(load_store_geocodes(path)) == {("7290058140886", "10"), ("7290027600007", "2")}
 
 
@@ -567,10 +627,30 @@ def test_centroid_from_nominatim_accepts_only_a_matching_settlement(tmp_path: Pa
     fake = FakeNominatim(
         {
             "כרמיאל": [
-                {"lat": "32.9", "lon": "35.3", "category": "highway", "type": "residential", "name": "כרמיאל"},
-                {"lat": "32.91", "lon": "35.30", "category": "place", "type": "city", "name": "כרמיאל"},
+                {
+                    "lat": "32.9",
+                    "lon": "35.3",
+                    "category": "highway",
+                    "type": "residential",
+                    "name": "כרמיאל",
+                },
+                {
+                    "lat": "32.91",
+                    "lon": "35.30",
+                    "category": "place",
+                    "type": "city",
+                    "name": "כרמיאל",
+                },
             ],
-            "אחר": [{"lat": "32.9", "lon": "35.3", "category": "place", "type": "city", "name": "משהו אחר"}],
+            "אחר": [
+                {
+                    "lat": "32.9",
+                    "lon": "35.3",
+                    "category": "place",
+                    "type": "city",
+                    "name": "משהו אחר",
+                }
+            ],
         }
     )
     client = _client(tmp_path, fake)
@@ -625,11 +705,15 @@ def test_sample_cities_are_the_cities_the_stores_name(real_stores) -> None:
         # a store whose whole name is another sample locality's name contradicts the code
         for other in table.values():
             if other.code != loc.code and normalize_name(s.name) == normalize_name(other.name_he):
-                pytest.fail(f"{s.chain_id}/{s.store_code} {s.name!r} has city {s.city} ({loc.name_he})")
+                pytest.fail(
+                    f"{s.chain_id}/{s.store_code} {s.name!r} has city {s.city} ({loc.name_he})"
+                )
 
 
 def test_json_cache_lines_are_valid_json(tmp_path: Path) -> None:
-    client = _client(tmp_path, FakeNominatim({"x": [{"lat": "32", "lon": "34", "extra": 1, "type": "t"}]}))
+    client = _client(
+        tmp_path, FakeNominatim({"x": [{"lat": "32", "lon": "34", "extra": 1, "type": "t"}]})
+    )
     client.search("x")
     line = json.loads((tmp_path / "cache.jsonl").read_text(encoding="utf-8").splitlines()[0])
     assert line["query"] == "x" and line["results"] == [{"lat": "32", "lon": "34", "type": "t"}]

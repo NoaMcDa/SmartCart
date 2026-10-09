@@ -67,8 +67,15 @@ def gap(
             gid = conn.execute(
                 "INSERT INTO gap_reports (store_id, item_id, canonical_id, shown_price,"
                 " actual_price, note, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
-                (body.store_id, body.item_id, body.canonical_id, body.shown_price,
-                 body.actual_price, body.note, user.id if user else None),
+                (
+                    body.store_id,
+                    body.item_id,
+                    body.canonical_id,
+                    body.shown_price,
+                    body.actual_price,
+                    body.note,
+                    user.id if user else None,
+                ),
             ).fetchone()[0]
     except psycopg.errors.ForeignKeyViolation as exc:
         raise HTTPException(status_code=422, detail="unknown store, item or canonical") from exc

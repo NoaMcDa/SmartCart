@@ -183,12 +183,14 @@ def test_seed_is_idempotent(db: psycopg.Connection, catalog) -> None:
 def test_seed_updates_changed_rows_only(db: psycopg.Connection, tmp_path: Path) -> None:
     seed_all(db, load_catalog())
     for name in ("taxonomy.yaml", "product_type_rules.yaml", "canonicals.yaml"):
-        (tmp_path / name).write_text((default_data_dir() / name).read_text(encoding="utf-8"),
-                                     encoding="utf-8")
+        (tmp_path / name).write_text(
+            (default_data_dir() / name).read_text(encoding="utf-8"), encoding="utf-8"
+        )
     doc = yaml.safe_load((tmp_path / "canonicals.yaml").read_text(encoding="utf-8"))
     doc["canonicals"][0]["display_name_he"] = "חלב טרי 3% (שם חדש)"
-    (tmp_path / "canonicals.yaml").write_text(yaml.safe_dump(doc, allow_unicode=True),
-                                              encoding="utf-8")
+    (tmp_path / "canonicals.yaml").write_text(
+        yaml.safe_dump(doc, allow_unicode=True), encoding="utf-8"
+    )
     report = seed_all(db, load_catalog(tmp_path))
     assert (report.canonicals.inserted, report.canonicals.updated) == (0, 1)
     assert report.taxonomy.updated == 0
@@ -201,12 +203,14 @@ def test_seed_loads_reference_barcodes_when_present(db: psycopg.Connection, tmp_
     leaves stored barcodes alone (issue #92)."""
     seed_all(db, load_catalog())
     for name in ("taxonomy.yaml", "product_type_rules.yaml", "canonicals.yaml"):
-        (tmp_path / name).write_text((default_data_dir() / name).read_text(encoding="utf-8"),
-                                     encoding="utf-8")
+        (tmp_path / name).write_text(
+            (default_data_dir() / name).read_text(encoding="utf-8"), encoding="utf-8"
+        )
     doc = yaml.safe_load((tmp_path / "canonicals.yaml").read_text(encoding="utf-8"))
     doc["canonicals"][0]["reference_barcodes"] = ["7290004131074"]
-    (tmp_path / "canonicals.yaml").write_text(yaml.safe_dump(doc, allow_unicode=True),
-                                              encoding="utf-8")
+    (tmp_path / "canonicals.yaml").write_text(
+        yaml.safe_dump(doc, allow_unicode=True), encoding="utf-8"
+    )
     report = seed_all(db, load_catalog(tmp_path))
     assert report.canonicals.updated == 1
     slug = doc["canonicals"][0]["slug"]

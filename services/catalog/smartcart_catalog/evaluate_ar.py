@@ -140,7 +140,8 @@ def compute(outcomes: list[Outcome]) -> ArReport:
         ),
         "holdout_recall": (
             sum(1 for o in held_served if o.correct) / len(held_positives)
-            if held_positives else None
+            if held_positives
+            else None
         ),
         "shown_precision": (sum(1 for o in shown if o.correct) / len(shown)) if shown else None,
         "recall_with_candidates": (
@@ -180,7 +181,9 @@ def format_report(report: ArReport, show_errors: int = 30) -> str:
         f"{_fmt(e['shown_precision'])}; recall counting suggestions: "
         f"{_fmt(e['recall_with_candidates'])}"
     )
-    out.append(f"expect-none lines served: {e['none_lines_served']}; lines with other than one row: {e['split_lines']}")
+    out.append(
+        f"expect-none lines served: {e['none_lines_served']}; lines with other than one row: {e['split_lines']}"
+    )
     if e["holdout_lines"]:
         out.append(
             f"held-out lines ({e['holdout_lines']}, written after tuning): precision "

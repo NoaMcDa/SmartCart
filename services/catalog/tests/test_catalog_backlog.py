@@ -66,7 +66,10 @@ def test_similarity_and_window_parameters(db) -> None:
     miss(db, "עגבניות שרי", 3)
     miss(db, "עגבניות שירי", 1)
     strict = by_kind(catalog_backlog(db, min_similarity=0.99), "missed_query")
-    assert sorted((r["label"], r["demand"]) for r in strict) == [("עגבניות שירי", 1), ("עגבניות שרי", 3)]
+    assert sorted((r["label"], r["demand"]) for r in strict) == [
+        ("עגבניות שירי", 1),
+        ("עגבניות שרי", 3),
+    ]
     loose = by_kind(catalog_backlog(db, min_similarity=0.4), "missed_query")
     assert [(r["label"], r["demand"]) for r in loose] == [("עגבניות שרי", 4)]
     assert by_kind(catalog_backlog(db, min_misses=4, min_similarity=0.99), "missed_query") == []
@@ -82,7 +85,11 @@ def shelves(db):
     for cid in ("bk-c1", "bk-c2"):
         db.execute("INSERT INTO chains (id, name, portal) VALUES (%s, %s, 'other')", (cid, cid))
     stores: dict[str, list[int]] = {"bk-c1": [], "bk-c2": []}
-    for chain, n, channel in (("bk-c1", 3, "physical"), ("bk-c1", 1, "online"), ("bk-c2", 2, "physical")):
+    for chain, n, channel in (
+        ("bk-c1", 3, "physical"),
+        ("bk-c1", 1, "online"),
+        ("bk-c2", 2, "physical"),
+    ):
         for i in range(n):
             stores[chain].append(db.execute(
                 "INSERT INTO stores (chain_id, store_code, name, channel) VALUES (%s, %s, 's', %s)"
@@ -95,9 +102,15 @@ def shelves(db):
             " VALUES (%s, %s, %s, %s, now() - make_interval(days => %s)) RETURNING id",
             (chain, code, barcode, name, updated_days)).fetchone()[0]  # fmt: skip
         if base:
-            db.execute("INSERT INTO prices (item_id, store_id, price, valid_from) VALUES (%s, NULL, 5, now())", (iid,))
+            db.execute(
+                "INSERT INTO prices (item_id, store_id, price, valid_from) VALUES (%s, NULL, 5, now())",
+                (iid,),
+            )
         for sid in at:
-            db.execute("INSERT INTO prices (item_id, store_id, price, valid_from) VALUES (%s, %s, 5, now())", (iid, sid))
+            db.execute(
+                "INSERT INTO prices (item_id, store_id, price, valid_from) VALUES (%s, %s, 5, now())",
+                (iid, sid),
+            )
         return iid
 
     return stores, item
@@ -125,7 +138,11 @@ def test_uncovered_products_ranked_by_stores_that_carry_them(db, shelves) -> Non
     item("bk-c1", "s1", "פריט ישן", "666", base=True, updated_days=100)
     # included: only a human rejection, so no canonical covers it
     rejected = item("bk-c1", "r1", "סלמון מעושן", "777", base=True)
-    for iid, review, rej in ((mapped, False, False), (pending, True, False), (rejected, True, True)):
+    for iid, review, rej in (
+        (mapped, False, False),
+        (pending, True, False),
+        (rejected, True, True),
+    ):
         db.execute(
             "INSERT INTO item_canonical (item_id, canonical_id, flex_level, confidence, source,"
             " needs_review, human_rejected) VALUES (%s, %s, 'any_brand', 0.9, 'rule', %s, %s)",
@@ -134,7 +151,11 @@ def test_uncovered_products_ranked_by_stores_that_carry_them(db, shelves) -> Non
     rows = by_kind(catalog_backlog(db, top=10), "unmapped_item")
     got = [(r["label"], r["demand"], r["secondary"]) for r in rows]
     assert got == [
-        ("קינואה אורגנית 500 גרם", 5, 2),  # named as the chain with more stores names it; 3 + 2 stores
+        (
+            "קינואה אורגנית 500 גרם",
+            5,
+            2,
+        ),  # named as the chain with more stores names it; 3 + 2 stores
         ("סלמון מעושן", 3, 1),
         ("שעועית אדומה 1 קג", 2, 1),  # max per chain (2), not the sum of its two items (3)
         ("טחינה גולמית מלאה", 1, 1),
@@ -142,7 +163,9 @@ def test_uncovered_products_ranked_by_stores_that_carry_them(db, shelves) -> Non
     assert rows[0]["examples"] == ["קינואה אורגנית 500 גרם", "קינואה 500ג"]
     assert by_kind(catalog_backlog(db, top=2), "unmapped_item")[-1]["position"] == 2
     # item_days: the stale item comes in with a wide window
-    wide = [r["label"] for r in by_kind(catalog_backlog(db, top=10, item_days=365), "unmapped_item")]
+    wide = [
+        r["label"] for r in by_kind(catalog_backlog(db, top=10, item_days=365), "unmapped_item")
+    ]
     assert "פריט ישן" in wide and "ללא מחיר" not in wide
 
 

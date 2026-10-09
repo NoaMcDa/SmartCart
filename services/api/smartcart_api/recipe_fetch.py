@@ -49,8 +49,12 @@ def _public(addr: str) -> bool:
     if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
         ip = ip.ipv4_mapped
     return not (
-        ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast
-        or ip.is_reserved or ip.is_unspecified
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
     )
 
 
@@ -93,8 +97,11 @@ def http_fetch(url: str, client: httpx.Client | None = None) -> str:
         for _ in range(MAX_REDIRECTS + 1):
             check_url(url)
             try:
-                with client.stream("GET", url, headers={"User-Agent": USER_AGENT,
-                                                        "Accept": "text/html, text/plain"}) as r:
+                with client.stream(
+                    "GET",
+                    url,
+                    headers={"User-Agent": USER_AGENT, "Accept": "text/html, text/plain"},
+                ) as r:
                     if r.is_redirect and "location" in r.headers:
                         url = urljoin(url, r.headers["location"])
                         continue

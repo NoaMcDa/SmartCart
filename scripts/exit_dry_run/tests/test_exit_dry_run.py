@@ -68,7 +68,9 @@ def test_run_sh_is_executable_and_parses() -> None:
     subprocess.run(["bash", "-n", str(script)], check=True)
 
 
-def test_end_to_end_writes_the_dry_run_and_cleans_up(pg_dsn: str, tmp_path: Path, monkeypatch) -> None:
+def test_end_to_end_writes_the_dry_run_and_cleans_up(
+    pg_dsn: str, tmp_path: Path, monkeypatch
+) -> None:
     # The committed data/geo tables give the real stores coordinates (docs/geocoding.md); this test
     # pins the generator's output for files that carry none, so it runs with no geo data.
     monkeypatch.setenv("SMARTCART_GEO_DIR", str(tmp_path / "no-geo"))
@@ -92,7 +94,9 @@ def test_end_to_end_writes_the_dry_run_and_cleans_up(pg_dsn: str, tmp_path: Path
         assert heading in text
     # numbers the databases must have produced
     assert "Ten chains: success rate **70.0%** (7 of 10 chain-days)" in text
-    assert "Chains with no loaded full file on the day: Victory, Hazi Hinam, Machsanei Hashuk." in text
+    assert (
+        "Chains with no loaded full file on the day: Victory, Hazi Hinam, Machsanei Hashuk." in text
+    )
     assert "827 physical and 13 online stores, **0 with coordinates**" in text
     assert "**0 stores returned**" in text  # the real basket: no coordinates
     # the synthetic set has what the real one lacks

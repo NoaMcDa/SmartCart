@@ -19,7 +19,9 @@ APP_ROLE = "smartcart_app"
 
 def _as_user(conn: psycopg.Connection, user_id: uuid.UUID | None) -> None:
     conn.execute(f"SET LOCAL ROLE {APP_ROLE}")
-    conn.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (str(user_id) if user_id else "",))
+    conn.execute(
+        "SELECT set_config('request.jwt.claim.sub', %s, true)", (str(user_id) if user_id else "",)
+    )
 
 
 def _as_owner(conn: psycopg.Connection) -> None:
@@ -104,12 +106,27 @@ def test_profile_location_is_rounded(db: psycopg.Connection, two_users) -> None:
         "INSERT INTO profiles (user_id, neighborhood_lat, neighborhood_lon) VALUES (%s, 32.0712345, 34.7812345)",
         (a,),
     )
-    lat, lon = db.execute("SELECT neighborhood_lat, neighborhood_lon FROM profiles WHERE user_id = %s", (a,)).fetchone()
+    lat, lon = db.execute(
+        "SELECT neighborhood_lat, neighborhood_lon FROM profiles WHERE user_id = %s", (a,)
+    ).fetchone()
     assert str(lat) == "32.071" and str(lon) == "34.781"
 
 
 def test_catalog_tables_exist(db: psycopg.Connection) -> None:
-    for t in ("taxonomy", "canonical_products", "item_attributes", "item_embeddings", "item_canonical",
-              "gold_pairs", "substitution_feedback", "effective_prices", "match_runs", "profiles",
-              "lists", "list_items", "preferences", "gap_reports"):
+    for t in (
+        "taxonomy",
+        "canonical_products",
+        "item_attributes",
+        "item_embeddings",
+        "item_canonical",
+        "gold_pairs",
+        "substitution_feedback",
+        "effective_prices",
+        "match_runs",
+        "profiles",
+        "lists",
+        "list_items",
+        "preferences",
+        "gap_reports",
+    ):
         assert db.execute("SELECT to_regclass(%s) IS NOT NULL", (t,)).fetchone()[0], t

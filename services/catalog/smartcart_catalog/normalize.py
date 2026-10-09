@@ -50,8 +50,11 @@ class Abbreviation:
 # unified to ' and ". A leading ב/ו/ה/ל/מ prefix letter is kept (בש.ז. -> בשמן זית).
 _P = rf"{_NOT_WORD_BEFORE}([בוהלמ]?)"
 ABBREVIATIONS: tuple[Abbreviation, ...] = (
-    Abbreviation(_P + r'ש(?:\.|")ז\.?' + _NOT_WORD, r"\1שמן זית",
-                 "ש.ז. = שמן זית (olive oil); general knowledge, reviewer to confirm"),
+    Abbreviation(
+        _P + r'ש(?:\.|")ז\.?' + _NOT_WORD,
+        r"\1שמן זית",
+        "ש.ז. = שמן זית (olive oil); general knowledge, reviewer to confirm",
+    ),
     Abbreviation(_P + r"מהד'", r"\1מהדורה", "מהד' מוגבלת = limited edition"),
     Abbreviation(_P + r'תפו"א' + _NOT_WORD, r"\1תפוחי אדמה"),
     Abbreviation(_P + r'ק"ג' + _NOT_WORD, r"\1קילוגרם"),
@@ -143,19 +146,38 @@ for _words, _unit, _factor in (
         _UNIT_WORDS[_w] = (_unit, _factor)
 
 # count nouns that also mean "N pieces" after a number (32 גלילים, 72 מגבונים)
-_COUNT_NOUNS = ("יחידות", "יחידה", "יח", "גלילים", "שקיות", "ביצים", "טבליות", "קפסולות",
-                "מגבונים", "שקיקים", "פריטים", "כוסות", "צלחות", "ממחטות", "פיתות", "לחמניות")
+_COUNT_NOUNS = (
+    "יחידות",
+    "יחידה",
+    "יח",
+    "גלילים",
+    "שקיות",
+    "ביצים",
+    "טבליות",
+    "קפסולות",
+    "מגבונים",
+    "שקיקים",
+    "פריטים",
+    "כוסות",
+    "צלחות",
+    "ממחטות",
+    "פיתות",
+    "לחמניות",
+)
 
 _MEASURE_ALT = "|".join(
-    sorted((re.escape(w) for w, (u, _) in _UNIT_WORDS.items() if u != "unit"), key=len,
-           reverse=True)
+    sorted(
+        (re.escape(w) for w, (u, _) in _UNIT_WORDS.items() if u != "unit"), key=len, reverse=True
+    )
 )
 _COUNT_ALT = "|".join(sorted((re.escape(w) for w in _COUNT_NOUNS), key=len, reverse=True))
 _NUM = r"(\d+(?:[.,]\d+)?)"
 _X = r"\s*[*xX×]\s*"
 
 # 6*1.5 ליטר / 4X250 מיליליטר (count first) and 1.5 ליטר*6 (size first)
-_MULTI_COUNT_FIRST = re.compile(rf"{_NOT_WORD_BEFORE}{_NUM}{_X}{_NUM}\s*({_MEASURE_ALT}){_NOT_WORD}")
+_MULTI_COUNT_FIRST = re.compile(
+    rf"{_NOT_WORD_BEFORE}{_NUM}{_X}{_NUM}\s*({_MEASURE_ALT}){_NOT_WORD}"
+)
 _MULTI_SIZE_FIRST = re.compile(rf"{_NUM}\s*({_MEASURE_ALT}){_X}(\d+){_NOT_WORD}")
 _MEASURE = re.compile(rf"{_NOT_WORD_BEFORE}{_NUM}\s*-?\s*({_MEASURE_ALT}){_NOT_WORD}")
 _COUNT = re.compile(rf"{_NOT_WORD_BEFORE}(\d+)\s*({_COUNT_ALT}){_NOT_WORD}")
@@ -165,8 +187,15 @@ _PACK_WORD = re.compile(
     + rf"(?![\d.,]|\s*(?:{_MEASURE_ALT}){_NOT_WORD}|{_X})"
     + _NOT_WORD
 )
-_PACK_NAMED = {"זוג": 2, "שלישייה": 3, "שלישיית": 3, "רביעייה": 4, "רביעיית": 4,
-               "שישייה": 6, "שישיית": 6}
+_PACK_NAMED = {
+    "זוג": 2,
+    "שלישייה": 3,
+    "שלישיית": 3,
+    "רביעייה": 4,
+    "רביעיית": 4,
+    "שישייה": 6,
+    "שישיית": 6,
+}
 _PACK_NAMED_RE = re.compile(
     _NOT_WORD_BEFORE + "(?:מארז\\s*)?(" + "|".join(_PACK_NAMED) + ")" + _NOT_WORD
 )
@@ -480,10 +509,7 @@ def unit_price(price: Decimal, normalized: NormalizedItem) -> tuple[Decimal, Bas
 import unicodedata  # noqa: E402
 from typing import NamedTuple  # noqa: E402
 
-AR_LETTERS = (
-    "ء-غف-يٮ-ۓۺ-ۿݐ-ݿࢠ-ࣿ"
-    "ﭐ-﷿ﹰ-﻿"
-)
+AR_LETTERS = "ء-غف-يٮ-ۓۺ-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿"
 _AR_RE = re.compile(f"[{AR_LETTERS}]")
 _HE_RE = re.compile("[א-ת]")
 
@@ -509,14 +535,12 @@ _FOLD_FROM = (
     "٪٫،؛؟"
     "ءـ٬" "\"'`’‘“”"
 )  # fmt: skip
-_FOLD_TO = "اااا" "ي" "ه" "و" "ي" "ك" "ي" "ف" "ب" "0123456789" "0123456789" "%.,;?"
+_FOLD_TO = "اااايهويكيفب01234567890123456789%.,;?"
 FOLD_TRANSLATE: dict[int, str | None] = {
     **{ord(a): b for a, b in zip(_FOLD_FROM, _FOLD_TO, strict=False)},
     **{ord(c): None for c in _FOLD_FROM[len(_FOLD_TO) :]},
 }
-_MARKS = re.compile(
-    "[ً-ٰٟۖ-ۭ‎‏؜‪-‮⁦-⁩]"
-)
+_MARKS = re.compile("[ً-ٰٟۖ-ۭ‎‏؜‪-‮⁦-⁩]")
 _PUNCT = re.compile(r"[\s,;:!?()\[\]{}/\\*+=|<>~#&^$@«»…–—•·-]+")
 
 
@@ -546,7 +570,9 @@ _PCT_NUMBERS: dict[str, str] = {
 _PCT_NUMBER_RE = re.compile(
     r"(?<![\w.])("
     + "|".join(sorted(map(re.escape, _PCT_NUMBERS), key=len, reverse=True))
-    + r")\s*(?=" + _PCT_WORD + ")"
+    + r")\s*(?="
+    + _PCT_WORD
+    + ")"
 )
 
 

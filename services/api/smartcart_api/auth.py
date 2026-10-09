@@ -42,8 +42,11 @@ def _bearer(authorization: str | None) -> str | None:
         return None
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token.strip():
-        raise HTTPException(status_code=401, detail="expected a Bearer token",
-                            headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=401,
+            detail="expected a Bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return token.strip()
 
 
@@ -60,8 +63,9 @@ def verify_token(token: str, settings: Settings) -> User:
         )
         user_id = uuid.UUID(str(claims["sub"]))
     except (jwt.PyJWTError, ValueError) as exc:
-        raise HTTPException(status_code=401, detail=f"invalid token: {exc}",
-                            headers={"WWW-Authenticate": "Bearer"}) from exc
+        raise HTTPException(
+            status_code=401, detail=f"invalid token: {exc}", headers={"WWW-Authenticate": "Bearer"}
+        ) from exc
     if claims.get("role") == "anon":
         raise HTTPException(status_code=401, detail="sign in required")
     return User(id=user_id, claims=claims)
@@ -82,8 +86,9 @@ def current_user(
 ) -> User:
     token = _bearer(authorization)
     if token is None:
-        raise HTTPException(status_code=401, detail="sign in required",
-                            headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=401, detail="sign in required", headers={"WWW-Authenticate": "Bearer"}
+        )
     return verify_token(token, get_settings())
 
 

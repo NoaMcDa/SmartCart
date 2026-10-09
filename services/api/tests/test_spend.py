@@ -24,8 +24,15 @@ def users(db) -> tuple[uuid.UUID, uuid.UUID]:
 
 
 def entry(w: World, **over) -> dict:
-    return {"date": "2026-10-02", "store_id": w.stores["home"], "store_name": "הבית", "total": "312.40",
-            "item_count": 18, "plan": "single", **over}
+    return {
+        "date": "2026-10-02",
+        "store_id": w.stores["home"],
+        "store_name": "הבית",
+        "total": "312.40",
+        "item_count": 18,
+        "plan": "single",
+        **over,
+    }
 
 
 def test_record_and_read_a_month(client, world: World, users) -> None:
@@ -33,10 +40,31 @@ def test_record_and_read_a_month(client, world: World, users) -> None:
     r = client.post("/me/spend", json=entry(world), headers=h(a))
     assert r.status_code == 201, r.text
     first = r.json()
-    assert set(first) == {"id", "date", "store_id", "store_name", "total", "item_count", "plan", "client_id"}
-    assert first["total"] == "312.40" and first["date"] == "2026-10-02" and first["plan"] == "single"
-    client.post("/me/spend", json=entry(world, date="2026-10-20", total="150", plan="split",
-                                        store_id=world.stores["b"], store_name="סניף B"), headers=h(a))
+    assert set(first) == {
+        "id",
+        "date",
+        "store_id",
+        "store_name",
+        "total",
+        "item_count",
+        "plan",
+        "client_id",
+    }
+    assert (
+        first["total"] == "312.40" and first["date"] == "2026-10-02" and first["plan"] == "single"
+    )
+    client.post(
+        "/me/spend",
+        json=entry(
+            world,
+            date="2026-10-20",
+            total="150",
+            plan="split",
+            store_id=world.stores["b"],
+            store_name="סניף B",
+        ),
+        headers=h(a),
+    )
     client.post("/me/spend", json=entry(world, date="2026-09-30", total="99.90"), headers=h(a))
 
     month = client.get("/me/spend", params={"month": "2026-10"}, headers=h(a)).json()
@@ -58,12 +86,18 @@ def test_budget_is_set_kept_and_cleared_through_the_profile(client, world: World
     # A client that does not know the field keeps the stored budget.
     r = client.put("/me/profile", json={"radius_m": 3000}, headers=h(a))
     assert r.json()["monthly_budget"] == "2400.50" and r.json()["radius_m"] == 3000
-    assert client.get("/me/spend", params={"month": "2026-10"}, headers=h(a)).json()["budget"] == "2400.50"
+    assert (
+        client.get("/me/spend", params={"month": "2026-10"}, headers=h(a)).json()["budget"]
+        == "2400.50"
+    )
     assert client.get("/me/profile", headers=h(a)).json()["monthly_budget"] == "2400.50"
     r = client.put("/me/profile", json={"monthly_budget": None}, headers=h(a))
     assert r.json()["monthly_budget"] is None
     assert client.put("/me/profile", json={"monthly_budget": "-1"}, headers=h(a)).status_code == 422
-    assert client.put("/me/profile", json={"monthly_budget": "10.123"}, headers=h(a)).status_code == 422
+    assert (
+        client.put("/me/profile", json={"monthly_budget": "10.123"}, headers=h(a)).status_code
+        == 422
+    )
     # A new profile without the field starts with no budget.
     _, b = users
     assert client.put("/me/profile", json={}, headers=h(b)).json()["monthly_budget"] is None
@@ -75,19 +109,29 @@ def test_correct_delete_and_export(client, world: World, users) -> None:
     r = client.put(f"/me/spend/{eid}", json=entry(world, total="298.10"), headers=h(a))
     assert r.status_code == 200 and r.json()["total"] == "298.10" and r.json()["id"] == eid
     client.put("/me/profile", json={"monthly_budget": "2000"}, headers=h(a))
-    other = client.post("/me/spend", json=entry(world, date="2026-08-01"), headers=h(a)).json()["id"]
+    other = client.post("/me/spend", json=entry(world, date="2026-08-01"), headers=h(a)).json()[
+        "id"
+    ]
     export = client.get("/me/spend/export", headers=h(a)).json()
     assert export["budget"] == "2000.00" and [e["id"] for e in export["entries"]] == [other, eid]
     assert client.delete(f"/me/spend/{eid}", headers=h(a)).status_code == 204
     assert client.delete(f"/me/spend/{eid}", headers=h(a)).status_code == 404
-    assert [e["id"] for e in client.get("/me/spend/export", headers=h(a)).json()["entries"]] == [other]
+    assert [e["id"] for e in client.get("/me/spend/export", headers=h(a)).json()["entries"]] == [
+        other
+    ]
 
 
 def test_validation(client, world: World, users) -> None:
     a, _ = users
-    for bad in (entry(world, plan="three"), entry(world, total="-5"), entry(world, total="1.234"),
-                entry(world, store_name=""), entry(world, item_count=-1), entry(world, date="2026-13-01"),
-                {**entry(world), "user_id": str(a)}):
+    for bad in (
+        entry(world, plan="three"),
+        entry(world, total="-5"),
+        entry(world, total="1.234"),
+        entry(world, store_name=""),
+        entry(world, item_count=-1),
+        entry(world, date="2026-13-01"),
+        {**entry(world), "user_id": str(a)},
+    ):
         assert client.post("/me/spend", json=bad, headers=h(a)).status_code == 422, bad
     r = client.post("/me/spend", json=entry(world, store_id=987654321), headers=h(a))
     assert r.status_code == 422 and "store_id" in r.text
@@ -102,9 +146,16 @@ def test_user_a_cannot_read_or_change_b_spend(client, world: World, users, db) -
     eid = client.post("/me/spend", json=entry(world), headers=h(b)).json()["id"]
     client.put("/me/profile", json={"monthly_budget": "1500"}, headers=h(b))
     assert client.get("/me/spend", params={"month": "2026-10"}, headers=h(a)).json() == {
-        "month": "2026-10", "entries": [], "total": "0.00", "budget": None}
+        "month": "2026-10",
+        "entries": [],
+        "total": "0.00",
+        "budget": None,
+    }
     assert client.get("/me/spend/export", headers=h(a)).json()["entries"] == []
-    assert client.put(f"/me/spend/{eid}", json=entry(world, total="1"), headers=h(a)).status_code == 404
+    assert (
+        client.put(f"/me/spend/{eid}", json=entry(world, total="1"), headers=h(a)).status_code
+        == 404
+    )
     assert client.delete(f"/me/spend/{eid}", headers=h(a)).status_code == 404
     got = client.get("/me/spend", params={"month": "2026-10"}, headers=h(b)).json()
     assert got["total"] == "312.40" and got["budget"] == "1500.00"
@@ -117,13 +168,17 @@ def test_rls_contract_on_spend_entries(db, world: World, users) -> None:
 
     def as_user(uid):
         db.execute("SET LOCAL ROLE smartcart_app")
-        db.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (str(uid) if uid else "",))
+        db.execute(
+            "SELECT set_config('request.jwt.claim.sub', %s, true)", (str(uid) if uid else "",)
+        )
 
     for uid in (a, b):
         as_user(uid)
         db.execute(
             "INSERT INTO spend_entries (user_id, date, store_id, store_name, total, item_count, plan)"
-            " VALUES (%s, '2026-10-01', %s, 'x', 10, 1, 'single')", (uid, world.stores["home"]))
+            " VALUES (%s, '2026-10-01', %s, 'x', 10, 1, 'single')",
+            (uid, world.stores["home"]),
+        )
     as_user(a)
     assert db.execute("SELECT count(*) FROM spend_entries").fetchone()[0] == 1
     assert db.execute("UPDATE spend_entries SET total = 0 WHERE user_id = %s", (b,)).rowcount == 0
@@ -131,7 +186,9 @@ def test_rls_contract_on_spend_entries(db, world: World, users) -> None:
     with pytest.raises(psycopg.errors.InsufficientPrivilege), db.transaction():
         db.execute(
             "INSERT INTO spend_entries (user_id, date, store_id, store_name, total, item_count, plan)"
-            " VALUES (%s, '2026-10-01', %s, 'x', 10, 1, 'single')", (b, world.stores["home"]))
+            " VALUES (%s, '2026-10-01', %s, 'x', 10, 1, 'single')",
+            (b, world.stores["home"]),
+        )
     as_user(None)
     assert db.execute("SELECT count(*) FROM spend_entries").fetchone()[0] == 0
     db.execute("RESET ROLE")

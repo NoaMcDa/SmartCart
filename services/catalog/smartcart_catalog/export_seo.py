@@ -389,6 +389,4 @@ def export_from_files(
     catalog: Catalog, out: Path, *, max_pages: int = MAX_PAGES, now: datetime | None = None
 ) -> ExportResult:
     taxonomy, canonicals = rows_from_catalog(catalog)
-    return export_seo(
-        out, taxonomy, canonicals, write_quality=False, max_pages=max_pages, now=now
-    )
+    return export_seo(out, taxonomy, canonicals, write_quality=False, max_pages=max_pages, now=now)

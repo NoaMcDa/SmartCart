@@ -17,7 +17,9 @@ from smartcart_ingest.adapters._common import CONTAINERS, RegulationAdapter
 from smartcart_ingest.adapters._upstream import upstream_containers, upstream_versions
 
 ADAPTERS = {
-    cls.slug: cls for cls in REGISTRY.values() if isinstance(cls, type) and issubclass(cls, RegulationAdapter)
+    cls.slug: cls
+    for cls in REGISTRY.values()
+    if isinstance(cls, type) and issubclass(cls, RegulationAdapter)
 }
 
 # Upstream container names we deliberately read differently. Each needs a reason.
@@ -47,7 +49,9 @@ def test_dialect_covers_upstream_containers(slug: str) -> None:
                 if (parser, key) in DIVERGENCES:
                     continue
                 assert key in CONTAINERS, f"{slug}/{parser}: unknown upstream container {key}"
-                assert CONTAINERS[key][0] == group, f"{slug}/{parser}: {key} is not a {group} container"
+                assert CONTAINERS[key][0] == group, (
+                    f"{slug}/{parser}: {key} is not a {group} container"
+                )
                 assert key in cls.containers, f"{slug}/{parser}: {key} missing from dialect"
 
 
@@ -64,7 +68,9 @@ def test_no_upstream_imports_outside_adapters() -> None:
                 names = [a.name for a in node.names]
             elif isinstance(node, ast.ImportFrom) and node.module:
                 names = [node.module]
-            if any(n.startswith(("il_supermarket_parsers", "il_supermarket_scarper")) for n in names):
+            if any(
+                n.startswith(("il_supermarket_parsers", "il_supermarket_scarper")) for n in names
+            ):
                 offenders.append(str(path))
     assert offenders == []
 

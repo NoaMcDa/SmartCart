@@ -27,7 +27,9 @@ ON_DAY = (
 )
 
 
-def ev(db, name: str, session: str, ago: int, props: dict | None = None, *, user=None, n: int = 1) -> None:
+def ev(
+    db, name: str, session: str, ago: int, props: dict | None = None, *, user=None, n: int = 1
+) -> None:
     """``n`` events at noon, Israel time, ``ago`` days before today."""
     from psycopg.types.json import Jsonb
 
@@ -35,7 +37,13 @@ def ev(db, name: str, session: str, ago: int, props: dict | None = None, *, user
         db.execute(
             "INSERT INTO events (user_id, session_id, name, props, created_at)"
             f" VALUES (%(user)s, %(session)s, %(name)s, %(props)s, {ON_DAY})",
-            {"user": user, "session": session, "name": name, "props": Jsonb(props or {}), "ago": ago},
+            {
+                "user": user,
+                "session": session,
+                "name": name,
+                "props": Jsonb(props or {}),
+                "ago": ago,
+            },
         )
 
 
@@ -161,7 +169,9 @@ def test_views_are_not_readable_by_the_data_api_roles(db) -> None:
         if db.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)).fetchone() is None:
             continue
         for view in ("native_cohort_retention", "native_push_engagement", "native_platform_funnel"):
-            assert not db.execute("SELECT has_table_privilege(%s, %s, 'SELECT')", (role, view)).fetchone()[0]
+            assert not db.execute(
+                "SELECT has_table_privilege(%s, %s, 'SELECT')", (role, view)
+            ).fetchone()[0]
 
 
 @pytest.mark.db
@@ -179,9 +189,16 @@ def test_metrics_pool_the_window_with_sample_sizes(seeded) -> None:
     assert m["store_mode"]["user_weeks"] == expected_user_weeks
     assert m["store_mode"]["store_mode_user_weeks"] == 3
     assert m["scans"] == {"started": 5, "completed": 4, "found": 3, "success_rate": 0.75}
-    assert m["ios"]["actors"] == 2 and m["ios"]["share"] == 0.5 and m["ios"]["not_installed_share"] == 0.5
+    assert (
+        m["ios"]["actors"] == 2
+        and m["ios"]["share"] == 0.5
+        and m["ios"]["not_installed_share"] == 0.5
+    )
     assert {p["platform"]: (p["installs"], p["installers"]) for p in m["installs"]} == {
-        "android": (1, 1), "ios": (2, 1), "unknown": (1, 1)}
+        "android": (1, 1),
+        "ios": (2, 1),
+        "unknown": (1, 1),
+    }
 
 
 @pytest.mark.db
@@ -194,10 +211,10 @@ def test_verdicts_need_their_minimum_sample(seeded) -> None:
              "ios_not_installed_min_actors": 2, "push_min_sent": 10, "store_mode_min_user_weeks": 3,
              "scan_min_completed": 4, "store_mode_share": 0.9}  # fmt: skip
     rows = {r["criterion"][:2]: r for r in native_verdicts(m, small)}
-    assert rows["C1"]["status"] == "met" and rows["C1"]["observed"] == "28.6%"   # 2/7 >= 15%
-    assert rows["C2"]["status"] == "met"      # 2 of 4 platform-tagged actors are iOS >= 30%
-    assert rows["C3"]["status"] == "met"      # 50% never installed >= 50%
-    assert rows["C4"]["status"] == "met"      # 30% >= 15%
+    assert rows["C1"]["status"] == "met" and rows["C1"]["observed"] == "28.6%"  # 2/7 >= 15%
+    assert rows["C2"]["status"] == "met"  # 2 of 4 platform-tagged actors are iOS >= 30%
+    assert rows["C3"]["status"] == "met"  # 50% never installed >= 50%
+    assert rows["C4"]["status"] == "met"  # 30% >= 15%
     assert rows["C5"]["status"] == "not_met"  # at most 3 of 4 or more active user-weeks, under 90%
     assert rows["C6"]["status"] == "not_met"  # 75% < 80%
     outcome, why = native_outcome(list(rows.values()))
@@ -215,7 +232,10 @@ def test_outcome_rules() -> None:
     assert native_outcome(row({**base, "C1": "inconclusive"}))[0] == "inconclusive"
     assert native_outcome(row({**base, "C3": "not_met"}))[0] == "stay_pwa_fix_gaps"
     assert native_outcome(row({**base, "C4": "inconclusive"}))[0] == "inconclusive"
-    assert native_outcome(row({**base, "C3": "not_met", "C4": "inconclusive"}))[0] == "stay_pwa_fix_gaps"
+    assert (
+        native_outcome(row({**base, "C3": "not_met", "C4": "inconclusive"}))[0]
+        == "stay_pwa_fix_gaps"
+    )
     # React Native is never the outcome of these numbers alone
     for c1 in ("met", "not_met", "inconclusive"):
         for c6 in ("met", "not_met", "inconclusive"):

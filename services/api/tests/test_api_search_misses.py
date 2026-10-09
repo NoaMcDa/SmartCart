@@ -24,9 +24,9 @@ def rows(db) -> list[tuple]:
     ("text", "stored"),
     [
         ("חלב 3%", "חלב 3%"),
-        ('  עגבניות,  שרי  ', "עגבניות שרי"),
+        ("  עגבניות,  שרי  ", "עגבניות שרי"),
         ("ABC Cola", "abc cola"),
-        ("שמן זית 750 מ\"ל", "שמנ זית 750 מל"),  # quotes dropped, final letters folded
+        ('שמן זית 750 מ"ל', "שמנ זית 750 מל"),  # quotes dropped, final letters folded
         ("חלב 1.5 ליטר 6 יחידות", "חלב 1.5 ליטר 6 יחידות"),
     ],
 )
@@ -69,16 +69,29 @@ def test_a_query_of_exactly_the_maximum_is_kept() -> None:
 
 @pytest.mark.db
 @pytest.mark.pgvector
-def test_search_with_no_acceptable_hit_is_logged_once_without_the_raw_text(client, db, world: World) -> None:
+def test_search_with_no_acceptable_hit_is_logged_once_without_the_raw_text(
+    client, db, world: World
+) -> None:
     r = client.get("/search", params={"q": "  Xqzvbn,  PLORF "})
     assert r.status_code == 200 and r.json()["hits"] == []
     assert rows(db) == [("xqzvbn plorf", "search", None)]
-    cols = [c[0] for c in db.execute(
-        "SELECT column_name FROM information_schema.columns WHERE table_name = 'search_misses'"
-    ).fetchall()]
-    assert set(cols) == {"id", "query_norm", "source", "best_confidence", "seen_at"}  # no user, no raw text
+    cols = [
+        c[0]
+        for c in db.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'search_misses'"
+        ).fetchall()
+    ]
+    assert set(cols) == {
+        "id",
+        "query_norm",
+        "source",
+        "best_confidence",
+        "seen_at",
+    }  # no user, no raw text
     # the time is rounded down to the hour
-    assert db.execute("SELECT seen_at = date_trunc('hour', seen_at) FROM search_misses").fetchone()[0]
+    assert db.execute("SELECT seen_at = date_trunc('hour', seen_at) FROM search_misses").fetchone()[
+        0
+    ]
 
 
 @pytest.mark.db
@@ -104,7 +117,9 @@ def test_a_search_that_finds_something_logs_nothing(client, db, world: World) ->
 
 
 @pytest.mark.db
-def test_a_weak_hit_below_the_parser_floor_is_a_miss_with_its_confidence(client, db, monkeypatch) -> None:
+def test_a_weak_hit_below_the_parser_floor_is_a_miss_with_its_confidence(
+    client, db, monkeypatch
+) -> None:
     from smartcart_api.routes import search as search_route
     from smartcart_api.search import Hit
 
@@ -117,7 +132,8 @@ def test_a_weak_hit_below_the_parser_floor_is_a_miss_with_its_confidence(client,
 
     db.execute("DELETE FROM search_misses")
     monkeypatch.setattr(
-        search_route, "hybrid_search",
+        search_route,
+        "hybrid_search",
         lambda *_a, **_k: [Hit(1, "חלב", "t.dairy.milk", "100ml", 1, confidence=0.35, score=0.4)],
     )
     assert client.get("/search", params={"q": "זזזזזז חלבון"}).status_code == 200
@@ -145,7 +161,7 @@ def test_parse_list_logs_each_not_found_row_and_nothing_else(client, db, world: 
 @pytest.mark.db
 @pytest.mark.pgvector
 def test_parse_recipe_logs_unresolved_ingredients(client, db, world: World) -> None:
-    text = "מצרכים:\n2 ק\"ג עגבניות\n3 כפות xqzvbn plorf\n"
+    text = 'מצרכים:\n2 ק"ג עגבניות\n3 כפות xqzvbn plorf\n'
     r = client.post("/parse-recipe", json={"text": text})
     assert r.status_code == 200, r.text
     body = r.json()
@@ -161,7 +177,9 @@ def test_parse_recipe_logs_unresolved_ingredients(client, db, world: World) -> N
 @pytest.mark.db
 @pytest.mark.pgvector
 def test_a_failing_write_does_not_break_search_or_parse_list(client, db, world: World) -> None:
-    db.execute("ALTER TABLE search_misses RENAME TO search_misses_gone")  # rolled back with the test
+    db.execute(
+        "ALTER TABLE search_misses RENAME TO search_misses_gone"
+    )  # rolled back with the test
     assert client.get("/search", params={"q": "xqzvbn plorf"}).status_code == 200
     r = client.post("/parse-list", json={"text": "xqzvbn plorf\nחלב"})
     assert r.status_code == 200 and r.json()["rows"][0]["not_found"] is True
@@ -186,7 +204,9 @@ def test_source_is_restricted_by_the_table(db) -> None:
     with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
         db.execute("INSERT INTO search_misses (query_norm, source) VALUES ('x', 'voice')")
     with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
-        db.execute("INSERT INTO search_misses (query_norm, source) VALUES (%s, 'search')", ("x" * 121,))
+        db.execute(
+            "INSERT INTO search_misses (query_norm, source) VALUES (%s, 'search')", ("x" * 121,)
+        )
 
 
 # --- retention ---------------------------------------------------------------------------------

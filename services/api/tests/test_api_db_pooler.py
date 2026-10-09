@@ -32,10 +32,13 @@ def test_mode_defaults_to_session_and_rejects_unknown_values(monkeypatch) -> Non
         apidb.pooler_mode()
 
 
-@pytest.mark.parametrize(("mode", "prepare", "configured"), [
-    ("session", {}, True),
-    ("transaction", {"prepare_threshold": None}, False),
-])
+@pytest.mark.parametrize(
+    ("mode", "prepare", "configured"),
+    [
+        ("session", {}, True),
+        ("transaction", {"prepare_threshold": None}, False),
+    ],
+)
 def test_pool_is_built_for_the_mode(monkeypatch, mode, prepare, configured) -> None:
     seen: dict = {}
 
@@ -77,7 +80,9 @@ def test_session_mode_sets_utc_once_per_connection(monkeypatch, api_dsn: str) ->
 
 
 @pytest.mark.db
-def test_transaction_mode_sets_utc_per_transaction_and_prepares_nothing(monkeypatch, api_dsn: str) -> None:
+def test_transaction_mode_sets_utc_per_transaction_and_prepares_nothing(
+    monkeypatch, api_dsn: str
+) -> None:
     _use(monkeypatch, api_dsn, "transaction")
     request = apidb.get_conn()
     conn = next(request)

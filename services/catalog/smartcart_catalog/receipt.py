@@ -66,14 +66,44 @@ FUZZY_RATIO = 0.83
 # --- text cleanup ---------------------------------------------------------------------------------
 
 _BIDI = dict.fromkeys(
-    [0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E,
-     0x2066, 0x2067, 0x2068, 0x2069, 0xFEFF], None
+    [
+        0x200B,
+        0x200C,
+        0x200D,
+        0x200E,
+        0x200F,
+        0x202A,
+        0x202B,
+        0x202C,
+        0x202D,
+        0x202E,
+        0x2066,
+        0x2067,
+        0x2068,
+        0x2069,
+        0xFEFF,
+    ],
+    None,
 )
 _JUNK = re.compile(r"[|_~¦\[\]{}<>=\\^]+")
-_QUOTES = str.maketrans({"׳": "'", "`": "'", "’": "'", "‘": "'", "´": "'",
-                         "״": '"', "”": '"', "“": '"', "\u00a0": " ", "₪": " "})
+_QUOTES = str.maketrans(
+    {
+        "׳": "'",
+        "`": "'",
+        "’": "'",
+        "‘": "'",
+        "´": "'",
+        "״": '"',
+        "”": '"',
+        "“": '"',
+        "\u00a0": " ",
+        "₪": " ",
+    }
+)
 _HE = "א-ת"
-_O_IN_NUMBER = re.compile(r"(?<=\d)[Oo](?=\d|[.,]\d)|(?<=[.,])[Oo](?=\d)|(?<=\d[.,]\d)[Oo](?![A-Za-z\d])")
+_O_IN_NUMBER = re.compile(
+    r"(?<=\d)[Oo](?=\d|[.,]\d)|(?<=[.,])[Oo](?=\d)|(?<=\d[.,]\d)[Oo](?![A-Za-z\d])"
+)
 _L_IN_NUMBER = re.compile(r"(?<=[\d.,])[Il|](?=\d)|(?<=\d)[Il](?=[.,]\d)")
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}[.,]\d{2}(?!\d))")
 _SHEKEL = re.compile(r'(?<![א-ת])(?:ש"ח|שח)(?![א-ת])|\b(?:nis|ils)\b', re.IGNORECASE)
@@ -99,7 +129,9 @@ _X = r"[xX×*@✕]"
 _KG = r"(?:ק\"ג|קג|ק'ג|קילו(?:גרם)?|kg|KG|Kg)"
 _COUNT_X_PRICE = re.compile(rf"(?<![\d.,])(\d{{1,3}})\s*{_X}\s*(\d{{1,4}}[.,]\d{{2}})(?!\d)")
 _X_COUNT_PRICE = re.compile(rf"(?<![\d.,\w]){_X}\s*(\d{{1,2}})\s+(\d{{1,4}}[.,]\d{{2}})(?!\d)")
-_PRICE_X_COUNT = re.compile(rf"(?<![\d.,])(\d{{1,4}}[.,]\d{{2}})\s*{_X}\s*(\d{{1,3}})(?![\d.,]\d)(?!\d)")
+_PRICE_X_COUNT = re.compile(
+    rf"(?<![\d.,])(\d{{1,4}}[.,]\d{{2}})\s*{_X}\s*(\d{{1,3}})(?![\d.,]\d)(?!\d)"
+)
 _WEIGHT_X_PRICE = re.compile(
     rf"(?<![\d.,])(\d{{1,3}}(?:[.,]\d{{1,3}})?)\s*{_KG}?\s*{_X}\s*(\d{{1,4}}[.,]\d{{2}})(?!\d)"
 )
@@ -120,7 +152,9 @@ def _dec(s: str) -> Decimal | None:
 def _reverse_price(whole: str, frac: str) -> Decimal | None:
     """``"90.5"`` read back to front is ``"5.09"``: two decimals, so a plausible price."""
     rev = f"{whole}.{frac}"[::-1]
-    return _dec(rev) if re.fullmatch(r"\d\.\d{2}", rev) or re.fullmatch(r"\d{2}\.\d{2}", rev) else None
+    return (
+        _dec(rev) if re.fullmatch(r"\d\.\d{2}", rev) or re.fullmatch(r"\d{2}\.\d{2}", rev) else None
+    )
 
 
 # --- result types ---------------------------------------------------------------------------------
@@ -258,7 +292,11 @@ def _alias_in(tokens: list[str], alias: str, *, fuzzy: bool) -> bool:
         if len(a[0]) >= 4 and len(first) == len(a[0]) + 1 and first[0] in "בהלמוש":
             if " ".join([first[1:], *tokens[i + 1 : i + n]]) == target:
                 return True
-        if fuzzy and len(target) >= 6 and SequenceMatcher(None, window, target).ratio() >= FUZZY_RATIO:
+        if (
+            fuzzy
+            and len(target) >= 6
+            and SequenceMatcher(None, window, target).ratio() >= FUZZY_RATIO
+        ):
             return True
     return False
 
@@ -276,7 +314,8 @@ def detect_chain(lines: list[str]) -> tuple[str | None, str | None]:
     )
     for tokens, fuzzy in stages:
         found = [
-            cid for cid, (_, aliases) in CHAINS.items()
+            cid
+            for cid, (_, aliases) in CHAINS.items()
             if any(_alias_in(tokens, alias, fuzzy=fuzzy) for alias in aliases)
         ]
         if len(found) == 1:
@@ -290,7 +329,7 @@ _BRANCH = re.compile(r"סניף\s*[:\-]?\s*(.+)")
 
 
 def detect_branch(lines: list[str]) -> str | None:
-    for line in lines[:HEADER_LINES + 6]:
+    for line in lines[: HEADER_LINES + 6]:
         m = _BRANCH.search(line)
         if m:
             text = re.sub(r"[\d\s:\-.,]+$", "", m.group(1)).strip()
@@ -374,9 +413,9 @@ def _parse_detail(line: str) -> _Parsed:
     """Split a line into name, quantity expression and prices. The name may be empty."""
     spans: list[tuple[int, int]] = []
     p = _Parsed("")
-    named = bool(_VALID_NAME.search(
-        _COUNT_UNITS.sub(" ", _PRICE.sub(" ", _WEIGHT_UNIT.sub(" ", line)))
-    ))
+    named = bool(
+        _VALID_NAME.search(_COUNT_UNITS.sub(" ", _PRICE.sub(" ", _WEIGHT_UNIT.sub(" ", line))))
+    )
 
     def grab(m: re.Match[str]) -> None:
         spans.append((m.start(), m.end()))
@@ -484,8 +523,13 @@ def parse_receipt(lines: list[str]) -> Receipt:
         if not _is_name(p.name) or (p.price is None and p.quantity is None):
             return None
         item = ReceiptItem(
-            text=expand_name(p.name), raw=p.name, quantity=p.quantity, unit=p.unit,
-            price=p.price, unit_price=p.unit_price, price_alt=p.price_alt,
+            text=expand_name(p.name),
+            raw=p.name,
+            quantity=p.quantity,
+            unit=p.unit,
+            price=p.price,
+            unit_price=p.unit_price,
+            price_alt=p.price_alt,
         )
         return item if _is_name(item.text) else None
 
@@ -502,9 +546,15 @@ def parse_receipt(lines: list[str]) -> Receipt:
             pending = None
             continue
         # discounts and credits: negative amounts, never items
-        if _DISCOUNT.search(line) or (
-            tokens and any(t[3] for t in tokens) and not _is_name(_blank(line, [(t[0], t[1]) for t in tokens]))
-        ) or (re.match(r"\s*מבצע", line) and tokens):
+        if (
+            _DISCOUNT.search(line)
+            or (
+                tokens
+                and any(t[3] for t in tokens)
+                and not _is_name(_blank(line, [(t[0], t[1]) for t in tokens]))
+            )
+            or (re.match(r"\s*מבצע", line) and tokens)
+        ):
             if tokens and not re.search(r"סה\"כ|סהכ", line):
                 discounts.append((-abs(tokens[-1][2]), tokens[-1][4]))
             pending = None
@@ -533,15 +583,22 @@ def parse_receipt(lines: list[str]) -> Receipt:
         if pending is not None:
             pending.quantity, pending.unit = p.quantity or pending.quantity, p.unit or pending.unit
             pending.unit_price = p.unit_price or pending.unit_price
-            pending.price, pending.price_alt = p.price or pending.price, p.price_alt or pending.price_alt
+            pending.price, pending.price_alt = (
+                p.price or pending.price,
+                p.price_alt or pending.price_alt,
+            )
             item = finish(pending)
             if item:
                 receipt.items.append(item)
                 last = item
             pending = None
         elif (
-            last is not None and last.quantity is None and last.price is not None
-            and not p.has_qty_expr and p.price is not None and not _is_name(p.name)
+            last is not None
+            and last.quantity is None
+            and last.price is not None
+            and not p.has_qty_expr
+            and p.price is not None
+            and not _is_name(p.name)
             and (n := _whole_ratio(last.price, p.price))
         ):
             last.quantity, last.unit_price = D(n), p.price  # "א 5.67" under a 11.34 line: 2 x 5.67

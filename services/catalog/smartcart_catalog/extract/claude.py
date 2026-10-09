@@ -64,8 +64,13 @@ class BatchUsage:
 
     @property
     def estimated_usd(self) -> Decimal | None:
-        return estimate_usd(self.model, self.input_tokens, self.output_tokens,
-                            self.cache_creation_input_tokens, self.cache_read_input_tokens)
+        return estimate_usd(
+            self.model,
+            self.input_tokens,
+            self.output_tokens,
+            self.cache_creation_input_tokens,
+            self.cache_read_input_tokens,
+        )
 
     def as_metrics(self) -> dict[str, Any]:
         usd = self.estimated_usd

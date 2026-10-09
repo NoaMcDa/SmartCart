@@ -268,7 +268,9 @@ def test_tiers_follow_the_documented_sizes() -> None:
     assert rp.tier_of(3, 6) is None
 
 
-def test_examples_option_none_gives_a_packet_without_examples(small_data: Path, tmp_path: Path) -> None:
+def test_examples_option_none_gives_a_packet_without_examples(
+    small_data: Path, tmp_path: Path
+) -> None:
     result = rp.build_packet(small_data, tmp_path / "o", sources=["none"])
     assert result["summary"] == {"total": 6, "with_real": 0, "synthetic_only": 0, "without": 6}
     assert "אין דוגמה בקבצים שנבדקו" in (tmp_path / "o" / rp.HTML_NAME).read_text("utf-8")
@@ -366,7 +368,9 @@ def test_import_requires_every_canonical_unless_partial(packet, small_data, tmp_
 def test_a_note_without_a_decision_is_an_error(packet, small_data, tmp_path) -> None:
     out, _ = packet
     path = filled(out, tmp_path, {"tomato": {"decision": "", "comment": "hmm"}})
-    with pytest.raises(rp.ReviewImportError, match="tomato\\): a comment or proposal but no decision"):
+    with pytest.raises(
+        rp.ReviewImportError, match="tomato\\): a comment or proposal but no decision"
+    ):
         rp.parse_filled_csv(path, entries_of(small_data), allow_partial=True)
 
 
@@ -455,9 +459,10 @@ def test_signoff_file_and_overwrite_protection(packet, small_data, tmp_path) -> 
     assert loaded["reviewer"] == "דנה כהן" and loaded["reviewed_on"] == "2026-10-20"
     assert loaded["status"] == "complete" and loaded["pending"] == []
     assert loaded["summary"] == {"ok": 5, "change": 1, "remove": 0, "add": 0, "pending": 0}
-    assert loaded["source"]["canonicals_sha256_12"] == hashlib.sha256(
-        (small_data / "canonicals.yaml").read_bytes()
-    ).hexdigest()[:12]
+    assert (
+        loaded["source"]["canonicals_sha256_12"]
+        == hashlib.sha256((small_data / "canonicals.yaml").read_bytes()).hexdigest()[:12]
+    )
     assert loaded["decisions"][-1] == {"slug": "tomato", "decision": "change",
                                        "comment": "split red/cherry"}  # fmt: skip
     with pytest.raises(FileExistsError):
@@ -526,7 +531,9 @@ def test_rank_moves_and_removals_renumber_without_gaps(small_data) -> None:
     ]  # fmt: skip
 
 
-def test_a_change_that_breaks_the_critical_keys_is_reported(packet, small_data, catalog, tmp_path) -> None:
+def test_a_change_that_breaks_the_critical_keys_is_reported(
+    packet, small_data, catalog, tmp_path
+) -> None:
     out, _ = packet
     path = filled(out, tmp_path, {"cottage-5": {
         "decision": "change", "comment": "x", "proposed_critical_attrs": "fat_pct=5; state=fresh",
@@ -575,7 +582,9 @@ def test_cli_round_trip(small_data: Path, tmp_path: Path) -> None:
     assert again.exit_code == 1 and "--force" in again.output
 
 
-def test_cli_import_exit_code_and_nothing_written_on_problems(small_data: Path, tmp_path: Path) -> None:
+def test_cli_import_exit_code_and_nothing_written_on_problems(
+    small_data: Path, tmp_path: Path
+) -> None:
     runner = CliRunner()
     out = tmp_path / "o"
     runner.invoke(app, ["review-packet", "--out", str(out), "--examples", "none"])
@@ -622,7 +631,8 @@ def test_in_memory_matching_equals_the_database_pipeline(db, catalog) -> None:
     for name, code, weighed in names:
         ids[name] = db.execute(
             "INSERT INTO items (chain_id, item_code, raw_name, is_weighed)"
-            " VALUES ('c1', %s, %s, %s) RETURNING id", (code, name, weighed)
+            " VALUES ('c1', %s, %s, %s) RETURNING id",
+            (code, name, weighed),
         ).fetchone()[0]
     run_extraction(db, RuleExtractor(catalog), record_run=False)
     embedder = HashEmbedder()
@@ -637,7 +647,11 @@ def test_in_memory_matching_equals_the_database_pipeline(db, catalog) -> None:
     for m in rp.match_items(catalog, src):
         d = results[ids[m.item.raw_name]]
         db_slug = slug_of[d.canonical_id] if d.canonical_id else None
-        assert (m.canonical_slug, m.level, m.needs_review) == (db_slug, d.flex_level, d.needs_review), m
+        assert (m.canonical_slug, m.level, m.needs_review) == (
+            db_slug,
+            d.flex_level,
+            d.needs_review,
+        ), m
         if d.canonical_id:
             assert m.confidence == pytest.approx(d.confidence, abs=0.005)
 
@@ -678,6 +692,8 @@ def test_real_catalog_packet_from_the_real_fixtures(tmp_path: Path) -> None:
     text = (tmp_path / rp.HTML_NAME).read_text(encoding="utf-8")
     assert "קובץ אמיתי של רשת" in text and "שכבה 1 (הערכה)" in text and "שכבה 5 (הערכה)" in text
     rows = list(csv.DictReader(io.StringIO((tmp_path / rp.CSV_NAME).read_text("utf-8-sig"))))
-    assert len(rows) == 245 and rows[0]["slug"] == "milk-fresh-3" and rows[0]["tier_estimate"] == "1"
+    assert (
+        len(rows) == 245 and rows[0]["slug"] == "milk-fresh-3" and rows[0]["tier_estimate"] == "1"
+    )
     assert max(len(r["examples"].split(" | ")) for r in rows) <= 5
     json.dumps(result["summary"])

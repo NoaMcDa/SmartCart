@@ -70,10 +70,17 @@ def test_search_ranks_by_rrf_and_reports_retrievers(db, catalog: World) -> None:
 @pytest.mark.pgvector
 @pytest.mark.parametrize(
     ("query", "key"),
-    [("חלבב", "milk"), ("רסק עגבנייות", "paste"), ("סלמונ", "salmon"), ("לחם אחד פרוס", "bread"),
-     ("ביצים L", "eggs")],
+    [
+        ("חלבב", "milk"),
+        ("רסק עגבנייות", "paste"),
+        ("סלמונ", "salmon"),
+        ("לחם אחד פרוס", "bread"),
+        ("ביצים L", "eggs"),
+    ],
 )
-def test_misspelled_queries_find_the_intended_canonical(db, catalog: World, query: str, key: str) -> None:
+def test_misspelled_queries_find_the_intended_canonical(
+    db, catalog: World, query: str, key: str
+) -> None:
     hits = hybrid_search(db, query, limit=3)
     wanted = {v for k, v in catalog.canon.items() if k.startswith(key)}
     assert hits and hits[0].canonical_id in wanted, [h.display_name_he for h in hits]
@@ -99,21 +106,31 @@ def test_vector_retriever_compares_only_vectors_of_the_query_model(db, world: Wo
     # The query embedder is the catalog's: the fixtures' vectors are what `embed` writes.
     assert query_embedder().model_name == HashEmbedder().model_name == "hash-ngram-2-3-4-v1"
     cream = world.canon["cream"]
-    assert db.execute("SELECT embedding_model FROM canonical_products WHERE id = %s",
-                      (cream,)).fetchone()[0] == query_embedder().model_name
-    assert [h.canonical_id for h in hybrid_search(db, "קצפת", retrievers=("vector",))][:1] == [cream]
+    assert (
+        db.execute(
+            "SELECT embedding_model FROM canonical_products WHERE id = %s", (cream,)
+        ).fetchone()[0]
+        == query_embedder().model_name
+    )
+    assert [h.canonical_id for h in hybrid_search(db, "קצפת", retrievers=("vector",))][:1] == [
+        cream
+    ]
     # A NULL model is unknown: skipped until the catalog's embed job records it.
     db.execute("UPDATE canonical_products SET embedding_model = NULL WHERE id = %s", (cream,))
     assert cream not in [h.canonical_id for h in hybrid_search(db, "קצפת", retrievers=("vector",))]
     # Labeled as another model (a BGE-M3 vector, say): never compared with a hash query vector.
-    db.execute("UPDATE canonical_products SET embedding_model = 'BAAI/bge-m3' WHERE id = %s", (cream,))
+    db.execute(
+        "UPDATE canonical_products SET embedding_model = 'BAAI/bge-m3' WHERE id = %s", (cream,)
+    )
     assert cream not in [h.canonical_id for h in hybrid_search(db, "קצפת", retrievers=("vector",))]
 
     # Item embeddings: "רסק עגבניות אסם" reaches paste through its item's vector. Relabel every
     # canonical as another model so only the item path is left.
     db.execute("UPDATE canonical_products SET embedding_model = 'BAAI/bge-m3'")
     paste = world.canon["paste"]
-    via_items = [h.canonical_id for h in hybrid_search(db, "רסק עגבניות אסם", retrievers=("vector",))]
+    via_items = [
+        h.canonical_id for h in hybrid_search(db, "רסק עגבניות אסם", retrievers=("vector",))
+    ]
     assert paste in via_items
     db.execute("UPDATE item_embeddings SET model = 'BAAI/bge-m3'")
     assert hybrid_search(db, "רסק עגבניות אסם", retrievers=("vector",)) == []
@@ -170,7 +187,9 @@ def test_acceptance_example(client, catalog: World) -> None:
     rows = r.json()["rows"]
     assert [row["input_text"] for row in rows] == ["חלב", "2 רסק עגבניות", "סלמון"]
     milk, paste, salmon = rows
-    assert D(paste["quantity"]) == 2 and paste["canonical"]["canonical_id"] == catalog.canon["paste"]
+    assert (
+        D(paste["quantity"]) == 2 and paste["canonical"]["canonical_id"] == catalog.canon["paste"]
+    )
     assert D(milk["quantity"]) == 1 and D(salmon["quantity"]) == 1
     assert salmon["canonical"]["canonical_id"] == catalog.canon["salmon"] and salmon["is_weighed"]
     assert not paste["needs_confirmation"] and not salmon["needs_confirmation"]
@@ -202,9 +221,13 @@ def test_unknown_text_is_an_explicit_not_found(client, catalog: World) -> None:
 @pytest.mark.db
 @pytest.mark.pgvector
 def test_vav_splits_unless_the_whole_name_matches(client, catalog: World) -> None:
-    rows = client.post("/parse-list", json={"text": "סלמון ולחם אחיד פרוס, חטיף וופל"}).json()["rows"]
+    rows = client.post("/parse-list", json={"text": "סלמון ולחם אחיד פרוס, חטיף וופל"}).json()[
+        "rows"
+    ]
     assert [r["canonical"]["canonical_id"] for r in rows] == [
-        catalog.canon["salmon"], catalog.canon["bread"], catalog.canon["wafer"],
+        catalog.canon["salmon"],
+        catalog.canon["bread"],
+        catalog.canon["wafer"],
     ]
 
 
@@ -225,8 +248,18 @@ def test_weights_and_flex_defaults(client, catalog: World) -> None:
 @pytest.mark.db
 @pytest.mark.pgvector
 def test_thirty_items_parse_under_two_seconds(client, catalog: World) -> None:
-    names = ["חלב", "2 רסק עגבניות", "סלמון", "לחם אחיד", "ביצים L", "שמנת מתוקה", "חטיף וופל",
-             "1 ק\"ג עגבניות", "חלבב", "רסק עגבנייות"]
+    names = [
+        "חלב",
+        "2 רסק עגבניות",
+        "סלמון",
+        "לחם אחיד",
+        "ביצים L",
+        "שמנת מתוקה",
+        "חטיף וופל",
+        '1 ק"ג עגבניות',
+        "חלבב",
+        "רסק עגבנייות",
+    ]
     text = "\n".join((names * 3)[:30])
     client.post("/parse-list", json={"text": "חלב"})  # warm up the connection and plans
     started = time.perf_counter()
@@ -238,10 +271,14 @@ def test_thirty_items_parse_under_two_seconds(client, catalog: World) -> None:
 
 
 def test_search_hit_carries_the_arabic_name(client, db, world) -> None:
-    db.execute("UPDATE canonical_products SET names_ar = %s WHERE id = %s",
-               (["حليب 3%", "حليب طازج 3%"], world.canon["milk3"]))
+    db.execute(
+        "UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+        (["حليب 3%", "حليب طازج 3%"], world.canon["milk3"]),
+    )
     hits = client.get("/search", params={"q": "חלב"}).json()["hits"]
     named = {h["canonical"]["canonical_id"]: h["canonical"] for h in hits}
     assert named[world.canon["milk3"]]["display_name_ar"] == "حليب 3%"
     assert named[world.canon["milk3"]]["display_name_he"]
-    assert all(c["display_name_ar"] is None for cid, c in named.items() if cid != world.canon["milk3"])
+    assert all(
+        c["display_name_ar"] is None for cid, c in named.items() if cid != world.canon["milk3"]
+    )

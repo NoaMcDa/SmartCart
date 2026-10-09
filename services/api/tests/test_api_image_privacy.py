@@ -44,7 +44,10 @@ def noisy_png(lines: list[str], side: int = 1500) -> bytes:
 
 def post(client, data: bytes, kind: str = "list"):
     return client.post(
-        "/parse-image", data={"kind": kind}, files={"image": ("p.png", data, "image/png")}, headers=CONSENT
+        "/parse-image",
+        data={"kind": kind},
+        files={"image": ("p.png", data, "image/png")},
+        headers=CONSENT,
     )
 
 
@@ -164,5 +167,7 @@ def test_nothing_else_in_the_database_mentions_the_text(client, db, fake) -> Non
         ).fetchall()
     ]
     for table in tables:
-        hit = db.execute(f'SELECT count(*) FROM "{table}" t WHERE t::text LIKE %s', (f"%{SECRET_LINE}%",)).fetchone()[0]
+        hit = db.execute(
+            f'SELECT count(*) FROM "{table}" t WHERE t::text LIKE %s', (f"%{SECRET_LINE}%",)
+        ).fetchone()[0]
         assert hit == 0, table

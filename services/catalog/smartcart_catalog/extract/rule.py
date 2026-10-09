@@ -45,36 +45,142 @@ PRIVATE_LABELS: dict[str, tuple[str, ...]] = {
 }
 
 KNOWN_BRANDS: tuple[str, ...] = (
-    "תנובה", "טרה", "שטראוס", "יטבתה", "גד", "דנונה", "יופלה", "מולר", "עמק", "נעם", "תרה",
-    "אסם", "עלית", "תלמה", "סוגת", "וילי פוד", "פרי ניר", "יכין", "זוגלובק", "טירת צבי",
-    "מאמא עוף", "עוף טוב", "מעדני מיקי", "נטו", "צבר", "אחלה", "שמיר", "מיה", "פרי הגליל",
-    "תפוגן", "פריגת", "ספרינג", "קוקה קולה", "פפסי", "נביעות", "מי עדן", "עין גדי", "יעקבס",
-    "נסקפה", "לנדוור", "ויסוצקי", "קליק", "במבה", "קרמבו", "מזולה", "יד מרדכי", "בית השיטה",
-    "סנו", "פיירי", "פיניש", "טאץ'", "בדין", "לילי", "סופטלן", "מאיר", "ברמן", "אנג'ל",
-    "דוידוביץ'", "סטארקיסט", "פילדלפיה", "קנור", "הלמנס", "היינץ", "ברילה", "פסטה זרה",
-    "קלוגס", "תבליני פרג", "מגדל",
+    "תנובה",
+    "טרה",
+    "שטראוס",
+    "יטבתה",
+    "גד",
+    "דנונה",
+    "יופלה",
+    "מולר",
+    "עמק",
+    "נעם",
+    "תרה",
+    "אסם",
+    "עלית",
+    "תלמה",
+    "סוגת",
+    "וילי פוד",
+    "פרי ניר",
+    "יכין",
+    "זוגלובק",
+    "טירת צבי",
+    "מאמא עוף",
+    "עוף טוב",
+    "מעדני מיקי",
+    "נטו",
+    "צבר",
+    "אחלה",
+    "שמיר",
+    "מיה",
+    "פרי הגליל",
+    "תפוגן",
+    "פריגת",
+    "ספרינג",
+    "קוקה קולה",
+    "פפסי",
+    "נביעות",
+    "מי עדן",
+    "עין גדי",
+    "יעקבס",
+    "נסקפה",
+    "לנדוור",
+    "ויסוצקי",
+    "קליק",
+    "במבה",
+    "קרמבו",
+    "מזולה",
+    "יד מרדכי",
+    "בית השיטה",
+    "סנו",
+    "פיירי",
+    "פיניש",
+    "טאץ'",
+    "בדין",
+    "לילי",
+    "סופטלן",
+    "מאיר",
+    "ברמן",
+    "אנג'ל",
+    "דוידוביץ'",
+    "סטארקיסט",
+    "פילדלפיה",
+    "קנור",
+    "הלמנס",
+    "היינץ",
+    "ברילה",
+    "פסטה זרה",
+    "קלוגס",
+    "תבליני פרג",
+    "מגדל",
 )
 
-_FAT_EXCLUDE = ("קקאו", "שוקולד", "מיץ", "פרי", "אלכוהול", "יין", "בירה", "הנחה", "מבצע",
-                "אחוז כוהל", "סיבים", "חלבון")
+_FAT_EXCLUDE = (
+    "קקאו",
+    "שוקולד",
+    "מיץ",
+    "פרי",
+    "אלכוהול",
+    "יין",
+    "בירה",
+    "הנחה",
+    "מבצע",
+    "אחוז כוהל",
+    "סיבים",
+    "חלבון",
+)
 _FAT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 
 _STATE_WORDS: tuple[tuple[str, str], ...] = (
-    ("מוקפא", "frozen"), ("מוקפאת", "frozen"), ("מוקפאים", "frozen"), ("קפוא", "frozen"),
-    ("קפואה", "frozen"), ("קפואים", "frozen"), ("קפואות", "frozen"),
-    ("בשימורים", "canned"), ("שימורי", "canned"), ("שימורים", "canned"), ("פחית", "canned"),
-    ("טרי", "fresh"), ("טריה", "fresh"), ("טרייה", "fresh"), ("טריים", "fresh"),
-    ("טריות", "fresh"), ("מצונן", "chilled"), ("מקורר", "chilled"),
+    ("מוקפא", "frozen"),
+    ("מוקפאת", "frozen"),
+    ("מוקפאים", "frozen"),
+    ("קפוא", "frozen"),
+    ("קפואה", "frozen"),
+    ("קפואים", "frozen"),
+    ("קפואות", "frozen"),
+    ("בשימורים", "canned"),
+    ("שימורי", "canned"),
+    ("שימורים", "canned"),
+    ("פחית", "canned"),
+    ("טרי", "fresh"),
+    ("טריה", "fresh"),
+    ("טרייה", "fresh"),
+    ("טריים", "fresh"),
+    ("טריות", "fresh"),
+    ("מצונן", "chilled"),
+    ("מקורר", "chilled"),
 )
 
 _FLAVOR_WORDS: tuple[tuple[str, str], ...] = (
-    ("טבעי", "plain"), ("ללא תוספות", "plain"), ("תות", "strawberry"), ("אפרסק", "peach"),
-    ("בננה", "banana"), ("שוקולד", "chocolate"), ("וניל", "vanilla"), ("קפה", "coffee"),
-    ("לימון", "lemon"), ("תפוז", "orange"), ("תפוח", "apple"), ("ענבים", "grape"),
-    ("פטל", "raspberry"), ("נענע", "mint"), ("דבש", "honey"), ("גריל", "grill"),
-    ("בצל", "onion"), ("מלח", "salted"), ("ברביקיו", "barbecue"), ("חריף", "spicy"),
-    ("גבינה", "cheese"), ("תפוחי אדמה", "potato"), ("עוף", "chicken"), ("בקר", "beef"),
-    ("פטריות", "mushroom"), ("זיתים", "olive"), ("שום", "garlic"), ("צנובר", "pine_nut"),
+    ("טבעי", "plain"),
+    ("ללא תוספות", "plain"),
+    ("תות", "strawberry"),
+    ("אפרסק", "peach"),
+    ("בננה", "banana"),
+    ("שוקולד", "chocolate"),
+    ("וניל", "vanilla"),
+    ("קפה", "coffee"),
+    ("לימון", "lemon"),
+    ("תפוז", "orange"),
+    ("תפוח", "apple"),
+    ("ענבים", "grape"),
+    ("פטל", "raspberry"),
+    ("נענע", "mint"),
+    ("דבש", "honey"),
+    ("גריל", "grill"),
+    ("בצל", "onion"),
+    ("מלח", "salted"),
+    ("ברביקיו", "barbecue"),
+    ("חריף", "spicy"),
+    ("גבינה", "cheese"),
+    ("תפוחי אדמה", "potato"),
+    ("עוף", "chicken"),
+    ("בקר", "beef"),
+    ("פטריות", "mushroom"),
+    ("זיתים", "olive"),
+    ("שום", "garlic"),
+    ("צנובר", "pine_nut"),
     ("צנוברים", "pine_nut"),
 )
 _FLAVOR_BY_TYPE: dict[str, tuple[tuple[str, str], ...]] = {
@@ -91,9 +197,19 @@ PLANT_DRINK_TYPES: frozenset[str] = frozenset(
      "plant_yogurt"}
 )  # fmt: skip
 _BASE_WORDS: tuple[tuple[str, str], ...] = (
-    ("שיבולת שועל", "oat"), ("שיבולת", "oat"), ("אוטלי", "oat"), ("oat", "oat"),
-    ("סויה", "soy"), ("סוייה", "soy"), ("soy", "soy"), ("שקדים", "almond"), ("שקד", "almond"),
-    ("almond", "almond"), ("אורז", "rice"), ("rice", "rice"), ("קוקוס", "coconut"),
+    ("שיבולת שועל", "oat"),
+    ("שיבולת", "oat"),
+    ("אוטלי", "oat"),
+    ("oat", "oat"),
+    ("סויה", "soy"),
+    ("סוייה", "soy"),
+    ("soy", "soy"),
+    ("שקדים", "almond"),
+    ("שקד", "almond"),
+    ("almond", "almond"),
+    ("אורז", "rice"),
+    ("rice", "rice"),
+    ("קוקוס", "coconut"),
     ("coconut", "coconut"),
 )
 # A name with no product type still gets a base when it says it is a drink, a "milk" or a
@@ -102,22 +218,37 @@ _BASE_WORDS: tuple[tuple[str, str], ...] = (
 _BASE_CUES: tuple[str, ...] = ("משקה", "חלב", "יוגורט", "מעדן", "תחליף חלב")
 _FLAVOR_MARKER = re.compile(rf"(?<!{_LETTER})בטעם\s+$")
 _BASE_BY_TYPE: dict[str, str] = {
-    "soy_drink": "soy", "almond_drink": "almond", "oat_drink": "oat", "rice_drink": "rice",
+    "soy_drink": "soy",
+    "almond_drink": "almond",
+    "oat_drink": "oat",
+    "rice_drink": "rice",
     "coconut_drink": "coconut",
 }
 _VARIETY_WORDS: tuple[tuple[str, str], ...] = (
-    ("בריסטה", "barista"), ("ברסיטה", "barista"), ("barista", "barista"),
-    ("חלבון", "protein"), ("protein", "protein"),
+    ("בריסטה", "barista"),
+    ("ברסיטה", "barista"),
+    ("barista", "barista"),
+    ("חלבון", "protein"),
+    ("protein", "protein"),
 )
 
 _KOSHER_WORDS: tuple[tuple[str, str], ...] = (
-    ("כשר לפסח", "כשר לפסח"), ('בד"ץ', 'בד"ץ'), ('בד"צ', 'בד"ץ'), ("בדץ", 'בד"ץ'),
+    ("כשר לפסח", "כשר לפסח"),
+    ('בד"ץ', 'בד"ץ'),
+    ('בד"צ', 'בד"ץ'),
+    ("בדץ", 'בד"ץ'),
     ("מהדרין", "מהדרין"),
 )
 _DIET_WORDS: tuple[tuple[str, str], ...] = (
-    ("ללא גלוטן", "gluten_free"), ("ללא לקטוז", "lactose_free"), ("דל לקטוז", "lactose_free"),
-    ("ללא תוספת סוכר", "no_added_sugar"), ("ללא סוכר", "sugar_free"), ("טבעוני", "vegan"),
-    ("צמחוני", "vegetarian"), ("אורגני", "organic"), ("דל נתרן", "low_sodium"),
+    ("ללא גלוטן", "gluten_free"),
+    ("ללא לקטוז", "lactose_free"),
+    ("דל לקטוז", "lactose_free"),
+    ("ללא תוספת סוכר", "no_added_sugar"),
+    ("ללא סוכר", "sugar_free"),
+    ("טבעוני", "vegan"),
+    ("צמחוני", "vegetarian"),
+    ("אורגני", "organic"),
+    ("דל נתרן", "low_sodium"),
 )
 
 
@@ -208,8 +339,13 @@ class RuleExtractor:
                 if table is by_type:
                     # "dark chocolate with sea salt" is not the plain dark bar: a second flavor
                     # (or an "עם ..." filling) makes a compound value that no plain canonical has.
-                    extra = sorted({fl for word, fl in _FLAVOR_WORDS
-                                    if fl not in _NOT_A_SECOND_FLAVOR and _find(word, name)})
+                    extra = sorted(
+                        {
+                            fl
+                            for word, fl in _FLAVOR_WORDS
+                            if fl not in _NOT_A_SECOND_FLAVOR and _find(word, name)
+                        }
+                    )
                     if extra:
                         value += "+" + "+".join(extra)
                     elif _EXTRA_INGREDIENT.search(name):
@@ -255,8 +391,10 @@ class RuleExtractor:
     def diet_flags(name: str) -> tuple[str, ...]:
         flags: list[str] = []
         for word, flag in _DIET_WORDS:
-            if word in name and flag not in flags and not (
-                flag == "sugar_free" and "no_added_sugar" in flags
+            if (
+                word in name
+                and flag not in flags
+                and not (flag == "sugar_free" and "no_added_sugar" in flags)
             ):
                 flags.append(flag)
         return tuple(flags)

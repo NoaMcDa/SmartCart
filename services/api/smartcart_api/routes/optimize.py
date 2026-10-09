@@ -248,15 +248,17 @@ def _optimize_heuristic(body: schemas.OptimizeRequest, priced: _Priced) -> schem
     if best_single is not None:
         single = _plan("single", best_single, baskets, info, home, body.travel, best_split is None)
     else:  # nothing in the radius
-        single = schemas.Plan(kind="single", stores=[], total=ZERO, recommended=False,
-                              missing=canonical_ids)
+        single = schemas.Plan(
+            kind="single", stores=[], total=ZERO, recommended=False, missing=canonical_ids
+        )
     split = (
         _plan("split", best_split, baskets, info, home, body.travel, True) if best_split else None
     )
     minimum_effort = None
     if home is not None:
-        home_eval = evaluate_subsets([home.info], {home.info.store_id: home}, canonical_ids, 1,
-                                     body.travel)[0]
+        home_eval = evaluate_subsets(
+            [home.info], {home.info.store_id: home}, canonical_ids, 1, body.travel
+        )[0]
         minimum_effort = _plan("minimum_effort", home_eval, baskets, info, home, body.travel, False)
     return schemas.OptimizeResponse(
         single=single,
@@ -324,30 +326,40 @@ def _optimize_milp(
 
     home_view = _milp_basket(home, home_sol) if home is not None and home_sol else home
     if single_sol is not None and single_sol.used:
-        single = _milp_plan("single", single_sol, baskets, info, home_view, body.travel,
-                            split_sol is None)
+        single = _milp_plan(
+            "single", single_sol, baskets, info, home_view, body.travel, split_sol is None
+        )
     elif h_single is not None:  # no candidate sells anything: the heuristic's all-missing plan
-        single = _plan("single", h_single, baskets, info, home_view, body.travel,
-                       split_sol is None)
+        single = _plan("single", h_single, baskets, info, home_view, body.travel, split_sol is None)
     else:  # nothing in the radius
-        single = schemas.Plan(kind="single", stores=[], total=ZERO, recommended=False,
-                              missing=canonical_ids)
+        single = schemas.Plan(
+            kind="single", stores=[], total=ZERO, recommended=False, missing=canonical_ids
+        )
     split = (
         _milp_plan("split", split_sol, baskets, info, home_view, body.travel, True)
-        if split_sol is not None else None
+        if split_sol is not None
+        else None
     )
     minimum_effort = None
     if home is not None and home_sol is not None and home_sol.used:
-        minimum_effort = _milp_plan("minimum_effort", home_sol, baskets, info, home_view,
-                                    body.travel, False)
+        minimum_effort = _milp_plan(
+            "minimum_effort", home_sol, baskets, info, home_view, body.travel, False
+        )
     elif home is not None:
-        home_eval = evaluate_subsets([home.info], {home.info.store_id: home}, canonical_ids, 1,
-                                     body.travel)[0]
+        home_eval = evaluate_subsets(
+            [home.info], {home.info.store_id: home}, canonical_ids, 1, body.travel
+        )[0]
         minimum_effort = _plan("minimum_effort", home_eval, baskets, info, home, body.travel, False)
     for name, sol in (("single", single_sol), ("split", split_sol), ("home", home_sol)):
         if sol is not None:
-            log.info("milp solved", plan=name, status=sol.status, ms=round(sol.seconds * 1000, 1),
-                     stores=len(sol.used), bundles=len(sol.bundles))
+            log.info(
+                "milp solved",
+                plan=name,
+                status=sol.status,
+                ms=round(sol.seconds * 1000, 1),
+                stores=len(sol.used),
+                bundles=len(sol.bundles),
+            )
     return schemas.OptimizeResponse(
         single=single,
         split=split,
@@ -363,20 +375,26 @@ def _milp_basket(basket: StoreBasket, sol: milp.Solution) -> StoreBasket:
     spread over the lines that filled them)."""
     lines = {}
     for cid, li in basket.lines.items():
-        total = sol.line_totals.get(cid) if sol.assignment.get(cid) == basket.info.store_id else None
+        total = (
+            sol.line_totals.get(cid) if sol.assignment.get(cid) == basket.info.store_id else None
+        )
         if total is None or total == li.line_total:
             lines[cid] = li
             continue
         ratio = total / li.line_total if li.line_total else Decimal(1)
-        lines[cid] = li.model_copy(update={
-            "line_total": total,
-            "effective_unit_price": (li.effective_unit_price * ratio).quantize(Decimal("0.0001")),
-            "promo_applied": sol.units_in_bundles.get(cid, 0) > 0,
-            # The per-line "add N" hint is about this line alone; with a shared promo the
-            # suggestions are in Plan.promo_bundles.
-            "promo_add_qty": None,
-            "promo_add_saving": None,
-        })
+        lines[cid] = li.model_copy(
+            update={
+                "line_total": total,
+                "effective_unit_price": (li.effective_unit_price * ratio).quantize(
+                    Decimal("0.0001")
+                ),
+                "promo_applied": sol.units_in_bundles.get(cid, 0) > 0,
+                # The per-line "add N" hint is about this line alone; with a shared promo the
+                # suggestions are in Plan.promo_bundles.
+                "promo_add_qty": None,
+                "promo_add_saving": None,
+            }
+        )
     return StoreBasket(info=basket.info, lines=lines, missing=list(basket.missing))
 
 

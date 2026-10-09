@@ -42,18 +42,52 @@ def w(db, world: World) -> World:
     add_price(db, item, None, "6.80", "0.68", "100ml", noon(10))
     fid = db.execute(
         "INSERT INTO file_tracking (sha256, chain_id, kind, status) VALUES (%s, 't-c1', 'price',"
-        " 'quarantined') RETURNING id", ("a" * 64,),
+        " 'quarantined') RETURNING id",
+        ("a" * 64,),
     ).fetchone()[0]
     add_price(db, item, None, "1.00", "0.10", "100ml", noon(30), file_id=fid)
     world.promos["milk_sale"] = add_promo(
-        db, "t-c1", None, "H1", [item], "price", "5.50", description="חלב במבצע",
-        starts_at=noon(30), ends_at=noon(25))
-    db.execute("UPDATE promos SET raw = '{\"confidence\": 0.6}' WHERE id = %s", (world.promos["milk_sale"],))
+        db,
+        "t-c1",
+        None,
+        "H1",
+        [item],
+        "price",
+        "5.50",
+        description="חלב במבצע",
+        starts_at=noon(30),
+        ends_at=noon(25),
+    )
+    db.execute(
+        "UPDATE promos SET raw = '{\"confidence\": 0.6}' WHERE id = %s",
+        (world.promos["milk_sale"],),
+    )
     world.promos["milk_club"] = add_promo(
-        db, "t-c1", world.stores["home"], "H2", [item], "price", "5.00", club_only=True,
-        club_name="מועדון לקוחות", description="חלב למועדון", starts_at=noon(15), ends_at=noon(12))
-    add_promo(db, "t-c1", None, "H3", [item], "price", "5.00", description="ישן",
-              starts_at=noon(200), ends_at=noon(190))
+        db,
+        "t-c1",
+        world.stores["home"],
+        "H2",
+        [item],
+        "price",
+        "5.00",
+        club_only=True,
+        club_name="מועדון לקוחות",
+        description="חלב למועדון",
+        starts_at=noon(15),
+        ends_at=noon(12),
+    )
+    add_promo(
+        db,
+        "t-c1",
+        None,
+        "H3",
+        [item],
+        "price",
+        "5.00",
+        description="ישן",
+        starts_at=noon(200),
+        ends_at=noon(190),
+    )
     precompute_effective_prices(db, chains=world.chains)
     return world
 
@@ -87,7 +121,9 @@ def test_chain_base_series_and_promo_windows(client, w: World) -> None:
     assert resp["store_id"] is None and resp["item_id"] == w.items["milk3_c1_tnuva"]
     pts = {p["date"][:10]: p for p in resp["points"]}
     assert all(p["store_id"] is None for p in resp["points"])
-    assert D(pts[day(10)]["shelf_price"]) == D("6.80") and D(pts[day(0)]["shelf_price"]) == D("6.90")
+    assert D(pts[day(10)]["shelf_price"]) == D("6.80") and D(pts[day(0)]["shelf_price"]) == D(
+        "6.90"
+    )
     # Only the chain-wide promo inside the range (not the store's club promo, not the old one).
     assert [p["description"] for p in resp["promos"]] == ["חלב במבצע"]
     sale = resp["promos"][0]
@@ -153,8 +189,10 @@ def test_ninety_days_response_time(client, w: World) -> None:
 
 def test_history_carries_the_canonicals_arabic_name(client, db, w: World) -> None:
     assert get(client, w)["canonical_name_ar"] is None
-    db.execute("UPDATE canonical_products SET names_ar = %s WHERE id = %s",
-               (["حليب 3%", "حليب طازج 3%"], w.canon["milk3"]))
+    db.execute(
+        "UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+        (["حليب 3%", "حليب طازج 3%"], w.canon["milk3"]),
+    )
     resp = get(client, w)
     assert resp["canonical_name_ar"] == "حليب 3%"
     assert resp["display_name_he"] == "חלב תנובה 3% 1 ליטר"  # the item's own name, unchanged

@@ -65,7 +65,12 @@ def _invite_days() -> int:
 
 
 def _sharing_enabled() -> bool:
-    return os.environ.get("API_FAMILY_SHARING", "1").strip().lower() not in ("0", "false", "no", "off")
+    return os.environ.get("API_FAMILY_SHARING", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
 
 
 def _web_origin() -> str:
@@ -77,9 +82,12 @@ def _web_origin() -> str:
 
 
 def _owned(conn: psycopg.Connection, user: User, list_id: int) -> bool:
-    return conn.execute(
-        "SELECT 1 FROM lists WHERE id = %s AND user_id = %s", (list_id, user.id)
-    ).fetchone() is not None
+    return (
+        conn.execute(
+            "SELECT 1 FROM lists WHERE id = %s AND user_id = %s", (list_id, user.id)
+        ).fetchone()
+        is not None
+    )
 
 
 @router.post("/me/lists/{list_id}/share", response_model=schemas.ShareInvite, status_code=201)
@@ -93,8 +101,13 @@ def share_list(list_id: int, body: schemas.ShareRequest, uc: UserConn) -> schema
     conn.execute(
         "INSERT INTO list_shares (list_id, owner_id, role, invite_token, expires_at)"
         " VALUES (%s, %s, %s, %s, %s)",
-        (list_id, user.id, body.role, token_hash(token),
-         datetime.now(UTC) + timedelta(days=_invite_days())),
+        (
+            list_id,
+            user.id,
+            body.role,
+            token_hash(token),
+            datetime.now(UTC) + timedelta(days=_invite_days()),
+        ),
     )
     return schemas.ShareInvite(
         list_id=list_id, token=token, url=f"{_web_origin()}/lists/accept/{token}", role=body.role
@@ -105,20 +118,30 @@ def share_list(list_id: int, body: schemas.ShareRequest, uc: UserConn) -> schema
 def list_members(list_id: int, uc: UserConn) -> list[schemas.ListMember]:
     """The owner sees every invite and member; a member sees the owner and themselves."""
     user, conn = uc
-    owner = conn.execute("SELECT user_id, created_at FROM lists WHERE id = %s", (list_id,)).fetchone()
+    owner = conn.execute(
+        "SELECT user_id, created_at FROM lists WHERE id = %s", (list_id,)
+    ).fetchone()
     if owner is None:  # RLS: neither the owner nor a member
         raise HTTPException(status_code=404, detail="list not found")
-    out = [schemas.ListMember(user_id=str(owner[0]), role="editor", accepted_at=owner[1], is_owner=True)]
+    out = [
+        schemas.ListMember(
+            user_id=str(owner[0]), role="editor", accepted_at=owner[1], is_owner=True
+        )
+    ]
     for share_id, member_id, role, accepted_at in conn.execute(
         "SELECT id, member_id, role, accepted_at FROM list_shares WHERE list_id = %s"
         " AND (member_id IS NOT NULL OR expires_at IS NULL OR expires_at > now())"
         " ORDER BY accepted_at NULLS LAST, created_at, id",
         (list_id,),
     ).fetchall():
-        out.append(schemas.ListMember(
-            user_id=str(member_id) if member_id else None, role=role, accepted_at=accepted_at,
-            share_id=share_id,
-        ))
+        out.append(
+            schemas.ListMember(
+                user_id=str(member_id) if member_id else None,
+                role=role,
+                accepted_at=accepted_at,
+                share_id=share_id,
+            )
+        )
     return out
 
 

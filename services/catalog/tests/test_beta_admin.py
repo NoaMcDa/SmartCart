@@ -47,8 +47,10 @@ def member(db, code: str, segment: str) -> uuid.UUID:
         " ON CONFLICT DO NOTHING",
         (code, segment),
     )
-    db.execute("INSERT INTO beta_members (user_id, code, segment) VALUES (%s, %s, %s)",
-               (uid, code, segment))
+    db.execute(
+        "INSERT INTO beta_members (user_id, code, segment) VALUES (%s, %s, %s)",
+        (uid, code, segment),
+    )
     return uid
 
 
@@ -78,7 +80,9 @@ def test_web_origin_prefers_the_option_then_the_environment(monkeypatch) -> None
     monkeypatch.setenv("API_PUBLIC_WEB_URL", "https://smartcart.example/")
     assert web_origin() == "https://smartcart.example"
     assert web_origin("https://x.example/") == "https://x.example"
-    assert join_link("https://x.example/", "ABCDE-FGHJK") == "https://x.example/beta/join/ABCDE-FGHJK"
+    assert (
+        join_link("https://x.example/", "ABCDE-FGHJK") == "https://x.example/beta/join/ABCDE-FGHJK"
+    )
 
 
 def test_beta_invite_prints_codes_and_links_and_stores_them(db, connect, monkeypatch) -> None:
@@ -108,7 +112,9 @@ def test_beta_invite_options(db, connect) -> None:
     )  # fmt: skip
     assert r.exit_code == 0, r.output
     assert db.execute("SELECT max_uses, expires_at FROM beta_invites").fetchall() == [
-        (4, None), (4, None)]
+        (4, None),
+        (4, None),
+    ]
     assert "https://w.example/beta/join/" in r.stdout
     bad = CliRunner().invoke(cli.app, ["beta-invite", "--segment", "everyone"])
     assert bad.exit_code != 0
@@ -134,7 +140,9 @@ def test_beta_feedback_lists_text_with_segment_and_average(db, connect) -> None:
     ]:
         db.execute(
             "INSERT INTO beta_feedback (segment, rating, body, created_at)"
-            " VALUES (%s, %s, %s, coalesce(%s, now()))", (seg, rating, body, at))
+            " VALUES (%s, %s, %s, coalesce(%s, now()))",
+            (seg, rating, body, at),
+        )
     r = CliRunner().invoke(cli.app, ["beta-feedback", "--since", "2026-10-01"])
     assert r.exit_code == 0, r.output
     assert "kosher: 4.0 (n=2)" in r.stdout and "periphery: 1.0 (n=1)" in r.stdout
@@ -185,8 +193,13 @@ def test_segment_metrics_split_by_segment_with_sample_sizes(db) -> None:
 
 def test_window_applies_to_the_segment_numbers(db) -> None:
     k = member(db, "KOSH-11111", "kosher")
-    put(db, k, "substitutions_shown", {"flex_level": "close", "count": 400},
-        at=datetime(2026, 9, 1, tzinfo=UTC))
+    put(
+        db,
+        k,
+        "substitutions_shown",
+        {"flex_level": "close", "count": 400},
+        at=datetime(2026, 9, 1, tzinfo=UTC),
+    )
     put(db, k, "substitutions_shown", {"flex_level": "close", "count": 7})
     assert segment_metrics(db, date(2026, 10, 1))["kosher"]["rejection"]["close"]["shown"] == 7
     assert segment_metrics(db)["kosher"]["rejection"]["close"]["shown"] == 407

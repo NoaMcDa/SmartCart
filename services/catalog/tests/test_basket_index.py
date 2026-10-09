@@ -64,10 +64,14 @@ def test_ensure_index_writes_the_definition_and_keeps_stored_months(tmp_path) ->
     canonicals = rows_from_catalog(load_catalog(default_data_dir()))[1]
     first = bi.ensure_index(tmp_path, canonicals, NOW)
     assert first["months"] == [] and first["basket"]["item_count"] == 25
-    stored = bi.merge_month(first, bi.month_document("2026-10", SMALL, good_rows(), computed_at=NOW), NOW)
+    stored = bi.merge_month(
+        first, bi.month_document("2026-10", SMALL, good_rows(), computed_at=NOW), NOW
+    )
     (tmp_path / bi.INDEX_FILE).write_text(json.dumps(stored), encoding="utf-8")
     again = bi.ensure_index(tmp_path, canonicals, NOW + timedelta(days=1))
-    assert [m["month"] for m in again["months"]] == ["2026-10"]  # untouched when the basket is the same
+    assert [m["month"] for m in again["months"]] == [
+        "2026-10"
+    ]  # untouched when the basket is the same
 
 
 def test_committed_basket_definition_matches_the_code() -> None:
@@ -110,7 +114,10 @@ def test_a_chain_missing_items_has_no_total_and_is_not_ranked() -> None:
     assert a.total is None and a.missing == ("eggs-l", "tomato") and not a.complete
     doc = bi.month_document("2026-10", SMALL, rows, computed_at=NOW)
     assert doc["cheapest_chain_id"] is None and doc["spread_pct"] is None
-    assert doc["chains"][0]["complete"] is False and doc["chains"][0]["missing"] == ["eggs-l", "tomato"]
+    assert doc["chains"][0]["complete"] is False and doc["chains"][0]["missing"] == [
+        "eggs-l",
+        "tomato",
+    ]
 
 
 @pytest.mark.db
@@ -139,7 +146,9 @@ def test_month_from_seeded_effective_prices(db, prices: PriceWorld) -> None:
 
 
 def _doc(totals: dict[str, float | None], **kw) -> dict:
-    rows = [PriceRow("milk-fresh-3", c, c.upper(), 1, Decimal("1"), False, NOW, NOW) for c in totals]
+    rows = [
+        PriceRow("milk-fresh-3", c, c.upper(), 1, Decimal("1"), False, NOW, NOW) for c in totals
+    ]
     doc = bi.month_document("2026-10", SMALL, rows, computed_at=NOW)
     ranked = sorted((c, t) for c, t in totals.items() if t is not None)
     doc["chains"] = [
@@ -169,7 +178,9 @@ def test_checks_flag_missing_items_and_too_few_chains() -> None:
 
 
 def test_checks_flag_an_implausible_spread() -> None:
-    assert "implausible_spread" in codes(bi.run_checks(_doc({"a": 100.0, "b": 160.0}), None, now=NOW))
+    assert "implausible_spread" in codes(
+        bi.run_checks(_doc({"a": 100.0, "b": 160.0}), None, now=NOW)
+    )
     assert "implausible_spread" not in codes(
         bi.run_checks(_doc({"a": 100.0, "b": 126.0}), None, now=NOW)  # the verified 26% gap
     )
@@ -299,7 +310,10 @@ def test_cli_writes_the_index_and_the_report_and_refuses_to_publish_on_errors(
     blocked = CliRunner().invoke(app, args("2026-11", "--reviewed-by", "נועה"))
     assert blocked.exit_code == 1 and "implausible_change" in blocked.output
     months = json.loads((out_dir / bi.INDEX_FILE).read_text(encoding="utf-8"))["months"]
-    assert [(m["month"], m["status"]) for m in months] == [("2026-11", "draft"), ("2026-10", "published")]
+    assert [(m["month"], m["status"]) for m in months] == [
+        ("2026-11", "draft"),
+        ("2026-10", "published"),
+    ]
     accepted = CliRunner().invoke(
         app, args("2026-11", "--reviewed-by", "נועה", "--acknowledge", "implausible_change")
     )

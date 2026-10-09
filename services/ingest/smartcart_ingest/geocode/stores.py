@@ -142,9 +142,7 @@ def city_in_text(city: str | None, text: str) -> bool:
         return False
     padded = f" {normalize_name(text)} "
     variants = {city, *(part for part in re.split(r"\s*-\s*", city) if len(part.strip()) >= 3)}
-    return any(
-        (n := normalize_name(v)) and f" {n} " in padded for v in variants
-    )
+    return any((n := normalize_name(v)) and f" {n} " in padded for v in variants)
 
 
 def judge_result(
@@ -260,7 +258,9 @@ def geocode_stores(
         source = SOURCE_NOMINATIM
         if client is not None and not budget_spent:
             if locality is not None:
-                queries = [text for _expected, text in build_queries(store.address, locality.name_he)]
+                queries = [
+                    text for _expected, text in build_queries(store.address, locality.name_he)
+                ]
                 search: dict[str, str] = {}
             else:
                 queries = text_queries(store)
@@ -301,7 +301,9 @@ def geocode_stores(
             named = infer_by_name(store, localities)
             if named is not None:
                 new_rows.append(
-                    StoreGeocode(*key, named.lat, named.lon, "locality", SOURCE_NAME_MATCH, "", stamp)
+                    StoreGeocode(
+                        *key, named.lat, named.lon, "locality", SOURCE_NAME_MATCH, "", stamp
+                    )
                 )
                 stats.by_precision["locality"] += 1
                 stats.by_source[SOURCE_NAME_MATCH] += 1

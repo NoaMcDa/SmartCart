@@ -149,4 +149,6 @@ def test_no_ranking_query_selects_every_chain_column() -> None:
     """``SELECT * FROM chains`` would pull the handoff columns into ranking code."""
     for module in RANKING_MODULES:
         text = (PKG / module).read_text(encoding="utf-8")
-        assert not re.search(r"SELECT\s+\*\s+FROM\s+chains|chains\.\*|\bc\.\*", text, re.IGNORECASE), module
+        assert not re.search(
+            r"SELECT\s+\*\s+FROM\s+chains|chains\.\*|\bc\.\*", text, re.IGNORECASE
+        ), module

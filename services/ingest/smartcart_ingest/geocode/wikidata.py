@@ -73,26 +73,34 @@ SEARCH_TERMS: tuple[tuple[str, str], ...] = (
 # Items whose CBS locality code is well known: Tel Aviv-Yafo 5000, Jerusalem 3000, Haifa 4000. The
 # property that holds those exact values on those items is the CBS locality code, whatever it is
 # called. (If a Q-id here were wrong, that item simply matches nothing.)
-SIGNATURE_ITEMS: tuple[tuple[str, str], ...] = (("Q33935", "5000"), ("Q1218", "3000"), ("Q41621", "4000"))
+SIGNATURE_ITEMS: tuple[tuple[str, str], ...] = (
+    ("Q33935", "5000"),
+    ("Q1218", "3000"),
+    ("Q41621", "4000"),
+)
 SIGNATURE_QUERY = (
     "SELECT ?item ?prop ?label WHERE { VALUES (?item ?code) { "
     + " ".join(f'(wd:{q} "{c}")' for q, c in SIGNATURE_ITEMS)
     + " } ?item ?wdt ?v . FILTER(STR(?v) = ?code) "
-    "?prop wikibase:directClaim ?wdt ; rdfs:label ?label . FILTER(LANG(?label) = \"en\") }"
+    '?prop wikibase:directClaim ?wdt ; rdfs:label ?label . FILTER(LANG(?label) = "en") }'
 )
 
 
 def search_url(term: str, language: str) -> str:
-    return API + "?" + urllib.parse.urlencode(
-        {
-            "action": "wbsearchentities",
-            "type": "property",
-            "language": language,
-            "uselang": language,
-            "search": term,
-            "limit": 50,
-            "format": "json",
-        }
+    return (
+        API
+        + "?"
+        + urllib.parse.urlencode(
+            {
+                "action": "wbsearchentities",
+                "type": "property",
+                "language": language,
+                "uselang": language,
+                "search": term,
+                "limit": 50,
+                "format": "json",
+            }
+        )
     )
 
 
@@ -109,9 +117,16 @@ def score_search_hit(label: str, description: str) -> int:
     """How much a property looks like "Israeli locality code": needs Israel and a locality word."""
     text = f"{label} {description}".casefold()
     israel = "israel" in text or "ישראל" in text
-    place = any(w in text for w in ("locality", "localities", "settlement", "yishuv", "יישוב", "ישוב"))
+    place = any(
+        w in text for w in ("locality", "localities", "settlement", "yishuv", "יישוב", "ישוב")
+    )
     code = any(w in text for w in ("code", "identifier", "id", "סמל", "מזהה", "מספר"))
-    cbs = "central bureau of statistics" in text or "cbs" in text or "הלמ" in text or "לסטטיסטיקה" in text
+    cbs = (
+        "central bureau of statistics" in text
+        or "cbs" in text
+        or "הלמ" in text
+        or "לסטטיסטיקה" in text
+    )
     if not (israel and place):
         return 0
     return 4 + 2 * code + 2 * cbs
@@ -152,7 +167,10 @@ def discover_property(
         for pid, label, description in hits:
             score = score_search_hit(label, description)
             log(f"    {pid} | {label} | {description} | score {score}")
-            if score and (best_search is None or (score, -int(pid[1:])) > (best_search[0], -int(best_search[1][1:]))):
+            if score and (
+                best_search is None
+                or (score, -int(pid[1:])) > (best_search[0], -int(best_search[1][1:]))
+            ):
                 best_search = (score, pid)
     try:
         signature = parse_signature(fetch(sparql_url(SIGNATURE_QUERY)))
@@ -163,7 +181,9 @@ def discover_property(
         log(f"    signature {pid} | {label} | matches {n} of {len(SIGNATURE_ITEMS)} known codes")
     strong = [(n, pid) for pid, (_l, n) in signature.items() if n >= 2]
     if strong:
-        return max(strong, key=lambda t: (t[0], -int(t[1][1:])))[1], "signature (holds the known codes)"
+        return max(strong, key=lambda t: (t[0], -int(t[1][1:])))[
+            1
+        ], "signature (holds the known codes)"
     if best_search:
         return best_search[1], "search (description names Israel and localities)"
     try:
@@ -213,7 +233,13 @@ def parse_localities(
     ``duplicate_codes`` counts the extras. A point that is not ``Point(lon lat)`` or lies outside
     Israel's bounding box is dropped. A row needs a Hebrew label (``name_he``).
     """
-    skipped = {"no_code": 0, "bad_point": 0, "outside_israel": 0, "no_name": 0, "duplicate_codes": 0}
+    skipped = {
+        "no_code": 0,
+        "bad_point": 0,
+        "outside_israel": 0,
+        "no_name": 0,
+        "duplicate_codes": 0,
+    }
     best: dict[str, tuple[int, Locality]] = {}
     for row in payload.get("results", {}).get("bindings", []):
         code = normalize_code(row.get("code", {}).get("value"))

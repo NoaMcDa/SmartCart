@@ -28,12 +28,21 @@ def test_always_unverified_keys() -> None:
 def test_match_decision_confidence_bounds() -> None:
     with pytest.raises(ValidationError):
         MatchDecision(
-            item_id=1, canonical_id=1, flex_level="any_brand", confidence=1.5,
-            source="rule", needs_review=False,
+            item_id=1,
+            canonical_id=1,
+            flex_level="any_brand",
+            confidence=1.5,
+            source="rule",
+            needs_review=False,
         )
     d = MatchDecision(
-        item_id=1, canonical_id=None, flex_level=None, confidence=0, source="rule",
-        needs_review=False, reason="no candidates",
+        item_id=1,
+        canonical_id=None,
+        flex_level=None,
+        confidence=0,
+        source="rule",
+        needs_review=False,
+        reason="no candidates",
     )
     assert d.canonical_id is None
 

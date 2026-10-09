@@ -52,7 +52,9 @@ def main() -> int:
         from botocore.config import Config
         from botocore.exceptions import BotoCoreError, ClientError
     except ImportError:
-        print("boto3 is not installed. Run: uv run infra/smoke/bucket_roundtrip.py", file=sys.stderr)
+        print(
+            "boto3 is not installed. Run: uv run infra/smoke/bucket_roundtrip.py", file=sys.stderr
+        )
         return 2
 
     bucket = os.environ["S3_BUCKET"]

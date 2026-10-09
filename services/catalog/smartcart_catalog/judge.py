@@ -236,7 +236,9 @@ def name_guard(name: str, canonical: Any) -> tuple[list[str], list[str]]:
     soft: list[str] = []
     for head in sorted(DERIVED_HEADS):
         if _in_tokens(tokens, head) and not _has_stem(canon_tokens, head):
-            veto.append(f"name has {head!r} (a derived product), canonical is {canonical.display_name_he!r}")
+            veto.append(
+                f"name has {head!r} (a derived product), canonical is {canonical.display_name_he!r}"
+            )
             break
     for mod in sorted(FORM_MODIFIERS):
         if _in_tokens(tokens, mod) and not _has_stem(canon_tokens, mod):
@@ -245,7 +247,9 @@ def name_guard(name: str, canonical: Any) -> tuple[list[str], list[str]]:
     if root in _ANIMAL_ROOTS and "base" not in canonical.critical_attrs:
         for mod in sorted(PLANT_BASED_MODIFIERS):
             if _in_tokens(tokens, mod) and not _has_stem(canon_tokens, mod):
-                veto.append(f"name has {mod!r} (plant-based), canonical is {canonical.display_name_he!r}")
+                veto.append(
+                    f"name has {mod!r} (plant-based), canonical is {canonical.display_name_he!r}"
+                )
                 break
     if root != "baby":
         for mod in sorted(BABY_MODIFIERS):

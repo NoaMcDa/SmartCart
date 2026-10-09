@@ -75,7 +75,9 @@ def test_images_are_real_pictures_with_ink(images) -> None:
 def test_pictures_without_embedded_truth_carry_no_text_chunk(tmp_path) -> None:
     render.generate(tmp_path, 1, 1, 5, None, False)
     assert "sc-ocr" not in Image.open(tmp_path / "receipt_001.png").info
-    assert FakeProvider().read(prepare((tmp_path / "list_001.png").read_bytes()), "list").lines == []
+    assert (
+        FakeProvider().read(prepare((tmp_path / "list_001.png").read_bytes()), "list").lines == []
+    )
 
 
 def test_embedded_truth_is_what_the_fake_provider_reads(images) -> None:
@@ -88,12 +90,15 @@ def test_embedded_truth_is_what_the_fake_provider_reads(images) -> None:
 
 
 def _item(text, qty=None, price="1.00") -> ReceiptItem:
-    return ReceiptItem(text=text, raw=text, quantity=None if qty is None else D(qty), price=D(price))
+    return ReceiptItem(
+        text=text, raw=text, quantity=None if qty is None else D(qty), price=D(price)
+    )
 
 
 def test_score_receipt_counts_each_field() -> None:
     truth = {
-        "chain_id": "7290027600007", "total": "30.00",
+        "chain_id": "7290027600007",
+        "total": "30.00",
         "items": [
             {"printed": "חל' תנובה 3%", "canonical": "x", "quantity": "1", "price": "8.90"},
             {"printed": "לחם אחיד", "canonical": "y", "quantity": "2", "price": "14.00"},
@@ -101,12 +106,23 @@ def test_score_receipt_counts_each_field() -> None:
         ],
     }
     receipt = Receipt(
-        chain_id="7290027600007", total=D("30.00"),
-        items=[_item("חלב תנובה 3%", None, "8.90"), _item("לחם אחד", "2", "14.50"), _item("שקית", None, "0.30")],
+        chain_id="7290027600007",
+        total=D("30.00"),
+        items=[
+            _item("חלב תנובה 3%", None, "8.90"),
+            _item("לחם אחד", "2", "14.50"),
+            _item("שקית", None, "0.30"),
+        ],
     )
     t = score.score_receipt(truth, receipt)
-    assert (t.hit["item text"], t.total["item text"]) == (1, 3)  # the abbreviation is normalized; "לחם אחד" is not exact
-    assert (t.hit["quantity"], t.total["quantity"]) == (2, 3)  # milk (none = 1) and bread; bamba unread
+    assert (t.hit["item text"], t.total["item text"]) == (
+        1,
+        3,
+    )  # the abbreviation is normalized; "לחם אחד" is not exact
+    assert (t.hit["quantity"], t.total["quantity"]) == (
+        2,
+        3,
+    )  # milk (none = 1) and bread; bamba unread
     assert (t.hit["price"], t.total["price"]) == (1, 3)  # only the milk
     assert (t.hit["total"], t.hit["chain"]) == (1, 1)
     assert (t.hit["item recall (aligned)"], t.total["item recall (aligned)"]) == (2, 3)
@@ -121,20 +137,39 @@ def test_score_receipt_wrong_total_and_chain() -> None:
 
 def test_score_list_lines_and_rows() -> None:
     truth = {
-        "items": [{"written": "2 חלב טרי 3%", "canonical": "חלב טרי 3%"}, {"written": "לחם אחיד", "canonical": "לחם אחיד"}],
+        "items": [
+            {"written": "2 חלב טרי 3%", "canonical": "חלב טרי 3%"},
+            {"written": "לחם אחיד", "canonical": "לחם אחיד"},
+        ],
         "distractors": ["להתקשר לדני"],
     }
     assert score.score_list_lines(truth, ["2 חלב טרי 3%", "לחם אחד"]).hit["list line read"] == 1
     rows = [
-        {"name": "חלב טרי 3%", "input_text": "2 חלב טרי 3%", "needs_confirmation": False, "candidates": []},
-        {"name": "קמח לבן", "input_text": "להתקשר לדני", "needs_confirmation": True, "candidates": ["לחם אחיד"]},
+        {
+            "name": "חלב טרי 3%",
+            "input_text": "2 חלב טרי 3%",
+            "needs_confirmation": False,
+            "candidates": [],
+        },
+        {
+            "name": "קמח לבן",
+            "input_text": "להתקשר לדני",
+            "needs_confirmation": True,
+            "candidates": ["לחם אחיד"],
+        },
     ]
     t = score.score_rows(truth, rows)
     assert (t.hit["catalog recall"], t.total["catalog recall"]) == (1, 2)
-    assert (t.hit["catalog recall (top or candidate)"], t.total["catalog recall (top or candidate)"]) == (2, 2)
+    assert (
+        t.hit["catalog recall (top or candidate)"],
+        t.total["catalog recall (top or candidate)"],
+    ) == (2, 2)
     assert (t.hit["auto-accepted row precision"], t.total["auto-accepted row precision"]) == (1, 1)
     assert (t.hit["all-row precision"], t.total["all-row precision"]) == (1, 2)
-    assert (t.hit["distractors kept out of rows"], t.total["distractors kept out of rows"]) == (0, 1)
+    assert (t.hit["distractors kept out of rows"], t.total["distractors kept out of rows"]) == (
+        0,
+        1,
+    )
 
 
 def test_tally_rate_and_merge() -> None:
@@ -153,7 +188,11 @@ def test_evaluation_with_perfect_reading_scores_the_structurer_and_the_catalog(i
     evaluate.prepare_db(db)
     res = evaluate.evaluate(images, "fake", db, None)
     receipts, lists = res["_tallies"]
-    assert res["images"] == {"receipt": 12, "list": 6} and res["failures"] == 0 and res["provider"] == "fake"
+    assert (
+        res["images"] == {"receipt": 12, "list": 6}
+        and res["failures"] == 0
+        and res["provider"] == "fake"
+    )
     # Perfect OCR text: what is left is the structurer's own accuracy on these layouts.
     assert receipts.rate("chain") == 1.0
     assert receipts.rate("total") == 1.0
@@ -183,7 +222,9 @@ def test_every_drawn_digit_has_a_glyph() -> None:
     assert render.has_glyphs(hebrew, "אבגדהוזחטיכלמנסעפצקרשת")
     face = render.Face(hebrew, 26)
     draw = __import__("PIL.ImageDraw", fromlist=["Draw"]).Draw(Image.new("L", (10, 10)))
-    assert face.length(draw, "12.35") > 40 and face.length(draw, "שלום 5") > face.length(draw, "שלום")
+    assert face.length(draw, "12.35") > 40 and face.length(draw, "שלום 5") > face.length(
+        draw, "שלום"
+    )
 
 
 def test_a_box_is_not_a_glyph() -> None:

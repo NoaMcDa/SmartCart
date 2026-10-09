@@ -35,7 +35,9 @@ def photo(size=(320, 240)) -> Image.Image:
 
 
 class FakeClient:
-    def __init__(self, text="עגבניות\nחלב 3%\n", usage=(1600, 200), stop_reason="end_turn", error=None):
+    def __init__(
+        self, text="עגבניות\nחלב 3%\n", usage=(1600, 200), stop_reason="end_turn", error=None
+    ):
         self.calls: list[dict] = []
         self.messages = self
         self._text, self._usage, self._stop, self._error = text, usage, stop_reason, error
@@ -44,7 +46,10 @@ class FakeClient:
         self.calls.append(kwargs)
         if self._error:
             raise self._error
-        blocks = [SimpleNamespace(type="thinking", thinking="hmm"), SimpleNamespace(type="text", text=self._text)]
+        blocks = [
+            SimpleNamespace(type="thinking", thinking="hmm"),
+            SimpleNamespace(type="text", text=self._text),
+        ]
         return SimpleNamespace(
             content=blocks,
             stop_reason=self._stop,
@@ -133,7 +138,9 @@ def tesseract(monkeypatch):
     def fake_run(cmd, **kwargs):
         calls.append({"cmd": cmd, **kwargs})
         if "--list-langs" in cmd:
-            return SimpleNamespace(returncode=0, stdout="List of available languages (3):\neng\nheb\nosd\n", stderr="")
+            return SimpleNamespace(
+                returncode=0, stdout="List of available languages (3):\neng\nheb\nosd\n", stderr=""
+            )
         return SimpleNamespace(returncode=0, stdout=(TSV_HEADER + TSV_WORDS).encode(), stderr=b"")
 
     monkeypatch.setattr(providers.shutil, "which", lambda name: "/usr/bin/tesseract")
@@ -145,8 +152,7 @@ def tesseract(monkeypatch):
 
 TSV_HEADER = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"
 TSV_WORDS = (
-    "5\t1\t1\t1\t1\t1\t500\t10\t80\t26\t95\tלחם\n"
-    "5\t1\t1\t1\t1\t2\t40\t10\t70\t26\t95\t7.50\n"
+    "5\t1\t1\t1\t1\t1\t500\t10\t80\t26\t95\tלחם\n5\t1\t1\t1\t1\t2\t40\t10\t70\t26\t95\t7.50\n"
 )
 
 
@@ -154,7 +160,15 @@ TSV_WORDS = (
 def test_tesseract_reads_stdin_and_writes_no_file(tesseract, kind, psm) -> None:
     result = TesseractProvider().read(photo(), kind)
     first = tesseract[0]
-    assert first["cmd"][:7] == ["/usr/bin/tesseract", "stdin", "stdout", "-l", "heb+eng", "--psm", psm]
+    assert first["cmd"][:7] == [
+        "/usr/bin/tesseract",
+        "stdin",
+        "stdout",
+        "-l",
+        "heb+eng",
+        "--psm",
+        psm,
+    ]
     assert first["cmd"][-1] == "tsv"
     assert sniff(first["input"]) == "png"  # the image goes in through a pipe, in memory
     assert first["capture_output"] is True and first["timeout"] > 0
@@ -164,11 +178,17 @@ def test_tesseract_reads_stdin_and_writes_no_file(tesseract, kind, psm) -> None:
 
 def test_tesseract_failure_is_an_ocr_error(tesseract, monkeypatch) -> None:
     monkeypatch.setattr(
-        providers.subprocess, "run", lambda *a, **k: SimpleNamespace(returncode=1, stdout=b"", stderr=b"x")
+        providers.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=1, stdout=b"", stderr=b"x"),
     )
     with pytest.raises(OcrError):
         TesseractProvider().read(photo(), "list")
-    monkeypatch.setattr(providers.subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(subprocess.TimeoutExpired("t", 1)))
+    monkeypatch.setattr(
+        providers.subprocess,
+        "run",
+        lambda *a, **k: (_ for _ in ()).throw(subprocess.TimeoutExpired("t", 1)),
+    )
     with pytest.raises(OcrError):
         TesseractProvider().read(photo(), "list")
 
@@ -176,7 +196,8 @@ def test_tesseract_failure_is_an_ocr_error(tesseract, monkeypatch) -> None:
 def test_tesseract_needs_the_hebrew_data(monkeypatch) -> None:
     monkeypatch.setattr(providers.shutil, "which", lambda name: "/usr/bin/tesseract")
     monkeypatch.setattr(
-        providers.subprocess, "run",
+        providers.subprocess,
+        "run",
         lambda *a, **k: SimpleNamespace(returncode=0, stdout="eng\nosd\n", stderr=""),
     )
     providers.tesseract_has_hebrew.cache_clear()
@@ -195,7 +216,9 @@ def test_fake_reads_the_embedded_png_text_chunk() -> None:
 
     image = prepare(png_with_text(["חלב 3%", "לחם"]))
     result = FakeProvider().read(image, "list")
-    assert result.lines == ["חלב 3%", "לחם"] and result.provider == "fake" and result.est_cost_usd == 0
+    assert (
+        result.lines == ["חלב 3%", "לחם"] and result.provider == "fake" and result.est_cost_usd == 0
+    )
 
 
 def test_fake_registry_by_image_hash_and_default_empty() -> None:

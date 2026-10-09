@@ -80,7 +80,7 @@ def test_a_filling_makes_a_bar_a_different_bar(rx) -> None:
 def test_a_percent_sign_on_vinegar_or_beer_is_not_a_fat_percentage(rx) -> None:
     # Shufersal: "חומץ 9% 1 ליטר" is acidity; Mega: "בירה קרומבאכר חיטה 5" is alcohol
     assert extract(rx, "חומץ 9% 1 ליטר", SHUFERSAL).fat_pct is None
-    assert extract(rx, "חומץ היינץ 5% 946 מ\"ל", "7290873255550").fat_pct is None
+    assert extract(rx, 'חומץ היינץ 5% 946 מ"ל', "7290873255550").fat_pct is None
     assert str(extract(rx, "חמאה 60% אלוויר 200 גרם", SHUFERSAL).fat_pct) == "60"
 
 
@@ -89,7 +89,7 @@ def test_a_percent_sign_on_vinegar_or_beer_is_not_a_fat_percentage(rx) -> None:
     [
         ("תה ירוק יסמין 25 שקיקים", SHUFERSAL, "rice_jasmine"),  # Shufersal: tea, not jasmine rice
         ("סבון מוצק עץ התה של", "7290873255550", "tea_black"),  # soap with tea tree oil
-        ("בירה פאולנר חיטה 500 מ\"ל", SHUFERSAL, "lager_beer"),  # wheat beer is not a lager
+        ('בירה פאולנר חיטה 500 מ"ל', SHUFERSAL, "lager_beer"),  # wheat beer is not a lager
         ("קליק טבלת שוקו קראנץ", RAMI_LEVY, "chocolate_milk"),  # a chocolate bar, not milk
         ("לחמניה שמרים", "7290873255550", "dry_yeast"),  # a yeast roll
         ("גרעיני אבטיח גמבו ק", "7290803800003", "watermelon"),  # seeds

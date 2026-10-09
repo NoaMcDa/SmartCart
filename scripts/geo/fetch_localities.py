@@ -95,8 +95,14 @@ def from_ckan(args, retrieved: str):
             res = {"id": args.resource_id, "name": "", "format": "", "url": "", "package": "",
                    "datastore_active": True, "score": 0}  # fmt: skip
             try:
-                info = fetch(ckan._api(args.base_url, "resource_show", id=args.resource_id))["result"]
-                res.update(name=info.get("name", ""), url=info.get("url", ""), format=str(info.get("format", "")).upper())
+                info = fetch(ckan._api(args.base_url, "resource_show", id=args.resource_id))[
+                    "result"
+                ]
+                res.update(
+                    name=info.get("name", ""),
+                    url=info.get("url", ""),
+                    format=str(info.get("format", "")).upper(),
+                )
             except Exception as exc:  # noqa: BLE001
                 print(f"  resource_show {args.resource_id}: {exc}")
             candidates = [res]
@@ -112,10 +118,17 @@ def from_ckan(args, retrieved: str):
                 break
             attempts = []
             if c["url"]:
-                attempts.append(("file", lambda c=c: tables.read_records(get_bytes(c["url"], log=log))))
+                attempts.append(
+                    ("file", lambda c=c: tables.read_records(get_bytes(c["url"], log=log)))
+                )
             if c["datastore_active"]:
                 attempts.append(
-                    ("datastore", lambda c=c: list(ckan.datastore_records(c["id"], base=args.base_url, fetch=fetch)))
+                    (
+                        "datastore",
+                        lambda c=c: list(
+                            ckan.datastore_records(c["id"], base=args.base_url, fetch=fetch)
+                        ),
+                    )
                 )
             for how, read in attempts:
                 try:
@@ -124,13 +137,17 @@ def from_ckan(args, retrieved: str):
                     print(f"  ckan {how} {c['id']}: {type(exc).__name__}: {exc}")
                     continue
                 rows, skipped = localities_from_records(
-                    records, source=f"data.gov.il resource {c['id']} ({how})", retrieved_at=retrieved
+                    records,
+                    source=f"data.gov.il resource {c['id']} ({how})",
+                    retrieved_at=retrieved,
                 )
                 for pair_code, pair in names_from_records(records).items():
                     names.setdefault(pair_code, pair)
                 for r in rows:
                     by_code.setdefault(r.code, r)
-                print(f"  ckan {how} {c['id']}: {len(records)} records, {len(rows)} with coordinates; skipped {skipped}")
+                print(
+                    f"  ckan {how} {c['id']}: {len(records)} records, {len(rows)} with coordinates; skipped {skipped}"
+                )
                 if not rows and records:
                     print(f"  ckan {how} {c['id']} columns: {list(records[0])}")
                 if rows:
@@ -150,7 +167,10 @@ def from_wikidata(args, retrieved: str):
     def fetch(url: str):
         host_is_sparql = url.startswith(wikidata.ENDPOINT)
         return get_json(
-            url, accept=wikidata.ACCEPT if host_is_sparql else "application/json", timeout=120, log=log
+            url,
+            accept=wikidata.ACCEPT if host_is_sparql else "application/json",
+            timeout=120,
+            log=log,
         )
 
     rows: list[Locality] = []
@@ -181,7 +201,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--nominatim-for-missing", action="store_true")
     ap.add_argument("--needed-from", choices=["fixtures", "database", "none"], default="fixtures")
     ap.add_argument("--max-requests", type=int, default=400)
-    ap.add_argument("--cache", type=Path, default=REPO / "data" / "geo" / "cache" / "nominatim.jsonl")
+    ap.add_argument(
+        "--cache", type=Path, default=REPO / "data" / "geo" / "cache" / "nominatim.jsonl"
+    )
     args = ap.parse_args(argv)
 
     retrieved = datetime.now(UTC).strftime("%Y-%m-%d")

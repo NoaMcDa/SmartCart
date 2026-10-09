@@ -207,7 +207,9 @@ def md_table(header: list[str], rows: list[list[object]]) -> list[str]:
 
 def demote(markdown: str) -> str:
     """Headings one level down, so a pasted report sits under the dry run's own headings."""
-    return "\n".join(("#" + line) if line.startswith("#") else line for line in markdown.splitlines())
+    return "\n".join(
+        ("#" + line) if line.startswith("#") else line for line in markdown.splitlines()
+    )
 
 
 def details(summary: str, body: str) -> list[str]:
@@ -264,12 +266,22 @@ def render(
 
     add("# Phase 0 exit dry run")
     add("")
-    add("> **This is not the exit validation.** It is a rehearsal of issue #60 on the files we have")
-    add("> today: one real day of seven chains, trimmed to 200 price rows each, plus the synthetic set.")
-    add("> The exit needs fourteen consecutive nightly loads on the VPS (`phase-0-exit-report.md`),")
-    add("> and `phase-0-exit-report.md` stays **NO-GO**. Nothing here may be pasted into it as evidence.")
+    add(
+        "> **This is not the exit validation.** It is a rehearsal of issue #60 on the files we have"
+    )
+    add(
+        "> today: one real day of seven chains, trimmed to 200 price rows each, plus the synthetic set."
+    )
+    add(
+        "> The exit needs fourteen consecutive nightly loads on the VPS (`phase-0-exit-report.md`),"
+    )
+    add(
+        "> and `phase-0-exit-report.md` stays **NO-GO**. Nothing here may be pasted into it as evidence."
+    )
     add("")
-    add(f"Generated {today} from commit `{git_sha()}` by `scripts/exit_dry_run/run.sh` (re-run it to")
+    add(
+        f"Generated {today} from commit `{git_sha()}` by `scripts/exit_dry_run/run.sh` (re-run it to"
+    )
     add("refresh this file; the evidence blocks below are the generator's own output, not typed).")
     add("Labels follow `docs/README.md`: **measured** is read from the databases of this run,")
     add("**estimate** is a judgement, **derived** is reasoning from a measured value and the repo.")
@@ -309,7 +321,10 @@ def render(
             first_pass_that_sees(o.published_at) if o.kind != "stores" else "",
             o.schema or "?", o.status, ", ".join(o.gates) or "none",
         ])  # fmt: skip
-    L += md_table(["Chain", "Kind", "File", "Published (Israel)", "Pass", "Schema", "Status", "Gates failed"], rows)
+    L += md_table(
+        ["Chain", "Kind", "File", "Published (Israel)", "Pass", "Schema", "Status", "Gates failed"],
+        rows,
+    )
     add("")
     add("What the files contain (measured):")
     add("")
@@ -327,8 +342,10 @@ def render(
         rows,
     )  # fmt: skip
     add("")
-    add(f"Totals: {physical} physical and {online} online stores, **{with_coords} with coordinates**; "
-        f"{code_cities} of {with_city} stores have a numeric city. Sample stores:")
+    add(
+        f"Totals: {physical} physical and {online} online stores, **{with_coords} with coordinates**; "
+        f"{code_cities} of {with_city} stores have a numeric city. Sample stores:"
+    )
     add("")
     for f in facts:
         for code, name, city, address in f.sample_stores:
@@ -345,8 +362,10 @@ def render(
         f"({sum(c.successes for c in real_report.chains)} of "
         f"{len(real_report.chains) * real_report.window_days} chain-days), longest streak "
         f"{real_report.longest_streak} days.")  # fmt: skip
-    add(f"- The {len(present)} chains with a real file: "
-        f"**{real_report_seen.success_rate * 100:.1f}%**, streak {real_report_seen.longest_streak}.")
+    add(
+        f"- The {len(present)} chains with a real file: "
+        f"**{real_report_seen.success_rate * 100:.1f}%**, streak {real_report_seen.longest_streak}."
+    )
     missing = [c.chain.name for c in real_report.chains if not c.successes]
     add(f"- Chains with no loaded full file on the day: {', '.join(missing) or 'none'}.")
     add(f"- Stores: {real_report.physical_stores} physical, "
@@ -356,7 +375,10 @@ def render(
     add(f"- Promos: {sum(s.total for s in real_report.promo_stats)} parsed (the real set has no "
         "PromoFull file).")  # fmt: skip
     add("")
-    L += details("Generator output, real day, ten chains (verbatim)", demote(rep.render_markdown(real_report)))
+    L += details(
+        "Generator output, real day, ten chains (verbatim)",
+        demote(rep.render_markdown(real_report)),
+    )
     add("Basket query on the real database (`supabase/queries/basket_radius.sql`):")
     add("")
     add("- Barcodes sold by more than one chain in this sample: "
@@ -364,8 +386,10 @@ def render(
         + " (each chain's file is cut to 200 rows, so overlap here says little about the full "
         "catalogs; estimate).")  # fmt: skip
     if spot:
-        add(f"- Prices do come back for real items (spot check with `current_price`, barcodes "
-            f"{', '.join(f'`{b}`' for b in spot_barcodes)}):")
+        add(
+            f"- Prices do come back for real items (spot check with `current_price`, barcodes "
+            f"{', '.join(f'`{b}`' for b in spot_barcodes)}):"
+        )
         add("")
         L += md_table(["Barcode", "Item (as the chain names it)", "Chain", "Store", "Store name", "Price", "Valid from"],
                       [[b, n, c, sc, sn, p, f"{vf:%Y-%m-%d %H:%M}"] for b, n, c, sc, sn, p, vf in spot])  # fmt: skip
@@ -382,20 +406,28 @@ def render(
         "chains (measured on fixtures written by us).")  # fmt: skip
     add("")
     bad = Counter(o.status for o in synth_outcomes)
-    add(f"- Files: {len(synth_outcomes)}; " + ", ".join(f"{k} {v}" for k, v in sorted(bad.items())) + ".")
+    add(
+        f"- Files: {len(synth_outcomes)}; "
+        + ", ".join(f"{k} {v}" for k, v in sorted(bad.items()))
+        + "."
+    )
     add(f"- Window {SYNTH_START} to {SYNTH_END}: success rate **{synth_report.success_rate * 100:.1f}%**, "
         f"longest streak {synth_report.longest_streak} days, {len(synth_report.failed_files)} full "
         "files that did not load (listed by the generator with their reasons).")  # fmt: skip
     add(f"- Stores: {synth_stores[0]} physical, {synth_stores[1]} with coordinates.")
-    add(f"- Promos parsed for the main chains: {synth_promos}; the sampler gives up to "
-        f"{rep.PROMO_SAMPLE_SIZE} per chain with the raw description next to the structured fields.")
+    add(
+        f"- Promos parsed for the main chains: {synth_promos}; the sampler gives up to "
+        f"{rep.PROMO_SAMPLE_SIZE} per chain with the raw description next to the structured fields."
+    )
     if synth_basket_params is not None:
         add(f"- Basket: {len(synth_basket)} stores in {synth_basket_params['radius_m']:.0f} m of "
             f"({synth_basket_params['lat']:.4f}, {synth_basket_params['lon']:.4f}); "
             f"{sum(1 for b in synth_basket if b['is_complete'])} complete; missing items are listed "
             "per store, not dropped.")  # fmt: skip
     add("")
-    L += details("Generator output, synthetic window (verbatim)", demote(rep.render_markdown(synth_report)))
+    L += details(
+        "Generator output, synthetic window (verbatim)", demote(rep.render_markdown(synth_report))
+    )
     add("## 5. Which criteria can pass, and which cannot yet")
     add("")
     add("Criteria are those of issue #60 and `phase-0-exit-report.md`.")
@@ -499,12 +531,16 @@ def render(
     add("sudo systemctl start smartcart-ingest-full.service      # first full sync now")
     add("```")
     add("")
-    add("**Every day for 14 days** (a minute; the day is attributed by Israel date of `published_at`):")
+    add(
+        "**Every day for 14 days** (a minute; the day is attributed by Israel date of `published_at`):"
+    )
     add("")
     add("```bash")
     add("systemctl list-timers 'smartcart-*'")
-    add("sudo -u smartcart -H bash -c 'set -a; . /etc/smartcart/ingest.env; "
-        "/opt/smartcart/.venv/bin/smartcart-ingest status'")
+    add(
+        "sudo -u smartcart -H bash -c 'set -a; . /etc/smartcart/ingest.env; "
+        "/opt/smartcart/.venv/bin/smartcart-ingest status'"
+    )
     add("tail -n 100 /var/log/smartcart/ingest-full.log")
     add("```")
     add("")
@@ -520,10 +556,10 @@ def render(
     add("```bash")
     add("START=<first day> END=<last day>     # YYYY-MM-DD, inclusive, at least 14 days")
     add("BARCODES=<comma-separated barcodes>")
-    add("sudo -u smartcart -H env START=\"$START\" END=\"$END\" BARCODES=\"$BARCODES\" bash -c '")
+    add('sudo -u smartcart -H env START="$START" END="$END" BARCODES="$BARCODES" bash -c \'')
     add("  set -a; . /etc/smartcart/ingest.env; cd /opt/smartcart")
-    add("  .venv/bin/python -m smartcart_ingest.report --start \"$START\" --end \"$END\" \\")
-    add("    --basket-barcodes \"$BARCODES\" --lon 34.7818 --lat 32.0853 --radius-m 3000 \\")
+    add('  .venv/bin/python -m smartcart_ingest.report --start "$START" --end "$END" \\')
+    add('    --basket-barcodes "$BARCODES" --lon 34.7818 --lat 32.0853 --radius-m 3000 \\')
     add("    --out /var/lib/smartcart/phase-0-evidence.md'")
     add("cat /var/lib/smartcart/phase-0-evidence.md      # or copy it to your laptop with scp")
     add("```")
@@ -532,13 +568,17 @@ def render(
         "command and say so in the report: `--only-chains \"Shufersal,Rami Levy,Victory,"
         "Yeinot Bitan and Carrefour,Hazi Hinam,Tiv Taam,Osher Ad,Yohananof\"`.")  # fmt: skip
     add("")
-    add("Then paste the generated sections into `docs/phase-0-exit-report.md`, tick the promo "
-        "sample by hand, fill the exception plans, and make the go or no-go decision there.")
+    add(
+        "Then paste the generated sections into `docs/phase-0-exit-report.md`, tick the promo "
+        "sample by hand, fill the exception plans, and make the go or no-go decision there."
+    )
     add("")
     add("## 8. Reproduce this file")
     add("")
     add("```bash")
-    add("scripts/exit_dry_run/run.sh          # needs Postgres server binaries with PostGIS and pgvector")
+    add(
+        "scripts/exit_dry_run/run.sh          # needs Postgres server binaries with PostGIS and pgvector"
+    )
     add("```")
     add("")
     add("`run.sh` starts a throwaway cluster (or uses `DATABASE_URL` as a server), creates two "
@@ -583,8 +623,14 @@ def run(admin_dsn: str, out: Path, keep: bool = False) -> dict:
             synth_basket: list[dict] = []
             if center and synth_codes:
                 params = {"lon": center[0], "lat": center[1], "radius_m": 15000.0}
-                synth_basket = rep.run_basket_query(conn, synth_codes, center[0], center[1], 15000.0)
-                synth_report.basket_params = {"barcodes": synth_codes, **params, "include_online": False}
+                synth_basket = rep.run_basket_query(
+                    conn, synth_codes, center[0], center[1], 15000.0
+                )
+                synth_report.basket_params = {
+                    "barcodes": synth_codes,
+                    **params,
+                    "include_online": False,
+                }
                 synth_report.basket_rows = synth_basket
             synth_stores = (synth_report.physical_stores, synth_report.stores_with_coordinates)
 

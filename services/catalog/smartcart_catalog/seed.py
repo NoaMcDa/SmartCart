@@ -108,7 +108,12 @@ def parse_rules(doc: dict[str, Any]) -> tuple[dict[str, ProductTypeRule], dict[s
         if {"product_type", "category_path"} & (set(crit) | set(soft)):
             problems.append(f"{pt}: product_type/category_path are implicit, do not list them")
         unknown = set(entry) - {
-            "product_type", "critical_keys", "soft_keys", "keywords", "exclude", "implied"
+            "product_type",
+            "critical_keys",
+            "soft_keys",
+            "keywords",
+            "exclude",
+            "implied",
         }
         if unknown:
             problems.append(f"{pt}: unknown fields {sorted(unknown)}")
@@ -198,7 +203,9 @@ def parse_canonicals(
             )
         seen.setdefault(key, c.slug)
     if not MIN_CANONICALS <= len(out) <= MAX_CANONICALS:
-        problems.append(f"{len(out)} canonicals; the MVP range is {MIN_CANONICALS}-{MAX_CANONICALS}")
+        problems.append(
+            f"{len(out)} canonicals; the MVP range is {MIN_CANONICALS}-{MAX_CANONICALS}"
+        )
     if problems:
         raise SeedError("invalid canonicals:\n  " + "\n  ".join(problems))
     return tuple(out)
@@ -269,7 +276,9 @@ def _stated_attribute_problems(
         if others and value not in stated.flavor:
             out.append(f"{prefix} must state the flavor {value}")
         if value not in stated.flavor and stated.flavor & others:
-            out.append(f"{prefix} states {sorted(stated.flavor & others)}, the canonical is {value}")
+            out.append(
+                f"{prefix} states {sorted(stated.flavor & others)}, the canonical is {value}"
+            )
     return out
 
 
@@ -424,10 +433,17 @@ def seed_canonicals(
             "       EXCLUDED.reference_barcodes)"
             " RETURNING (xmax = 0)",
             {
-                "tax": c.taxonomy_id, "slug": c.slug, "name": c.display_name_he,
-                "pt": c.product_type, "bu": c.base_unit, "crit": _jsonb(c.critical_attrs),
-                "soft": _jsonb(c.soft_attrs), "mvp": c.is_mvp, "rank": c.rank,
-                "codes": list(c.reference_barcodes), "names_ar": list(c.names_ar),
+                "tax": c.taxonomy_id,
+                "slug": c.slug,
+                "name": c.display_name_he,
+                "pt": c.product_type,
+                "bu": c.base_unit,
+                "crit": _jsonb(c.critical_attrs),
+                "soft": _jsonb(c.soft_attrs),
+                "mvp": c.is_mvp,
+                "rank": c.rank,
+                "codes": list(c.reference_barcodes),
+                "names_ar": list(c.names_ar),
                 # a file entry without the key leaves the stored barcodes as they are
                 "has_codes": "reference_barcodes" in c.model_fields_set,
             },

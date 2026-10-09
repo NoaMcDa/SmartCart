@@ -86,7 +86,9 @@ def test_precision_counts_unsure_separately() -> None:
     assert LevelStats(unsure=3).precision is None
 
 
-def test_the_csv_says_it_is_a_machine_audit_and_has_the_documented_columns(report, tmp_path) -> None:
+def test_the_csv_says_it_is_a_machine_audit_and_has_the_documented_columns(
+    report, tmp_path
+) -> None:
     out = tmp_path / "real.csv"
     write_csv(report, out)
     text = out.read_text(encoding="utf-8-sig")
@@ -133,7 +135,9 @@ def test_verdict_file_is_valid_and_labeled_as_a_machine_audit() -> None:
 
 def test_bad_verdict_is_rejected(tmp_path) -> None:
     bad = tmp_path / "v.csv"
-    bad.write_text("item_key,canonical_slug,verdict,reason\nx:1,tomato,maybe,why\n", encoding="utf-8")
+    bad.write_text(
+        "item_key,canonical_slug,verdict,reason\nx:1,tomato,maybe,why\n", encoding="utf-8"
+    )
     with pytest.raises(ValueError, match="verdict must be one of"):
         load_verdicts(bad)
 
@@ -148,7 +152,9 @@ def test_cli_audit_real_writes_the_file_and_prints_precision(tmp_path) -> None:
 
 
 def test_cli_rejects_a_bad_date(tmp_path) -> None:
-    result = CliRunner().invoke(app, ["audit-real", "--date", "yesterday", "--out", str(tmp_path / "x.csv")])
+    result = CliRunner().invoke(
+        app, ["audit-real", "--date", "yesterday", "--out", str(tmp_path / "x.csv")]
+    )
     assert result.exit_code != 0
 
 

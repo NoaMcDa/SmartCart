@@ -87,7 +87,9 @@ def get_json(
     try:
         return json.loads(body)
     except json.JSONDecodeError as exc:
-        raise HttpFailure(status, f"HTTP {status} but the body is not JSON: {body[:120]!r}") from exc
+        raise HttpFailure(
+            status, f"HTTP {status} but the body is not JSON: {body[:120]!r}"
+        ) from exc
 
 
 def get_bytes(

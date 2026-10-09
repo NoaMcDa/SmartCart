@@ -206,16 +206,17 @@ def _vector(conn: psycopg.Connection, q: str, k: int, lang: str | None = None) -
             "   FROM canonical_name_embeddings AS n, qv"
             "   WHERE n.lang = 'ar' AND n.embedding_model = %(model)s"
             "   GROUP BY n.canonical_id ORDER BY s DESC LIMIT %(k)s),"
-            if lang == "ar" else ""
-        ) +
-        " via_items AS ("
+            if lang == "ar"
+            else ""
+        )
+        + " via_items AS ("
         "   SELECT ic.canonical_id, max(n.s) AS s FROM near_items AS n"
         "   JOIN item_canonical AS ic ON ic.item_id = n.item_id"
         "   WHERE ic.flex_level IN ('exact', 'any_brand') AND NOT ic.human_rejected"
         "     AND NOT ic.needs_review GROUP BY ic.canonical_id)"
         " SELECT canonical_id, max(s) AS s FROM (SELECT * FROM direct UNION ALL"
-        + ("   SELECT * FROM names_ar UNION ALL" if lang == "ar" else "") +
-        "   SELECT * FROM via_items) AS u"
+        + ("   SELECT * FROM names_ar UNION ALL" if lang == "ar" else "")
+        + "   SELECT * FROM via_items) AS u"
         " WHERE s >= %(min)s GROUP BY canonical_id ORDER BY s DESC, canonical_id LIMIT %(k)s",
         {"v": vec, "k": k, "k4": k * 4, "min": VECTOR_MIN, "model": embedder.model_name},
     ).fetchall()
@@ -268,7 +269,13 @@ def hybrid_search(
         h.specificity = round(max(h.specificity_by.values()), 6)
     ordered = sorted(
         hits.values(),
-        key=lambda h: (-h.rrf, -h.confidence, -h.specificity, h.basket_rank if h.basket_rank is not None else 1 << 30, h.canonical_id),
+        key=lambda h: (
+            -h.rrf,
+            -h.confidence,
+            -h.specificity,
+            h.basket_rank if h.basket_rank is not None else 1 << 30,
+            h.canonical_id,
+        ),
     )[:limit]
     paths = category_paths(conn, {h.taxonomy_id for h in ordered})
     for h in ordered:
@@ -356,7 +363,9 @@ def _ar_trigram(conn: psycopg.Connection, q: str, k: int) -> Ranked:
     conn.execute(
         "SELECT set_config('pg_trgm.word_similarity_threshold', %s, true)", (str(TRIGRAM_MIN),)
     )
-    cond = " OR ".join(f"%(f{i})s <%% canonical_names_ar_norm(c.names_ar)" for i in range(len(forms)))
+    cond = " OR ".join(
+        f"%(f{i})s <%% canonical_names_ar_norm(c.names_ar)" for i in range(len(forms))
+    )
     params: dict = {f"f{i}": f for i, f in enumerate(forms)} | {"k": k, "forms": forms}
     rows = conn.execute(
         "SELECT id, ws, s, name FROM ("
@@ -447,9 +456,7 @@ def _ar_share(words: Sequence[str], name: str) -> ArShare:
                 elif strict:
                     ok = any(v == nf for v in ar_variants(w) for nf in _name_forms(nw))
                 else:
-                    ok = any(
-                        _prefix_match(v, nf) for v in ar_variants(w) for nf in _name_forms(nw)
-                    )
+                    ok = any(_prefix_match(v, nf) for v in ar_variants(w) for nf in _name_forms(nw))
                     weight = PREFIX_WEIGHT
                 if ok:
                     found = j
@@ -505,9 +512,7 @@ def _vector_ar(conn: psycopg.Connection, q: str, k: int) -> Ranked:
 _RETRIEVE_AR = {"trigram": _ar_trigram, "fts": _ar_fts, "vector": _vector_ar}
 
 
-def _hard_checks(
-    conn: psycopg.Connection, q: str, meta: dict[int, tuple]
-) -> dict[int, list[str]]:
+def _hard_checks(conn: psycopg.Connection, q: str, meta: dict[int, tuple]) -> dict[int, list[str]]:
     """canonical_id -> the critical attributes of that canonical the query contradicts."""
     attrs = ar_attributes(_ar_query(q))
     if not (attrs.fat_pct or attrs.state or attrs.base or attrs.flavor):
@@ -560,8 +565,16 @@ def _hybrid_search_ar(
             m = meta[cid]
             h = hits.setdefault(
                 cid,
-                Hit(cid, m[1], m[2], m[3], m[4], display_name_ar=m[7][0] if m[7] else None,
-                    names_ar=list(m[7]), critical_attrs=m[6]),
+                Hit(
+                    cid,
+                    m[1],
+                    m[2],
+                    m[3],
+                    m[4],
+                    display_name_ar=m[7][0] if m[7] else None,
+                    names_ar=list(m[7]),
+                    critical_attrs=m[6],
+                ),
             )
             h.ranks[name] = pos
             h.similarity[name] = max(0.0, min(1.0, sim))
@@ -585,7 +598,13 @@ def _hybrid_search_ar(
         h.confidence = round(conf, 6)
     ordered = sorted(
         hits.values(),
-        key=lambda h: (-h.rrf, -h.confidence, -h.specificity, h.basket_rank if h.basket_rank is not None else 1 << 30, h.canonical_id),
+        key=lambda h: (
+            -h.rrf,
+            -h.confidence,
+            -h.specificity,
+            h.basket_rank if h.basket_rank is not None else 1 << 30,
+            h.canonical_id,
+        ),
     )[:limit]
     paths = category_paths(conn, {h.taxonomy_id for h in ordered})
     for h in ordered:
@@ -601,7 +620,9 @@ def _ar_caps(conf: float, words: Sequence[str], names: Sequence[str]) -> float:
     for name in names:
         sh = _ar_share(words, normalize_ar(name))
         if best is None or (sh.share, sh.coverage, sh.in_order) > (
-            best.share, best.coverage, best.in_order
+            best.share,
+            best.coverage,
+            best.in_order,
         ):
             best = sh
     if best is None:

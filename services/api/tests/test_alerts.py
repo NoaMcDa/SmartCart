@@ -51,31 +51,44 @@ def users(client, db) -> tuple[uuid.UUID, uuid.UUID]:
     a, b = uuid.uuid4(), uuid.uuid4()
     db.execute("INSERT INTO auth.users (id) VALUES (%s), (%s)", (a, b))
     for uid, clubs in ((a, []), (b, ["רשת אחת"])):
-        r = client.put("/me/profile", headers=h(uid), json={
-            "neighborhood_lat": ORIGIN[1], "neighborhood_lon": ORIGIN[0], "consent_location": True,
-            "clubs": clubs,
-        })
+        r = client.put(
+            "/me/profile",
+            headers=h(uid),
+            json={
+                "neighborhood_lat": ORIGIN[1],
+                "neighborhood_lon": ORIGIN[0],
+                "consent_location": True,
+                "clubs": clubs,
+            },
+        )
         assert r.status_code == 200, r.text
     return a, b
 
 
 def alert(client, uid, canonical_id: int, threshold: str, **kw) -> dict:
-    r = client.post("/me/alerts", headers=h(uid), json={
-        "canonical_id": canonical_id, "threshold_unit_price": threshold, **kw})
+    r = client.post(
+        "/me/alerts",
+        headers=h(uid),
+        json={"canonical_id": canonical_id, "threshold_unit_price": threshold, **kw},
+    )
     assert r.status_code == 201, r.text
     return r.json()
 
 
 def subscribe(client, uid, endpoint: str) -> None:
-    r = client.post("/me/push-subscriptions", headers=h(uid), json={
-        "endpoint": endpoint, "p256dh": "BPkey", "auth": "authkey", "user_agent": "test"})
+    r = client.post(
+        "/me/push-subscriptions",
+        headers=h(uid),
+        json={"endpoint": endpoint, "p256dh": "BPkey", "auth": "authkey", "user_agent": "test"},
+    )
     assert r.status_code == 201, r.text
 
 
 def deliveries(db, alert_id: int) -> list[tuple]:
     return db.execute(
         "SELECT store_id, item_id, unit_price, channel FROM alert_deliveries WHERE alert_id = %s"
-        " ORDER BY id", (alert_id,),
+        " ORDER BY id",
+        (alert_id,),
     ).fetchall()
 
 
@@ -85,15 +98,24 @@ def deliveries(db, alert_id: int) -> list[tuple]:
 def test_create_list_edit_pause_delete(client, db, w: World, users) -> None:
     a, b = users
     created = alert(client, a, w.canon["eggs"], "1.00", flex_level="exact", radius_m=3000)
-    assert created["flex_level"] == "exact" and created["active"] and created["last_fired_at"] is None
-    loc = db.execute("SELECT neighborhood_lat, neighborhood_lon FROM price_alerts WHERE id = %s",
-                     (created["id"],)).fetchone()
+    assert (
+        created["flex_level"] == "exact" and created["active"] and created["last_fired_at"] is None
+    )
+    loc = db.execute(
+        "SELECT neighborhood_lat, neighborhood_lon FROM price_alerts WHERE id = %s",
+        (created["id"],),
+    ).fetchone()
     assert (float(loc[0]), float(loc[1])) == (round(ORIGIN[1], 3), round(ORIGIN[0], 3))
     assert [x["id"] for x in client.get("/me/alerts", headers=h(a)).json()] == [created["id"]]
     assert client.get("/me/alerts", headers=h(b)).json() == []  # RLS
 
-    body = {"canonical_id": w.canon["eggs"], "threshold_unit_price": "0.90", "flex_level": "close",
-            "radius_m": 5000, "active": False}
+    body = {
+        "canonical_id": w.canon["eggs"],
+        "threshold_unit_price": "0.90",
+        "flex_level": "close",
+        "radius_m": 5000,
+        "active": False,
+    }
     r = client.put(f"/me/alerts/{created['id']}", headers=h(a), json=body)
     assert r.status_code == 200 and not r.json()["active"] and r.json()["flex_level"] == "close"
     assert client.put(f"/me/alerts/{created['id']}", headers=h(b), json=body).status_code == 404
@@ -102,14 +124,24 @@ def test_create_list_edit_pause_delete(client, db, w: World, users) -> None:
     assert client.get("/me/alerts", headers=h(a)).json() == []
 
 
-def test_alert_needs_location_product_and_respects_the_free_limit(client, db, w, users, monkeypatch) -> None:
+def test_alert_needs_location_product_and_respects_the_free_limit(
+    client, db, w, users, monkeypatch
+) -> None:
     a, _ = users
     stranger = uuid.uuid4()
     db.execute("INSERT INTO auth.users (id) VALUES (%s)", (stranger,))
     body = {"canonical_id": w.canon["eggs"], "threshold_unit_price": "1.00"}
     assert client.post("/me/alerts", headers=h(stranger), json=body).status_code == 422
-    assert client.post("/me/alerts", headers=h(a), json={**body, "canonical_id": 999999}).status_code == 404
-    assert client.post("/me/alerts", headers=h(a), json={**body, "threshold_unit_price": 0}).status_code == 422
+    assert (
+        client.post("/me/alerts", headers=h(a), json={**body, "canonical_id": 999999}).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            "/me/alerts", headers=h(a), json={**body, "threshold_unit_price": 0}
+        ).status_code
+        == 422
+    )
     assert client.post("/me/alerts", json=body).status_code == 401
     monkeypatch.setenv("API_ALERTS_FREE_LIMIT", "1")
     alert(client, a, w.canon["eggs"], "1.00")
@@ -119,15 +151,22 @@ def test_alert_needs_location_product_and_respects_the_free_limit(client, db, w,
 def test_push_subscription_upsert_by_endpoint(client, db, users) -> None:
     a, b = users
     subscribe(client, a, "https://push.example/1")
-    r = client.post("/me/push-subscriptions", headers=h(a), json={
-        "endpoint": "https://push.example/1", "p256dh": "new", "auth": "new2"})
+    r = client.post(
+        "/me/push-subscriptions",
+        headers=h(a),
+        json={"endpoint": "https://push.example/1", "p256dh": "new", "auth": "new2"},
+    )
     assert r.status_code == 201
     rows = db.execute("SELECT user_id, p256dh FROM push_subscriptions").fetchall()
     assert rows == [(a, "new")]
     subscribe(client, b, "https://push.example/1")  # the device switched accounts
     assert db.execute("SELECT user_id FROM push_subscriptions").fetchall() == [(b,)]
-    r = client.request("DELETE", "/me/push-subscriptions", headers=h(b),
-                       params={"endpoint": "https://push.example/1"})
+    r = client.request(
+        "DELETE",
+        "/me/push-subscriptions",
+        headers=h(b),
+        params={"endpoint": "https://push.example/1"},
+    )
     assert r.status_code == 204
     assert db.execute("SELECT count(*) FROM push_subscriptions").fetchone()[0] == 0
 
@@ -144,20 +183,24 @@ def test_club_promo_fires_only_for_members(client, db, w: World, users) -> None:
     result = evaluate_alerts(db, sender)
     assert result.alerts_checked == 2 and result.fired == 1 and result.pushes_sent == 1
     assert deliveries(db, plain["id"]) == []
-    (store, item, price, channel), = deliveries(db, member["id"])
+    ((store, item, price, channel),) = deliveries(db, member["id"])
     assert store == w.stores["home"] and item == w.items["eggs_c1"]
     assert price == D("0.8250") and channel == "push"
     target, payload = sender.sent[0]
     assert target.endpoint == "https://push.example/b"
-    assert payload["url"] == f"/product/{w.canon['eggs']}" and payload["store_id"] == w.stores["home"]
+    assert (
+        payload["url"] == f"/product/{w.canon['eggs']}" and payload["store_id"] == w.stores["home"]
+    )
     assert "המחיר הקובע הוא בקופה" in payload["body"] and "₪ 0.83" in payload["body"]
     assert "מועדון לקוחות" in payload["body"] and payload["price_valid_from"]
 
 
 def test_push_payload_carries_the_arabic_product_name(client, db, w: World, users) -> None:
     a, _ = users
-    db.execute("UPDATE canonical_products SET names_ar = %s WHERE id = %s",
-               (["بيض", "بيض طازج"], w.canon["eggs"]))
+    db.execute(
+        "UPDATE canonical_products SET names_ar = %s WHERE id = %s",
+        (["بيض", "بيض طازج"], w.canon["eggs"]),
+    )
     alert(client, a, w.canon["eggs"], "1.20")
     alert(client, a, w.canon["milk3"], "9.00")
     subscribe(client, a, "https://push.example/a")
@@ -176,19 +219,35 @@ def test_seeded_drop_fires_once_then_deduplicates(client, db, w: World, users) -
     sender = FakeSender()
     assert evaluate_alerts(db, sender).fired == 0
     # Store A drops the eggs to 10.80 (0.90 per egg).
-    add_price(db, w.items["eggs_c1"], w.stores["a"], "10.80", None, None,
-              datetime.now(UTC) - timedelta(hours=1))
+    add_price(
+        db,
+        w.items["eggs_c1"],
+        w.stores["a"],
+        "10.80",
+        None,
+        None,
+        datetime.now(UTC) - timedelta(hours=1),
+    )
     precompute_effective_prices(db, chains=w.chains)
     now = datetime.now(UTC)
     assert evaluate_alerts(db, sender, now=now).fired == 1
-    assert deliveries(db, a_alert["id"]) == [(w.stores["a"], w.items["eggs_c1"], D("0.9000"), "push")]
+    assert deliveries(db, a_alert["id"]) == [
+        (w.stores["a"], w.items["eggs_c1"], D("0.9000"), "push")
+    ]
     # Same day: not again. A day later, the same drop: not again either.
     assert evaluate_alerts(db, sender, now=now + timedelta(hours=1)).deduplicated == 1
     assert evaluate_alerts(db, sender, now=now + timedelta(hours=25)).fired == 0
     assert len(sender.sent) == 1
     # A further drop a day later notifies again.
-    add_price(db, w.items["eggs_c1"], w.stores["a"], "9.60", None, None,
-              datetime.now(UTC) - timedelta(minutes=30))
+    add_price(
+        db,
+        w.items["eggs_c1"],
+        w.stores["a"],
+        "9.60",
+        None,
+        None,
+        datetime.now(UTC) - timedelta(minutes=30),
+    )
     precompute_effective_prices(db, chains=w.chains)
     assert evaluate_alerts(db, sender, now=now + timedelta(hours=26)).fired == 1
     assert deliveries(db, a_alert["id"])[-1][2] == D("0.8000") and len(sender.sent) == 2
@@ -205,8 +264,12 @@ def test_flexibility_level_and_radius_are_respected(client, db, w: World, users)
     result = evaluate_alerts(db, None)  # no VAPID keys: logged, not pushed
     assert result.alerts_checked == 3 and result.fired == 2 and result.pushes_sent == 0
     assert deliveries(db, exact["id"]) == []  # Tnuva at home is 0.69
-    assert deliveries(db, anyb["id"]) == [(w.stores["home"], w.items["milk3_c1_private"], D("0.6200"), "log")]
-    assert deliveries(db, wide["id"]) == [(w.stores["a"], w.items["milk3_c1_tnuva"], D("0.5900"), "log")]
+    assert deliveries(db, anyb["id"]) == [
+        (w.stores["home"], w.items["milk3_c1_private"], D("0.6200"), "log")
+    ]
+    assert deliveries(db, wide["id"]) == [
+        (w.stores["a"], w.items["milk3_c1_tnuva"], D("0.5900"), "log")
+    ]
     assert deliveries(db, paused["id"]) == []
 
 
@@ -217,8 +280,12 @@ def test_gone_subscriptions_are_removed(client, db, w: World, users) -> None:
         subscribe(client, b, f"https://push.example/{n}")
     sender = FakeSender({"https://push.example/1": 410, "https://push.example/2": 500})
     result = evaluate_alerts(db, sender)
-    assert result.pushes_sent == 1 and result.subscriptions_removed == 1 and result.push_failures == 1
-    left = [r[0] for r in db.execute("SELECT endpoint FROM push_subscriptions ORDER BY id").fetchall()]
+    assert (
+        result.pushes_sent == 1 and result.subscriptions_removed == 1 and result.push_failures == 1
+    )
+    left = [
+        r[0] for r in db.execute("SELECT endpoint FROM push_subscriptions ORDER BY id").fetchall()
+    ]
     assert left == ["https://push.example/2", "https://push.example/3"]
 
 
@@ -262,7 +329,9 @@ def test_web_push_sender(monkeypatch) -> None:
     monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
     target = PushTarget(1, "https://push.example/ok", "p", "a")
     assert sender(target, {"title": "ירידת מחיר"}) == 201
-    assert calls[0]["vapid_private_key"] == "priv" and calls[0]["vapid_claims"] == {"sub": "mailto:team@example.com"}
+    assert calls[0]["vapid_private_key"] == "priv" and calls[0]["vapid_claims"] == {
+        "sub": "mailto:team@example.com"
+    }
     assert json.loads(calls[0]["data"]) == {"title": "ירידת מחיר"}
     assert calls[0]["subscription_info"]["keys"] == {"p256dh": "p", "auth": "a"}
     assert sender(PushTarget(2, "https://push.example/gone", "p", "a"), {}) == 410

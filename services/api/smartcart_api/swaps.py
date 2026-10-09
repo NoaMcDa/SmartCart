@@ -81,7 +81,9 @@ def suggest_swaps(
 
     attrs = _attributes(conn, {li.item_id for li in alt_lines.values()}, set(wanted))
     best: dict[int, schemas.SwapSuggestion] = {}
-    for (cid, alt), li in sorted(alt_lines.items(), key=lambda kv: (kv[0][0], FLEX_ORDER[kv[0][1]])):
+    for (cid, alt), li in sorted(
+        alt_lines.items(), key=lambda kv: (kv[0][0], FLEX_ORDER[kv[0][1]])
+    ):
         cur = current.lines[cid]
         if li.item_id == cur.item_id:
             continue

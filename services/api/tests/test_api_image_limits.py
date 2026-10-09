@@ -29,7 +29,10 @@ def fake():
 
 def send(client, data: bytes, content_type: str = "image/png", kind: str = "list"):
     return client.post(
-        "/parse-image", data={"kind": kind}, files={"image": ("x", data, content_type)}, headers=CONSENT
+        "/parse-image",
+        data={"kind": kind},
+        files={"image": ("x", data, content_type)},
+        headers=CONSENT,
     )
 
 
@@ -62,7 +65,13 @@ def test_sniff_by_magic_bytes() -> None:
 
 @pytest.mark.db
 @pytest.mark.parametrize(
-    "payload", [b"GIF89a" + b"\x00" * 64, b"%PDF-1.7\n" + b"x" * 64, b"<html>hi</html>", b"MZ\x90\x00" + b"\x00" * 64]
+    "payload",
+    [
+        b"GIF89a" + b"\x00" * 64,
+        b"%PDF-1.7\n" + b"x" * 64,
+        b"<html>hi</html>",
+        b"MZ\x90\x00" + b"\x00" * 64,
+    ],
 )
 def test_other_formats_are_415_whatever_the_client_says(client, fake, payload) -> None:
     r = send(client, payload, content_type="image/jpeg")
@@ -96,7 +105,9 @@ def test_a_corrupt_image_with_a_valid_signature_is_422(client, fake) -> None:
 
 @pytest.mark.db
 def test_an_image_over_8_mb_is_413(client, fake) -> None:
-    payload = b"\x89PNG\r\n\x1a\n" + b"\x00" * MAX_BYTES  # a signature is enough to reach the size check
+    payload = (
+        b"\x89PNG\r\n\x1a\n" + b"\x00" * MAX_BYTES
+    )  # a signature is enough to reach the size check
     r = send(client, payload)
     assert r.status_code == 413
     assert fake.calls == 0
@@ -112,8 +123,8 @@ def test_a_much_larger_body_is_cut_off_by_content_length(client, fake) -> None:
 def test_a_chunked_body_without_content_length_is_cut_off_while_streaming(client, fake) -> None:
     boundary = "sc-boundary"
     head = (
-        f"--{boundary}\r\nContent-Disposition: form-data; name=\"kind\"\r\n\r\nlist\r\n"
-        f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"a.jpg\"\r\n"
+        f'--{boundary}\r\nContent-Disposition: form-data; name="kind"\r\n\r\nlist\r\n'
+        f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="a.jpg"\r\n'
         "Content-Type: image/jpeg\r\n\r\n"
     ).encode()
     sent = 0
@@ -139,7 +150,12 @@ def png_header(width: int, height: int) -> bytes:
         return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data))
 
     ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(b"\x00")) + chunk(b"IEND", b"")
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", ihdr)
+        + chunk(b"IDAT", zlib.compress(b"\x00"))
+        + chunk(b"IEND", b"")
+    )
 
 
 @pytest.mark.db
@@ -180,7 +196,10 @@ def test_exif_orientation_is_applied() -> None:
 def test_the_long_side_is_at_most_2400() -> None:
     assert prepare(png_with_text([], Image.new("RGB", (3000, 1000)))).size == (2400, 800)
     assert prepare(png_with_text([], Image.new("RGB", (900, 3600)))).size == (600, 2400)
-    assert prepare(png_with_text([], Image.new("RGB", (800, 600)))).size == (800, 600)  # never upscaled
+    assert prepare(png_with_text([], Image.new("RGB", (800, 600)))).size == (
+        800,
+        600,
+    )  # never upscaled
 
 
 def test_transparency_is_flattened_on_white_and_mode_is_rgb() -> None:

@@ -136,12 +136,20 @@ def select_for_review(
             disagreement = None
             if learned is not None and name and canon:
                 a, b = hasher.embed([name, canon])
-                disagreement = round(abs(float(learned) - _cosine(a, b)), 3)  # float4 noise is not signal
+                disagreement = round(
+                    abs(float(learned) - _cosine(a, b)), 3
+                )  # float4 noise is not signal
             scored.append((item_id, canonical_id, reports, distance, disagreement, rank))
         # no known disagreement counts as none; then the best seller first
-        scored.sort(key=lambda s: (
-            -(s[4] or 0.0), s[5] is None, s[5] if s[5] is not None else 0, s[0], s[1]
-        ))
+        scored.sort(
+            key=lambda s: (
+                -(s[4] or 0.0),
+                s[5] is None,
+                s[5] if s[5] is not None else 0,
+                s[0],
+                s[1],
+            )
+        )
         ordered.extend((s[0], s[1], s[2], s[3], s[4]) for s in scored)
     chosen = ordered[:limit]
     if not chosen:
@@ -183,7 +191,9 @@ def _active_seconds(times: list[datetime], gap: timedelta) -> float:
     """Working time implied by one reviewer's sorted decision timestamps."""
     if not times:
         return 0.0
-    in_session = [(b - a).total_seconds() for a, b in zip(times, times[1:], strict=False) if b - a <= gap]
+    in_session = [
+        (b - a).total_seconds() for a, b in zip(times, times[1:], strict=False) if b - a <= gap
+    ]
     typical = statistics.median(in_session) if in_session else DEFAULT_GAP_SECONDS
     sessions = 1 + sum(1 for a, b in zip(times, times[1:], strict=False) if b - a > gap)
     return sum(in_session) + typical * sessions
@@ -262,8 +272,13 @@ def catalog_backlog(
     sql = backlog_sql_path().read_text(encoding="utf-8")
     cur = conn.execute(
         sql,  # type: ignore[arg-type]
-        {"days": days, "top": top, "min_similarity": min_similarity, "min_misses": min_misses,
-         "item_days": item_days},
+        {
+            "days": days,
+            "top": top,
+            "min_similarity": min_similarity,
+            "min_misses": min_misses,
+            "item_days": item_days,
+        },
     )
     cols = [c.name for c in cur.description or []]
     return [dict(zip(cols, r, strict=True)) for r in cur.fetchall()]

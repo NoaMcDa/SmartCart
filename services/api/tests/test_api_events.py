@@ -26,9 +26,7 @@ def post(client, *events: dict, headers: dict | None = None):
 
 
 def stored(db):
-    return db.execute(
-        "SELECT user_id, session_id, name, props FROM events ORDER BY id"
-    ).fetchall()
+    return db.execute("SELECT user_id, session_id, name, props FROM events ORDER BY id").fetchall()
 
 
 def test_event_names_in_the_schema_match_the_allowlist() -> None:
@@ -79,7 +77,9 @@ def test_unknown_event_names_and_keys_are_rejected_and_nothing_is_stored(client,
         ("split_viewed", {"anything": 1}, "not allowed"),
     ],
 )
-def test_props_are_limited_to_allowlisted_keys_with_fixed_values(client, db, name, props, reason) -> None:
+def test_props_are_limited_to_allowlisted_keys_with_fixed_values(
+    client, db, name, props, reason
+) -> None:
     r = post(client, ev(name, props))
     assert r.status_code == 422, r.text
     assert reason in str(r.json()["detail"])
@@ -100,8 +100,15 @@ PHASE2_EVENTS = [
 
 def test_phase2_events_are_stored_with_their_props(client, db) -> None:
     assert {n for n, _ in PHASE2_EVENTS} == {
-        "scan_started", "scan_completed", "alert_created", "swap_applied", "swap_undone",
-        "swap_dismissed", "list_shared", "share_accepted"}
+        "scan_started",
+        "scan_completed",
+        "alert_created",
+        "swap_applied",
+        "swap_undone",
+        "swap_dismissed",
+        "list_shared",
+        "share_accepted",
+    }
     r = post(client, *(ev(n, p) for n, p in PHASE2_EVENTS))
     assert r.status_code == 200 and r.json()["accepted"] == len(PHASE2_EVENTS), r.text
     assert [(n, p) for _, _, n, p in stored(db)] == PHASE2_EVENTS
@@ -174,7 +181,9 @@ def test_user_id_comes_from_a_valid_jwt_only(client, db, world: World) -> None:
     post(client, ev("app_opened"), headers={"Authorization": "Bearer not.a.jwt"})
     post(client, ev("app_opened"))
     unknown = uuid.uuid4()  # a valid token for an account that does not exist: anonymous, no error
-    gone = post(client, ev("app_opened"), headers={"Authorization": f"Bearer {make_token(unknown)}"})
+    gone = post(
+        client, ev("app_opened"), headers={"Authorization": f"Bearer {make_token(unknown)}"}
+    )
     assert gone.status_code == 200
     assert [u for u, *_ in stored(db)] == [uid, None, None, None, None]
 
@@ -204,7 +213,9 @@ def test_rate_limit_is_per_session_and_drops_the_whole_batch(client, db) -> None
 
 def test_events_table_is_closed_to_the_data_api_roles(db) -> None:
     assert db.execute("SELECT relrowsecurity FROM pg_class WHERE relname = 'events'").fetchone()[0]
-    assert db.execute("SELECT count(*) FROM pg_policies WHERE tablename = 'events'").fetchone()[0] == 0
+    assert (
+        db.execute("SELECT count(*) FROM pg_policies WHERE tablename = 'events'").fetchone()[0] == 0
+    )
     for role in ("anon", "authenticated"):
         if db.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)).fetchone():
             assert not db.execute(
@@ -233,12 +244,19 @@ def test_rejection_rate_is_not_good_over_substitutions_shown_per_level(client, d
     for at, level, shown, rejected in (
         (w1, "any_brand", 10, 1), (w1, "any_brand", 10, 1), (w1, "close", 5, 2), (w2, "any_brand", 20, 0),
     ):  # fmt: skip
-        put(db, "substitutions_shown", {"flex_level": level, "count": shown}, session=SESSION, at=at)
+        put(
+            db, "substitutions_shown", {"flex_level": level, "count": shown}, session=SESSION, at=at
+        )
         for _ in range(rejected):
             put(db, "substitution_verdict", {"flex_level": level, "verdict": "not_good"},
                 session=SESSION, at=at)  # fmt: skip
-    put(db, "substitution_verdict", {"flex_level": "any_brand", "verdict": "accepted"},
-        session=SESSION, at=w1)  # accepted answers are not rejections
+    put(
+        db,
+        "substitution_verdict",
+        {"flex_level": "any_brand", "verdict": "accepted"},
+        session=SESSION,
+        at=w1,
+    )  # accepted answers are not rejections
     rows = db.execute(
         "SELECT week::text, flex_level, shown, rejected, rejection_rate FROM beta_rejection_rate"
     ).fetchall()
@@ -254,7 +272,9 @@ def test_paste_to_results_view_gives_median_and_p90(client, db) -> None:
     for ms in (1000, 2000, 3000, 4000, 10_000):
         put(db, "results_shown", {"duration_ms": ms}, session=SESSION, at=at)
     put(db, "results_shown", {"item_count": 3}, session=SESSION, at=at)  # no duration: ignored
-    (week, n, median, p90) = db.execute("SELECT week::text, results_shown, median_ms, p90_ms FROM beta_paste_to_results").fetchone()
+    (week, n, median, p90) = db.execute(
+        "SELECT week::text, results_shown, median_ms, p90_ms FROM beta_paste_to_results"
+    ).fetchone()
     assert (week, n, int(median), int(p90)) == ("2026-10-05", 5, 3000, 7600)
 
 

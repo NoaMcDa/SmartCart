@@ -138,7 +138,10 @@ def score_rows(truth: dict[str, Any], rows: list[dict[str, Any]]) -> Tally:
     for item in truth["items"]:
         want = item["canonical"]
         t.add("catalog recall", want in top)
-        t.add("catalog recall (top or candidate)", want in top or any(want in r["candidates"] for r in rows))
+        t.add(
+            "catalog recall (top or candidate)",
+            want in top or any(want in r["candidates"] for r in rows),
+        )
     auto = [r for r in rows if not r["needs_confirmation"]]
     t.count("auto-accepted row precision", sum(1 for r in auto if r["name"] in expected), len(auto))
     t.count("all-row precision", sum(1 for r in rows if r["name"] in expected), len(rows))
@@ -151,9 +154,18 @@ def score_rows(truth: dict[str, Any], rows: list[dict[str, Any]]) -> Tally:
 
 
 METRIC_ORDER = [
-    "chain", "total", "item text", "quantity", "price", "item recall (aligned)",
-    "item precision (aligned)", "list line read", "catalog recall",
-    "catalog recall (top or candidate)", "auto-accepted row precision", "all-row precision",
+    "chain",
+    "total",
+    "item text",
+    "quantity",
+    "price",
+    "item recall (aligned)",
+    "item precision (aligned)",
+    "list line read",
+    "catalog recall",
+    "catalog recall (top or candidate)",
+    "auto-accepted row precision",
+    "all-row precision",
     "distractors kept out of rows",
 ]
 
@@ -162,5 +174,7 @@ def table(tally: Tally, title: str) -> str:
     rows = ["", f"#### {title}", "", "| metric | right | of | rate |", "|---|---:|---:|---:|"]
     for m in METRIC_ORDER:
         if tally.total.get(m):
-            rows.append(f"| {m} | {tally.hit[m]} | {tally.total[m]} | {tally.hit[m] / tally.total[m]:.1%} |")
+            rows.append(
+                f"| {m} | {tally.hit[m]} | {tally.total[m]} | {tally.hit[m] / tally.total[m]:.1%} |"
+            )
     return "\n".join(rows)

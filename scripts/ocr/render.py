@@ -47,17 +47,30 @@ FONT_CANDIDATES = (
 
 CITIES = ["רמת אביב", "הרצליה", "נתניה", "באר שבע", "חיפה", "ראשון לציון", "פתח תקווה", "רחובות"]
 BRANDS = ["תנובה", "טרה", "שטראוס", "אסם", "עלית", "יטבתה", "דנונה", "סוגת"]
-SIZES = ["1 ל'", "500 גרם", "250 גרם", "1.5 ל'", "750 מל", "400 גרם", "1 ק\"ג"]
+SIZES = ["1 ל'", "500 גרם", "250 גרם", "1.5 ל'", "750 מל", "400 גרם", '1 ק"ג']
 ABBREVIATIONS = {
-    "חלב": "חל'", "גבינה": "גב'", "שמנת": "שמנ'", "יוגורט": "יוג'", "ביצים": "ביצ'",
-    "עגבניות": "עגב'", "מלפפונים": "מלפ'", "שוקולד": "שוק'", 'תפוחי אדמה': 'תפו"א',
+    "חלב": "חל'",
+    "גבינה": "גב'",
+    "שמנת": "שמנ'",
+    "יוגורט": "יוג'",
+    "ביצים": "ביצ'",
+    "עגבניות": "עגב'",
+    "מלפפונים": "מלפ'",
+    "שוקולד": "שוק'",
+    "תפוחי אדמה": 'תפו"א',
 }
 DISTRACTORS = ["להתקשר לדני", "לא לשכוח מתנה", "ללכת לבנק", "תור לרופא ביום ג", "יום הולדת לנועה"]
 CHAIN_HEADERS = {
-    "7290027600007": 'שופרסל דיל בע"מ', "7290058140886": 'רמי לוי שיווק השקמה בע"מ',
-    "7290696200003": "ויקטורי", "7290055700007": "יינות ביתן", "7290700100008": "חצי חינם",
-    "7290873255550": "טיב טעם", "7290103152017": "אושר עד", "7290803800003": "יוחננוף",
-    "7290661400001": "מחסני השוק", "7290058108879": "קינג סטור",
+    "7290027600007": 'שופרסל דיל בע"מ',
+    "7290058140886": 'רמי לוי שיווק השקמה בע"מ',
+    "7290696200003": "ויקטורי",
+    "7290055700007": "יינות ביתן",
+    "7290700100008": "חצי חינם",
+    "7290873255550": "טיב טעם",
+    "7290103152017": "אושר עד",
+    "7290803800003": "יוחננוף",
+    "7290661400001": "מחסני השוק",
+    "7290058108879": "קינג סטור",
 }
 
 
@@ -107,7 +120,9 @@ class Face:
     def length(self, draw: ImageDraw.ImageDraw, text: str) -> float:
         return sum(draw.textlength(part, font=f) for f, part in self._runs(text))
 
-    def text(self, draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, fill, **kw) -> None:
+    def text(
+        self, draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, fill, **kw
+    ) -> None:
         x, y = xy
         for f, part in self._runs(text):
             draw.text((x, y + self.baseline), part, font=f, fill=fill, anchor="ls", **kw)
@@ -117,7 +132,9 @@ class Face:
 def find_font(explicit: str | None = None) -> str:
     candidates = [explicit] if explicit else list(FONT_CANDIDATES)
     if not explicit:  # any Noto Sans Hebrew the package installed, whatever its file name
-        candidates[4:4] = sorted(str(p) for p in Path("/usr/share/fonts").glob("**/NotoSansHebrew*"))
+        candidates[4:4] = sorted(
+            str(p) for p in Path("/usr/share/fonts").glob("**/NotoSansHebrew*")
+        )
     for path in candidates:
         if path and Path(path).exists():
             return path
@@ -169,7 +186,7 @@ def printed_name(rng: random.Random, name: str) -> str:
     for full, short in ABBREVIATIONS.items():
         if name == full or name.startswith(full + " "):
             if rng.random() < 0.3:
-                words = [short, *name[len(full):].split()]
+                words = [short, *name[len(full) :].split()]
             break
     if rng.random() < 0.5 and len(words) > 1:
         words.insert(1, rng.choice(BRANDS))
@@ -214,7 +231,13 @@ def make_receipt(rng: random.Random, products: list[Product]) -> tuple[list[str]
             qty, unit = D(qty_n), None
         total += price
         truth_items.append(
-            {"printed": raw, "canonical": p.name, "quantity": str(qty), "unit": unit, "price": str(price)}
+            {
+                "printed": raw,
+                "canonical": p.name,
+                "quantity": str(qty),
+                "unit": unit,
+                "price": str(price),
+            }
         )
     discounts = []
     if rng.random() < 0.35:
@@ -225,11 +248,22 @@ def make_receipt(rng: random.Random, products: list[Product]) -> tuple[list[str]
     if rng.random() < 0.15:
         lines.append("פיקדון על בקבוקים 0.30")
         total += D("0.30")
-    lines += [f"סה\"כ פריטים {len(chosen)}", f"סה\"כ {total:.2f}", f"לתשלום {total:.2f}",
-              f"מע\"מ 18% {money(total * D(18) / D(118)):.2f}", "אשראי ויזה ****1234", "תודה ולהתראות"]
+    lines += [
+        f'סה"כ פריטים {len(chosen)}',
+        f'סה"כ {total:.2f}',
+        f"לתשלום {total:.2f}",
+        f'מע"מ 18% {money(total * D(18) / D(118)):.2f}',
+        "אשראי ויזה ****1234",
+        "תודה ולהתראות",
+    ]
     truth = {
-        "kind": "receipt", "chain_id": chain_id, "branch": branch, "total": str(money(total)),
-        "items": truth_items, "discounts": discounts, "lines": [ln for ln in lines if ln],
+        "kind": "receipt",
+        "chain_id": chain_id,
+        "branch": branch,
+        "total": str(money(total)),
+        "items": truth_items,
+        "discounts": discounts,
+        "lines": [ln for ln in lines if ln],
     }
     return lines, truth
 
@@ -289,8 +323,12 @@ def draw_receipt(lines: list[str], font_path: str, rng: random.Random) -> Image.
             vis = visual(line)
             w = font.length(draw, vis)
             font.text(draw, (width - margin - w, y), vis, (20, 20, 20))
-    img = img.rotate(rng.uniform(-1.5, 1.5), expand=True, fillcolor=(235, 235, 230),
-                     resample=Image.Resampling.BICUBIC)
+    img = img.rotate(
+        rng.uniform(-1.5, 1.5),
+        expand=True,
+        fillcolor=(235, 235, 230),
+        resample=Image.Resampling.BICUBIC,
+    )
     return _noise_and_blur(img, rng, (0.0, 0.7))
 
 
@@ -310,29 +348,43 @@ def draw_list(lines: list[str], font_path: str, rng: random.Random) -> Image.Ima
             vis = visual(word)
             w = int(font.length(draw, vis)) + 8
             tile = Image.new("RGBA", (w + 24, base * 2), (0, 0, 0, 0))
-            font.text(ImageDraw.Draw(tile), (12, 0), vis, ink + (255,),
-                      stroke_width=rng.choice([0, 0, 1]), stroke_fill=ink + (255,))
+            font.text(
+                ImageDraw.Draw(tile),
+                (12, 0),
+                vis,
+                ink + (255,),
+                stroke_width=rng.choice([0, 0, 1]),
+                stroke_fill=ink + (255,),
+            )
             tile = tile.rotate(rng.uniform(-5, 5), expand=True, resample=Image.Resampling.BICUBIC)
             x -= tile.width - 16
             y = margin + i * pitch + rng.randint(-5, 5)
             img.paste(tile, (x, y), tile)
             x -= rng.randint(6, 16)
-    img = img.rotate(rng.uniform(-3, 3), expand=True, fillcolor=(235, 235, 230),
-                     resample=Image.Resampling.BICUBIC)
+    img = img.rotate(
+        rng.uniform(-3, 3),
+        expand=True,
+        fillcolor=(235, 235, 230),
+        resample=Image.Resampling.BICUBIC,
+    )
     return _noise_and_blur(img, rng, (0.4, 1.0))
 
 
 # --- main -------------------------------------------------------------------------------------
 
 
-def generate(out: Path, receipts: int, lists: int, seed: int, font: str | None, embed_truth: bool) -> int:
+def generate(
+    out: Path, receipts: int, lists: int, seed: int, font: str | None, embed_truth: bool
+) -> int:
     from smartcart_api.ocr.providers import png_with_text
 
     out.mkdir(parents=True, exist_ok=True)
     rng = random.Random(seed)
     font_path = find_font(font)
     products = load_products()
-    plan = [("receipt", i) for i in range(1, receipts + 1)] + [("list", i) for i in range(1, lists + 1)]
+    plan = [("receipt", i) for i in range(1, receipts + 1)] + [
+        ("list", i) for i in range(1, lists + 1)
+    ]
     for kind, i in plan:
         lines, truth = (make_receipt if kind == "receipt" else make_list)(rng, products)
         img = (draw_receipt if kind == "receipt" else draw_list)(lines, font_path, rng)
@@ -343,7 +395,9 @@ def generate(out: Path, receipts: int, lists: int, seed: int, font: str | None, 
             (out / f"{stem}.png").write_bytes(png_with_text([ln for ln in lines if ln], img))
         else:
             img.save(out / f"{stem}.png")
-        (out / f"{stem}.json").write_text(json.dumps(truth, ensure_ascii=False, indent=1), encoding="utf-8")
+        (out / f"{stem}.json").write_text(
+            json.dumps(truth, ensure_ascii=False, indent=1), encoding="utf-8"
+        )
     return len(plan)
 
 
@@ -354,7 +408,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--lists", type=int, default=20)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--font", help="a Hebrew TTF (default: Noto Sans Hebrew, else DejaVu Sans)")
-    ap.add_argument("--embed-truth", action="store_true", help="self-test only: put the text in the PNG")
+    ap.add_argument(
+        "--embed-truth", action="store_true", help="self-test only: put the text in the PNG"
+    )
     args = ap.parse_args(argv)
     n = generate(args.out, args.receipts, args.lists, args.seed, args.font, args.embed_truth)
     print(f"wrote {n} synthetic images with ground truth to {args.out} (seed {args.seed})")

@@ -41,7 +41,13 @@ def fake():
     app.dependency_overrides.pop(get_provider, None)
 
 
-def post(client, lines: list[str], kind: str = "list", headers: dict | None = CONSENT, data: bytes | None = None):
+def post(
+    client,
+    lines: list[str],
+    kind: str = "list",
+    headers: dict | None = CONSENT,
+    data: bytes | None = None,
+):
     payload = data if data is not None else png_with_text(lines)
     return client.post(
         "/parse-image",
@@ -58,7 +64,10 @@ def names(body: dict) -> list[str]:
 # --- consent ----------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("headers", [None, {"X-Image-Consent": "0"}, {"X-Image-Consent": "true"}, {"X-Image-Consent": ""}])
+@pytest.mark.parametrize(
+    "headers",
+    [None, {"X-Image-Consent": "0"}, {"X-Image-Consent": "true"}, {"X-Image-Consent": ""}],
+)
 def test_no_consent_is_403_and_nothing_is_read(client, fake, headers) -> None:
     r = post(client, ["חלב"], headers=headers)
     assert r.status_code == 403
@@ -67,7 +76,9 @@ def test_no_consent_is_403_and_nothing_is_read(client, fake, headers) -> None:
 
 
 def test_consent_is_checked_before_the_body_is_parsed(client, fake) -> None:
-    r = client.post("/parse-image", content=b"not even multipart", headers={"Content-Type": "text/plain"})
+    r = client.post(
+        "/parse-image", content=b"not even multipart", headers={"Content-Type": "text/plain"}
+    )
     assert r.status_code == 403
 
 
@@ -86,7 +97,9 @@ def test_list_photo_round_trip(client, db, mvp_catalog, fake) -> None:
     assert all(not i["needs_confirmation"] for i in body["items"])
 
 
-def test_list_distractors_go_to_unresolved_never_to_a_wrong_product(client, mvp_catalog, fake) -> None:
+def test_list_distractors_go_to_unresolved_never_to_a_wrong_product(
+    client, mvp_catalog, fake
+) -> None:
     lines = ["עגבניות", "דגל ישראל", "יין לבן", "xyzzy", "קקק", "בננות", "אקס"]
     body = post(client, lines).json()
     assert names(body) == ["עגבניות", "בננות"]
@@ -134,7 +147,7 @@ RECEIPT = [
     "תאריך 08/10/2026 שעה 18:32",
     "עגבניות",
     '0.532 ק"ג X 9.90 5.27',
-    "בננות 1.120 ק\"ג 11.20",
+    'בננות 1.120 ק"ג 11.20',
     "תפוחי אדמה 6.90",
     "ביצים L 12 יח' 14.90",
     "חלב תנובה 3% 1 ל' 8.90",
@@ -142,7 +155,7 @@ RECEIPT = [
     "הנחת מועדון -2.00",
     "פיקדון 0.30",
     'סה"כ פריטים 6',
-    'לתשלום 42.27',
+    "לתשלום 42.27",
     'מע"מ 18% 6.45',
     "אשראי ויזה ****1234",
 ]
@@ -158,11 +171,20 @@ def test_receipt_round_trip(client, mvp_catalog, fake) -> None:
     assert receipt["store_hint"] == "רמת אביב"
     assert Decimal(receipt["total"]) == Decimal("42.27")
     assert [ln["text"] for ln in receipt["lines"]] == [
-        "עגבניות", "בננות", "תפוחי אדמה", "ביצים L 12 יחידות", "חלב תנובה 3% 1 ליטר", "סליל מכנסיים צבעוני",
+        "עגבניות",
+        "בננות",
+        "תפוחי אדמה",
+        "ביצים L 12 יחידות",
+        "חלב תנובה 3% 1 ליטר",
+        "סליל מכנסיים צבעוני",
     ]
     by_name = {i["canonical"]["display_name_he"]: i for i in body["items"]}
     tomatoes = by_name["עגבניות"]
-    assert (Decimal(tomatoes["quantity"]), tomatoes["unit"], tomatoes["is_weighed"]) == (Decimal("0.532"), "kg", True)
+    assert (Decimal(tomatoes["quantity"]), tomatoes["unit"], tomatoes["is_weighed"]) == (
+        Decimal("0.532"),
+        "kg",
+        True,
+    )
     bananas = by_name["בננות"]
     assert (Decimal(bananas["quantity"]), bananas["unit"]) == (Decimal("1.120"), "kg")
     assert "תפוחי אדמה" in by_name
@@ -181,7 +203,9 @@ def test_receipt_round_trip(client, mvp_catalog, fake) -> None:
     assert not any("סליל" in i["input_text"] for i in body["items"])
 
 
-def test_receipt_repeated_products_are_merged_with_summed_quantity(client, mvp_catalog, fake) -> None:
+def test_receipt_repeated_products_are_merged_with_summed_quantity(
+    client, mvp_catalog, fake
+) -> None:
     body = post(client, ["תפוחי אדמה 6.90", "תפוחי אדמה 6.90", "בננות 5.00"], kind="receipt").json()
     potatoes = [i for i in body["items"] if i["canonical"]["display_name_he"] == "תפוחי אדמה"]
     assert len(potatoes) == 1 and Decimal(potatoes[0]["quantity"]) == 2
@@ -196,7 +220,9 @@ def test_receipt_with_unknown_chain_has_no_hint(client, mvp_catalog, fake) -> No
 # --- cap --------------------------------------------------------------------------------------
 
 
-def test_image_cap_returns_429_and_counts_only_successful_reads(client, db, mvp_catalog, fake, monkeypatch) -> None:
+def test_image_cap_returns_429_and_counts_only_successful_reads(
+    client, db, mvp_catalog, fake, monkeypatch
+) -> None:
     monkeypatch.setenv("OCR_MONTHLY_IMAGE_CAP", "2")
     assert post(client, ["בננות"]).status_code == 200
     assert post(client, ["בננות"]).status_code == 200
@@ -232,13 +258,17 @@ class PricedProvider(FakeProvider):
         return OcrResult(r.lines, "claude", self.cost)
 
 
-def test_dollar_cap_uses_the_measured_cost_and_the_expected_next_one(client, db, mvp_catalog, monkeypatch) -> None:
+def test_dollar_cap_uses_the_measured_cost_and_the_expected_next_one(
+    client, db, mvp_catalog, monkeypatch
+) -> None:
     monkeypatch.setenv("OCR_MONTHLY_USD_CAP", "0.012")
     provider = PricedProvider(0.004)
     app.dependency_overrides[get_provider] = lambda: provider
     try:
         assert post(client, ["בננות"]).status_code == 200  # 0 + 0.01 expected <= 0.012
-        usd = db.execute("SELECT est_cost_usd FROM ocr_usage WHERE provider = 'claude'").fetchone()[0]
+        usd = db.execute("SELECT est_cost_usd FROM ocr_usage WHERE provider = 'claude'").fetchone()[
+            0
+        ]
         assert usd == Decimal("0.0040")
         assert post(client, ["בננות"]).status_code == 429  # 0.004 + 0.01 > 0.012
     finally:
@@ -255,9 +285,12 @@ def test_cap_defaults_are_2000_images_and_20_dollars(monkeypatch) -> None:
 
 
 def test_usage_rows_carry_no_user_or_image_reference(db) -> None:
-    cols = {r[0] for r in db.execute(
-        "SELECT column_name FROM information_schema.columns WHERE table_name = 'ocr_usage'"
-    ).fetchall()}
+    cols = {
+        r[0]
+        for r in db.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'ocr_usage'"
+        ).fetchall()
+    }
     assert cols == {"month", "provider", "images", "est_cost_usd", "updated_at"}
 
 
@@ -290,7 +323,9 @@ def test_jpeg_without_embedded_text_reads_nothing_with_the_fake(client, mvp_cata
 
 def test_invalid_kind_is_422(client, fake) -> None:
     r = client.post(
-        "/parse-image", data={"kind": "recipe"}, files={"image": ("a.png", png_with_text(["x"]), "image/png")},
+        "/parse-image",
+        data={"kind": "recipe"},
+        files={"image": ("a.png", png_with_text(["x"]), "image/png")},
         headers=CONSENT,
     )
     assert r.status_code == 422

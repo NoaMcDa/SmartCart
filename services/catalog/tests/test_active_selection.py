@@ -51,13 +51,13 @@ def queue(db):
         # name: (item name, canonical slug, confidence)
         "reported_twice": ("חלב 3% 1 ליטר", "t-milk-3", 0.62),
         "reported_once": ("חלב טרי 1% 1 ליטר", "t-milk-1", 0.62),
-        "near_a": ("סלמון טרי פילה", "t-salmon-fresh", 0.895),     # band 0, rank 5
-        "near_b": ("משקה סויה 1 ליטר", "t-soy", 0.905),            # band 0, rank 3
-        "near_c": ("שמן זית כתית 750", "t-olive-oil", 0.895),      # band 0, rank 7, embedders disagree
-        "near_d": ("משקה שקדים 1 ליטר", "t-almond", 0.895),        # band 0, rank 4, embedders agree
-        "mid": ("סלמון קפוא פילה", "t-salmon-frozen", 0.87),       # band 1
-        "far": ("חלב 3% קרטון", "t-milk-3", 0.75),                 # band 7
-        "farthest": ("חלב 1% קרטון", "t-milk-1", 0.66),            # band 12
+        "near_a": ("סלמון טרי פילה", "t-salmon-fresh", 0.895),  # band 0, rank 5
+        "near_b": ("משקה סויה 1 ליטר", "t-soy", 0.905),  # band 0, rank 3
+        "near_c": ("שמן זית כתית 750", "t-olive-oil", 0.895),  # band 0, rank 7, embedders disagree
+        "near_d": ("משקה שקדים 1 ליטר", "t-almond", 0.895),  # band 0, rank 4, embedders agree
+        "mid": ("סלמון קפוא פילה", "t-salmon-frozen", 0.87),  # band 1
+        "far": ("חלב 3% קרטון", "t-milk-3", 0.75),  # band 7
+        "farthest": ("חלב 1% קרטון", "t-milk-1", 0.66),  # band 12
     }
     out = {}
     for name, (text, slug, conf) in spec.items():
@@ -164,7 +164,9 @@ def test_hash_vectors_alone_do_not_count_as_a_second_embedder(db, queue) -> None
     row = next(r for r in select_for_review(db, 100) if r["item_id"] == item)
     assert row["disagreement"] is None
     # and vectors of two different models are never compared
-    db.execute("UPDATE canonical_products SET embedding_model = 'other-model' WHERE id = %s", (canon,))
+    db.execute(
+        "UPDATE canonical_products SET embedding_model = 'other-model' WHERE id = %s", (canon,)
+    )
     row = next(r for r in select_for_review(db, 100) if r["item_id"] == item)
     assert row["disagreement"] is None
 
@@ -226,8 +228,11 @@ def test_review_command_explains_the_missing_extra(monkeypatch) -> None:
     from smartcart_catalog.cli import app
 
     real = importlib.util.find_spec
-    monkeypatch.setattr(importlib.util, "find_spec",
-                        lambda name, *a, **k: None if name == "streamlit" else real(name, *a, **k))
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name, *a, **k: None if name == "streamlit" else real(name, *a, **k),
+    )
     result = CliRunner().invoke(app, ["review"])
     assert result.exit_code == 2
     assert "optional 'review' extra" in result.output and "uv sync --extra review" in result.output

@@ -273,7 +273,9 @@ def select_provider() -> Provider:
         return ClaudeVisionProvider()
     if choice == "tesseract":
         if not tesseract_available():
-            raise NoProvider("OCR_PROVIDER=tesseract but tesseract with Hebrew data is not installed")
+            raise NoProvider(
+                "OCR_PROVIDER=tesseract but tesseract with Hebrew data is not installed"
+            )
         return TesseractProvider()
     if choice == "auto":
         if config.anthropic_key():

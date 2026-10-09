@@ -72,7 +72,9 @@ def debug_dump(truth: dict[str, Any], lines: list[str], receipt: Any | None) -> 
     for i, ln in enumerate(truth.get("lines", []), 1):
         print(f"{i:3d} | {ln!r}")
     if receipt is not None:
-        print(f"-- structured: chain={receipt.chain_id} branch={receipt.store_hint!r} total={receipt.total} --")
+        print(
+            f"-- structured: chain={receipt.chain_id} branch={receipt.store_hint!r} total={receipt.total} --"
+        )
         for it in receipt.items:
             print(f"    item {it.text!r} qty={it.quantity} unit={it.unit} price={it.price}")
         print(f"-- truth items (total {truth['total']}) --")
@@ -121,12 +123,18 @@ def evaluate(
             tally = score.score_receipt(truth, receipt)
             if conn is not None:
                 rows, _ = rows_from_receipt(conn, receipt)
-                tally.merge(score.score_rows(
-                    {"items": [{"canonical": i["canonical"]} for i in truth["items"]]}, row_dicts(rows)
-                ))
+                tally.merge(
+                    score.score_rows(
+                        {"items": [{"canonical": i["canonical"]} for i in truth["items"]]},
+                        row_dicts(rows),
+                    )
+                )
             receipts.merge(tally)
-            bad = [m for m in ("item text", "quantity", "price", "total", "chain")
-                   if tally.hit[m] != tally.total[m]]
+            bad = [
+                m
+                for m in ("item text", "quantity", "price", "total", "chain")
+                if tally.hit[m] != tally.total[m]
+            ]
             if bad and len([d for d in diagnostics if d.startswith("receipt")]) < 3:
                 diagnostics.append(
                     f"receipt {truth['file']} wrong in {bad}\n  read : {result.lines[:14]}\n"
@@ -141,19 +149,24 @@ def evaluate(
                 )
                 tally.merge(score.score_rows(truth, row_dicts(rows)))
             lists.merge(tally)
-            if tally.hit["list line read"] != tally.total["list line read"] and len(
-                [d for d in diagnostics if d.startswith("list")]
-            ) < 3:
+            if (
+                tally.hit["list line read"] != tally.total["list line read"]
+                and len([d for d in diagnostics if d.startswith("list")]) < 3
+            ):
                 diagnostics.append(
                     f"list {truth['file']}\n  read : {result.lines}\n  truth: {truth['lines']}"
                 )
     return {
-        "provider": provider.name, "model": config.claude_model() if provider.name == "claude" else None,
-        "images": counts, "failures": failures, "est_cost_usd": round(cost, 4),
+        "provider": provider.name,
+        "model": config.claude_model() if provider.name == "claude" else None,
+        "images": counts,
+        "failures": failures,
+        "est_cost_usd": round(cost, 4),
         "seconds_per_image": round(seconds / max(1, sum(counts.values()) - failures), 2),
         "receipts": {m: [receipts.hit[m], receipts.total[m]] for m in receipts.total},
         "lists": {m: [lists.hit[m], lists.total[m]] for m in lists.total},
-        "_tallies": (receipts, lists), "diagnostics": diagnostics,
+        "_tallies": (receipts, lists),
+        "diagnostics": diagnostics,
     }
 
 
@@ -163,7 +176,8 @@ def report(res: dict[str, Any], with_catalog: bool) -> str:
     out = [
         "### OCR evaluation (SYNTHETIC images)",
         "",
-        f"Provider **{res['provider']}**" + (f" (model `{res['model']}`)" if res["model"] else "")
+        f"Provider **{res['provider']}**"
+        + (f" (model `{res['model']}`)" if res["model"] else "")
         + f", {n['receipt']} synthetic receipts and {n['list']} handwritten-style lists "
         "(printed font drawn with jitter, blur and noise; not real handwriting).",
         f"Provider errors: {res['failures']}. Estimated cost: ${res['est_cost_usd']:.4f} "
@@ -176,19 +190,33 @@ def report(res: dict[str, Any], with_catalog: bool) -> str:
         score.table(lists, "Handwritten-style lists"),
     ]
     if res["diagnostics"]:
-        out += ["", "<details><summary>examples of mistakes</summary>", "", "```", *res["diagnostics"], "```", "</details>"]
+        out += [
+            "",
+            "<details><summary>examples of mistakes</summary>",
+            "",
+            "```",
+            *res["diagnostics"],
+            "```",
+            "</details>",
+        ]
     return "\n".join(out)
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--dir", type=Path, required=True)
-    ap.add_argument("--provider", default="tesseract", choices=["auto", "fake", "tesseract", "claude"])
+    ap.add_argument(
+        "--provider", default="tesseract", choices=["auto", "fake", "tesseract", "claude"]
+    )
     ap.add_argument("--prepare-db", action="store_true", help="seed the MVP catalog first")
     ap.add_argument("--json-out", type=Path)
     ap.add_argument("--max", type=int, help="evaluate at most this many images")
-    ap.add_argument("--debug-samples", type=int, default=0,
-                    help="print the raw provider lines next to the truth for this many receipts and lists")
+    ap.add_argument(
+        "--debug-samples",
+        type=int,
+        default=0,
+        help="print the raw provider lines next to the truth for this many receipts and lists",
+    )
     args = ap.parse_args(argv)
 
     conn = None
@@ -215,7 +243,11 @@ def main(argv: list[str] | None = None) -> int:
             f.write(text + "\n")
     if args.json_out:
         args.json_out.write_text(
-            json.dumps({k: v for k, v in res.items() if not k.startswith("_")}, ensure_ascii=False, indent=1),
+            json.dumps(
+                {k: v for k, v in res.items() if not k.startswith("_")},
+                ensure_ascii=False,
+                indent=1,
+            ),
             encoding="utf-8",
         )
     return 0 if sum(res["images"].values()) else 1
