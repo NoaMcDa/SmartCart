@@ -5,14 +5,10 @@ import { updateAlert, type FlexLevel, type PriceAlert } from "@/api/client";
 import { BottomSheet, Button, SegmentedControl } from "@/components/ui";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import controls from "@/features/profile/controls/controls.module.css";
-import { alertError } from "./AlertMe";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { alertMessages } from "@/i18n/messages/alerts";
+import { alertError, alertLevels } from "./AlertMe";
 import { parseThreshold } from "./threshold";
-
-const LEVELS: ReadonlyArray<{ value: FlexLevel; label: string }> = [
-  { value: "any_brand", label: "כל מותג" },
-  { value: "close", label: "תחליף קרוב" },
-  { value: "exact", label: "מוצר מדויק" },
-];
 
 /** Body of `PUT /me/alerts/{id}`: the alert as it is, with the changes applied. */
 export function alertBody(alert: PriceAlert, change: Partial<PriceAlert>) {
@@ -43,6 +39,8 @@ export function EditAlertSheet({
   onClose: () => void;
   onSaved: (saved: PriceAlert) => void;
 }) {
+  const t = useT(alertMessages);
+  const { locale } = useLocale();
   const [price, setPrice] = useState(alert?.threshold_unit_price ?? "");
   const [level, setLevel] = useState<FlexLevel>(alert?.flex_level ?? "any_brand");
   const [busy, setBusy] = useState(false);
@@ -54,7 +52,7 @@ export function EditAlertSheet({
     if (!alert) return;
     const value = parseThreshold(price);
     if (value === null) {
-      setError("הקלידי מחיר חיובי, למשל 8.90.");
+      setError(t("thresholdInvalid"));
       return;
     }
     setBusy(true);
@@ -67,18 +65,18 @@ export function EditAlertSheet({
       );
       onSaved(saved);
     } catch (err) {
-      setError(alertError(err));
+      setError(alertError(err, locale));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <BottomSheet open={alert !== null} onClose={onClose} title={name} eyebrow="עריכת התראה">
+    <BottomSheet open={alert !== null} onClose={onClose} title={name} eyebrow={t("editEyebrow")}>
       <form onSubmit={save} className={controls.stack} noValidate>
         <div className={controls.field}>
           <label htmlFor={priceId} className={controls.label}>
-            התריעי לי מתחת ל-₪ ({unitLabel})
+            {t("editPriceLabel", { unit: unitLabel })}
           </label>
           <input
             id={priceId}
@@ -93,19 +91,19 @@ export function EditAlertSheet({
           />
         </div>
         <SegmentedControl<FlexLevel>
-          label="רמת התאמה להתראה"
+          label={t("levelLegend")}
           value={level}
           onChange={setLevel}
-          options={LEVELS}
+          options={alertLevels(locale)}
         />
-        <p className={controls.hint}>אחרי עריכה ההתראה נבדקת מחדש מול המחירים הנוכחיים.</p>
+        <p className={controls.hint}>{t("editHint")}</p>
         {error ? (
           <p className={controls.error} role="alert">
             {error}
           </p>
         ) : null}
         <Button type="submit" disabled={busy}>
-          {busy ? "שומרת…" : "שמירה"}
+          {busy ? t("saving") : t("save")}
         </Button>
       </form>
     </BottomSheet>

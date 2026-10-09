@@ -3,6 +3,9 @@
  * remembers the name (and what the threshold is per) from the moment the alert was created, so
  * /alerts can say "חלב טרי 3%" instead of a number. Missing entries fall back to "מוצר מס' <id>".
  */
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { alertMessages } from "@/i18n/messages/alerts";
 import { readJson, writeJson } from "@/state/storage";
 
 export const ALERT_NAMES_KEY = "sc-alert-names-v1";
@@ -31,11 +34,12 @@ export function rememberAlertLabel(canonicalId: number, label: AlertLabel): void
   writeJson(ALERT_NAMES_KEY, stored);
 }
 
-export function alertLabel(canonicalId: number): AlertLabel {
+/** The remembered label; for an alert this device never saw, a numbered fallback in `locale`. */
+export function alertLabel(canonicalId: number, locale: Locale = DEFAULT_LOCALE): AlertLabel {
   return (
     read().byCanonical[String(canonicalId)] ?? {
-      name: `מוצר מס' ${canonicalId}`,
-      unitLabel: "ליחידה",
+      name: translate(alertMessages, locale, "fallbackName", { id: canonicalId }),
+      unitLabel: translate(alertMessages, locale, "fallbackUnit"),
     }
   );
 }

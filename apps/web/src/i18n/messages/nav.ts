@@ -1,6 +1,9 @@
 import { defineMessages } from "../messages";
 
-/** Bottom navigation and top bar section names. */
+/**
+ * Bottom navigation and top bar section names.
+ * Arabic machine-drafted, needs native-speaker review (#73).
+ */
 export const navMessages = defineMessages({
   he: {
     lists: "רשימות",

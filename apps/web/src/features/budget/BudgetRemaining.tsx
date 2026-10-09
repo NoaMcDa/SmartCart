@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { Card, IconInfo, Price, UpdatedAt } from "@/components/ui";
+import { formatRich } from "@/i18n/format";
+import { useT } from "@/i18n/LocaleProvider";
+import { budgetMessages } from "@/i18n/messages/budget";
+import { sharedMessages } from "@/i18n/messages/shared";
 import { useBudget } from "./budgetState";
 import { currentMonth } from "./month";
 import { budgetStatus, useSpend } from "./spendState";
@@ -21,6 +25,8 @@ export type BudgetRemainingProps = {
  * the plan on screen, whose prices carry their update time like everywhere else.
  */
 export function BudgetRemaining({ planTotal, updatedAt }: BudgetRemainingProps) {
+  const t = useT(budgetMessages);
+  const shared = useT(sharedMessages);
   const budget = useBudget();
   const { entries } = useSpend();
   const plan = planTotal === null || planTotal === undefined ? null : Number(planTotal);
@@ -32,13 +38,13 @@ export function BudgetRemaining({ planTotal, updatedAt }: BudgetRemainingProps) 
   return (
     <Card
       as="section"
-      aria-label="תקציב חודשי"
+      aria-label={t("sectionTitle")}
       className={styles.remaining}
       data-testid="budget-remaining"
       data-trust-scope="budget"
     >
       <p className={styles.remainingMain}>
-        <span>{over ? "חריגה מהתקציב" : "נותר החודש"}</span>
+        <span>{over ? t("overBudget") : t("leftThisMonth")}</span>
         <Price
           amount={Math.abs(status.remaining)}
           size="lg"
@@ -46,26 +52,26 @@ export function BudgetRemaining({ planTotal, updatedAt }: BudgetRemainingProps) 
           tone="default"
         />
         <span className={styles.muted}>
-          מתוך <Price amount={status.budget} />
+          {formatRich(t("ofBudget"), { price: <Price amount={status.budget} /> })}
         </span>
       </p>
       {status.afterPlan !== null ? (
         <p className={overAfter ? styles.warn : styles.line} data-testid="budget-after">
           {overAfter ? <IconInfo size={16} /> : null}
           <span>
-            {overAfter ? "הקנייה הזו חורגת מהתקציב ב" : "אחרי הקנייה הזו יישארו "}
-            <Price amount={Math.abs(status.afterPlan)} />
+            {formatRich(t(overAfter ? "afterOver" : "afterLeft"), {
+              price: <Price amount={Math.abs(status.afterPlan)} />,
+            })}
           </span>
           {updatedAt ? (
             <span className={styles.muted}>
-              <UpdatedAt iso={updatedAt} prefix="מחירים עודכנו" />
+              <UpdatedAt iso={updatedAt} prefix={shared("pricesUpdated")} />
             </span>
           ) : null}
         </p>
       ) : null}
       <p className={styles.note}>
-        לפי המחירים שהוצגו, לא לפי קבלות. המחיר הקובע הוא בקופה.{" "}
-        <Link href="/profile#budget">לתקציב</Link>
+        {t("footnote")} <Link href="/profile#budget">{t("toBudget")}</Link>
       </p>
     </Card>
   );

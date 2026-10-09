@@ -5,6 +5,7 @@ import { parseImage, parseList, type ParsedRow, type ParseImageResponse } from "
 import { BottomSheet, Button, IconInfo } from "@/components/ui";
 import { getImageConsent, setImageConsent } from "@/features/consent/imageConsent";
 import { unresolvedRow } from "@/features/recipe/scale";
+import { LegalNotice } from "@/i18n/LegalNotice";
 import { useT } from "@/i18n/LocaleProvider";
 import { photoMessages } from "@/i18n/messages/photo";
 import { CameraIcon } from "./CameraIcon";
@@ -323,6 +324,7 @@ export function PhotoSheet({ open, onClose, onAdd, onTypeInstead, flexDefaults }
           </p>
         ) : null}
         <p className={styles.lead}>{t("consentBody")}</p>
+        <LegalNotice />
       </div>
     );
     footer = (

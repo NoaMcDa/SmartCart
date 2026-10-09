@@ -15,26 +15,32 @@ import {
   visibleSwaps,
 } from "@/features/swaps/swapState";
 import { useSwaps } from "@/features/swaps/useSwaps";
+import { DataText } from "@/i18n/DataText";
+import { formatRich } from "@/i18n/format";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { compareMessages } from "@/i18n/messages/compare";
+import { sharedMessages } from "@/i18n/messages/shared";
+import { translatePlural } from "@/i18n/plural";
 import { attributeTagText, foldTags } from "@/lib/attributes";
+import { chainLabel, storeLabel } from "@/lib/storeName";
 import { buildCompareInput, planUpdatedAt } from "@/state/comparison";
 import { basketItems, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
 import styles from "./SmartCartCard.module.css";
 
-export function swapTagText(tag: AttributeTag): string {
-  return attributeTagText(tag);
+export function swapTagText(tag: AttributeTag, locale: Locale = DEFAULT_LOCALE): string {
+  return attributeTagText(tag, { locale });
 }
 
-const REASONS: Record<SwapSuggestion["flex_level"], string> = {
-  any_brand: "אותו סוג מוצר ואותה כמות, במותג אחר. מתאים לרמת ״כל מותג״.",
-  close:
-    "תחליף קרוב: מוצר דומה מאוד עם הבדל קטן באחד המאפיינים (ראי את התגיות). מתאים לרמת ״תחליף קרוב״.",
-  exact: "אותו מוצר בדיוק, במחיר נמוך יותר בסניף הזה.",
-};
+const REASONS = {
+  any_brand: "reasonAnyBrand",
+  close: "reasonClose",
+  exact: "reasonExact",
+} as const satisfies Record<SwapSuggestion["flex_level"], string>;
 
-export function swapsHeadline(count: number): string {
-  if (count === 1) return "החלפה אחת תחסוך לך";
-  return `${count} החלפות יחסכו לך`;
+export function swapsHeadline(count: number, locale: Locale = DEFAULT_LOCALE): string {
+  return translatePlural(compareMessages, locale, "headline", count, { count });
 }
 
 /**
@@ -46,6 +52,9 @@ export function swapsHeadline(count: number): string {
  * to suggest, so it never blocks the results.
  */
 export function SmartCartCard({ plan }: { plan: Plan }) {
+  const t = useT(compareMessages);
+  const shared = useT(sharedMessages);
+  const { locale } = useLocale();
   const { state } = useList();
   const shopper = useShopper();
   const swapsState = useSwapsState();
@@ -83,38 +92,45 @@ export function SmartCartCard({ plan }: { plan: Plan }) {
       data-trust-scope="smart-cart"
     >
       <p className={styles.smartEyebrow}>
-        <IconRefresh size={14} /> עגלה חכמה · {store.chain_name}
+        <IconRefresh size={14} />{" "}
+        {t("smartEyebrow", { chain: chainLabel(store.chain_name, locale) })}
       </p>
 
       {top ? (
         <>
           <h2 id="smart-cart-title" className={styles.smartTitle} data-testid="smart-cart-title">
-            {swapsHeadline(count)} <Price amount={total} tone="good" size="lg" />
+            {swapsHeadline(count, locale)} <Price amount={total} tone="good" size="lg" />
           </h2>
           <p className={styles.muted}>
-            לעומת הרשימה שלך כמו שהיא עכשיו, בסניף {store.store_name}. ההחלפות לא חופפות, אז הסכום
-            לא סופר חיסכון פעמיים.
+            {t("smartSub", { store: storeLabel(store.store_name, locale) })}
           </p>
 
           <div className={styles.smartTop} data-testid="smart-cart-top">
-            <p className={styles.smartLabel}>ההחלפה המשתלמת ביותר</p>
-            <h3 className={styles.smartName}>{top.to_display_name_he}</h3>
+            <p className={styles.smartLabel}>{t("bestSwap")}</p>
+            <h3 className={styles.smartName}>
+              <DataText>{top.to_display_name_he}</DataText>
+            </h3>
             <p className={styles.smartMeta}>
-              חיסכון <Price amount={savingOf(top)} tone="good" fractionDigits={2} />
+              {formatRich(t("swapSaving"), {
+                price: <Price amount={savingOf(top)} tone="good" fractionDigits={2} />,
+              })}
               {top.confidence != null ? (
                 <>
-                  {" · "}ביטחון בהתאמה <span dir="ltr">{Math.round(top.confidence * 100)}%</span>
+                  {" · "}
+                  {formatRich(t("swapConfidence"), {
+                    pct: <span dir="ltr">{Math.round(top.confidence * 100)}%</span>,
+                  })}
                 </>
               ) : null}
             </p>
             <p className={styles.smartWhy} data-testid="smart-cart-why">
-              למה: {REASONS[top.flex_level]}
+              {t("swapWhy", { reason: t(REASONS[top.flex_level]) })}
             </p>
             {top.tags && top.tags.length > 0 ? (
-              <ul className={styles.smartTags} aria-label="השוואת תכונות">
-                {foldTags(top.tags).map((t) => (
-                  <li key={`${t.key}-${t.value ?? ""}`}>
-                    <Tag variant={t.status}>{swapTagText(t)}</Tag>
+              <ul className={styles.smartTags} aria-label={t("tagsLabel")}>
+                {foldTags(top.tags).map((tag) => (
+                  <li key={`${tag.key}-${tag.value ?? ""}`}>
+                    <Tag variant={tag.status}>{swapTagText(tag, locale)}</Tag>
                   </li>
                 ))}
               </ul>
@@ -125,28 +141,30 @@ export function SmartCartCard({ plan }: { plan: Plan }) {
                   setUndoneName(null);
                   applySwap(top);
                 }}
-                aria-label={`החליפי ל${top.to_display_name_he}`}
+                aria-label={t("applyLabel", { name: top.to_display_name_he })}
               >
-                החלפה
+                {t("apply")}
               </Button>
               <Button variant="outline" onClick={() => dismissSwap(top)}>
-                לא עכשיו
+                {t("notNow")}
               </Button>
             </div>
           </div>
         </>
       ) : (
         <h2 id="smart-cart-title" className={styles.smartTitle}>
-          אין החלפות נוספות להציע
+          {t("noSwaps")}
         </h2>
       )}
 
       <div role="status" aria-live="polite">
         {lastApplied ? (
           <p className={styles.smartApplied} data-testid="smart-cart-applied">
-            <IconCheck size={14} /> הוחלף: {lastApplied.name} (חיסכון{" "}
-            <Price amount={lastApplied.saving} tone="good" fractionDigits={2} />
-            ).{" "}
+            <IconCheck size={14} />{" "}
+            {formatRich(t("swapApplied"), {
+              name: lastApplied.name,
+              price: <Price amount={lastApplied.saving} tone="good" fractionDigits={2} />,
+            })}{" "}
             <Button
               variant="ghost"
               size="sm"
@@ -154,20 +172,20 @@ export function SmartCartCard({ plan }: { plan: Plan }) {
                 if (undoSwap(lastApplied.key)) setUndoneName(lastApplied.name);
               }}
             >
-              ביטול ההחלפה
+              {t("undoApplied")}
             </Button>
           </p>
         ) : null}
         {undone && !lastApplied ? (
           <p className={styles.muted} data-testid="smart-cart-undone">
-            ההחלפה בוטלה והרשימה חזרה למה שהייתה.
+            {t("swapUndone")}
           </p>
         ) : null}
       </div>
 
       <p className={styles.muted}>
-        <UpdatedAt iso={planUpdatedAt(plan)} prefix="מחירים עודכנו" withIcon /> · המחיר הקובע הוא
-        בקופה.
+        <UpdatedAt iso={planUpdatedAt(plan)} prefix={shared("pricesUpdated")} withIcon /> ·{" "}
+        {shared("checkoutGoverns")}
       </p>
     </Card>
   );

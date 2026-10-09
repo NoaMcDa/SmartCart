@@ -18,6 +18,10 @@ import { PhotoEntry } from "@/features/photo/PhotoEntry";
 import { RecipeSheet } from "@/features/recipe/RecipeSheet";
 import { VoiceSheet } from "@/features/voice/VoiceSheet";
 import { useVoiceSupported } from "@/features/voice/useVoiceInput";
+import { Count } from "@/features/compare/Count";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { listMessages } from "@/i18n/messages/list";
+import { sharedMessages } from "@/i18n/messages/shared";
 import { buildCompareInput, useCompareEstimate } from "@/state/comparison";
 import { basketItems, groupByDepartment, listActions, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
@@ -26,14 +30,16 @@ import { FlexibilitySheet } from "./FlexibilitySheet";
 import { ListRow } from "./ListRow";
 import styles from "./ListBuilder.module.css";
 
-const PLACEHOLDER = "חלב, 2 רסק עגבניות, סלמון…";
-
 /**
  * List builder (issue #24): paste or type a Hebrew list, /parse-list turns it into canonical rows
  * grouped by department, each with a quantity and a flexibility chip. Flagged rows get an amber
  * confirmation; Compare stays usable. The list lives in localStorage (src/state/list.ts).
  */
 export function ListBuilder() {
+  const t = useT(listMessages);
+  const shared = useT(sharedMessages);
+  const { locale } = useLocale();
+  const placeholder = t("placeholder");
   const { state, hydrated } = useList();
   const shopper = useShopper();
   const [text, setText] = useState("");
@@ -63,7 +69,7 @@ export function ListBuilder() {
       .sort()
       .at(-1) ?? null;
 
-  const groups = groupByDepartment(state.items);
+  const groups = groupByDepartment(state.items, locale);
   const notFound = state.items.filter((i) => i.notFound);
   const recognized = state.items.length - notFound.length;
   const flexItem = state.items.find((i) => i.id === flexItemId) ?? null;
@@ -89,7 +95,7 @@ export function ListBuilder() {
     setHint(null);
     const added = await parseInto(value);
     if (added === null) {
-      setError("לא הצלחנו לזהות את הרשימה. בדקי את החיבור ונסי שוב.");
+      setError(t("parseFailed"));
     } else {
       if (wasPasted) reportListPasted(added);
       setText("");
@@ -102,7 +108,7 @@ export function ListBuilder() {
     const added = await parseInto(value);
     if (added !== null) {
       setError(null);
-      setHint(`נוספו ${added} פריטים מההכתבה. בדקי את הפריטים שמסומנים לאישור.`);
+      setHint(t("dictatedAdded", { count: added }));
     }
     return added;
   }
@@ -111,10 +117,8 @@ export function ListBuilder() {
     listActions.add(rows);
     setRecipeOpen(false);
     setError(null);
-    const portions = info.servings ? ` ל-${info.servings} מנות` : "";
-    setHint(
-      `נוספו ${rows.length} פריטים מהמתכון "${info.title}"${portions}. בדקי את הפריטים שמסומנים לאישור.`,
-    );
+    const portions = info.servings ? t("recipePortions", { servings: info.servings }) : "";
+    setHint(t("recipeAdded", { count: rows.length, title: info.title, portions }));
   }
 
   function onSubmit(e: FormEvent) {
@@ -134,14 +138,14 @@ export function ListBuilder() {
     try {
       const clip = await navigator.clipboard.readText();
       if (!clip.trim()) {
-        setHint("הלוח ריק. העתיקי רשימה ונסי שוב.");
+        setHint(t("clipboardEmpty"));
         return;
       }
       setText(clip);
       pastedRef.current = true;
       await submit(clip);
     } catch {
-      setHint("אין גישה ללוח. הדביקי בתיבה עם Ctrl+V או לחיצה ארוכה.");
+      setHint(t("clipboardDenied"));
       inputRef.current?.focus();
     }
   }
@@ -156,11 +160,11 @@ export function ListBuilder() {
     <div className={styles.page}>
       <div className={styles.head}>
         <p className={styles.subline} data-testid="list-subline">
-          <span dir="ltr">{recognized}</span> פריטים
+          <Count n={recognized} noun="items" />
           {newestPrice ? (
             <>
               {" · "}
-              <UpdatedAt iso={newestPrice} prefix="מחירים עודכנו" />
+              <UpdatedAt iso={newestPrice} prefix={shared("pricesUpdated")} />
             </>
           ) : null}
         </p>
@@ -172,15 +176,15 @@ export function ListBuilder() {
           iconStart={<IconShare size={16} />}
           data-testid="share-entry"
         >
-          שיתוף
+          {t("share")}
         </Button>
       </div>
 
       <div className={styles.layout}>
-        <section className={styles.listColumn} aria-label="הרשימה">
+        <section className={styles.listColumn} aria-label={t("listSection")}>
           <form className={styles.inputBox} onSubmit={onSubmit}>
             <label htmlFor={inputId} className="sr-only">
-              הוסיפי פריטים לרשימה
+              {t("addLabel")}
             </label>
             <textarea
               ref={inputRef}
@@ -188,7 +192,7 @@ export function ListBuilder() {
               className={styles.input}
               rows={1}
               value={text}
-              placeholder={PLACEHOLDER}
+              placeholder={placeholder}
               onChange={(e) => {
                 setText(e.target.value);
                 if (!e.target.value) pastedRef.current = false;
@@ -204,7 +208,7 @@ export function ListBuilder() {
               <button
                 type="button"
                 className={styles.inputButton}
-                aria-label="הכתבה קולית"
+                aria-label={t("voiceLabel")}
                 aria-haspopup="dialog"
                 onClick={() => setVoiceOpen(true)}
                 data-testid="voice-open"
@@ -215,13 +219,13 @@ export function ListBuilder() {
             <button
               type="button"
               className={styles.inputButton}
-              aria-label="הדבקת רשימה"
+              aria-label={t("pasteLabel")}
               onClick={pasteFromClipboard}
             >
               <IconClipboard size={22} />
             </button>
             <Button type="submit" size="sm" disabled={parsing || !text.trim()}>
-              הוסיפי
+              {t("add")}
             </Button>
           </form>
           <div className={styles.sources}>
@@ -233,7 +237,7 @@ export function ListBuilder() {
               aria-haspopup="dialog"
               data-testid="recipe-open"
             >
-              ממתכון
+              {t("fromRecipe")}
             </Button>
             <PhotoEntry
               onAdded={(message) => {
@@ -245,7 +249,7 @@ export function ListBuilder() {
           </div>
           {voiceSupported === false ? (
             <p className={styles.hint} data-testid="voice-unsupported">
-              הכתבה קולית לא זמינה בדפדפן הזה. אפשר להקליד או להדביק את הרשימה.
+              {t("voiceUnsupported")}
             </p>
           ) : null}
           {error || hint ? (
@@ -261,7 +265,7 @@ export function ListBuilder() {
           <div aria-busy={parsing || !hydrated} aria-live="polite">
             {parsing ? (
               <p className={styles.hint} role="status">
-                מזהה פריטים…
+                {t("identifying")}
               </p>
             ) : null}
           </div>
@@ -276,11 +280,8 @@ export function ListBuilder() {
             </Card>
           ) : state.items.length === 0 && !parsing ? (
             <Card className={styles.empty}>
-              <h2 className={styles.emptyTitle}>הרשימה ריקה</h2>
-              <p className={styles.emptyText}>
-                הדביקי רשימה או כתבי פריטים מופרדים בפסיק, למשל &quot;{PLACEHOLDER}&quot;. נזהה כל
-                פריט, נציע רמת גמישות ונשווה בין הסניפים הקרובים.
-              </p>
+              <h2 className={styles.emptyTitle}>{t("emptyTitle")}</h2>
+              <p className={styles.emptyText}>{t("emptyText", { example: placeholder })}</p>
             </Card>
           ) : null}
 
@@ -289,8 +290,7 @@ export function ListBuilder() {
               <h2 className={styles.groupTitle}>
                 <span>{group.name}</span>
                 <span className={styles.groupCount}>
-                  <span dir="ltr">{group.items.length}</span>{" "}
-                  {group.items.length === 1 ? "פריט" : "פריטים"}
+                  <Count n={group.items.length} noun="item" />
                 </span>
               </h2>
               <Card padding="none" className={styles.groupCard}>
@@ -302,10 +302,10 @@ export function ListBuilder() {
           ))}
 
           {notFound.length ? (
-            <section className={styles.group} aria-label="לא זוהו">
+            <section className={styles.group} aria-label={t("notFoundTitle")}>
               <h2 className={styles.groupTitle}>
-                <span>לא זוהו</span>
-                <span className={styles.groupCount}>לא ייכללו בהשוואה</span>
+                <span>{t("notFoundTitle")}</span>
+                <span className={styles.groupCount}>{t("notFoundNote")}</span>
               </h2>
               <Card padding="none" className={styles.groupCard}>
                 {notFound.map((item) => (
@@ -314,25 +314,25 @@ export function ListBuilder() {
                       <IconInfo size={18} className={styles.notFoundIcon} />
                       <div className={styles.rowMain}>
                         <div className={styles.rowName}>
-                          לא מצאנו את &quot;{item.inputText}&quot;
+                          {t("notFoundRow", { text: item.inputText })}
                         </div>
-                        <div className={styles.rowHint}>נסי לכתוב אחרת או לדווח לנו על פער</div>
+                        <div className={styles.rowHint}>{t("notFoundHint")}</div>
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => editNotFound(item.id, item.inputText)}
-                        aria-label={`עריכת ${item.inputText}`}
+                        aria-label={t("editLabel", { text: item.inputText })}
                       >
-                        עריכה
+                        {t("edit")}
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => listActions.remove(item.id)}
-                        aria-label={`הסרת ${item.inputText}`}
+                        aria-label={t("removeLabel", { text: item.inputText })}
                       >
-                        הסרה
+                        {t("remove")}
                       </Button>
                     </div>
                   </div>
@@ -344,7 +344,7 @@ export function ListBuilder() {
           {state.items.length ? (
             <div className={styles.listActions}>
               <Button variant="ghost" size="sm" onClick={() => listActions.clear()}>
-                ניקוי הרשימה
+                {t("clear")}
               </Button>
             </div>
           ) : null}

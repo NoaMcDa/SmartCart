@@ -10,31 +10,40 @@ import {
   type PriceAlert,
 } from "@/api/client";
 import { Button, Card, Price, SegmentedControl } from "@/components/ui";
+import { flexLevelLabel } from "@/components/ui/Chip";
 import { IconCheck, IconInfo } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { reportAlertCreated } from "@/features/consent/betaEvents";
+import { formatRich } from "@/i18n/format";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { alertMessages } from "@/i18n/messages/alerts";
 import { useShopper } from "@/state/shopper";
 import { rememberAlertLabel } from "./alertNames";
 import { parseThreshold } from "./threshold";
 import { PushPanel } from "./PushPanel";
 import styles from "./Alerts.module.css";
 
-const LEVELS: ReadonlyArray<{ value: FlexLevel; label: string }> = [
-  { value: "any_brand", label: "כל מותג" },
-  { value: "close", label: "תחליף קרוב" },
-  { value: "exact", label: "מוצר מדויק" },
-];
+const LEVEL_VALUES: ReadonlyArray<FlexLevel> = ["any_brand", "close", "exact"];
 
-export function alertError(err: unknown): string {
+/** The three match levels as segmented-control options, labeled in `locale`. */
+export function alertLevels(
+  locale: Locale = DEFAULT_LOCALE,
+): ReadonlyArray<{ value: FlexLevel; label: string }> {
+  return LEVEL_VALUES.map((value) => ({ value, label: flexLevelLabel(value, locale) }));
+}
+
+export function alertError(err: unknown, locale: Locale = DEFAULT_LOCALE): string {
+  const t = (key: "errSignIn" | "errLimit" | "errServer" | "errOffline") =>
+    translate(alertMessages, locale, key);
   if (err instanceof ApiError) {
-    if (err.status === 401) return "צריך להתחבר כדי לנהל התראות.";
-    if (err.status === 402 || err.status === 403 || err.status === 429) {
-      return "הגעת למספר ההתראות שכלול בחינם. אפשר למחוק התראה קיימת.";
-    }
-    return "השרת החזיר שגיאה. נסי שוב בעוד רגע.";
+    if (err.status === 401) return t("errSignIn");
+    if (err.status === 402 || err.status === 403 || err.status === 429) return t("errLimit");
+    return t("errServer");
   }
-  return "נראה שאין חיבור לשרת. בדקי את החיבור ונסי שוב.";
+  return t("errOffline");
 }
 
 /**
@@ -52,6 +61,8 @@ export function AlertMe({
   name: string;
   unitLabel: string;
 }) {
+  const t = useT(alertMessages);
+  const { locale } = useLocale();
   const auth = useAuth();
   const shopper = useShopper();
   const [threshold, setThreshold] = useState("");
@@ -87,7 +98,7 @@ export function AlertMe({
     e.preventDefault();
     const value = parseThreshold(threshold);
     if (value === null) {
-      setError("הקלידי מחיר חיובי, למשל 8.90.");
+      setError(t("thresholdInvalid"));
       return;
     }
     setBusy(true);
@@ -107,7 +118,7 @@ export function AlertMe({
       setCreated(alert);
       setThreshold("");
     } catch (err) {
-      setError(alertError(err));
+      setError(alertError(err, locale));
     } finally {
       setBusy(false);
     }
@@ -121,7 +132,7 @@ export function AlertMe({
       setExisting((prev) => prev.filter((a) => a.id !== alert.id));
       setCreated((c) => (c?.id === alert.id ? null : c));
     } catch (err) {
-      setError(alertError(err));
+      setError(alertError(err, locale));
     }
   }
 
@@ -133,24 +144,23 @@ export function AlertMe({
       data-testid="alert-me"
     >
       <h2 id="alert-heading" className={styles.title}>
-        התראה כשהמחיר יורד
+        {t("cardTitle")}
       </h2>
 
       {needsSignIn ? (
         <div className={styles.stack}>
           <p className={styles.note}>
-            <IconInfo size={15} /> התראות נשמרות בחשבון שלך, כדי שנוכל לשלוח אותן גם כשהאפליקציה
-            סגורה. נשלח קוד חד-פעמי לאימייל, בלי סיסמה.
+            <IconInfo size={15} /> {t("signInNote")}
           </p>
           <Button size="sm" variant="outline" onClick={auth.openSignIn}>
-            התחברות
+            {t("signIn")}
           </Button>
         </div>
       ) : (
         <form onSubmit={submit} className={styles.stack} noValidate>
           <div className={styles.formRow}>
             <label htmlFor={inputId} className={styles.label}>
-              התריעי לי מתחת ל-₪
+              {t("thresholdLabel")}
             </label>
             <input
               id={inputId}
@@ -168,19 +178,20 @@ export function AlertMe({
               }}
             />
             <Button type="submit" size="sm" disabled={busy || waiting}>
-              יצירת התראה
+              {t("create")}
             </Button>
           </div>
           <SegmentedControl<FlexLevel>
-            label="רמת התאמה להתראה"
+            label={t("levelLegend")}
             value={level}
             onChange={setLevel}
-            options={LEVELS}
+            options={alertLevels(locale)}
           />
           <p id={noteId} className={styles.hint}>
-            המחיר הוא {unitLabel}, כדי שההשוואה תהיה הוגנת בין מותגים וגדלים. ההתראה על סוג המוצר,
-            לא על ברקוד אחד, ובטווח של {shopper ? Math.round(shopper.radiusM / 100) / 10 : 5}{" "}
-            ק&quot;מ ממך.
+            {t("cardHint", {
+              unit: unitLabel,
+              km: shopper ? Math.round(shopper.radiusM / 100) / 10 : 5,
+            })}
           </p>
         </form>
       )}
@@ -188,8 +199,11 @@ export function AlertMe({
       <div role="status" aria-live="polite">
         {created ? (
           <p className={styles.ok} data-testid="alert-created">
-            <IconCheck size={15} /> ההתראה נוצרה: נעדכן אותך כשיהיה מתחת ל-
-            <Price amount={created.threshold_unit_price} fractionDigits={2} /> {unitLabel}.
+            <IconCheck size={15} />{" "}
+            {formatRich(t("created"), {
+              price: <Price amount={created.threshold_unit_price} fractionDigits={2} />,
+              unit: unitLabel,
+            })}
           </p>
         ) : null}
       </div>
@@ -200,20 +214,22 @@ export function AlertMe({
       ) : null}
 
       {existing.length > 0 ? (
-        <ul className={styles.existing} aria-label="התראות קיימות למוצר">
+        <ul className={styles.existing} aria-label={t("existingLabel")}>
           {existing.map((a) => (
             <li key={a.id} data-testid="alert-existing">
               <span>
-                מתחת ל-
-                <Price amount={a.threshold_unit_price} fractionDigits={2} /> {unitLabel}
+                {formatRich(t("below"), {
+                  price: <Price amount={a.threshold_unit_price} fractionDigits={2} />,
+                  unit: unitLabel,
+                })}
               </span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => void remove(a)}
-                aria-label={`מחיקת ההתראה מתחת ל-${a.threshold_unit_price} ש"ח`}
+                aria-label={t("deleteBelowLabel", { price: a.threshold_unit_price })}
               >
-                מחיקה
+                {t("delete")}
               </Button>
             </li>
           ))}
@@ -221,7 +237,7 @@ export function AlertMe({
       ) : null}
 
       {existing.length > 0 ? <PushPanel /> : null}
-      <p className={styles.hint}>המחיר הקובע הוא בקופה. ההתראה מבוססת על מחירי קבצי השקיפות.</p>
+      <p className={styles.hint}>{t("finePrint")}</p>
     </Card>
   );
 }

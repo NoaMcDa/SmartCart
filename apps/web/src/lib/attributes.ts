@@ -67,9 +67,27 @@ export function unitName(unit: string, locale: Locale = DEFAULT_LOCALE): string 
  * A uom that is already Hebrew ("100 מ"ל") comes back as it was.
  */
 export function uomText(uom: string, locale: Locale = DEFAULT_LOCALE): string {
-  const m = /^(\d+(?:\.\d+)?)\s*(kg|ml|unit|g|l)$/i.exec(uom.trim());
+  const text = locale === DEFAULT_LOCALE ? uom.trim() : hebrewUnitToCode(uom.trim());
+  const m = /^(\d+(?:\.\d+)?)\s*(kg|ml|unit|g|l)$/i.exec(text);
   if (m) return `${m[1]} ${unitName(m[2]!, locale)}`;
-  return unitName(uom, locale);
+  return unitName(text, locale);
+}
+
+/** Hebrew unit abbreviations that older data and the mocks carry in `uom`, as the unit codes. */
+const HEBREW_UNITS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/(^|\s)מ["״]ל$/, "ml"],
+  [/(^|\s)ק["״]ג$/, "kg"],
+  [/(^|\s)ג['׳]$/, "g"],
+  [/(^|\s)יח['׳]$/, "unit"],
+  [/(^|\s)ל['׳]$/, "l"],
+];
+
+/** "100 מ"ל" -> "100ml"; anything else is returned unchanged. Only used for non-Hebrew output. */
+function hebrewUnitToCode(uom: string): string {
+  for (const [pattern, code] of HEBREW_UNITS) {
+    if (pattern.test(uom)) return uom.replace(pattern, (_, space: string) => `${space}${code}`);
+  }
+  return uom;
 }
 
 /** "for 100 g": "ל-100 ג׳", "ליח׳", "לק״ג". */
@@ -93,6 +111,11 @@ export function attributeValue(
 ): string | null {
   if (value === null || value === undefined || value === "") return null;
   const v = value.trim();
+  if (locale !== DEFAULT_LOCALE) {
+    // The mock and older data send these values in Hebrew; Arabic shows the same words in Arabic.
+    const known = hebrewValue(v);
+    if (known) return translate(attributeMessages, locale, known);
+  }
   switch (key) {
     case "base": {
       const k = lookup(BASE_VALUES, v.toLowerCase());
@@ -114,6 +137,16 @@ export function attributeValue(
     default:
       return v;
   }
+}
+
+/** The message key of a tag value written in Hebrew ("סויה", "מותג פרטי"), when it is a known one. */
+function hebrewValue(v: string): MessageKey | undefined {
+  const keys: MessageKey[] = [
+    ...Object.values(BASE_VALUES),
+    ...Object.values(STATE_VALUES),
+    "value_private_label",
+  ];
+  return keys.find((k) => translate(attributeMessages, DEFAULT_LOCALE, k) === v);
 }
 
 const SEVERITY: Record<AttributeTag["status"], number> = { matched: 0, unverified: 1, differs: 2 };

@@ -1,15 +1,12 @@
 "use client";
 
 import type { BasketItemInput, CompareResponse } from "@/api/client";
-import {
-  Button,
-  FLEX_LEVELS,
-  IconChevronNext,
-  Price,
-  PriceRange,
-  Skeleton,
-  UpdatedAt,
-} from "@/components/ui";
+import { Button, IconChevronNext, Price, PriceRange, Skeleton, UpdatedAt } from "@/components/ui";
+import { flexLevelLabel } from "@/components/ui/Chip";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { listMessages } from "@/i18n/messages/list";
+import { sharedMessages } from "@/i18n/messages/shared";
+import { chainLabel } from "@/lib/storeName";
 import { estimateRange } from "@/state/comparison";
 import type { ListItem } from "@/state/list";
 import styles from "./ListBuilder.module.css";
@@ -36,6 +33,9 @@ export function EstimatePanel({
   radiusKm,
   newestPrice,
 }: EstimatePanelProps) {
+  const t = useT(listMessages);
+  const shared = useT(sharedMessages);
+  const { locale } = useLocale();
   const estimate = data ? estimateRange(data, basket) : null;
   const toConfirm = items.filter((i) => i.needsConfirmation).length;
   const counts = { exact: 0, any_brand: 0, close: 0 };
@@ -43,11 +43,13 @@ export function EstimatePanel({
   const canCompare = basket.length > 0;
 
   return (
-    <aside className={styles.panel} aria-label="הערכת סל">
+    <aside className={styles.panel} aria-label={t("estimatePanel")}>
       <div className={[styles.panelCard, styles.bar].join(" ")}>
         <div className={styles.estimate} aria-live="polite" data-trust-scope="estimate">
           <div className={styles.estimateLabel}>
-            {estimate ? `הערכת סל ב-${estimate.storeCount} סניפים עד ${radiusKm} ק"מ` : "הערכת סל"}
+            {estimate
+              ? t("estimateRange", { stores: estimate.storeCount, km: radiusKm })
+              : t("estimatePanel")}
           </div>
           <div className={styles.estimateValue} data-testid="basket-estimate">
             {loading && !estimate ? (
@@ -56,12 +58,12 @@ export function EstimatePanel({
               <PriceRange from={estimate.min} to={estimate.max} fractionDigits={0} />
             ) : (
               <span className={styles.estimateEmpty}>
-                {canCompare ? "אין עדיין הערכה" : "הוסיפי פריטים"}
+                {canCompare ? t("noEstimate") : t("addItems")}
               </span>
             )}
           </div>
           {newestPrice ? (
-            <UpdatedAt iso={newestPrice} prefix="מחירים עודכנו" className={styles.desk} />
+            <UpdatedAt iso={newestPrice} prefix={shared("pricesUpdated")} className={styles.desk} />
           ) : null}
         </div>
 
@@ -69,20 +71,23 @@ export function EstimatePanel({
           <dl className={[styles.facts, styles.desk].join(" ")}>
             {estimate.home ? (
               <div>
-                <dt>בסופר שלך, {estimate.home.store.chain_name}</dt>
+                <dt>
+                  {t("atHome", { chain: chainLabel(estimate.home.store.chain_name, locale) })}
+                </dt>
                 <dd>
                   <Price amount={estimate.home.total} fractionDigits={0} />
                 </dd>
               </div>
             ) : null}
             <div>
-              <dt>הזול ביותר כרגע</dt>
+              <dt>{t("cheapestNow")}</dt>
               <dd>
-                {estimate.cheapest.chain_name} · <Price amount={estimate.min} fractionDigits={0} />
+                {chainLabel(estimate.cheapest.chain_name, locale)} ·{" "}
+                <Price amount={estimate.min} fractionDigits={0} />
               </dd>
             </div>
             <div>
-              <dt>פריטים לבדיקה</dt>
+              <dt>{t("toCheck")}</dt>
               <dd>
                 <span dir="ltr">{toConfirm}</span>
               </dd>
@@ -96,29 +101,27 @@ export function EstimatePanel({
             className={styles.compare}
             iconEnd={<IconChevronNext size={18} />}
           >
-            השווי
+            {t("compare")}
           </Button>
         ) : (
           <Button disabled className={styles.compare} iconEnd={<IconChevronNext size={18} />}>
-            השווי
+            {t("compare")}
           </Button>
         )}
       </div>
 
       <div className={[styles.panelCard, styles.desk].join(" ")}>
-        <h2 className={styles.panelTitle}>גמישות ברשימה</h2>
+        <h2 className={styles.panelTitle}>{t("flexTitle")}</h2>
         <ul className={styles.flexCounts}>
           {(["exact", "any_brand", "close"] as const).map((level) => (
             <li key={level}>
               <span className={styles.flexDot} data-level={level} aria-hidden="true" />
-              <span className={styles.flexCountLabel}>{FLEX_LEVELS[level].label}</span>
+              <span className={styles.flexCountLabel}>{flexLevelLabel(level, locale)}</span>
               <span dir="ltr">{counts[level]}</span>
             </li>
           ))}
         </ul>
-        <p className={styles.panelNote}>
-          ככל שיותר פריטים ב&quot;כל מותג&quot;, החיסכון גדל. אפשר לשנות לכל פריט בנפרד.
-        </p>
+        <p className={styles.panelNote}>{t("flexNote")}</p>
       </div>
     </aside>
   );
