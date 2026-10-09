@@ -43,6 +43,7 @@ from smartcart_ingest.geocode.resolve import (
 from smartcart_ingest.geocode.stores import (
     StoreInput,
     build_queries,
+    city_in_text,
     clean_address,
     geocode_stores,
     infer_by_name,
@@ -102,6 +103,8 @@ def test_normalize_code() -> None:
 def test_name_matching_ignores_quotes_hyphens_and_kiryat_spelling() -> None:
     assert normalize_name("קריית  שמונה") == normalize_name("קרית שמונה")
     assert names_match("תל אביב -יפו", "תל אביב-יפו")
+    assert names_match("תל אביב -יפו", "תל־אביב–יפו")  # OSM: Hebrew maqaf and an en dash
+    assert names_match("מודיעין-מכבים-רעות", "מודיעין־מכבים־רעות")
     assert names_match("תל אביב", "תל אביב-יפו")  # the short name is a leading part
     assert names_match("ראשון לציון", 'ראשון לציון')
     assert not names_match("רמת גן", "גן")  # a trailing fragment is not a match
@@ -351,9 +354,13 @@ def test_request_key_ignores_whitespace_but_not_parameters() -> None:
         ("אבן גבירול157", ("אבן גבירול 157", True)),
         ("20 נחל פרת", ("נחל פרת 20", True)),
         ("46-50 פנקס", ("פנקס 46", True)),
-        ("רחוב המפוח 11, אזור התעשיה", ("רחוב המפוח 11", True)),
+        ("רחוב המפוח 11, אזור התעשיה", ("המפוח 11", True)),
+        ("רח' המלאכה 32", ("המלאכה 32", True)),
+        ("הסתת 15 א תעשיה", ("הסתת 15", True)),
+        ('הר"ן 6 פינת פנים המאירים', ('הר"ן 6', True)),
+        ("שד' הנשיא 3", ("שדרות הנשיא 3", True)),
         ("שרפה 22, כביש ראשי של העיר 0", ("שרפה 22", True)),
-        ("שדרות ירושלים פינת נופי חמד", ("שדרות ירושלים פינת נופי חמד", False)),
+        ("שדרות ירושלים פינת נופי חמד", ("שדרות ירושלים", False)),
         ("ואדי אלפש, כביש 672 0", ("ואדי אלפש", False)),
         ("מרכז מסחרי", ("מרכז מסחרי", False)),
         ("ת.ד. 123", ("", False)),
@@ -483,20 +490,62 @@ def test_run_stops_at_max_stores_and_when_blocked(tmp_path: Path) -> None:
     assert "403" in stats.stopped and stats.attempted == 0
 
 
-def test_unknown_city_is_not_sent_to_the_geocoder_but_an_exact_name_match_is_used(tmp_path: Path) -> None:
-    fake = FakeNominatim()
+def test_unknown_city_falls_back_to_an_exact_name_match_when_the_text_gives_nothing(tmp_path: Path) -> None:
+    fake = FakeNominatim()  # answers nothing
     stores = [
         S("1", "אום אלפחם", "שרפה 22", "0"),  # the store is named after the locality
         S("2", "יוחננוף מפוח", "רחוב המפוח 11", "0"),
         S("3", "x", "רחוב 1", None),
-        S("4", "x", "רחוב 1", "99999"),  # a code the table does not have
+        S("4", "x", "", "99999"),  # a code the table does not have, and no address
     ]
     rows, stats = geocode_stores(stores, LOCALITIES, _client(tmp_path, fake))
-    assert fake.urls == []
     assert [(r.store_code, r.precision, r.source) for r in rows] == [("1", "locality", "cbs-name-match")]
     assert (rows[0].lat, rows[0].lon) == (32.52, 35.15)
     assert stats.unknown_city_code == 3 and stats.no_city == 1
+    assert stats.no_match == 2 and stats.skipped_online_or_no_address == 2  # "רחוב 1" has no street name
     assert infer_by_name(S("9", "תל אביב", None, "0"), LOCALITIES) is None
+
+
+def test_city_in_text_matches_whole_words_and_hyphenated_parts() -> None:
+    assert city_in_text("תל אביב-יפו", "קרפור סיטי תל אביב")
+    assert city_in_text("יפו", "דיל יפו")
+    assert city_in_text("בת ים", "קרפור סיטי עוזיאל בת ים")
+    assert not city_in_text("לוד", "קלודין 5")  # not a whole word
+    assert not city_in_text("חיפה", "ברחוב הרצל")
+    assert not city_in_text(None, "חיפה")
+
+
+def test_unknown_city_is_geocoded_from_the_city_in_its_own_text(tmp_path: Path) -> None:
+    fake = FakeNominatim(
+        {
+            # the address alone is ambiguous: the first hit is in another city, the second is in the text
+            "הנשיא 1": [
+                hit("חיפה", road="הנשיא", house="1", lat="32.8", lon="35.0"),
+                hit("פרדסיה", road="הנשיא", house="1", lat="32.30", lon="34.91"),
+            ],
+            "ואדי אלפש": [hit("חיפה", road="ואדי אלפש", house=None, category="highway")],
+        }
+    )
+    stores = [
+        S("1", "שלי פרדסיה- הנשיא", "הנשיא 1 צ.פרדסיה", "0"),
+        S("2", "דליית אל כרמל", "ואדי אלפש, כביש 672 0", "0"),  # the only hit is in a city not in its text
+    ]
+    rows, stats = geocode_stores(stores, LOCALITIES, _client(tmp_path, fake))
+    by_code = {r.store_code: r for r in rows}
+    assert (by_code["1"].precision, by_code["1"].source) == ("address", "nominatim:city-from-text")
+    assert (by_code["1"].lat, by_code["1"].lon) == (32.30, 34.91)  # the city in the store's text wins
+    assert "2" not in by_code and stats.no_match == 1
+    assert dict(stats.by_source) == {"nominatim:city-from-text": 1}
+    assert all("limit=10" in u and "countrycodes=il" in u for u in fake.urls)
+
+
+def test_text_geocoding_also_serves_a_code_missing_from_the_table(tmp_path: Path) -> None:
+    fake = FakeNominatim({"הרצל 5": [hit("בית שאן", road="הרצל", house="5", lat="32.5", lon="35.5")]})
+    rows, stats = geocode_stores(
+        [S("1", "דיל בית שאן", "הרצל 5", "9200")], LOCALITIES, _client(tmp_path, fake)
+    )
+    assert [(r.precision, r.source) for r in rows] == [("address", "nominatim:city-from-text")]
+    assert stats.no_city == 1 and stats.unknown_city_code == 0
 
 
 def test_store_geocodes_csv_round_trip(tmp_path: Path) -> None:

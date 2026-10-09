@@ -74,12 +74,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"nominatim requests: {client.requests_made}; cache hits: {client.cache_hits}")
     print(
         f"stores tried: {stats.attempted}; no match in the right city: {stats.no_match}; "
-        f"errors: {stats.errors}; city code unknown: {stats.unknown_city_code}; "
+        f"errors: {stats.errors}; city code unknown: {stats.unknown_city_code} (tried by the city in their own text); "
         f"city code not in the locality table: {stats.no_city}; no usable address: "
         f"{stats.skipped_online_or_no_address}; already had a row: {stats.skipped_existing}"
     )
     if stats.stopped:
         print(f"stopped early: {stats.stopped}")
+    print("new rows by source: " + (", ".join(f"{k}={v}" for k, v in sorted(stats.by_source.items())) or "none"))
     print("new rows by precision: " + (", ".join(f"{k}={v}" for k, v in sorted(stats.by_precision.items())) or "none"))
     index = GeoIndex(localities, merged)
     cov: Counter[str] = sources.coverage(stores, index)

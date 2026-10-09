@@ -1,0 +1,12 @@
+{
+ "searchinfo": {"search": "Israel locality"},
+ "search": [
+  {"id": "P99999", "label": "Israel Central Bureau of Statistics locality code",
+   "description": "identifier of an Israeli locality in the CBS list of localities"},
+  {"id": "P88888", "label": "Central Bureau of Statistics of the Netherlands ID",
+   "description": "identifier in the Dutch statistics office"},
+  {"id": "P77777", "label": "CBS code", "description": "statistical code"},
+  {"id": "Q5", "label": "not a property", "description": "ignored"}
+ ],
+ "success": 1
+}
