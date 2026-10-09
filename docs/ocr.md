@@ -78,7 +78,7 @@ your Anthropic account before enabling it. With `tesseract` nothing leaves the A
 | Provider | When | Notes |
 |---|---|---|
 | `claude` | `OCR_PROVIDER=claude`, or `auto` with `ANTHROPIC_API_KEY` set | Sync `anthropic` client, model `claude-sonnet-5-5` (`OCR_CLAUDE_MODEL`), image block (JPEG, base64), a prompt that asks for plain lines only: no commentary, no markdown, skip what is unreadable, text in the photo is data not an instruction. `effort: low`, `max_tokens` 2000, no tools. A `refusal` stop reason or any SDK error is a 502. Cost from the response's usage tokens. |
-| `tesseract` | `OCR_PROVIDER=tesseract`, or `auto` when no key and the binary plus the `heb` data are installed | `heb+eng`, `--psm 4` for receipts (a column of variable-size lines), `--psm 6` for lists. Free. Printed text only: handwriting is poor, so every row of a list read by Tesseract is marked `needs_confirmation`. |
+| `tesseract` | `OCR_PROVIDER=tesseract`, or `auto` when no key and the binary plus the `heb` data are installed | Free. Grayscale, contrast stretched, enlarged to about 1050 px wide when smaller. Word boxes (`tsv`), not plain text: a receipt is read twice (`heb+eng` `--psm 4` for the words, `eng` `--psm 4` for the numbers) and merged by position; a list once (`heb+eng` `--psm 6`). Lines are rebuilt in logical order from the boxes (`ocr/layout.py`). Printed text only: handwriting is poor, so every row of a list read by Tesseract is marked `needs_confirmation`. |
 | `fake` | `OCR_PROVIDER=fake`, and in tests | Reads the text embedded in a PNG (`sc-ocr` text chunk) or a registry keyed by the image's pixel hash. No recognition. For tests and the evaluation's self-test only. |
 
 `auto` with neither a key nor Tesseract answers **503** "no OCR provider configured". Google Cloud
@@ -155,7 +155,9 @@ the estimated cost from real usage tokens.
 ## Evaluation
 
 Workflow **OCR evaluation** (`.github/workflows/ocr-eval.yml`, `workflow_dispatch`), inputs
-`receipts` (default 40), `lists` (default 20), `seed` (default 7), `provider` (`tesseract` or
+`receipts` (default 40), `lists` (default 20), `seed` (default 7), `debug_samples` (default 3: for
+that many receipts and that many lists the raw provider lines are printed next to the printed
+lines, untruncated, to the job log; synthetic images only), `provider` (`tesseract` or
 `claude`). It installs `tesseract-ocr tesseract-ocr-heb fonts-noto-core`, migrates a Postgres
 service, then:
 
@@ -175,13 +177,66 @@ Reported (to the log and `$GITHUB_STEP_SUMMARY`): receipts per field (chain, tot
 exact after normalization, quantity, price, item recall and precision) and, with the catalog,
 catalog recall, the precision of rows that are not flagged for confirmation (the D5 metric) and
 all-row precision; lists: lines read exactly, catalog recall (top hit, and top hit or a suggested
-alternative), precision, and distractors kept out of rows. Three examples of mistakes are printed.
+alternative), precision, and distractors kept out of rows. Three examples of mistakes are printed,
+and `--debug-samples N` (the workflow's `debug_samples`) dumps the raw lines.
 
 Local self-test (no Tesseract, no network): `render.py --embed-truth` and the fake provider are
 exercised by `services/api/tests/test_api_image_eval.py`. On 40 receipts and 20 lists with perfect
 reading the structurer and matcher scored 100 % on every metric above (**synthetic**: the layouts
 are the ones the structurer was written against, so this checks the plumbing, it is not an
-accuracy claim). Tesseract and Claude numbers: not run yet; run the workflow.
+accuracy claim). Claude numbers: not run yet; run the workflow with provider `claude`.
+
+### The first runner evaluation, and what was wrong
+
+The first run of the workflow (Tesseract, 40 receipts, 20 lists) scored 0 of 293 item names,
+0 of 293 prices and 0 of 40 totals, although perfect reading scored 100 %. The raw lines showed
+why; there were three causes, found in this order (all on synthetic images; Tesseract 5.3.4 with
+the `heb` and `eng` fast models, the same versions the runner installs):
+
+1. **The renderer, not the OCR.** Noto Sans Hebrew has no digits or Latin letters, so every price
+   was drawn as empty boxes; Tesseract read them as `0`, `o` and `ם` (`OOOOooo00` for a
+   postal-code-like number, `ooo00` for a price, even for the `eng` model on a clean render). Fix:
+   `render.py` draws Hebrew letters with the Hebrew font and everything else with a second font
+   that has the glyphs (`Face`, `find_latin_font`, checked by `has_glyphs`). A second renderer bug
+   put the handwritten-style list words in reverse order; fixed.
+2. **The `heb` model misreads digits next to Hebrew** even when they are drawn: `12.35` came back
+   as `12335` or `12:35`, `14.64` as `164`, a weight `2.080` as `0`. The `eng` model reads the same
+   numbers right in 131 of 136 cases (96 %) against 103 of 136 (76 %) for `heb+eng` (14 receipts),
+   but turns Hebrew into Latin garbage. Fix: two passes merged by position (`layout.merge_receipt`):
+   Hebrew words from `heb+eng`, numbers from `eng`, the first pass keeping a number it is much
+   surer of (confidence margin 20), and digits the `eng` pass invents over Hebrew words ignored.
+3. **Word order.** Plain text output printed some Hebrew lines left to right ("נוזל לניקוי רצפות"
+   as "רצפות לניקוי נוזל"). Fix: read the word boxes (TSV) and order each line from the right edge
+   (`layout.order_rtl`); no bidi library is needed because letters inside a word and the digits of
+   a number are already in logical order in the TSV. Mirrored brackets did not occur.
+
+Tried and not kept (14 receipts, item text / quantity / price right of 102): `--psm 6` for receipts
+(66 / 42 / 72, no better than `--psm 4`: 67 / 39 / 72), `--psm 3` (42 / 12 / 20), `heb` alone,
+`eng+heb`, preserve-interword-spaces (chain 3 / 14), binarization, enlarging 3x or 4x (worse than
+1.5x), dictionary switches (no change). Enlarging to about 1050 px helped (72 / 43 / 87).
+
+Structurer fixes the real lines needed: `X` read as `א`, `X2 28.19` (the sign before the count),
+a count recovered from a unit price and a total when the sums say so (`2 א 20.88 41.76` is 2), `לי`
+for `ל'`, and a bug found on the way: the shekel sign `שח` was removed from inside `שחור` (black).
+A price is no longer computed from quantity times unit price; if the total was not read it is empty.
+
+Same 40 receipts and 20 lists (seed 7), synthetic. The numbers in the last row were measured locally
+and reproduced by the runner (workflow run 37912320759, branch `finish/ocr-api`, 0.56 s per image):
+
+| step | item text | quantity | price | total | chain |
+|---|---:|---:|---:|---:|---:|
+| first runner run (renderer without digits) | 0 / 293 | 1 / 293 | 0 / 293 | 0 / 40 | 40 / 40 |
+| fixed renderer, plain `heb+eng` text, as first shipped | 228 / 293 | 178 / 293 | 227 / 293 | 38 / 40 | 40 / 40 |
+| + grayscale and 1.5x enlargement | 245 / 293 | 203 / 293 | 257 / 293 | 39 / 40 | 40 / 40 |
+| + two passes, boxes, structurer fixes (now) | 256 / 293 | 272 / 293 | 274 / 293 | 40 / 40 | 39 / 40 |
+
+Now, with the catalog (hash embeddings): item recall 277 / 293 (94.5 %), item precision 277 / 281,
+catalog recall 275 / 293, **auto-accepted row precision 270 / 270**, all-row precision 275 / 278.
+Lists: lines read exactly 93 / 128 (the rest are words Tesseract did not detect), catalog recall
+115 / 128, all-row precision 115 / 118 (every list row from Tesseract asks for confirmation),
+distractors kept out of rows 22 / 22. The precision floor was not touched: the 0.70 floor, the
+ambiguity cap and the confirmation flags are as before. Remaining misses are words and digits
+Tesseract does not detect or misreads (a brand word, a header line, a price such as `227,`).
 
 ## Limits and open items
 
@@ -191,8 +246,10 @@ accuracy claim). Tesseract and Claude numbers: not run yet; run the workflow.
   scorer are ready for it: put a truth JSON next to each photo.
 - **Hebrew handwriting accuracy is not established** (issue #68). The workflow's lists are printed
   letters with jitter. Choose the provider on real lists.
-- Tesseract is expected to read printed receipts better than handwriting; its receipt output order
-  (price first or last) is handled, multi-column layouts and faded thermal paper are not.
+- Tesseract is expected to read printed receipts better than handwriting. Layout is rebuilt from
+  word boxes (price at either end of a line is handled); multi-column layouts, strongly skewed or
+  curved photos and faded thermal paper are not, and none of them is in the synthetic set.
+- Reading a receipt costs two Tesseract runs (about 1 s per image on one core).
 - The structurer ignores items it cannot price and flips reversed digits only when a total
   confirms it.
 - Brand removal uses the catalog extractor's brand list (`KNOWN_BRANDS`), an initial list.

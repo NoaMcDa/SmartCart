@@ -1,7 +1,7 @@
 """Evaluate the OCR pipeline on the synthetic images of ``render.py`` (issues #61, #68).
 
     uv run --no-sync python scripts/ocr/evaluate.py --dir DIR [--provider tesseract]
-        [--prepare-db] [--json-out FILE] [--max N]
+        [--prepare-db] [--json-out FILE] [--max N] [--debug-samples N]
 
 For each ``*.json`` truth file: the image goes through the same code the API runs (``prepare``,
 the provider chosen by ``--provider``, ``parse_receipt`` for a receipt, the catalog resolver for
@@ -61,7 +61,29 @@ def row_dicts(rows: list[Any]) -> list[dict[str, Any]]:
     ]
 
 
-def evaluate(directory: Path, provider_name: str, conn: Any, limit: int | None) -> dict[str, Any]:
+def debug_dump(truth: dict[str, Any], lines: list[str], receipt: Any | None) -> None:
+    """Raw provider lines next to the printed lines, untruncated (synthetic images only: the
+    runner log is the only thing the maintainers can read)."""
+    print(f"\n=== debug sample {truth['file']} ({truth['kind']}) ===")
+    print(f"-- provider lines ({len(lines)}) --")
+    for i, ln in enumerate(lines, 1):
+        print(f"{i:3d} | {ln!r}")
+    print(f"-- ground truth lines ({len(truth.get('lines', []))}) --")
+    for i, ln in enumerate(truth.get("lines", []), 1):
+        print(f"{i:3d} | {ln!r}")
+    if receipt is not None:
+        print(f"-- structured: chain={receipt.chain_id} branch={receipt.store_hint!r} total={receipt.total} --")
+        for it in receipt.items:
+            print(f"    item {it.text!r} qty={it.quantity} unit={it.unit} price={it.price}")
+        print(f"-- truth items (total {truth['total']}) --")
+        for it in truth["items"]:
+            print(f"    item {it['printed']!r} qty={it['quantity']} price={it['price']}")
+    sys.stdout.flush()
+
+
+def evaluate(
+    directory: Path, provider_name: str, conn: Any, limit: int | None, debug_samples: int = 0
+) -> dict[str, Any]:
     from smartcart_api.ocr import config
     from smartcart_api.ocr.image import prepare
     from smartcart_api.ocr.providers import select_provider
@@ -76,6 +98,7 @@ def evaluate(directory: Path, provider_name: str, conn: Any, limit: int | None) 
     receipts, lists = score.Tally(), score.Tally()
     cost, seconds, failures, diagnostics = 0.0, 0.0, 0, []
     counts = {"receipt": 0, "list": 0}
+    dumped = {"receipt": 0, "list": 0}
     for path in truths:
         truth = json.loads(path.read_text(encoding="utf-8"))
         kind = truth["kind"]
@@ -90,8 +113,11 @@ def evaluate(directory: Path, provider_name: str, conn: Any, limit: int | None) 
             continue
         seconds += time.monotonic() - start
         cost += result.est_cost_usd
+        receipt = parse_receipt(result.lines) if kind == "receipt" else None
+        if dumped[kind] < debug_samples:
+            dumped[kind] += 1
+            debug_dump(truth, result.lines, receipt)
         if kind == "receipt":
-            receipt = parse_receipt(result.lines)
             tally = score.score_receipt(truth, receipt)
             if conn is not None:
                 rows, _ = rows_from_receipt(conn, receipt)
@@ -161,6 +187,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--prepare-db", action="store_true", help="seed the MVP catalog first")
     ap.add_argument("--json-out", type=Path)
     ap.add_argument("--max", type=int, help="evaluate at most this many images")
+    ap.add_argument("--debug-samples", type=int, default=0,
+                    help="print the raw provider lines next to the truth for this many receipts and lists")
     args = ap.parse_args(argv)
 
     conn = None
@@ -174,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
         print("--prepare-db needs DATABASE_URL", file=sys.stderr)
         return 2
     try:
-        res = evaluate(args.dir, args.provider, conn, args.max)
+        res = evaluate(args.dir, args.provider, conn, args.max, args.debug_samples)
     finally:
         if conn is not None:
             conn.rollback()

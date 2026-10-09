@@ -76,7 +76,7 @@ _HE = "א-ת"
 _O_IN_NUMBER = re.compile(r"(?<=\d)[Oo](?=\d|[.,]\d)|(?<=[.,])[Oo](?=\d)|(?<=\d[.,]\d)[Oo](?![A-Za-z\d])")
 _L_IN_NUMBER = re.compile(r"(?<=[\d.,])[Il|](?=\d)|(?<=\d)[Il](?=[.,]\d)")
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}[.,]\d{2}(?!\d))")
-_SHEKEL = re.compile(r'ש"ח|שח|nis|ils', re.IGNORECASE)
+_SHEKEL = re.compile(r'(?<![א-ת])(?:ש"ח|שח)(?![א-ת])|\b(?:nis|ils)\b', re.IGNORECASE)
 
 
 def clean_line(raw: str) -> str:
@@ -98,6 +98,7 @@ _WEIGHT3 = re.compile(r"(?<![\d.,])(\d{1,3})[.,](\d{3})(?!\d)")
 _X = r"[xX×*@✕]"
 _KG = r"(?:ק\"ג|קג|ק'ג|קילו(?:גרם)?|kg|KG|Kg)"
 _COUNT_X_PRICE = re.compile(rf"(?<![\d.,])(\d{{1,3}})\s*{_X}\s*(\d{{1,4}}[.,]\d{{2}})(?!\d)")
+_X_COUNT_PRICE = re.compile(rf"(?<![\d.,\w]){_X}\s*(\d{{1,2}})\s+(\d{{1,4}}[.,]\d{{2}})(?!\d)")
 _PRICE_X_COUNT = re.compile(rf"(?<![\d.,])(\d{{1,4}}[.,]\d{{2}})\s*{_X}\s*(\d{{1,3}})(?![\d.,]\d)(?!\d)")
 _WEIGHT_X_PRICE = re.compile(
     rf"(?<![\d.,])(\d{{1,3}}(?:[.,]\d{{1,3}})?)\s*{_KG}?\s*{_X}\s*(\d{{1,4}}[.,]\d{{2}})(?!\d)"
@@ -187,6 +188,7 @@ RECEIPT_ABBREVIATIONS: tuple[tuple[str, str], ...] = (
     (_P + r"פתי'" + _END, r"\1פתיבר"),
     # a unit glued to its number: 1ל, 750מל, 500גר, 3 %
     (r"(?<=\d)\s*ל(?![א-ת\"'])", " ליטר"),
+    (r"(?<=\d)\s*לי(?![א-ת])", " ליטר"),  # the apostrophe of ל' read as a yod
     (r"(?<=\d)\s*מל(?![א-ת])", " מיליליטר"),
     (r"(?<=\d)\s*גר(?![א-ת])", " גרם"),
     (r"(?<=\d)\s+%", "%"),
@@ -406,12 +408,16 @@ def _parse_detail(line: str) -> _Parsed:
     if p.quantity is None:
         c = _COUNT_X_PRICE.search(line)
         r = _PRICE_X_COUNT.search(line)
+        xc = _X_COUNT_PRICE.search(line)  # "X2 28.19": the sign read before the count
         if c:
             p.quantity, p.unit_price, p.has_qty_expr = _dec(c.group(1)), _dec(c.group(2)), True
             grab(c)
         elif r:
             p.quantity, p.unit_price, p.has_qty_expr = _dec(r.group(2)), _dec(r.group(1)), True
             grab(r)
+        elif xc:
+            p.quantity, p.unit_price, p.has_qty_expr = _dec(xc.group(1)), _dec(xc.group(2)), True
+            grab(xc)
         elif not named:
             cu = _COUNT_UNITS.search(line)
             if cu:
@@ -421,6 +427,13 @@ def _parse_detail(line: str) -> _Parsed:
         p.quantity, p.has_qty_expr = None, False
     rest = _blank(line, spans)
     tokens = [t for t in _price_tokens(rest) if t[2] != p.unit_price or p.unit_price is None]
+    if p.quantity is None and not named and len(tokens) >= 2:
+        # "2 X" lost to OCR but the line still prints a unit price and a total: the count is
+        # the ratio, believed only when it is a whole number (the sums say so)
+        small, big = sorted((tokens[0], tokens[-1]), key=lambda t: t[2])
+        n = _whole_ratio(big[2], small[2])
+        if n:
+            p.quantity, p.unit_price, p.has_qty_expr = D(n), small[2], True
     if tokens:
         # the line total is the last price on the line (or the first, printed in visual order);
         # with a unit price already known, any price equal to it is the unit price echoed
@@ -428,9 +441,17 @@ def _parse_detail(line: str) -> _Parsed:
         p.price, p.price_alt = last[2], last[4]
         spans.extend((t[0], t[1]) for t in tokens)
     p.name = _tidy_name(_blank(line, spans))
-    if p.quantity is not None and p.unit_price is not None and p.price is None:
-        p.price = (p.quantity * p.unit_price).quantize(D("0.01"))
     return p
+
+
+def _whole_ratio(total: Decimal, unit: Decimal) -> int | None:
+    """``total / unit`` when it is a whole number from 2 to 99 (to a cent of rounding)."""
+    if unit <= 0 or total <= unit:
+        return None
+    n = int((total / unit).to_integral_value())
+    if 2 <= n <= 99 and abs(unit * n - total) <= D("0.015") * max(1, n // 2):
+        return n
+    return None
 
 
 def _kg_near(line: str, m: re.Match[str]) -> bool:
@@ -458,7 +479,9 @@ def parse_receipt(lines: list[str]) -> Receipt:
     discounts: list[tuple[Decimal, Decimal | None]] = []
 
     def finish(p: _Parsed) -> ReceiptItem | None:
-        if not _is_name(p.name) or p.price is None:
+        # a price is what makes a name an item; so is a printed quantity (the total may be the
+        # one number OCR lost, and it is never computed: "2 X 21.18" is not "42.36 printed")
+        if not _is_name(p.name) or (p.price is None and p.quantity is None):
             return None
         item = ReceiptItem(
             text=expand_name(p.name), raw=p.name, quantity=p.quantity, unit=p.unit,
@@ -511,13 +534,17 @@ def parse_receipt(lines: list[str]) -> Receipt:
             pending.quantity, pending.unit = p.quantity or pending.quantity, p.unit or pending.unit
             pending.unit_price = p.unit_price or pending.unit_price
             pending.price, pending.price_alt = p.price or pending.price, p.price_alt or pending.price_alt
-            if pending.price is None and pending.quantity and pending.unit_price:
-                pending.price = (pending.quantity * pending.unit_price).quantize(D("0.01"))
             item = finish(pending)
             if item:
                 receipt.items.append(item)
                 last = item
             pending = None
+        elif (
+            last is not None and last.quantity is None and last.price is not None
+            and not p.has_qty_expr and p.price is not None and not _is_name(p.name)
+            and (n := _whole_ratio(last.price, p.price))
+        ):
+            last.quantity, last.unit_price = D(n), p.price  # "א 5.67" under a 11.34 line: 2 x 5.67
         elif last is not None and p.has_qty_expr and last.quantity is None:
             last.quantity, last.unit, last.unit_price = p.quantity, p.unit, p.unit_price
             if p.price is not None and last.price is None:

@@ -61,6 +61,59 @@ CHAIN_HEADERS = {
 }
 
 
+LATIN_CANDIDATES = (
+    "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+)
+_HEBREW_LETTERS = re.compile("([א-ת]+)")
+
+
+def has_glyphs(path: str, chars: str, size: int = 32) -> bool:
+    """True when the font draws every char (a missing glyph is the same box as U+FFFF)."""
+    font = ImageFont.truetype(path, size, layout_engine=ImageFont.Layout.BASIC)
+    missing = bytes(font.getmask("￿"))
+    return all(bytes(font.getmask(c)) != missing for c in chars)
+
+
+def find_latin_font(hebrew_path: str) -> str:
+    """Digits, Latin letters and punctuation. Noto Sans Hebrew has none of them (they were drawn
+    as empty boxes, which Tesseract read as 0 and o: the first runner evaluation measured that),
+    so they come from a second font on the same baseline."""
+    need = "0123456789.,%-:'\"/*XxAa"
+    if has_glyphs(hebrew_path, need):
+        return hebrew_path
+    for path in LATIN_CANDIDATES:
+        if Path(path).exists() and has_glyphs(path, need):
+            return path
+    raise SystemExit("no font with digits found: install fonts-dejavu-core or fonts-noto-core")
+
+
+class Face:
+    """A Hebrew font plus a Latin/digit font drawn on one baseline, run by run."""
+
+    def __init__(self, hebrew_path: str, size: int) -> None:
+        kw = {"layout_engine": ImageFont.Layout.BASIC}
+        self.he = ImageFont.truetype(hebrew_path, size, **kw)
+        self.latin = ImageFont.truetype(find_latin_font(hebrew_path), size, **kw)
+        self.baseline = int(size * 0.95)
+
+    def _runs(self, text: str):
+        for i, part in enumerate(_HEBREW_LETTERS.split(text)):
+            if part:
+                yield (self.he if i % 2 else self.latin), part
+
+    def length(self, draw: ImageDraw.ImageDraw, text: str) -> float:
+        return sum(draw.textlength(part, font=f) for f, part in self._runs(text))
+
+    def text(self, draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, fill, **kw) -> None:
+        x, y = xy
+        for f, part in self._runs(text):
+            draw.text((x, y + self.baseline), part, font=f, fill=fill, anchor="ls", **kw)
+            x += draw.textlength(part, font=f)
+
+
 def find_font(explicit: str | None = None) -> str:
     candidates = [explicit] if explicit else list(FONT_CANDIDATES)
     if not explicit:  # any Noto Sans Hebrew the package installed, whatever its file name
@@ -176,7 +229,7 @@ def make_receipt(rng: random.Random, products: list[Product]) -> tuple[list[str]
               f"מע\"מ 18% {money(total * D(18) / D(118)):.2f}", "אשראי ויזה ****1234", "תודה ולהתראות"]
     truth = {
         "kind": "receipt", "chain_id": chain_id, "branch": branch, "total": str(money(total)),
-        "items": truth_items, "discounts": discounts,
+        "items": truth_items, "discounts": discounts, "lines": [ln for ln in lines if ln],
     }
     return lines, truth
 
@@ -209,7 +262,7 @@ def _noise_and_blur(img: Image.Image, rng: random.Random, blur: tuple[float, flo
 
 def draw_receipt(lines: list[str], font_path: str, rng: random.Random) -> Image.Image:
     size = rng.randint(22, 28)
-    font = ImageFont.truetype(font_path, size, layout_engine=ImageFont.Layout.BASIC)
+    font = Face(font_path, size)
     pitch, margin, width = int(size * 1.45), 28, rng.randint(620, 720)
     img = Image.new("RGB", (width, pitch * (len(lines) + 2) + margin), (250, 248, 240))
     draw = ImageDraw.Draw(img)
@@ -221,21 +274,21 @@ def draw_receipt(lines: list[str], font_path: str, rng: random.Random) -> Image.
         m = re.match(r"^(.*?)(?:\s+(-?\d+\.\d{2}))$", line)
         if m and re.search(r"[א-ת]", m.group(1)) and not line.startswith(("סה", "לתשלום", "מע")):
             name, price = m.groups()
-            draw.text((margin, y), price, font=font, fill=(20, 20, 20))
+            font.text(draw, (margin, y), price, (20, 20, 20))
             vis = visual(name)
-            w = draw.textlength(vis, font=font)
-            draw.text((width - margin - w, y), vis, font=font, fill=(20, 20, 20))
+            w = font.length(draw, vis)
+            font.text(draw, (width - margin - w, y), vis, (20, 20, 20))
         elif re.match(r"^(סה|לתשלום|מע)", line):
             m2 = re.match(r"^(.*?)\s+(\S+)$", line)
             name, price = m2.groups() if m2 else (line, "")
-            draw.text((margin, y), price, font=font, fill=(20, 20, 20))
+            font.text(draw, (margin, y), price, (20, 20, 20))
             vis = visual(name)
-            w = draw.textlength(vis, font=font)
-            draw.text((width - margin - w, y), vis, font=font, fill=(20, 20, 20))
+            w = font.length(draw, vis)
+            font.text(draw, (width - margin - w, y), vis, (20, 20, 20))
         else:
             vis = visual(line)
-            w = draw.textlength(vis, font=font)
-            draw.text((width - margin - w, y), vis, font=font, fill=(20, 20, 20))
+            w = font.length(draw, vis)
+            font.text(draw, (width - margin - w, y), vis, (20, 20, 20))
     img = img.rotate(rng.uniform(-1.5, 1.5), expand=True, fillcolor=(235, 235, 230),
                      resample=Image.Resampling.BICUBIC)
     return _noise_and_blur(img, rng, (0.0, 0.7))
@@ -252,13 +305,13 @@ def draw_list(lines: list[str], font_path: str, rng: random.Random) -> Image.Ima
         draw.line([(20, y), (width - 20, y)], fill=(190, 205, 225), width=1)
     for i, line in enumerate(lines):
         x = width - margin
-        for word in reversed(line.split(" ")):
-            font = ImageFont.truetype(font_path, base + rng.randint(-4, 5), layout_engine=ImageFont.Layout.BASIC)
+        for word in line.split(" "):  # the first word at the right edge, moving left
+            font = Face(font_path, base + rng.randint(-4, 5))
             vis = visual(word)
-            w = int(draw.textlength(vis, font=font)) + 8
+            w = int(font.length(draw, vis)) + 8
             tile = Image.new("RGBA", (w + 24, base * 2), (0, 0, 0, 0))
-            ImageDraw.Draw(tile).text((12, 6), vis, font=font, fill=ink + (255,),
-                                      stroke_width=rng.choice([0, 0, 1]), stroke_fill=ink + (255,))
+            font.text(ImageDraw.Draw(tile), (12, 0), vis, ink + (255,),
+                      stroke_width=rng.choice([0, 0, 1]), stroke_fill=ink + (255,))
             tile = tile.rotate(rng.uniform(-5, 5), expand=True, resample=Image.Resampling.BICUBIC)
             x -= tile.width - 16
             y = margin + i * pitch + rng.randint(-5, 5)
