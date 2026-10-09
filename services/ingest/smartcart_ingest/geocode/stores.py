@@ -45,6 +45,7 @@ from smartcart_ingest.geocode.resolve import RANK, StoreGeocode
 
 SOURCE_NOMINATIM = "nominatim"
 SOURCE_NAME_MATCH = "cbs-name-match"
+SOURCE_NOMINATIM_TEXT = "nominatim:city-from-text"
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,7 @@ class RunStats:
     errors: int = 0
     stopped: str = ""
     by_precision: Counter[str] = field(default_factory=Counter)
+    by_source: Counter[str] = field(default_factory=Counter)
 
 
 # --- the query ---------------------------------------------------------------------------------
@@ -76,6 +78,10 @@ _HEB_DIGIT = re.compile(r"(?<=[֐-׿])(?=\d)|(?<=\d)(?=[֐-׿])")
 _COMMA_NUMBER = re.compile(r"(?<=\S),\s*(?=\d+\s*$)")
 _LEADING_NUMBER = re.compile(r"^(\d+)(?:\s*[-/]\s*\d+)?[א-ת]?\s+(\D.*)$")
 _TRAILING_ZERO = re.compile(r"\s+0\s*$")
+_CORNER = re.compile(r"\s+(?:פינת|פינה)\s+")
+_STREET_WORD = re.compile(r"^(?:רחוב|רח['\u05f3]?)\s+")
+_AVENUE = re.compile(r"^שד['\u05f3]\s*")
+_NUMBER_LETTER_TAIL = re.compile(r"(\s\d+)\s+[\u05d0-\u05ea]\b.*$")
 _NOISE = re.compile(r"\b(?:ת\.?\s?ד\.?|תא דואר)\b")
 
 
@@ -93,6 +99,10 @@ def clean_address(address: str | None) -> tuple[str, bool]:
     text = text.split(",")[0].strip()
     text = _TRAILING_ZERO.sub("", text)
     text = _HEB_DIGIT.sub(" ", text)
+    text = _CORNER.split(text)[0]
+    text = _STREET_WORD.sub("", text)
+    text = _AVENUE.sub("שדרות ", text)
+    text = _NUMBER_LETTER_TAIL.sub(r"\1", text)
     lead = _LEADING_NUMBER.match(text)
     if lead:
         text = f"{lead.group(2)} {lead.group(1)}"
@@ -121,8 +131,31 @@ def build_queries(address: str | None, city_name: str) -> list[tuple[str, str]]:
 _LOCALITY_KEYS = ("city", "town", "village", "hamlet", "municipality", "suburb", "city_district")
 
 
-def judge_result(result: dict[str, Any], city_name: str) -> tuple[float, float, str] | None:
-    """``(lat, lon, precision)`` when ``result`` is an address or street inside ``city_name``."""
+_CITY_KEYS = ("city", "town", "village", "hamlet", "municipality")
+"""Address keys that name a settlement (a suburb or district is not enough to name the city)."""
+
+
+def city_in_text(city: str | None, text: str) -> bool:
+    """True when ``city`` (or, for a hyphenated name, one of its parts) appears in ``text`` as whole
+    words, after normalization. ``תל אביב-יפו`` is found in ``קרפור תל אביב``."""
+    if not city:
+        return False
+    padded = f" {normalize_name(text)} "
+    variants = {city, *(part for part in re.split(r"\s*-\s*", city) if len(part.strip()) >= 3)}
+    return any(
+        (n := normalize_name(v)) and f" {n} " in padded for v in variants
+    )
+
+
+def judge_result(
+    result: dict[str, Any], city_name: str | None, *, text: str | None = None
+) -> tuple[float, float, str] | None:
+    """``(lat, lon, precision)`` when ``result`` is an address or street in the store's city.
+
+    With ``city_name`` the returned locality must match it (:func:`names_match`). With ``text``
+    instead (the store's city code is unknown) the returned city must appear in the store's own
+    address or name (:func:`city_in_text`).
+    """
     address = result.get("address") or {}
     try:
         lat, lon = float(result["lat"]), float(result["lon"])
@@ -132,7 +165,10 @@ def judge_result(result: dict[str, Any], city_name: str) -> tuple[float, float, 
         return None
     if address.get("country_code", "il") != "il":
         return None
-    if not any(names_match(city_name, address.get(k)) for k in _LOCALITY_KEYS):
+    if text is not None:
+        if not any(city_in_text(address.get(k), text) for k in _CITY_KEYS):
+            return None
+    elif not any(names_match(city_name, address.get(k)) for k in _LOCALITY_KEYS):
         return None
     has_road = bool(address.get("road") or address.get("pedestrian"))
     if address.get("house_number") and has_road:
@@ -142,9 +178,11 @@ def judge_result(result: dict[str, Any], city_name: str) -> tuple[float, float, 
     return None
 
 
-def pick_result(results: list[dict[str, Any]], city_name: str) -> tuple[float, float, str] | None:
+def pick_result(
+    results: list[dict[str, Any]], city_name: str | None, *, text: str | None = None
+) -> tuple[float, float, str] | None:
     """The best acceptable result: an address beats a street; ties keep Nominatim's order."""
-    judged = [j for r in results if (j := judge_result(r, city_name))]
+    judged = [j for r in results if (j := judge_result(r, city_name, text=text))]
     if not judged:
         return None
     return min(judged, key=lambda j: RANK[j[2]])
@@ -165,6 +203,20 @@ def infer_by_name(store: StoreInput, localities: dict[str, Locality]) -> Localit
     return hits[0] if len(hits) == 1 else None
 
 
+def text_queries(store: StoreInput) -> list[str]:
+    """Queries for a store whose city code gives no locality: the address alone, then the address
+    with the store's name (a chain often names a branch after its town). The answer is accepted
+    only if the city it returns appears in that same text (:func:`city_in_text`)."""
+    street, _has_number = clean_address(store.address)
+    if not street:
+        return []
+    queries = [street]
+    name = " ".join((store.name or "").split())
+    if name and normalize_name(name) not in normalize_name(street):
+        queries.append(f"{street}, {name}")
+    return queries
+
+
 def geocode_stores(
     stores: Iterable[StoreInput],
     localities: dict[str, Locality],
@@ -178,11 +230,19 @@ def geocode_stores(
 
     ``max_stores`` bounds the stores sent to the geocoder in this run. With ``client`` None no
     request is made (only the name-match rows are produced).
+
+    A store whose city code is in the locality table is queried as ``"<address>, <city name>"`` and
+    the answer must name that city (source ``nominatim``). A store whose code is unknown or not in
+    the table is queried by its address text alone and the answer is accepted only if the city it
+    returns appears in the store's own address or name (source ``nominatim:city-from-text``; the
+    precision label stays what the result is, a house or a street). If that fails, a store named
+    exactly like a locality gets that locality's centroid (``cbs-name-match``, ``locality``).
     """
     stamp = (now or datetime.now(UTC)).strftime("%Y-%m-%dT%H:%M:%SZ")
     existing = existing or {}
     stats = RunStats()
     new_rows: list[StoreGeocode] = []
+    budget_spent = False
     for store in stores:
         key = (store.chain_id, store.store_code)
         if key in existing:
@@ -192,45 +252,57 @@ def geocode_stores(
         locality = localities.get(code) if code else None
         if code is None:
             stats.unknown_city_code += 1
+        elif locality is None:
+            stats.no_city += 1
+
+        found: tuple[float, float, str] | None = None
+        used_hash = ""
+        source = SOURCE_NOMINATIM
+        if client is not None and not budget_spent:
+            if locality is not None:
+                queries = [text for _expected, text in build_queries(store.address, locality.name_he)]
+                search: dict[str, str] = {}
+            else:
+                queries = text_queries(store)
+                search = {"limit": "10"}
+                source = SOURCE_NOMINATIM_TEXT
+            if not queries:
+                stats.skipped_online_or_no_address += 1
+            elif stats.attempted >= max_stores:
+                budget_spent = True
+                stats.stopped = f"max_stores={max_stores} reached"
+            else:
+                stats.attempted += 1
+                text_check = None if locality is not None else f"{store.address or ''} {store.name}"
+                try:
+                    for query in queries:
+                        results, used_hash, _cached = client.search(query, **search)
+                        found = pick_result(
+                            results, locality.name_he if locality else None, text=text_check
+                        )
+                        if found is not None:
+                            break
+                except (Blocked, BudgetExhausted) as exc:
+                    stats.stopped = str(exc)
+                    stats.attempted -= 1
+                    budget_spent = True
+                except GeocoderError:
+                    stats.errors += 1
+                else:
+                    if found is None:
+                        stats.no_match += 1
+        if found is not None:
+            lat, lon, precision = found
+            new_rows.append(StoreGeocode(*key, lat, lon, precision, source, used_hash, stamp))
+            stats.by_precision[precision] += 1
+            stats.by_source[source] += 1
+            continue
+        if code is None:
             named = infer_by_name(store, localities)
             if named is not None:
                 new_rows.append(
                     StoreGeocode(*key, named.lat, named.lon, "locality", SOURCE_NAME_MATCH, "", stamp)
                 )
                 stats.by_precision["locality"] += 1
-            continue
-        if locality is None:
-            stats.no_city += 1
-            continue
-        if client is None:
-            continue
-        queries = build_queries(store.address, locality.name_he)
-        if not queries:
-            stats.skipped_online_or_no_address += 1
-            continue
-        if stats.attempted >= max_stores:
-            stats.stopped = f"max_stores={max_stores} reached"
-            break
-        stats.attempted += 1
-        found: tuple[float, float, str] | None = None
-        used_hash = ""
-        try:
-            for _expected, text in queries:
-                results, used_hash, _cached = client.search(text)
-                found = pick_result(results, locality.name_he)
-                if found is not None:
-                    break
-        except (Blocked, BudgetExhausted) as exc:
-            stats.stopped = str(exc)
-            stats.attempted -= 1
-            break
-        except GeocoderError:
-            stats.errors += 1
-            continue
-        if found is None:
-            stats.no_match += 1
-            continue
-        lat, lon, precision = found
-        new_rows.append(StoreGeocode(*key, lat, lon, precision, SOURCE_NOMINATIM, used_hash, stamp))
-        stats.by_precision[precision] += 1
+                stats.by_source[SOURCE_NAME_MATCH] += 1
     return new_rows, stats

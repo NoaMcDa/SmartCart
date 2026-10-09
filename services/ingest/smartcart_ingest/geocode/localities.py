@@ -47,7 +47,8 @@ def normalize_code(raw: object) -> str | None:
 
 
 _QUOTES = re.compile(r"[\"'`׳״’”]")
-_SEPARATORS = re.compile(r"[-–—_/,()]+")
+_SEPARATORS = re.compile(r"[-‐‑‒–—־_/,()]+")
+"""Hyphens, dashes and the Hebrew maqaf (U+05BE): OSM writes ``תל־אביב–יפו``, the CBS ``תל אביב -יפו``."""
 _SPACES = re.compile(r"\s+")
 
 
@@ -132,8 +133,41 @@ def _key(name: str) -> str:
     return _SPACES.sub(" ", name.replace("_", " ").strip().casefold())
 
 
+_SETTLEMENT = {"יישוב", "ישוב", "יישובים", "ישובים", "yishuv", "locality", "settlement"}
+_ENGLISH = {"אנגלית", "לועזי", "לועזית", "english", "en", "eng"}
+
+
+def _tokens(header: str) -> set[str]:
+    return {t for t in re.split(r"[^\w\u0590-\u05ff]+", _key(header)) if t}
+
+
+def _fuzzy(field: str, headers: Iterable[str]) -> str | None:
+    """Looser header matching for files whose headers are not exactly the aliases (token rules)."""
+    for h in headers:
+        t = _tokens(h)
+        settle = bool(t & _SETTLEMENT)
+        english = bool(t & _ENGLISH)
+        named = bool(t & {"שם", "name"})
+        if field == "code" and settle and t & {"סמל", "קוד", "code", "symbol", "id"}:
+            return h
+        if field == "name_en" and settle and english and named:
+            return h
+        if field == "name_he" and settle and named and not english:
+            return h
+        if field == "x" and t & {"x", "itm_x", "east", "easting", "מזרח"} and not t & {"y"}:
+            return h
+        if field == "y" and t & {"y", "itm_y", "north", "northing", "צפון"} and not t & {"x"}:
+            return h
+        if field == "lat" and t & {"lat", "latitude"}:
+            return h
+        if field == "lon" and t & {"lon", "lng", "long", "longitude"}:
+            return h
+    return None
+
+
 def detect_columns(headers: Iterable[str]) -> dict[str, str]:
-    """Map our field names to the source's header names (first alias present wins)."""
+    """Map our field names to the source's header names (an exact alias first, then token rules)."""
+    headers = list(headers)
     by_key = {_key(h): h for h in headers}
     found: dict[str, str] = {}
     for field, aliases in _COLUMN_ALIASES.items():
@@ -141,6 +175,9 @@ def detect_columns(headers: Iterable[str]) -> dict[str, str]:
             if _key(alias) in by_key:
                 found[field] = by_key[_key(alias)]
                 break
+    for field in _COLUMN_ALIASES:
+        if field not in found and (h := _fuzzy(field, headers)):
+            found[field] = h
     return found
 
 

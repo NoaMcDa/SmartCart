@@ -88,3 +88,34 @@ def get_json(
         return json.loads(body)
     except json.JSONDecodeError as exc:
         raise HttpFailure(status, f"HTTP {status} but the body is not JSON: {body[:120]!r}") from exc
+
+
+def get_bytes(
+    url: str,
+    *,
+    accept: str = "*/*",
+    timeout: float = 120.0,
+    max_bytes: int = 30_000_000,
+    log: StatusLog | None = None,
+) -> bytes:
+    """GET ``url`` and return the body (at most ``max_bytes``). Raises :class:`HttpFailure`."""
+    req = urllib.request.Request(  # noqa: S310
+        url, headers={"User-Agent": user_agent(), "Accept": accept}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+            status = resp.status
+            body = resp.read(max_bytes + 1)
+    except urllib.error.HTTPError as exc:
+        if log is not None:
+            log.add(url, exc.code)
+        raise HttpFailure(exc.code, f"HTTP {exc.code} {exc.reason}") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        if log is not None:
+            log.add(url, None)
+        raise HttpFailure(None, f"request failed: {exc}") from exc
+    if log is not None:
+        log.add(url, status)
+    if len(body) > max_bytes:
+        raise HttpFailure(status, f"body larger than {max_bytes} bytes")
+    return body

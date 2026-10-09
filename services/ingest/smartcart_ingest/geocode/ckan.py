@@ -88,3 +88,77 @@ def discover(
                         }
                     )
     return sorted(found, key=lambda r: r["kind"] != "coords")
+
+
+# --- the resources' own files (CSV / XLSX), tried before the datastore API --------------------------
+
+SEED_PACKAGES = ("localities-in-israel", "citiesandsettelments")
+"""Datasets seen in the first workflow runs: the CBS "קובץ היישובים" and the settlement list."""
+FILE_FORMATS = {"CSV", "XLSX", "XLS", "TSV"}
+
+
+def rank_resource(package_name: str, resource: dict[str, Any]) -> int:
+    """Higher is better: the CBS locality file first, then anything about settlements."""
+    name = str(resource.get("name") or "")
+    score = 0
+    if "קובץ היישובים" in name or "קובץ הישובים" in name:
+        score += 10
+    if "יישוב" in name or "ישוב" in name:
+        score += 3
+    if package_name in SEED_PACKAGES:
+        score += 5
+    if package_name == "localities-in-israel":
+        score += 2
+    if str(resource.get("format") or "").upper() in {"XLSX", "CSV"}:
+        score += 2
+    return score
+
+
+def resource_candidates(
+    queries: tuple[str, ...] = DEFAULT_QUERIES,
+    *,
+    seeds: tuple[str, ...] = SEED_PACKAGES,
+    base: str = BASE_URL,
+    fetch: JsonFetch = http_json,
+    limit: int = 12,
+) -> list[dict[str, Any]]:
+    """Resources of the locality datasets, best first: ``[{id, name, format, url, package,
+    datastore_active, score}]``. Uses ``package_show`` (seeds) and ``package_search``, which answer
+    where the datastore API may not. A resource qualifies with a file URL (CSV/XLSX/XLS) or an
+    active datastore."""
+    packages: dict[str, dict[str, Any]] = {}
+    for name in seeds:
+        try:
+            pkg = fetch(_api(base, "package_show", id=name))["result"]
+            packages[pkg.get("name", name)] = pkg
+        except Exception:  # noqa: BLE001
+            continue
+    for query in queries:
+        try:
+            payload = fetch(_api(base, "package_search", q=query, rows=20))
+        except Exception:  # noqa: BLE001
+            continue
+        for pkg in payload["result"].get("results", []):
+            packages.setdefault(pkg.get("name", pkg.get("id", "")), pkg)
+    found: dict[str, dict[str, Any]] = {}
+    for pname, pkg in packages.items():
+        for res in pkg.get("resources", []):
+            rid = res.get("id")
+            fmt = str(res.get("format") or "").upper()
+            url = res.get("url") or ""
+            has_file = bool(url) and (
+                fmt in FILE_FORMATS or url.lower().split("?")[0].endswith((".csv", ".xlsx", ".xls"))
+            )
+            if not rid or not (has_file or res.get("datastore_active")):
+                continue
+            found[rid] = {
+                "id": rid,
+                "name": res.get("name", ""),
+                "format": fmt,
+                "url": url if has_file else "",
+                "package": pname,
+                "datastore_active": bool(res.get("datastore_active")),
+                "score": rank_resource(pname, res),
+            }
+    ranked = sorted(found.values(), key=lambda r: (-r["score"], r["package"], r["id"]))
+    return ranked[:limit]

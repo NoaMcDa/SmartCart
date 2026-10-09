@@ -6,26 +6,30 @@ Stores files carry a numeric `City` and an address. Stores are public places, so
 locations (`CLAUDE.md`: rounded to neighbourhood level) they need real coordinates. Labels follow
 `docs/README.md`: **measured** is read from a run, **derived** is reasoning from a measured value.
 
-## Status (2026-10-08)
+## Status (2026-10-09)
 
-- **Tooling is built and tested. The full data is not in the repository yet**: this build box has no
-  route to data.gov.il or Nominatim, so `data/geo/localities.csv` and `data/geo/store_geocodes.csv`
-  hold only their header. The workflow **Geocode stores** produces them (below). Its first run (run
-  37822494185) got HTTP 403 from data.gov.il; a Wikidata source was added in response and is untested
-  against the live service.
-- Real Stores files, **measured**: 827 physical stores, 132 distinct non-zero city codes, 76 physical
-  stores with city `0` (unknown).
-- With the 27-row **sample** table (`data/geo/localities_sample.csv`, hand-entered approximate city
-  centres, marked SAMPLE, tests and dry run only) the loader places **511 of 827** physical stores
-  at precision `locality`, **measured** by `scripts/exit_dry_run/run.sh`. 316 are listed by
-  `stores_missing_geo`. This is a floor for what the real table gives, not the answer: the sample
-  has 27 of the 132 codes.
-- Unresolved locality codes, **measured**: with the committed full table (header only) all 132;
-  after the workflow, the number printed by `fetch_localities.py` ("unresolved") is the one to quote
-  here. Never fill it by hand.
-- Address-level coverage (`address` and `street`) is **not measured yet**; it needs the workflow's
-  Nominatim run. Expect a minority of addresses to fail the city check or to be too vague (for
-  example `מרכז מסחרי`, `אזור תעשיה`); that is **an estimate**, not a result.
+Measured by the workflow **Geocode stores** (run 37908586819 on `finish/geo`, 800-store budget) and by
+`scripts/exit_dry_run/run.sh` on the committed data:
+
+- **769 of 827 real physical stores have coordinates** (the dry run, through the loader); 58 do not.
+  By precision, from `geocode_stores.py`: **address 200, street 304, locality 265, none 58**.
+- Locality table: **1306 localities from Wikidata** (property `P3466`, "Israeli CBS municipal ID", found by
+  the signature check on the known codes of Tel Aviv, Jerusalem and Haifa). They cover **127 of the 132**
+  distinct non-zero city codes in the real Stores files. Unresolved: `10018, 10044, 10098, 1306, 50`.
+  data.gov.il gave only names (1484 settlement names, no coordinates) and its file downloads returned
+  HTTP 403, so none of the table is CBS-sourced coordinates; they are Wikidata's, many rounded to a town
+  centre, which is fine for `locality` precision and not for more.
+- Store rows (`data/geo/store_geocodes.csv`, 520): 335 + 185 from two runs; sources `nominatim` (address
+  or street inside the store's own city), `nominatim:city-from-text` (6), `cbs-name-match` (16).
+- The 58 without coordinates: 54 have city `0` and no city in their address or name, 4 have a code not in
+  the table (`stores_missing_geo` lists them with the reason). 304 stores were tried and Nominatim had no
+  house or street in the right city (OSM coverage, vague addresses such as `מרכז מסחרי`); those
+  stay at `locality`.
+- **Not verified**: that the Wikidata points are the localities' centres (the table is OSM/Wikidata,
+  not CBS), and the quality of the 304 `street` rows beyond the city check (the street can be long).
+
+Earlier, with only the committed 27-row SAMPLE table (`data/geo/localities_sample.csv`), the loader
+placed 511 of 827; the sample is kept for the tests.
 
 ## How a store gets a location
 
@@ -59,28 +63,38 @@ A new coordinate reaches the database on the next Stores file load of that chain
 Stores file is the CBS (הלמ"ס) locality code. `scripts/geo/fetch_localities.py` builds the table from
 three sources, in order of preference (a code from an earlier source is never replaced):
 
-1. **data.gov.il (CKAN API)**: `--resource-id` or `LOCALITIES_RESOURCE_ID`; without one it searches
-   `package_search` for a datastore resource with a code, a name and coordinates, and prints its
-   candidates. Columns are detected by name (Hebrew and English aliases). WGS 84 `lat/lon` are used
-   as they are; ITM (EPSG:2039) `X/Y` are converted by `smartcart_ingest/geocode/itm.py` (the inverse
-   transverse Mercator plus the Israel 1993 to WGS 84 Helmert, standard library only, within 0.35 m of
-   pyproj on the test points). A converted point outside Israel's bounding box is dropped.
-   **Observed from a GitHub runner (workflow run 37822494185): HTTP 403.** data.gov.il refuses that
-   request; the cause (the cloud IP range, or the client) is not known. All CKAN requests carry a
-   descriptive User-Agent (`SmartCart-geo/0.1 (+<repo URL>; contact: <contact>)`) and `Accept`, which is
-   the honest convention; a refusal is reported, not worked around.
-2. **Wikidata (SPARQL, `https://query.wikidata.org/sparql`)**: items that have the CBS locality code and
-   coordinates (P625), CC0 data. Rows say `source=wikidata`. Two GETs: one that finds the property by
-   label (properties whose English label contains "Central Bureau of Statistics" and "locality" or
-   "settlement"; the best match wins and every candidate is printed), one that fetches all items with
-   that property and P625, Hebrew and English labels optional (a row needs a Hebrew label). When several
-   items share a code the lowest Q-id wins. The property can be pinned with the workflow input
-   `wikidata_property` / `WIKIDATA_CBS_PROPERTY`, which skips discovery.
-   **The property id is not recorded here yet**: the build box cannot reach Wikidata, and a property id
-   is not something to recall from memory. The first successful workflow run prints it (line
-   `wikidata property candidate P...` and `property P...` in the Wikidata `SOURCE` line); put it in this
-   paragraph then and pass it as the input to skip discovery. The parser is tested on a hand-written
-   response in the documented format (`data/geo/fixtures/`, see its README), not on a recorded one.
+1. **data.gov.il (CKAN)**: the resources of the locality datasets, best first (`package_show` on
+   `localities-in-israel` and `citiesandsettelments`, plus `package_search`; the CBS "קובץ היישובים"
+   ranks first). **Each resource's own file (CSV or XLSX) is tried before the datastore API**, because
+   the datastore calls get a firewall HTML 403 from a GitHub runner (run 37823489893: package
+   metadata and search answered 200, datastore calls 403) while the file may answer. CSV (UTF-8 or
+   Windows-1255, any of `, ; tab`) and XLSX are read with the standard library
+   (`geocode/tables.py`, no openpyxl; old binary XLS is refused with a message). The header row is
+   found under any title lines; columns are matched by alias and by token rules (`שם יישוב`, `סמל
+   יישוב`, `X`/`Y`, `lat`/`lon`). WGS 84 `lat/lon` are used as they are; ITM (EPSG:2039) `X/Y` are
+   converted by `smartcart_ingest/geocode/itm.py` (within 0.35 m of pyproj on the test points). A
+   converted point outside Israel's bounding box is dropped. `--resource-id` /
+   `LOCALITIES_RESOURCE_ID` tries one resource instead. All requests carry a descriptive
+   User-Agent (`SmartCart-geo/0.1 (+<repo URL>; contact: <contact>)`) and `Accept`; a refusal is
+   reported, not worked around.
+2. **Wikidata**, rows marked `source=wikidata` (CC0). The CBS locality-code property is **found, not
+   assumed**: (a) `wbsearchentities` for "Central Bureau of Statistics", "Israel locality", "Israeli
+   settlement", "CBS code" (English) and "הלשכה המרכזית לסטטיסטיקה", "סמל יישוב" (Hebrew), every hit
+   logged with id, label and description, scored on a description that names Israel and
+   localities/settlements; (b) a SPARQL **signature check**: the property that holds `5000` on Tel
+   Aviv-Yafo (Q33935), `3000` on Jerusalem (Q1218) and `4000` on Haifa (Q41621) is the CBS locality
+   code whatever it is called, and a property matching at least two of the three is taken over a search
+   hit; (c) the old label query as the last resort. The chosen property and how it was found are
+   printed (`wikidata property: P... (signature ...)`). Then one SPARQL query fetches all items with
+   that property and P625, Hebrew and English labels optional (a row needs a Hebrew label); on a
+   shared code the lowest Q-id wins. `wikidata_property` / `WIKIDATA_CBS_PROPERTY` pins the property.
+   **The property is `P3466`** ("Israeli CBS municipal ID", Hebrew label מזהה יישובים של הלמ״ס), recorded
+   from run 37824682474: found by the signature check (it holds the known codes of all three items); the
+   Hebrew search for `סמל יישוב` also lists it, the English searches did not. Pin it with
+   `wikidata_property=P3466` to skip discovery. The parser and the discovery are tested on hand-written
+   responses in the documented format (`data/geo/fixtures/`, see its README), not on recorded ones.
+   **Not seen in a run: data.gov.il's `קובץ היישובים` coordinates** (the file URLs gave 403 and the
+   datastore copy has no coordinate columns the reader recognises; the next run logs its column names).
 3. **Nominatim by name** (`--nominatim-for-missing`): a needed code that is still unplaced but has a
    name (from source 1 or 2) is looked up by that name (place centroid of a settlement type, in Israel,
    whose own name matches). Those rows say so in `source`.
@@ -105,9 +119,14 @@ printed; nothing is invented.
   leading part of a longer name such as `תל אביב-יפו`), the point is inside Israel's bounding box, and
   it is a house (`address`) or a street (`street`). A result that is only the city is no better than
   the centroid, so it is not recorded.
-- Stores whose city code is `0` are not sent to the geocoder (there is no locality to check the
-  answer against). If the store's name is exactly one locality's name (`דליית אל כרמל`), it gets that
-  locality's centroid, precision `locality`, source `cbs-name-match`.
+- **No locality table needed (third fallback).** A store whose city code is `0` or missing from the
+  table is queried by its address text alone (Israel only, up to 10 results), then by the address plus
+  the store's name. A result is accepted only if the city it returns (`city`, `town`, `village`,
+  `hamlet`, `municipality`) **appears as whole words in the store's own address or name**
+  (`city_in_text`; for `תל אביב-יפו` either part counts), and it is a house or a street. Source
+  `nominatim:city-from-text`; the precision label stays what the result is (`address` or `street`),
+  the weaker evidence is in the source. Stores that still have nothing and are named exactly like a
+  locality get that centroid, precision `locality`, source `cbs-name-match`.
 - Stdout summary: stores tried, no match in the right city, errors, unknown city, and coverage by
   precision (`address`, `street`, `locality`, `none`).
 

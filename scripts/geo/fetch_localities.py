@@ -9,10 +9,13 @@ Needs open internet; it runs in the "Geocode stores" workflow (.github/workflows
 docs/geocoding.md has the method. Sources, in order of preference (a code taken from an earlier
 source is never replaced by a later one):
 
-1. data.gov.il (CKAN API): the resource given by --resource-id (or $LOCALITIES_RESOURCE_ID), else the
-   best datastore resource that package_search finds. WGS 84 lat/lon, or ITM x/y converted here.
-2. Wikidata (SPARQL): items that carry the CBS locality code and coordinates (P625). Rows say
-   source=wikidata.
+1. data.gov.il (CKAN): the resources of the locality datasets (package_show / package_search, the CBS
+   "קובץ היישובים" first), each by its own file URL (CSV or XLSX) before the datastore API, or the
+   resource given by --resource-id (or $LOCALITIES_RESOURCE_ID). WGS 84 lat/lon, or ITM x/y
+   converted here.
+2. Wikidata: the CBS locality-code property is found with wbsearchentities (every hit printed) and a
+   check on the known codes of Tel Aviv, Jerusalem and Haifa; then one SPARQL query for items with
+   that property and coordinates (P625). Rows say source=wikidata.
 3. With --nominatim-for-missing: each NEEDED code (a city code in the Stores files) that is still
    unplaced but has a name (from 1 or 2) is looked up by that name in OpenStreetMap Nominatim.
 
@@ -30,8 +33,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from smartcart_ingest.geocode import ckan, wikidata
-from smartcart_ingest.geocode.http import HttpFailure, StatusLog, get_json
+from smartcart_ingest.geocode import ckan, tables, wikidata
+from smartcart_ingest.geocode.http import StatusLog, get_bytes, get_json
 from smartcart_ingest.geocode.localities import (
     Locality,
     centroid_from_nominatim,
@@ -68,38 +71,76 @@ def report(name: str, log: StatusLog, rows: int, note: str = "") -> None:
     print(line + (f"; {note}" if note else ""), flush=True)
 
 
+ENOUGH_ROWS = 300
+"""Stop trying further CKAN resources once this many localities have coordinates."""
+
+
 def from_ckan(args, retrieved: str):
-    """``(rows, names, note)``; never raises."""
+    """``(rows, names, note)``; never raises.
+
+    For each candidate resource (the CBS locality file first), the resource's own file (CSV/XLSX)
+    is tried before the datastore API: the datastore calls can be refused (HTTP 403 from the site's
+    firewall) while package metadata and the file answer.
+    """
     log = StatusLog()
 
     def fetch(url: str):
         return get_json(url, timeout=60, log=log)
 
-    rows: list[Locality] = []
+    by_code: dict[str, Locality] = {}
     names: dict[str, tuple[str, str]] = {}
     note = ""
     try:
-        resource_id = args.resource_id
-        if not resource_id:
-            candidates = ckan.discover(base=args.base_url, fetch=fetch)
-            for c in candidates:
-                print(f"  ckan candidate {c['kind']:6} {c['id']} {c['package']} / {c['name']}")
-            if not candidates:
-                note = "no locality resource found (pass --resource-id)"
-            else:
-                resource_id = candidates[0]["id"]
-        if resource_id:
-            records = list(ckan.datastore_records(resource_id, base=args.base_url, fetch=fetch))
-            source = f"data.gov.il resource {resource_id}"
-            rows, skipped = localities_from_records(records, source=source, retrieved_at=retrieved)
-            names = names_from_records(records)
-            note = f"resource {resource_id}: {len(records)} records, {len(names)} with a name; skipped {skipped}"
-    except HttpFailure as exc:
-        note = f"error: {exc}"
+        if args.resource_id:
+            res = {"id": args.resource_id, "name": "", "format": "", "url": "", "package": "",
+                   "datastore_active": True, "score": 0}  # fmt: skip
+            try:
+                info = fetch(ckan._api(args.base_url, "resource_show", id=args.resource_id))["result"]
+                res.update(name=info.get("name", ""), url=info.get("url", ""), format=str(info.get("format", "")).upper())
+            except Exception as exc:  # noqa: BLE001
+                print(f"  resource_show {args.resource_id}: {exc}")
+            candidates = [res]
+        else:
+            candidates = ckan.resource_candidates(base=args.base_url, fetch=fetch)
+        for c in candidates:
+            print(f"  ckan candidate {c['id']} [{c['format'] or 'datastore'}] score {c['score']} "
+                  f"{c['package']} / {c['name']}")  # fmt: skip
+        if not candidates:
+            note = "no locality resource found (pass --resource-id)"
+        for c in candidates:
+            if len(by_code) >= ENOUGH_ROWS:
+                break
+            attempts = []
+            if c["url"]:
+                attempts.append(("file", lambda c=c: tables.read_records(get_bytes(c["url"], log=log))))
+            if c["datastore_active"]:
+                attempts.append(
+                    ("datastore", lambda c=c: list(ckan.datastore_records(c["id"], base=args.base_url, fetch=fetch)))
+                )
+            for how, read in attempts:
+                try:
+                    records = read()
+                except Exception as exc:  # noqa: BLE001 (HttpFailure, UnsupportedFile, bad data)
+                    print(f"  ckan {how} {c['id']}: {type(exc).__name__}: {exc}")
+                    continue
+                rows, skipped = localities_from_records(
+                    records, source=f"data.gov.il resource {c['id']} ({how})", retrieved_at=retrieved
+                )
+                for pair_code, pair in names_from_records(records).items():
+                    names.setdefault(pair_code, pair)
+                for r in rows:
+                    by_code.setdefault(r.code, r)
+                print(f"  ckan {how} {c['id']}: {len(records)} records, {len(rows)} with coordinates; skipped {skipped}")
+                if not rows and records:
+                    print(f"  ckan {how} {c['id']} columns: {list(records[0])}")
+                if rows:
+                    break  # the file gave coordinates; no need for the datastore copy of it
+        if not note:
+            note = f"{len(by_code)} localities with coordinates, {len(names)} names"
     except Exception as exc:  # noqa: BLE001 (a broken source must not hide the others)
         note = f"error: {type(exc).__name__}: {exc}"
-    report("data.gov.il CKAN", log, len(rows), note)
-    return rows, names, note
+    report("data.gov.il CKAN", log, len(by_code), note)
+    return list(by_code.values()), names, note
 
 
 def from_wikidata(args, retrieved: str):
@@ -107,24 +148,22 @@ def from_wikidata(args, retrieved: str):
     log = StatusLog()
 
     def fetch(url: str):
-        return get_json(url, accept=wikidata.ACCEPT, timeout=120, log=log)
+        host_is_sparql = url.startswith(wikidata.ENDPOINT)
+        return get_json(
+            url, accept=wikidata.ACCEPT if host_is_sparql else "application/json", timeout=120, log=log
+        )
 
     rows: list[Locality] = []
     note = ""
     try:
-        prop = args.wikidata_property
-        if not prop:
-            prop, candidates = wikidata.pick_property(fetch(wikidata.sparql_url(wikidata.PROPERTY_QUERY)))
-            for pid, label in candidates:
-                print(f"  wikidata property candidate {pid}: {label}")
-            if prop is None:
-                note = "no property about CBS locality/settlement codes found (pass --wikidata-property)"
-        if prop:
-            payload = fetch(wikidata.sparql_url(wikidata.locality_query(prop)))
-            rows, skipped = wikidata.parse_localities(payload, retrieved_at=retrieved)
-            note = f"property {prop}; skipped {skipped}"
-    except HttpFailure as exc:
-        note = f"error: {exc}"
+        rows, skipped, prop = wikidata.fetch_localities(
+            fetch, retrieved_at=retrieved, prop=args.wikidata_property, log=print
+        )
+        note = (
+            f"property {prop}; skipped {skipped}"
+            if prop
+            else "no property for the CBS locality code found (pass --wikidata-property)"
+        )
     except Exception as exc:  # noqa: BLE001
         note = f"error: {type(exc).__name__}: {exc}"
     report("Wikidata SPARQL", log, len(rows), note)
