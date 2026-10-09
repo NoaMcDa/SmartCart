@@ -2016,8 +2016,19 @@ export interface components {
             channel: "physical" | "online";
             /** City */
             city?: string | null;
+            /**
+             * Distance Approximate
+             * @description True when distance_m is only an estimate: the store sits at locality precision (a town centre, which can be a few km from the real branch) or has no coordinates. Show it as approximate; never ranks or filters.
+             * @default false
+             */
+            distance_approximate: boolean;
             /** Distance M */
             distance_m?: number | null;
+            /**
+             * Geo Precision
+             * @description How exact the store's coordinates are (stores.geo_precision): address (house or chain-published), street (the street, not the house), locality (the town centre). null when the store has no coordinates.
+             */
+            geo_precision?: ("address" | "street" | "locality") | null;
             /** Lat */
             lat?: number | null;
             /** Lon */
@@ -2040,10 +2051,21 @@ export interface components {
             channel: "physical" | "online";
             /** City */
             city?: string | null;
+            /**
+             * Distance Approximate
+             * @description True when distance_m is only an estimate: the store sits at locality precision (a town centre, which can be a few km from the real branch) or has no coordinates. Show it as approximate; never ranks or filters.
+             * @default false
+             */
+            distance_approximate: boolean;
             /** Distance M */
             distance_m: number;
             /** Found Count */
             found_count: number;
+            /**
+             * Geo Precision
+             * @description How exact the store's coordinates are (stores.geo_precision): address (house or chain-published), street (the street, not the house), locality (the town centre). null when the store has no coordinates.
+             */
+            geo_precision?: ("address" | "street" | "locality") | null;
             /** Items */
             items: components["schemas"]["PricedItem"][];
             /**

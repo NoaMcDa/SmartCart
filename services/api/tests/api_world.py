@@ -55,13 +55,15 @@ class World:
 
 def add_store(
     db: psycopg.Connection, chain: str, code: str, km_north: float, channel: str = "physical",
-    name: str | None = None,
+    name: str | None = None, geo_precision: str | None = None,
 ) -> int:
+    """``geo_precision`` None keeps the DB default (the trigger labels a bare point ``address``)."""
     return db.execute(
-        "INSERT INTO stores (chain_id, store_code, name, city, channel, geog) VALUES"
-        " (%s, %s, %s, 'תל אביב', %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography)"
+        "INSERT INTO stores (chain_id, store_code, name, city, channel, geog, geo_precision) VALUES"
+        " (%s, %s, %s, 'תל אביב', %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, %s)"
         " RETURNING id",
-        (chain, code, name or f"סניף {code}", channel, ORIGIN[0], ORIGIN[1] + km_north * KM_LAT),
+        (chain, code, name or f"סניף {code}", channel, ORIGIN[0], ORIGIN[1] + km_north * KM_LAT,
+         geo_precision),
     ).fetchone()[0]
 
 

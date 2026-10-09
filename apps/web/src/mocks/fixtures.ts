@@ -217,6 +217,8 @@ type StoreSpec = {
   chain_name: string;
   store_name: string;
   distance_m: number;
+  /** stores.geo_precision; "locality" means a town-centre point, so the distance is approximate. */
+  geo_precision?: "address" | "street" | "locality";
   lines: Line[];
 };
 
@@ -351,6 +353,7 @@ const STORES: StoreSpec[] = [
     chain_name: "יוחננוף",
     store_name: "יוחננוף · מודיעין",
     distance_m: 3600,
+    geo_precision: "locality",
     lines: [
       { canonical_id: 1001, price: 6.2 },
       { canonical_id: 1002, price: 5.5 },
@@ -442,6 +445,8 @@ export function storeResult(
     store_name: spec.store_name,
     city: "מודיעין",
     distance_m: spec.distance_m,
+    geo_precision: spec.geo_precision ?? "address",
+    distance_approximate: spec.geo_precision === "locality",
     channel: "physical",
     total: money(total),
     found_count: items.length,

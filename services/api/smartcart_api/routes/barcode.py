@@ -67,7 +67,8 @@ def barcode_variants(code: str) -> list[str]:
 def _store_ref(s: StoreInfo) -> schemas.StoreRef:
     return schemas.StoreRef(
         store_id=s.store_id, chain_id=s.chain_id, chain_name=s.chain_name, store_name=s.store_name,
-        city=s.city, distance_m=s.distance_m, lat=s.lat, lon=s.lon, channel=s.channel,
+        city=s.city, distance_m=s.distance_m, geo_precision=s.geo_precision,
+        distance_approximate=s.distance_approximate, lat=s.lat, lon=s.lon, channel=s.channel,
     )
 
 

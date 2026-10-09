@@ -352,7 +352,7 @@ number). Tests: `test_clubs.py` (a basket whose cheapest store changes with memb
 /compare and /optimize, and the unparseable default).
 
 `PricedItem.promo_confidence` is `promos.raw->>'confidence'` when the adapter recorded one
-(0 to 1, or a percentage), else null. `StoreResult.lat` / `lon` come from `stores.geog`.
+(0 to 1, or a percentage), else null. `StoreResult.lat` / `lon` come from `stores.geog`; `geo_precision` and `distance_approximate` from `stores.geo_precision` (below).
 
 ### Account deletion, DELETE /me
 
@@ -372,7 +372,45 @@ number). Tests: `test_clubs.py` (a basket whose cheapest store changes with memb
 ### GET /stores/nearest
 
 PostGIS KNN (`ORDER BY geog <-> point`) over the chain's physical stores with a location; 404
-when there is none. Returns a `StoreRef` with `distance_m`, `lat`, `lon`.
+when there is none. Returns a `StoreRef` with `distance_m`, `lat`, `lon`, `geo_precision` and
+`distance_approximate` (see "Store location precision").
+
+### Store location precision (`geo_precision`, `distance_approximate`)
+
+`stores.geo_precision` (migration `20261011100900_store_geocode.sql`, `docs/geocoding.md`) says how
+exact a store's point is: `address` (house, or chain-published), `street` (the street, not the
+house) or `locality` (the town centre, used when no street or house was found; 265 of the 827 real
+stores at the last measurement). It is NULL exactly when the store has no point.
+
+Every response model that carries a store location or a distance has both fields, filled from
+`stores.geo_precision` in the same query that reads the point:
+
+| Model | Routes |
+|---|---|
+| `StoreResult` | `POST /compare` (`stores[]`), `POST /optimize` (`single`, `split`, `minimum_effort`, heuristic and MILP, via `StoreAssignment.store`) |
+| `StoreRef` | `GET /stores/nearest`, `GET /items/barcode/{barcode}` (`here`, `cheapest_nearby`, `cheaper_substitute`), `StorePrice.store` |
+
+- `geo_precision`: `"address" | "street" | "locality" | null`.
+- `distance_approximate: bool`: true when `geo_precision` is `locality` or the store has no point
+  (the distance of a home store without a point is reported as 0, which is not a measurement).
+  False for `address` and `street`.
+
+The alert job payload (`alerts_job.py`) names the store and the price but carries no distance, so it
+has no new field. Swap suggestions return no store location.
+
+**Estimate, not a measurement.** A town-centre point can be a few km from the real branch, so
+`distance_m` to a locality store is an estimate in either direction (the store may be nearer or
+farther). The API does not correct it: ranking (`sort_key`), the radius filter (`stores_within`),
+the travel cost and the net saving all keep using `distance_m` as before, and a test asserts that
+`/compare` and `/optimize` are identical, field for field, with and without precision data. The
+travel cost in a plan that includes a locality store is therefore approximate too.
+
+**What the UI must show** (trust signals are mandatory, `CLAUDE.md`): whenever
+`distance_approximate` is true, label the distance as approximate (for example "בערך 2.3 ק״מ", or
+"~2.3 ק״מ" with a note that the branch location is approximate), and do not draw a map pin at
+`lat`/`lon` as if it were the branch; show the town instead. Never render the distance of such a
+store as exact, and never use `geo_precision` to hide a store. `street` is shown as a normal
+distance. Tests: `tests/test_api_geo_precision.py`.
 
 ### GET /history/{canonical_id}
 

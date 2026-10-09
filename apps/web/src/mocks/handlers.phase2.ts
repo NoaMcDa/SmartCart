@@ -31,6 +31,8 @@ const STORE_REFS: Record<number, StoreRef> = {
     distance_m: 4200,
     lat: 31.9,
     lon: 35.01,
+    geo_precision: "address",
+    distance_approximate: false,
     channel: "physical",
   },
   102: {
@@ -42,6 +44,8 @@ const STORE_REFS: Record<number, StoreRef> = {
     distance_m: 5100,
     lat: 31.905,
     lon: 35.0,
+    geo_precision: "address",
+    distance_approximate: false,
     channel: "physical",
   },
   103: {
@@ -53,6 +57,8 @@ const STORE_REFS: Record<number, StoreRef> = {
     distance_m: 1100,
     lat: 31.898,
     lon: 35.008,
+    geo_precision: "address",
+    distance_approximate: false,
     channel: "physical",
   },
   104: {
@@ -64,6 +70,8 @@ const STORE_REFS: Record<number, StoreRef> = {
     distance_m: 3600,
     lat: 31.9,
     lon: 35.02,
+    geo_precision: "locality",
+    distance_approximate: true,
     channel: "physical",
   },
   105: {
@@ -75,6 +83,8 @@ const STORE_REFS: Record<number, StoreRef> = {
     distance_m: 2400,
     lat: 31.896,
     lon: 35.015,
+    geo_precision: "address",
+    distance_approximate: false,
     channel: "physical",
   },
 };

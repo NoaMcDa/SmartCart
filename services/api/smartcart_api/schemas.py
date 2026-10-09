@@ -203,6 +203,17 @@ class PricedItem(_Model):
     club_offer_discount: Decimal | None = Field(default=None, description="What club_offer_name would save on this line, ILS; information only")
 
 
+GeoPrecision = Literal["address", "street", "locality"]
+_GEO_PRECISION_DOC = (
+    "How exact the store's coordinates are (stores.geo_precision): address (house or chain-published), "
+    "street (the street, not the house), locality (the town centre). null when the store has no coordinates."
+)
+_DISTANCE_APPROX_DOC = (
+    "True when distance_m is only an estimate: the store sits at locality precision (a town centre, which "
+    "can be a few km from the real branch) or has no coordinates. Show it as approximate; never ranks or filters."
+)
+
+
 class StoreResult(_Model):
     store_id: int
     chain_id: str
@@ -210,6 +221,8 @@ class StoreResult(_Model):
     store_name: str
     city: str | None = None
     distance_m: int
+    geo_precision: GeoPrecision | None = Field(default=None, description=_GEO_PRECISION_DOC)
+    distance_approximate: bool = Field(default=False, description=_DISTANCE_APPROX_DOC)
     channel: Literal["physical", "online"]
     total: Decimal
     found_count: int
@@ -456,6 +469,8 @@ class StoreRef(_Model):
     store_name: str
     city: str | None = None
     distance_m: int | None = None
+    geo_precision: GeoPrecision | None = Field(default=None, description=_GEO_PRECISION_DOC)
+    distance_approximate: bool = Field(default=False, description=_DISTANCE_APPROX_DOC)
     lat: float | None = None
     lon: float | None = None
     channel: Literal["physical", "online"] = "physical"
