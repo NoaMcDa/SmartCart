@@ -71,7 +71,13 @@ export function RecipeSheet({ open, onClose, onAdd }: RecipeSheetProps) {
   async function read(e?: FormEvent) {
     e?.preventDefault();
     if (loading) return;
-    const value = (mode === "text" ? text : link).trim();
+    // Read the field the user just typed or pasted into, not React state: a fast paste-then-submit
+    // can arrive before the state update, which would report an empty field.
+    const form = e?.currentTarget instanceof HTMLFormElement ? e.currentTarget : null;
+    const field = form?.querySelector<HTMLTextAreaElement | HTMLInputElement>(
+      `#${CSS.escape(fieldId)}`,
+    );
+    const value = (field?.value ?? (mode === "text" ? text : link)).trim();
     if (!value) {
       setError(mode === "text" ? "errPasteRecipe" : "errPasteLink");
       return;

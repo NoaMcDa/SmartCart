@@ -175,6 +175,7 @@ describe("the recipe sheet", () => {
     const { user, dialog } = await openRecipe();
     await user.click(within(dialog).getByLabelText("המתכון או רשימת המצרכים"));
     await user.paste("בלה בלה");
+    expect(within(dialog).getByLabelText("המתכון או רשימת המצרכים")).toHaveValue("בלה בלה");
     await user.click(screen.getByTestId("recipe-read"));
     // Wait for the server's answer, not the first alert: on a slow runner the empty-input hint can
     // still be the alert on screen when findByRole resolves.
