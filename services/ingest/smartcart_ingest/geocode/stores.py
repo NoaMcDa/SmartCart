@@ -78,6 +78,10 @@ _HEB_DIGIT = re.compile(r"(?<=[֐-׿])(?=\d)|(?<=\d)(?=[֐-׿])")
 _COMMA_NUMBER = re.compile(r"(?<=\S),\s*(?=\d+\s*$)")
 _LEADING_NUMBER = re.compile(r"^(\d+)(?:\s*[-/]\s*\d+)?[א-ת]?\s+(\D.*)$")
 _TRAILING_ZERO = re.compile(r"\s+0\s*$")
+_CORNER = re.compile(r"\s+(?:פינת|פינה)\s+")
+_STREET_WORD = re.compile(r"^(?:רחוב|רח['\u05f3]?)\s+")
+_AVENUE = re.compile(r"^שד['\u05f3]\s*")
+_NUMBER_LETTER_TAIL = re.compile(r"(\s\d+)\s+[\u05d0-\u05ea]\b.*$")
 _NOISE = re.compile(r"\b(?:ת\.?\s?ד\.?|תא דואר)\b")
 
 
@@ -95,6 +99,10 @@ def clean_address(address: str | None) -> tuple[str, bool]:
     text = text.split(",")[0].strip()
     text = _TRAILING_ZERO.sub("", text)
     text = _HEB_DIGIT.sub(" ", text)
+    text = _CORNER.split(text)[0]
+    text = _STREET_WORD.sub("", text)
+    text = _AVENUE.sub("שדרות ", text)
+    text = _NUMBER_LETTER_TAIL.sub(r"\1", text)
     lead = _LEADING_NUMBER.match(text)
     if lead:
         text = f"{lead.group(2)} {lead.group(1)}"

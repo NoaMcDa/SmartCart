@@ -103,6 +103,8 @@ def test_normalize_code() -> None:
 def test_name_matching_ignores_quotes_hyphens_and_kiryat_spelling() -> None:
     assert normalize_name("קריית  שמונה") == normalize_name("קרית שמונה")
     assert names_match("תל אביב -יפו", "תל אביב-יפו")
+    assert names_match("תל אביב -יפו", "תל־אביב–יפו")  # OSM: Hebrew maqaf and an en dash
+    assert names_match("מודיעין-מכבים-רעות", "מודיעין־מכבים־רעות")
     assert names_match("תל אביב", "תל אביב-יפו")  # the short name is a leading part
     assert names_match("ראשון לציון", 'ראשון לציון')
     assert not names_match("רמת גן", "גן")  # a trailing fragment is not a match
@@ -352,9 +354,13 @@ def test_request_key_ignores_whitespace_but_not_parameters() -> None:
         ("אבן גבירול157", ("אבן גבירול 157", True)),
         ("20 נחל פרת", ("נחל פרת 20", True)),
         ("46-50 פנקס", ("פנקס 46", True)),
-        ("רחוב המפוח 11, אזור התעשיה", ("רחוב המפוח 11", True)),
+        ("רחוב המפוח 11, אזור התעשיה", ("המפוח 11", True)),
+        ("רח' המלאכה 32", ("המלאכה 32", True)),
+        ("הסתת 15 א תעשיה", ("הסתת 15", True)),
+        ('הר"ן 6 פינת פנים המאירים', ('הר"ן 6', True)),
+        ("שד' הנשיא 3", ("שדרות הנשיא 3", True)),
         ("שרפה 22, כביש ראשי של העיר 0", ("שרפה 22", True)),
-        ("שדרות ירושלים פינת נופי חמד", ("שדרות ירושלים פינת נופי חמד", False)),
+        ("שדרות ירושלים פינת נופי חמד", ("שדרות ירושלים", False)),
         ("ואדי אלפש, כביש 672 0", ("ואדי אלפש", False)),
         ("מרכז מסחרי", ("מרכז מסחרי", False)),
         ("ת.ד. 123", ("", False)),
@@ -496,7 +502,7 @@ def test_unknown_city_falls_back_to_an_exact_name_match_when_the_text_gives_noth
     assert [(r.store_code, r.precision, r.source) for r in rows] == [("1", "locality", "cbs-name-match")]
     assert (rows[0].lat, rows[0].lon) == (32.52, 35.15)
     assert stats.unknown_city_code == 3 and stats.no_city == 1
-    assert stats.no_match == 3 and stats.skipped_online_or_no_address == 1
+    assert stats.no_match == 2 and stats.skipped_online_or_no_address == 2  # "רחוב 1" has no street name
     assert infer_by_name(S("9", "תל אביב", None, "0"), LOCALITIES) is None
 
 

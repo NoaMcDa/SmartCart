@@ -131,6 +131,8 @@ def from_ckan(args, retrieved: str):
                 for r in rows:
                     by_code.setdefault(r.code, r)
                 print(f"  ckan {how} {c['id']}: {len(records)} records, {len(rows)} with coordinates; skipped {skipped}")
+                if not rows and records:
+                    print(f"  ckan {how} {c['id']} columns: {list(records[0])}")
                 if rows:
                     break  # the file gave coordinates; no need for the datastore copy of it
         if not note:

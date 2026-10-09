@@ -47,7 +47,8 @@ def normalize_code(raw: object) -> str | None:
 
 
 _QUOTES = re.compile(r"[\"'`׳״’”]")
-_SEPARATORS = re.compile(r"[-–—_/,()]+")
+_SEPARATORS = re.compile(r"[-‐‑‒–—־_/,()]+")
+"""Hyphens, dashes and the Hebrew maqaf (U+05BE): OSM writes ``תל־אביב–יפו``, the CBS ``תל אביב -יפו``."""
 _SPACES = re.compile(r"\s+")
 
 
