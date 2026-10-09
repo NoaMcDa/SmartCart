@@ -4,8 +4,9 @@
   (PNG ``tEXt``/``iTXt`` chunk ``sc-ocr``) or looks the image up in a registry keyed by
   ``image_hash``. It does no recognition.
 * ``TesseractProvider``: the free, local fallback. Runs the ``tesseract`` binary with the image on
-  stdin and the text on stdout, so nothing is written to disk (``pytesseract`` saves a temp file,
-  which D11 forbids). Printed text only; handwriting is poor.
+  stdin and word boxes (TSV) on stdout, so nothing is written to disk (``pytesseract`` saves a temp
+  file, which D11 forbids). Printed text only; handwriting is poor. See ``layout.py`` for how the
+  lines are rebuilt.
 * ``ClaudeVisionProvider``: one synchronous ``messages.create`` with an image block. Key-gated.
   The image is sent once, as base64; the model is asked for plain lines and nothing else. Whatever
   the model returns is only ever matched against the catalog, never executed or followed.
@@ -25,9 +26,9 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any, Literal, Protocol
 
-from PIL import Image
+from PIL import Image, ImageOps
 
-from smartcart_api.ocr import config
+from smartcart_api.ocr import config, layout
 from smartcart_api.ocr.image import image_hash, to_bytes
 from smartcart_api.ocr.pricing import EXPECTED_USD_PER_IMAGE, estimate_sync_usd
 
@@ -114,21 +115,38 @@ def tesseract_available() -> bool:
     return tesseract_binary() is not None and tesseract_has_hebrew()
 
 
+TARGET_WIDTH = 1050  # px; the fast models read best with letters about 30 px tall
+MAX_UPSCALE = 2.0
+
+
+def prepare_for_ocr(image: Image.Image) -> Image.Image:
+    """Grayscale, contrast stretched, and enlarged when small (never shrunk): receipts and lists
+    photographed or rendered narrower than ``TARGET_WIDTH`` have letters too small for Tesseract.
+    Measured on synthetic receipts: x1.5 reads 87 of 102 prices against 72 unscaled."""
+    gray = ImageOps.autocontrast(image.convert("L"), cutoff=1)
+    if gray.width < TARGET_WIDTH:
+        factor = min(MAX_UPSCALE, TARGET_WIDTH / gray.width)
+        gray = gray.resize(
+            (round(gray.width * factor), round(gray.height * factor)), Image.Resampling.BICUBIC
+        )
+    return gray
+
+
 class TesseractProvider:
+    """Printed text only. Receipts are read twice (``heb+eng`` for the words, ``eng`` for the
+    numbers) and merged by position; lists once. Lines are rebuilt from word boxes in logical
+    order (see ``layout``). Nothing is written to disk: the image goes in on stdin."""
+
     name = "tesseract"
     PSM = {"receipt": "4", "list": "6"}  # 4: a column of variable-size text; 6: a uniform block
 
     def __init__(self, timeout: float = 45.0) -> None:
         self.timeout = timeout
 
-    def read(self, image: Image.Image, kind: Kind) -> OcrResult:
-        exe = tesseract_binary()
-        if not exe:
-            raise OcrError("tesseract is not installed")
-        png = to_bytes(image, "PNG")
+    def _tsv(self, exe: str, png: bytes, lang: str, psm: str) -> str:
         try:
             proc = subprocess.run(
-                [exe, "stdin", "stdout", "-l", "heb+eng", "--psm", self.PSM[kind]],
+                [exe, "stdin", "stdout", "-l", lang, "--psm", psm, "--dpi", "300", "tsv"],
                 input=png,
                 capture_output=True,
                 timeout=self.timeout,
@@ -137,11 +155,25 @@ class TesseractProvider:
             )
         except (OSError, subprocess.SubprocessError) as exc:
             raise OcrError("tesseract failed") from exc
-        finally:
-            del png
         if proc.returncode != 0:
             raise OcrError("tesseract failed")
-        return OcrResult(split_lines(proc.stdout.decode("utf-8", "replace")), self.name, 0.0)
+        return proc.stdout.decode("utf-8", "replace")
+
+    def read(self, image: Image.Image, kind: Kind) -> OcrResult:
+        exe = tesseract_binary()
+        if not exe:
+            raise OcrError("tesseract is not installed")
+        png = to_bytes(prepare_for_ocr(image), "PNG")
+        try:
+            text_words = layout.parse_tsv(self._tsv(exe, png, "heb+eng", self.PSM[kind]))
+            if kind == "list":
+                lines = layout.list_lines(text_words)
+            else:
+                number_words = layout.parse_tsv(self._tsv(exe, png, "eng", self.PSM[kind]))
+                lines = layout.merge_receipt(text_words, number_words)
+        finally:
+            del png
+        return OcrResult(lines, self.name, 0.0)
 
 
 # --- claude vision ---------------------------------------------------------------------------

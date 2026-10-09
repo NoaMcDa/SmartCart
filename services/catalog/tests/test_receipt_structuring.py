@@ -129,8 +129,9 @@ def test_count_detail_after_a_priced_name_line() -> None:
     assert rows(["יוגורט דנונה 11.80", "2 x 5.90"]) == [("יוגורט דנונה", D(2), None, D("11.80"))]
 
 
-def test_count_without_total_multiplies() -> None:
-    assert rows(["במבה אסם", "3 * 4.50"]) == [("במבה אסם", D(3), None, D("13.50"))]
+def test_count_without_a_printed_total_keeps_the_count_and_no_price() -> None:
+    # 13.50 would be a computed number, not a printed one: the price stays empty
+    assert rows(["במבה אסם", "3 * 4.50"]) == [("במבה אסם", D(3), None, None)]
 
 
 def test_reversed_count_expression() -> None:
@@ -402,3 +403,69 @@ def test_query_variants(text: str, variants: list[str]) -> None:
 
 def test_query_variants_keep_the_fat_percentage() -> None:
     assert all("3%" in v for v in query_variants("חלב תנובה 3% 1 ליטר"))
+
+
+# --- lines as Tesseract really returned them (synthetic receipts, Tesseract 5.3.4 heb+eng / eng) ---
+
+
+def test_a_lost_multiplication_sign_is_recovered_from_the_two_prices() -> None:
+    # the "X" came back as the letter א; unit price 20.88 and total 41.76 say it was 2
+    assert rows(["קפה סוגת שחור טחון", "2 א 20.88 41.76"]) == [("קפה סוגת שחור טחון", D(2), None, D("41.76"))]
+    assert rows(["קפה סוגת שחור טחון", "א 20.88 41.76"]) == [("קפה סוגת שחור טחון", D(2), None, D("41.76"))]
+
+
+def test_a_unit_price_under_a_priced_line_gives_the_count_only_when_the_sums_say_so() -> None:
+    assert rows(["פסטה סוגת פנה 11.34", "2 א 5.67"]) == [("פסטה סוגת פנה", D(2), None, D("11.34"))]
+    # 7.00 does not divide 11.34 into a whole count: no quantity is invented
+    assert rows(["פסטה סוגת פנה 11.34", "א 7.00"]) == [("פסטה סוגת פנה", None, None, D("11.34"))]
+
+
+def test_the_sign_printed_before_the_count() -> None:
+    assert rows(["מרגרינה", "X2 17.41 34.82"]) == [("מרגרינה", D(2), None, D("34.82"))]
+    assert rows(["מרגרינה", "7.32X2"]) == [("מרגרינה", D(2), None, None)]  # no printed total, none computed
+    # one price after "X2" is a unit price: the total was not read, so there is no price
+    assert rows(["שעועית ירוקה קפואה", "X2 42.36"]) == [("שעועית ירוקה קפואה", D(2), None, None)]
+
+
+def test_weights_with_the_sign_read_as_a_letter() -> None:
+    assert rows(["קישואים", '0.841 ק"ג א 14.57 12.25']) == [("קישואים", D("0.841"), "kg", D("12.25"))]
+    assert rows(["עוף טרה שלם קפוא 400 גרם", "1.583 א 19.16 30.33"]) == [
+        ("עוף טרה שלם קפוא 400 גרם", D("1.583"), "kg", D("30.33"))
+    ]
+
+
+def test_the_apostrophe_of_a_litre_read_as_a_yod() -> None:
+    assert rows(["פיצה קפואה 1.5 לי 33.51"]) == [("פיצה קפואה 1.5 ליטר", None, None, D("33.51"))]
+    assert expand_name("קולה זירו 1.5 לי") == "קולה זירו 1.5 ליטר"
+    assert expand_name("חלב לימון") == "חלב לימון"  # a word that merely starts with לי
+
+
+def test_a_price_that_was_not_read_makes_no_item() -> None:
+    assert rows(["מיונז 227,", "לחם 7.50"]) == [("לחם", None, None, D("7.50"))]
+
+
+def test_a_receipt_as_the_provider_returns_it() -> None:
+    lines = [
+        "טיב טעם", "סניף: נתניה", "ח.פ 562992312", "חשבונית מס מספר 95319",
+        "תאריך 02/10/2026 שעה 09:52", "מטבוחה 1.5 ל' 12.35", "גב' טרה לבנה 3% 56.38", "X2 28.19",
+        "פיתות 11.55", "תירס שטראוס קפוא 500 גרם 14.64", "7.32X2", "נאגטס עוף 26.32",
+        'סה"כ פריטים 5', 'סה"כ 121.24', "לתשלום 121.24", 'מע"מ 18% 18.49', "אשראי ויזה ****1234",
+    ]
+    r = parse_receipt(lines)
+    assert (r.chain_id, r.store_hint, r.total) == ("7290873255550", "נתניה", D("121.24"))
+    assert [(i.text, i.quantity, i.price) for i in r.items] == [
+        ("מטבוחה 1.5 ליטר", None, D("12.35")),
+        ("גבינה טרה לבנה 3%", D(2), D("56.38")),
+        ("פיתות", None, D("11.55")),
+        ("תירס שטראוס קפוא 500 גרם", D(2), D("14.64")),
+        ("נאגטס עוף", None, D("26.32")),
+    ]
+
+
+def test_the_shekel_sign_does_not_eat_words_that_contain_it() -> None:
+    # "שח" inside "שחור" (black) was removed as the abbreviation of ש"ח: "קפה שחור" read "קפה ור"
+    assert rows(["קפה שחור טחון 3.55", "פלפל שחור 9.90"]) == [
+        ("קפה שחור טחון", None, None, D("3.55")),
+        ("פלפל שחור", None, None, D("9.90")),
+    ]
+    assert rows(['לחם 7.50 ש"ח', "חלב 8.90 שח"]) == [("לחם", None, None, D("7.50")), ("חלב", None, None, D("8.90"))]

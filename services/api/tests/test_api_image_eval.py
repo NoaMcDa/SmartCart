@@ -169,3 +169,58 @@ def test_evaluation_with_perfect_reading_scores_the_structurer_and_the_catalog(i
     text = evaluate.report(res, True)
     assert "SYNTHETIC" in text and "not an accuracy estimate" in text
     assert "| chain |" in text and "| list line read |" in text
+
+
+# --- the renderer's two bugs the first runner evaluation exposed ---------------------------------
+
+
+def test_every_drawn_digit_has_a_glyph() -> None:
+    """Noto Sans Hebrew has no digits: they were drawn as empty boxes, which Tesseract read as 0 and
+    o (0 of 293 prices right). The digits and Latin letters now come from a font that has them."""
+    hebrew = render.find_font()
+    latin = render.find_latin_font(hebrew)
+    assert render.has_glyphs(latin, "0123456789.,%-:'\"/*XxLM")
+    assert render.has_glyphs(hebrew, "אבגדהוזחטיכלמנסעפצקרשת")
+    face = render.Face(hebrew, 26)
+    draw = __import__("PIL.ImageDraw", fromlist=["Draw"]).Draw(Image.new("L", (10, 10)))
+    assert face.length(draw, "12.35") > 40 and face.length(draw, "שלום 5") > face.length(draw, "שלום")
+
+
+def test_a_box_is_not_a_glyph() -> None:
+    from PIL import ImageFont
+
+    path = next(p for p in render.LATIN_CANDIDATES if Path(p).exists())
+    assert render.has_glyphs(path, "7")
+    font = ImageFont.truetype(path, 32, layout_engine=ImageFont.Layout.BASIC)
+    assert bytes(font.getmask("￿")) != bytes(font.getmask("7"))
+
+
+def test_a_list_line_starts_at_the_right_edge(tmp_path) -> None:
+    """The first word of a line is the rightmost: the handwritten-style lists were drawn with
+    the words in reverse order."""
+    import random
+
+    img = render.draw_list(["אאאאאאאא ב ב"], render.find_font(), random.Random(1)).convert("L")
+    w, h = img.size
+    dark = lambda box: sum(1 for p in img.crop(box).tobytes() if p < 120)  # noqa: E731
+    assert dark((w // 2, 0, w, h)) > 2 * dark((0, 0, w // 2, h))
+
+
+def test_receipt_truth_carries_the_printed_lines(images) -> None:
+    t = json.loads((images / "receipt_001.json").read_text(encoding="utf-8"))
+    assert t["lines"][0] in render.CHAIN_HEADERS.values()
+    assert any(ln.startswith("לתשלום") for ln in t["lines"])
+
+
+def test_debug_samples_print_raw_lines_next_to_the_printed_lines(images, capsys) -> None:
+    res = evaluate.evaluate(images, "fake", None, None, debug_samples=2)
+    out = capsys.readouterr().out
+    assert out.count("=== debug sample receipt_") == 2 and out.count("=== debug sample list_") == 2
+    assert out.count("-- provider lines") == 4 and out.count("-- ground truth lines") == 4
+    assert "-- structured: chain=" in out and "-- truth items" in out
+    t = json.loads((images / "receipt_001.json").read_text(encoding="utf-8"))
+    for ln in t["lines"]:  # untruncated: every printed line appears, as a repr
+        assert repr(ln) in out
+    assert res["images"]["receipt"] == 12
+    evaluate.evaluate(images, "fake", None, None, debug_samples=0)
+    assert "debug sample" not in capsys.readouterr().out

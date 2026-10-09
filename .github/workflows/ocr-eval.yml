@@ -30,6 +30,11 @@ on:
         required: false
         default: 7
         type: number
+      debug_samples:
+        description: "Print the raw provider lines next to the printed lines for this many receipts and this many lists (synthetic images; 0 turns it off)"
+        required: false
+        default: 3
+        type: number
       provider:
         description: "OCR provider to evaluate (claude is key-gated, about 0.01 USD per image, estimate)"
         required: false
@@ -72,6 +77,7 @@ jobs:
       LISTS: ${{ inputs.lists || 20 }}
       SEED: ${{ inputs.seed || 7 }}
       PROVIDER: ${{ inputs.provider || 'tesseract' }}
+      DEBUG_SAMPLES: ${{ inputs.debug_samples }}
 
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +87,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -eu
-          for v in "$RECEIPTS" "$LISTS" "$SEED"; do
+          DEBUG_SAMPLES="${DEBUG_SAMPLES:-3}"
+          echo "DEBUG_SAMPLES=$DEBUG_SAMPLES" >> "$GITHUB_ENV"
+          for v in "$RECEIPTS" "$LISTS" "$SEED" "$DEBUG_SAMPLES"; do
             case "$v" in ''|*[!0-9]*) echo "::error::inputs must be whole numbers"; exit 1;; esac
           done
           if [ "$RECEIPTS" -lt 1 ] || [ "$RECEIPTS" -gt 200 ] || [ "$LISTS" -gt 200 ]; then
@@ -155,7 +163,8 @@ jobs:
           set -o pipefail
           echo "## Provider: $PROVIDER" >> "$GITHUB_STEP_SUMMARY"
           uv run --no-sync python scripts/ocr/evaluate.py --dir "$RUNNER_TEMP/images" \
-            --provider "$PROVIDER" --json-out "$RUNNER_TEMP/result.json" | tee "$RUNNER_TEMP/result.txt"
+            --provider "$PROVIDER" --debug-samples "$DEBUG_SAMPLES" \
+            --json-out "$RUNNER_TEMP/result.json" | tee "$RUNNER_TEMP/result.txt"
 
       - name: Upload the images, truth and reports
         if: always() && env.SKIP != '1'

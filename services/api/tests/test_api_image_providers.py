@@ -134,7 +134,7 @@ def tesseract(monkeypatch):
         calls.append({"cmd": cmd, **kwargs})
         if "--list-langs" in cmd:
             return SimpleNamespace(returncode=0, stdout="List of available languages (3):\neng\nheb\nosd\n", stderr="")
-        return SimpleNamespace(returncode=0, stdout="חלב 3%\n\nלחם\n".encode(), stderr=b"")
+        return SimpleNamespace(returncode=0, stdout=(TSV_HEADER + TSV_WORDS).encode(), stderr=b"")
 
     monkeypatch.setattr(providers.shutil, "which", lambda name: "/usr/bin/tesseract")
     monkeypatch.setattr(providers.subprocess, "run", fake_run)
@@ -143,14 +143,23 @@ def tesseract(monkeypatch):
     providers.tesseract_has_hebrew.cache_clear()
 
 
+TSV_HEADER = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"
+TSV_WORDS = (
+    "5\t1\t1\t1\t1\t1\t500\t10\t80\t26\t95\tלחם\n"
+    "5\t1\t1\t1\t1\t2\t40\t10\t70\t26\t95\t7.50\n"
+)
+
+
 @pytest.mark.parametrize(("kind", "psm"), [("receipt", "4"), ("list", "6")])
 def test_tesseract_reads_stdin_and_writes_no_file(tesseract, kind, psm) -> None:
     result = TesseractProvider().read(photo(), kind)
-    (call,) = tesseract
-    assert call["cmd"] == ["/usr/bin/tesseract", "stdin", "stdout", "-l", "heb+eng", "--psm", psm]
-    assert sniff(call["input"]) == "png"  # the image goes in through a pipe, in memory
-    assert call["capture_output"] is True and call["timeout"] > 0
-    assert result.lines == ["חלב 3%", "לחם"] and result.provider == "tesseract" and result.est_cost_usd == 0
+    first = tesseract[0]
+    assert first["cmd"][:7] == ["/usr/bin/tesseract", "stdin", "stdout", "-l", "heb+eng", "--psm", psm]
+    assert first["cmd"][-1] == "tsv"
+    assert sniff(first["input"]) == "png"  # the image goes in through a pipe, in memory
+    assert first["capture_output"] is True and first["timeout"] > 0
+    assert result.provider == "tesseract" and result.est_cost_usd == 0
+    assert result.lines == ["לחם 7.50"]
 
 
 def test_tesseract_failure_is_an_ocr_error(tesseract, monkeypatch) -> None:
