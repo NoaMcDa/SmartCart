@@ -68,7 +68,12 @@ def test_run_sh_is_executable_and_parses() -> None:
     subprocess.run(["bash", "-n", str(script)], check=True)
 
 
-def test_end_to_end_writes_the_dry_run_and_cleans_up(pg_dsn: str, tmp_path: Path) -> None:
+def test_end_to_end_writes_the_dry_run_and_cleans_up(pg_dsn: str, tmp_path: Path, monkeypatch) -> None:
+    # The committed data/geo tables give the real stores coordinates (docs/geocoding.md); this test
+    # pins the generator's output for files that carry none, so it runs with no geo data.
+    monkeypatch.setenv("SMARTCART_GEO_DIR", str(tmp_path / "no-geo"))
+    monkeypatch.delenv("SMARTCART_GEO_LOCALITIES", raising=False)
+    monkeypatch.delenv("SMARTCART_GEO_STORES", raising=False)
     out = tmp_path / "dry-run.md"
     result = dry_run.run(pg_dsn, out)
     text = out.read_text(encoding="utf-8")
