@@ -10,7 +10,7 @@ import type { ScanEngine, ScanOutcome } from "@/features/consent/betaEvents";
 import { ReportGapButton } from "@/features/feedback";
 import controls from "@/features/profile/controls/controls.module.css";
 import { useRich } from "@/i18n/format-2";
-import { useT } from "@/i18n/LocaleProvider";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { scanMessages } from "@/i18n/messages/scan";
 import { useShopper } from "@/state/shopper";
 import { BARCODE_ERRORS, checkBarcode } from "./barcode";
@@ -18,7 +18,7 @@ import { CAMERA_MESSAGES, requestCamera, stopStream, type CameraFailure } from "
 import { startDetector, type ScanSession } from "./detector";
 import { ResultCard } from "./ResultCard";
 import { recordScan } from "./scanLog";
-import { useScanStores } from "./stores";
+import { scanOptionText, useScanStores } from "./stores";
 import styles from "./Scan.module.css";
 
 type Phase =
@@ -56,6 +56,7 @@ export function ScanScreen() {
 
 function ScanScreenInner() {
   const t = useT(scanMessages);
+  const { locale } = useLocale();
   const r = useRich(scanMessages);
   const shopper = useShopper();
   const stores = useScanStores(shopper);
@@ -287,7 +288,7 @@ function ScanScreenInner() {
           ) : null}
           {stores.options.map((o) => (
             <option key={o.storeId} value={o.storeId}>
-              {o.label}
+              {scanOptionText(o, locale)}
             </option>
           ))}
         </select>

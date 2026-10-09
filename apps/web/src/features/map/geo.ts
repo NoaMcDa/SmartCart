@@ -44,6 +44,13 @@ export function circleRing(center: LatLon, radiusM: number, steps = 72): [number
   return ring;
 }
 
+/**
+ * Radius of the area drawn around a store placed only at its town centre (`geo_precision` is
+ * `locality`). It is a visual size for "somewhere around here", not a promise that the branch is
+ * inside it: the API says such a point can be a few km from the branch.
+ */
+export const APPROX_AREA_M = 2000;
+
 export type StorePosition = LatLon & {
   /** True when the position is placed from the distance only, not from real coordinates. */
   approximate: boolean;

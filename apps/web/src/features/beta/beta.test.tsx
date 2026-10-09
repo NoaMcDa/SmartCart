@@ -178,11 +178,50 @@ describe("leaving the beta", () => {
   });
 });
 
+/** Paths the mock server was asked for while `fn` runs. */
+async function requestedPaths(fn: () => Promise<void>): Promise<string[]> {
+  const paths: string[] = [];
+  const onStart = ({ request }: { request: Request }) => paths.push(new URL(request.url).pathname);
+  server.events.on("request:start", onStart);
+  try {
+    await fn();
+  } finally {
+    server.events.removeListener("request:start", onStart);
+  }
+  return paths;
+}
+
 describe("the feedback entry", () => {
+  beforeEach(() => {
+    auth.value = { ...auth.value, status: "signed-in", email: "a@example.com" };
+  });
+
   it("is invisible to anyone who is not a member", async () => {
     render(<BetaFeedbackEntry />);
     await waitFor(() => expect(getBetaState().status).toBe("ready"));
     expect(screen.queryByTestId("beta-feedback-entry")).toBeNull();
+  });
+
+  it("signed out in a build that cannot sign in, it renders nothing and never calls /me/beta", async () => {
+    auth.value = { ...auth.value, configured: false, status: "signed-out", email: null };
+    setBetaMockMember("kosher"); // even a mock that would say "member"
+    const paths = await requestedPaths(async () => {
+      render(<BetaFeedbackEntry />);
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    expect(screen.queryByTestId("beta-feedback-entry")).toBeNull();
+    expect(paths.filter((p) => p.includes("/me/"))).toEqual([]);
+    expect(getBetaState().status).toBe("unknown");
+  });
+
+  it("does not show an earlier answer once the session is gone", async () => {
+    setBetaMockMember("kosher");
+    const { rerender } = render(<BetaFeedbackEntry />);
+    expect(await screen.findByTestId("beta-feedback-entry")).toBeInTheDocument();
+    auth.value = { ...auth.value, status: "signed-out", email: null };
+    rerender(<BetaFeedbackEntry />);
+    expect(screen.queryByTestId("beta-feedback-entry")).toBeNull();
+    await waitFor(() => expect(getBetaState().status).toBe("unknown"));
   });
 
   it("is invisible while signed out with Supabase configured, without asking the API", async () => {

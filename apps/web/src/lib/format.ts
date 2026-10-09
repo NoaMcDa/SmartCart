@@ -87,10 +87,56 @@ export function itemProductName(
   return item.display_name_he ?? "";
 }
 
-/** Distance in meters as km: 4200 -> "4.2 ק"מ", 800 -> "800 מ'" (Arabic: "4.2 كم", "800 م"). */
-export function formatDistance(meters: number, locale: Locale = DEFAULT_LOCALE): string {
-  if (meters < 1000) {
-    return translate(formatMessages, locale, "meters", { n: Math.round(meters) });
-  }
-  return translate(formatMessages, locale, "kilometers", { n: (meters / 1000).toFixed(1) });
+/**
+ * Distance in meters as km: 4200 -> "4.2 ק"מ", 800 -> "800 מ'" (Arabic: "4.2 كم", "800 م").
+ * `approximate` puts "כ־" ("نحو") in front: use it for a store whose point is a town centre.
+ */
+export function formatDistance(
+  meters: number,
+  locale: Locale = DEFAULT_LOCALE,
+  approximate = false,
+): string {
+  const exact =
+    meters < 1000
+      ? translate(formatMessages, locale, "meters", { n: Math.round(meters) })
+      : translate(formatMessages, locale, "kilometers", { n: (meters / 1000).toFixed(1) });
+  return approximate
+    ? translate(formatMessages, locale, "approxDistance", { distance: exact })
+    : exact;
+}
+
+/** The words that mark a store's distance and position as approximate ("מיקום משוער"). */
+export function approxLocationNote(locale: Locale = DEFAULT_LOCALE): string {
+  return translate(formatMessages, locale, "approxNote");
+}
+
+/** One sentence saying why the distance is only an estimate, for tooltips and legends. */
+export function approxLocationHint(locale: Locale = DEFAULT_LOCALE): string {
+  return translate(formatMessages, locale, "approxHint");
+}
+
+/** A store as the API sends it: the distance and whether it is only an estimate. */
+export type DistanceSource = { distance_m?: number | null; distance_approximate?: boolean | null };
+
+/**
+ * The distance to a store as the UI shows it. An exact one is "4.2 ק"מ"; one with
+ * `distance_approximate` (a locality-precision store, or none at all) is "כ־3.6 ק"מ · מיקום משוער",
+ * never a bare number. `note: false` keeps the "כ־" and drops the words, for a place that carries
+ * the note once for several stores. A store without a point reports 0, which is not a measurement,
+ * so there only the note is shown.
+ */
+export function formatStoreDistance(
+  store: DistanceSource,
+  locale: Locale = DEFAULT_LOCALE,
+  { note = true }: { note?: boolean } = {},
+): string {
+  const meters = store.distance_m;
+  if (store.distance_approximate !== true)
+    return typeof meters === "number" ? formatDistance(meters, locale) : "";
+  const noteText = approxLocationNote(locale);
+  if (typeof meters !== "number" || !(meters > 0)) return noteText;
+  const distance = formatDistance(meters, locale, true);
+  return note
+    ? translate(formatMessages, locale, "approxWithNote", { distance, note: noteText })
+    : distance;
 }

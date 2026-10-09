@@ -7,6 +7,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { nearestStore, type StoreRef } from "@/api/client";
 import { useT } from "@/i18n/LocaleProvider";
+import type { Locale } from "@/i18n/locales";
+import { formatStoreDistance } from "@/lib/format";
+import { chainLabel, storeLabel as localizedStoreName } from "@/lib/storeName";
 import { scanMessages } from "@/i18n/messages/scan";
 import { readJson, writeJson } from "@/state/storage";
 import type { ShopperContext } from "@/state/shopper";
@@ -33,6 +36,19 @@ export type ScanStoreOption = {
 
 export function storeLabel(s: StoreRef): string {
   return `${s.chain_name} · ${s.store_name}`;
+}
+
+/**
+ * What the store choice shows for an option: the chain and store in the UI language and the
+ * distance, marked approximate when the store is only placed at its town centre. An option with no
+ * store behind it ("my store") is just its label. `label` itself stays the Hebrew data (the gap
+ * report sends it).
+ */
+export function scanOptionText(option: ScanStoreOption, locale: Locale): string {
+  const ref = option.ref;
+  if (!ref) return option.label;
+  const name = `${chainLabel(ref.chain_name, locale)} · ${localizedStoreName(ref.store_name, locale)}`;
+  return ref.distance_m != null ? `${name} · ${formatStoreDistance(ref, locale)}` : name;
 }
 
 /** Pure choice of the pre-selected store: remembered, then the home store, then the nearest. */

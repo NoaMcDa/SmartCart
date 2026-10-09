@@ -25,9 +25,11 @@ import {
 } from "@/state/comparison";
 import { attributeTag, perUnit, useRich } from "@/i18n/format-2";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { StoreText } from "@/i18n/StoreText";
 import type { Locale } from "@/i18n/locales";
 import { substitutionMessages } from "@/i18n/messages/substitution";
 import { foldTags } from "@/lib/attributes";
+import { chainLabel, storeLabel } from "@/lib/storeName";
 import { MethodologyLink } from "@/features/seo/components";
 import { basketItems, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
@@ -77,7 +79,7 @@ export function SubstitutionCard({
         {r(
           "eyebrow",
           { ltr: (c) => <span dir="ltr">{c}</span> },
-          { index: index + 1, count, chain: store.chain_name },
+          { index: index + 1, count, chain: chainLabel(store.chain_name, locale) },
         )}
       </div>
       <h2 id="sub-title" className={styles.title}>
@@ -105,7 +107,7 @@ export function SubstitutionCard({
                 {perUnit(original.item.uom, locale)}
               </div>
               <div className={styles.where}>
-                {t("atYourStore", { store: original.store.store_name })}
+                {t("atYourStore", { store: storeLabel(original.store.store_name, locale) })}
               </div>
             </>
           ) : (
@@ -131,7 +133,9 @@ export function SubstitutionCard({
             <Price amount={item.effective_unit_price} fractionDigits={2} />{" "}
             {perUnit(item.uom, locale)}
           </div>
-          <div className={styles.where}>{store.store_name}</div>
+          <div className={styles.where}>
+            <StoreText name={store.store_name} />
+          </div>
         </div>
       </div>
 

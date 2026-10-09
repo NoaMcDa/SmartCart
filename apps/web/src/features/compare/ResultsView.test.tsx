@@ -165,3 +165,24 @@ describe("comparison results", () => {
     expect(screen.queryByTestId("plan-minimum_effort")).toBeNull();
   });
 });
+
+describe("approximate distances on the plan cards", () => {
+  it("shows an exact distance as before and an approximate one with the prefix and the words", () => {
+    const { unmount } = renderResults(optimizeFixture());
+    const meta = within(screen.getByTestId("plan-single")).getByTestId("plan-distance");
+    expect(meta).toHaveTextContent('4.2 ק"מ');
+    expect(meta).not.toHaveTextContent("משוער");
+    expect(meta).toHaveAttribute("data-approximate", "false");
+    unmount();
+
+    const res = optimizeFixture();
+    const store = res.single!.stores[0]!.store;
+    store.distance_approximate = true;
+    store.geo_precision = "locality";
+    store.distance_m = 3600;
+    renderResults(res);
+    const approx = within(screen.getByTestId("plan-single")).getByTestId("plan-distance");
+    expect(approx).toHaveTextContent('כ־3.6 ק"מ · מיקום משוער');
+    expect(approx).toHaveAttribute("data-approximate", "true");
+  });
+});

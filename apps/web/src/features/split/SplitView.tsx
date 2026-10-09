@@ -23,7 +23,7 @@ import { formatRich } from "@/i18n/format";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { sharedMessages } from "@/i18n/messages/shared";
 import { splitMessages } from "@/i18n/messages/split";
-import { formatDistance, formatTime, itemProductName, listNameLabel } from "@/lib/format";
+import { formatStoreDistance, formatTime, itemProductName, listNameLabel } from "@/lib/format";
 import { chainLabel, storeLabel } from "@/lib/storeName";
 import { useComparison, type LastResult } from "./lastResult";
 import {
@@ -330,8 +330,10 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
                 <div>
                   <h2 className={styles.columnTitle}>{storeLabel(col.store.store_name, locale)}</h2>
                   <p className={styles.muted}>
-                    {formatDistance(col.store.distance_m, locale)} ·{" "}
-                    <Count n={col.items.length} noun="items" />
+                    <span data-testid={`split-distance-${col.store.store_id}`}>
+                      {formatStoreDistance(col.store, locale)}
+                    </span>{" "}
+                    · <Count n={col.items.length} noun="items" />
                   </p>
                 </div>
                 <div className={styles.subtotal}>

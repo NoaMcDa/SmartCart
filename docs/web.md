@@ -774,6 +774,35 @@ null coordinate or an invalid one falls back to the distance-and-bearing approxi
 existing note ("הכיוון … בקירוב") shows only while at least one pin is approximate. The mock stores
 have no coordinates yet, so the mock still shows the note.
 
+### Approximate distances (trust, `docs/api.md` "Store location precision")
+
+A store at `locality` precision (or with no point) arrives with `distance_approximate: true`. The UI
+never shows that distance as exact:
+
+- **One formatter.** `formatStoreDistance(store, locale)` in `lib/format.ts`: exact is "4.2 ק"מ",
+  approximate is "כ־3.6 ק"מ · מיקום משוער" (Arabic "نحو 3.6 كم · الموقع تقريبي"; words in
+  `messages/format.ts`). A store with no point reports 0, which is not a measurement, so only the
+  words are shown. Used by the plan card, the split columns, the map list, row and sheet, the scan
+  store choice and result card, and the product detail table. `data-approximate` marks each one.
+- **Map.** A locality store is a hollow, dashed marker with the words "מיקום משוער" on it (never an
+  exact pin), plus an area (`APPROX_AREA_M`, 2 km: a visual size, not a promise that the branch is
+  inside) as a dashed layer on MapLibre and a dashed circle on the schematic map. A legend under the
+  map (`map-legend`) explains solid and hollow, and only shows when such a store is on the map. The
+  sheet says why the distance is an estimate. The `map-approx` note is a different thing (direction
+  when the API has no coordinates) and keeps its own rule.
+- **Not shown:** the home-store picker in onboarding and the gap-report store select show no distance,
+  so there is nothing to mark there.
+- **Chain and store names** in `MapScreen`, `ScanScreen`, `ProductDetail` and the substitution card go
+  through `chainLabel` / `storeLabel` (strings) or `StoreText` (`i18n/StoreText.tsx`, which marks a
+  part the tables do not know `lang="he"` through `DataText`).
+
+### Beta membership without a session
+
+`useBetaMembership` asks `GET /me/beta` only when the person is signed in; signed out it returns "not
+a member" and makes no request, so `BetaFeedbackEntry` (Profile) renders nothing and "delete my data"
+signed out never calls `/me`. The join page passes `{ askWithoutSession: true }`, which also asks in a
+build that cannot sign in at all (mock, local development), because a person opened it on purpose.
+
 ### Account deletion (UI halves of #30 and #55)
 
 "מחקי את הנתונים שלי", signed in: lists and profile are erased on the server (unchanged), then the
