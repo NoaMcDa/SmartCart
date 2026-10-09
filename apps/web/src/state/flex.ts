@@ -5,6 +5,7 @@
 import type { CanonicalRef, FlexLevel } from "@/api/client";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import { translate } from "@/i18n/messages";
+import { profileMessages, type ProfileMessageKey } from "@/i18n/messages/profile";
 import { stateMessages } from "@/i18n/messages/state";
 
 type StateKey = keyof (typeof stateMessages)["he"];
@@ -68,11 +69,28 @@ export function categoryLeaf(canonical: CanonicalRef | null | undefined): string
   return path.length ? (path[path.length - 1] ?? null) : null;
 }
 
+/** Taxonomy roots that belong to a department of another name (the mock catalog's). */
+const ROOT_DEPARTMENT: Record<string, string> = { dairy_alt: "dairy", eggs: "dairy" };
+
+/**
+ * The Arabic name of a canonical's department, from its taxonomy root and the department names
+ * of the profile (`dept_*`). The API sends only Hebrew category names, so Arabic goes by the id.
+ */
+function arabicDepartment(canonical: CanonicalRef | null | undefined): string | null {
+  const root = canonical?.taxonomy_id?.split(".")[0];
+  if (!root) return null;
+  const key = `dept_${ROOT_DEPARTMENT[root] ?? root}` as ProfileMessageKey;
+  return key in profileMessages.ar ? translate(profileMessages, "ar", key) : null;
+}
+
 /** The department (first level of the path), used to group list rows. */
 export function department(
   canonical: CanonicalRef | null | undefined,
   locale: Locale = DEFAULT_LOCALE,
 ): string {
+  if (locale !== DEFAULT_LOCALE) {
+    return arabicDepartment(canonical) ?? translate(stateMessages, locale, "otherDepartment");
+  }
   return canonical?.category_path_he?.[0] ?? translate(stateMessages, locale, "otherDepartment");
 }
 
@@ -81,7 +99,15 @@ export function rememberLabel(
   canonical: CanonicalRef | null | undefined,
   locale: Locale = DEFAULT_LOCALE,
 ): string {
-  const leaf = categoryLeaf(canonical);
+  // The API sends the category's Hebrew name only; in Arabic use the profile's name for the
+  // category when it has one, and the generic wording when it does not.
+  const arabicKey = `cat_${(canonical?.taxonomy_id ?? "").replace(".", "_")}` as ProfileMessageKey;
+  const leaf =
+    locale === DEFAULT_LOCALE
+      ? categoryLeaf(canonical)
+      : arabicKey in profileMessages.ar
+        ? translate(profileMessages, locale, arabicKey)
+        : null;
   if (!leaf) return translate(stateMessages, locale, "rememberGeneric");
   return translate(
     stateMessages,

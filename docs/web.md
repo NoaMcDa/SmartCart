@@ -1136,6 +1136,20 @@ review, Arabic search and the Arabic SEO pages are separate work (see the issue)
   scroll). A11y: `tests/a11y/locale-ar.spec.ts` (axe on the Arabic shell, light and dark, 390 and
   1280 px). Both use the test-only page `/locale-test` (`src/app/(dev)/`: real shell, `noindex`, not
   in the sitemap) until the switch is mounted in Profile.
+- **Lists, comparison, split, store mode, budget, consent, alerts, legal pages (AR-4).** Modules
+  `list`, `compare`, `split`, `store`, `alerts`, `consent`, `counts`, `shared`, `legal`, plus the
+  budget, privacy, accessibility, photo, handoff and beta modules finished. Counted nouns use four
+  forms (`i18n/plural.ts`, `<base>_one|two|few|many`; Hebrew repeats its plural; an Arabic `_two`
+  may drop the number, the catalog guard allows it). Product names: `productName(canonical, locale)`
+  reads `display_name_ar`; `itemProductName(item, locale)` reads `canonical_name_ar` on priced
+  items and swaps. A chain's own item name (`PricedItem.display_name_he`) is never replaced: in
+  Arabic `ItemName` shows the Arabic product name and the Hebrew shelf name under it, marked
+  `lang="he"` (`DataText` marks any other Hebrew-only data such as promo descriptions). Chains are
+  Latin and cities Arabic through `lib/storeName.ts` (`chainLabel`, `storeLabel`). Legal and
+  consent texts (privacy, accessibility, consent sheet, photo consent, beta join) carry
+  `LegalNotice`: "هذه ترجمة، والنص العبري هو الملزم", visible in Arabic only, until a lawyer has
+  reviewed the Arabic. The privacy and accessibility route files stay server components
+  (`PrivacyBody`, `AccessibilityBody` hold the words). E2E: `tests/e2e/locale-ar-4.spec.ts`.
 - **Still open** (issue #73): Arabic screenshots on real devices, native-speaker review of every
   `ar` string, Arabic skip link and other literals not yet migrated to catalogs (the skip link in
   `AppShell` is still Hebrew), the Western-versus-Eastern digits confirmation with users.

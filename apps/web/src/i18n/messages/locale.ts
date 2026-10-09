@@ -1,6 +1,10 @@
 import { defineMessages } from "../messages";
 
-/** Language switch (Profile). The option names themselves are not messages: each is written in its own language. */
+/**
+ * Language switch (Profile). The option names themselves are not messages: each is written in its
+ * own language.
+ * Arabic machine-drafted, needs native-speaker review (#73).
+ */
 export const localeMessages = defineMessages({
   he: {
     group: "שפה",

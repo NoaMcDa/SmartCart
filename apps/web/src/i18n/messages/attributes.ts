@@ -28,6 +28,8 @@ export const attributeMessages = defineMessages({
     state_dried: "מיובש",
     state_canned: "משומר",
 
+    value_private_label: "מותג פרטי",
+
     unit_g: "ג׳",
     unit_ml: "מ״ל",
     unit_unit: "יח׳",
@@ -62,6 +64,8 @@ export const attributeMessages = defineMessages({
     state_frozen: "مجمّد",
     state_dried: "مجفّف",
     state_canned: "معلّب",
+
+    value_private_label: "ماركة خاصة",
 
     unit_g: "غ",
     unit_ml: "مل",

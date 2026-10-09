@@ -4,7 +4,9 @@ import { defineMessages } from "../messages";
  * Closed beta (issue #40): the join page `/beta/join/<code>`, `/beta`, and the feedback entry.
  * The wording about events follows the consent text in docs/beta-plan.md section 3, which has NOT
  * had a legal review. Hebrew is the source; the app addresses the reader in the feminine, as the
- * rest of the screens do.
+ * rest of the screens do. The Arabic carries the "translation, the Hebrew governs" line
+ * (`LegalNotice`) on the join page.
+ * Arabic machine-drafted, needs native-speaker review (#73).
  */
 const he = {
   // page
@@ -87,6 +89,85 @@ const he = {
 
 export const betaMessages = defineMessages({
   he,
-  // TODO ar: Hebrew copied until a native speaker translates it (#73).
-  ar: { ...he },
+  // Machine-drafted; needs native-speaker review (#73).
+  ar: {
+    // page
+    pageTitle: "النسخة التجريبية من SmartCart",
+    joinTitle: "الانضمام إلى النسخة التجريبية",
+    noInviteTitle: "الانضمام بدعوة",
+    loading: "جارٍ الفحص…",
+    // what the beta is
+    introTitle: "عن النسخة التجريبية",
+    intro:
+      "قبل الإطلاق نختبر مطابقات SmartCart مع مجموعة صغيرة من المستخدمين والمستخدمات. عندما يقترح النظام بديلًا لمنتج في القائمة، يجب أن يكون الاقتراح جيدًا فعلًا. البديل الخاطئ يكلّف الثقة أكثر من عشرة بدائل لم تُقترح، ولذلك نفحصه على قوائم حقيقية.",
+    measuredTitle: "ما الذي نقيسه",
+    measured1:
+      "كم مرة علّمت «ليس بديلًا جيدًا» من بين كل الاستبدالات التي عُرضت، حسب مستوى المرونة.",
+    measured2: "كم يمر من الوقت من لصق القائمة حتى ظهور النتائج على الشاشة.",
+    measured3: "هل عدت إلى استخدام التطبيق في الأسابيع التالية.",
+    eventsTitle: "أحداث الاستخدام والموافقة",
+    events:
+      "يتم القياس بأحداث استخدام أساسية فقط: متى فُتح التطبيق، وكم استبدالًا عُرض وكم منها عُلّم بأنه غير جيد. عند الضغط على الانضمام سنطلب منك موافقة منفصلة على ذلك. يمكنك الانضمام دون الموافقة: عندها لا تُحفظ أحداث، ولا تصلنا سوى الملاحظات التي تكتبها. لا يُحفظ محتوى القائمة ولا نص حر ولا موقع دقيق.",
+    storedTitle: "ما الذي يُحفظ عنك",
+    stored:
+      "معرّف المستخدم الموجود لديك في التطبيق، والمجموعة التي دُعيت إليها وتاريخ الانضمام. بدون اسم أو هاتف أو عنوان. لا يوجد دفع، ولا تغيير في الخدمة لمن ليس في النسخة التجريبية.",
+    feedbackNoteTitle: "الملاحظات",
+    feedbackNote:
+      "الملاحظات التي ترسلها تُحفظ مع المجموعة فقط، بدون معرّف المستخدم الخاص بك، ولذلك لا نستطيع حذفها عند الطلب. لا تكتب فيها تفاصيل شخصية.",
+    leaveInfoTitle: "كيف تخرج",
+    leaveInfo:
+      "في أي وقت، في هذه الصفحة: «الخروج من النسخة التجريبية» تحذف تسجيلك وتوقف أحداث الاستخدام. لحذف كل بياناتك استخدم «حذف بياناتي» في الملف الشخصي.",
+    profileLink: "إلى الملف الشخصي",
+    privacyLink: "إلى سياسة الخصوصية",
+    // joining
+    joinButton: "الانضمام إلى النسخة التجريبية",
+    joining: "جارٍ الانضمام…",
+    signInNote: "للانضمام يجب تسجيل الدخول، حتى يُحفظ الانضمام في حسابك.",
+    signInButton: "تسجيل الدخول",
+    noInvite: "الانضمام إلى النسخة التجريبية بدعوة. إذا وصلك رابط دعوة، افتحه للانضمام.",
+    errUnknown: "رمز الدعوة غير معروف. تحقق من أن الرابط نُسخ كاملًا أو اطلب رابطًا جديدًا.",
+    errExpired: "انتهت صلاحية رمز الدعوة أو أن كل الأماكن فيه قد استُنفدت. اطلب رابطًا جديدًا.",
+    errSignIn: "يجب تسجيل الدخول للانضمام.",
+    errGeneric: "أعاد الخادم خطأ. حاول مرة أخرى بعد قليل.",
+    errOffline: "يبدو أنه لا يوجد اتصال بالخادم. تحقق من الاتصال وحاول مرة أخرى.",
+    // member
+    memberTitle: "أنت في النسخة التجريبية",
+    memberBody: "شكرًا لانضمامك. مجموعتك: {segment}. يمكنك إرسال ملاحظات في أي وقت.",
+    memberEventsOn: "أحداث الاستخدام مفعّلة. يمكنك إيقافها من الملف الشخصي.",
+    memberEventsOff: "أحداث الاستخدام متوقفة، ولذلك لا تُجمع معلومات عن استخدامك.",
+    feedbackButton: "ملاحظات عن النسخة التجريبية",
+    // leaving
+    leaveButton: "الخروج من النسخة التجريبية",
+    leaveConfirm: "الخروج من النسخة التجريبية؟ سيُحذف تسجيلك وستتوقف أحداث الاستخدام.",
+    leaveYes: "نعم، خروج",
+    leaveCancel: "إلغاء",
+    leaving: "جارٍ الخروج…",
+    leftTitle: "خرجت من النسخة التجريبية",
+    leftBody:
+      "تم حذف تسجيلك وتوقفت أحداث الاستخدام. يستمر التطبيق بالعمل كالمعتاد. لحذف كل بياناتك استخدم «حذف بياناتي» في الملف الشخصي.",
+    errLeave: "لم ننجح في الخروج من النسخة التجريبية. تحقق من الاتصال وحاول مرة أخرى.",
+    // groups
+    seg_large_family: "العائلات الكبيرة",
+    seg_kosher: "الملتزمون بالكاشير",
+    seg_periphery: "سكان الأطراف",
+    seg_general: "مستخدمون عامّون",
+    // feedback sheet
+    fbEyebrow: "نسخة تجريبية مغلقة",
+    fbTitle: "ملاحظات عن النسخة التجريبية",
+    fbSentTitle: "شكرًا على ملاحظاتك",
+    fbSent: "وصلت ملاحظاتك. حُفظت مع مجموعتك فقط، بدون معرّف المستخدم.",
+    fbRatingLegend: "كيف كانت التجربة حتى الآن؟",
+    fbRatingOption: "{n} من 5",
+    fbRatingLow: "ليست جيدة",
+    fbRatingHigh: "ممتازة",
+    fbTextLabel: "ما الذي نجح وما الذي لم ينجح؟ (اختياري)",
+    fbTextHint:
+      "لا تكتب اسمًا أو هاتفًا أو عنوانًا أو تفاصيل شخصية أخرى. تُحفظ الملاحظات بدون معرّف المستخدم.",
+    fbCount: "{n} من 1000 حرف",
+    fbSend: "إرسال",
+    fbSending: "جارٍ الإرسال…",
+    fbClose: "إغلاق",
+    fbPickRating: "اختر تقييمًا من 1 إلى 5.",
+    fbError: "لم ننجح في إرسال الملاحظات. تحقق من الاتصال وحاول مرة أخرى.",
+  },
 });

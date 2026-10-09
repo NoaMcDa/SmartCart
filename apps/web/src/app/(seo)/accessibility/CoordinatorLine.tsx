@@ -1,11 +1,7 @@
-import { DEFAULT_LOCALE } from "@/i18n/locales";
-import { translate } from "@/i18n/messages";
+"use client";
+
+import { useT } from "@/i18n/LocaleProvider";
 import { accessibilityMessages } from "@/i18n/messages/accessibility";
-
-type Key = keyof typeof accessibilityMessages.he;
-
-const t = (key: Key, vars?: Record<string, string>) =>
-  translate(accessibilityMessages, DEFAULT_LOCALE, key, vars);
 
 /** Digits and a leading plus only, for a `tel:` link. */
 const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
@@ -25,6 +21,7 @@ export function CoordinatorLine({
   email?: string;
   phone?: string;
 }) {
+  const t = useT(accessibilityMessages);
   if (!name && !email && !phone) return <> {t("pending")}</>;
   return (
     <>

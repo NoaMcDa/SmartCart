@@ -19,7 +19,16 @@ import { recordSaving } from "@/features/profile/savingsHistory";
 import { useComparison, type LastResult } from "@/features/split/lastResult";
 import { netSavingForStore } from "@/features/split/savings";
 import { trackEvent } from "@/features/seo/track";
+import { DocumentTitle } from "@/components/shell/PageChrome";
+import { ItemName } from "@/components/ui/ItemName";
+import { DataText } from "@/i18n/DataText";
+import { formatRich } from "@/i18n/format";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { sharedMessages } from "@/i18n/messages/shared";
+import { storeMessages } from "@/i18n/messages/store";
+import { translatePlural } from "@/i18n/plural";
 import { formatTime } from "@/lib/format";
+import { storeLabel } from "@/lib/storeName";
 import { detectPlatform } from "@/lib/platform";
 import { resolveDepartments } from "./departments";
 import { useOnline, useWakeLock, warmStoreModePage } from "./device";
@@ -65,18 +74,16 @@ function overheadFor(result: LastResult, store: StoreResult, plan: string | null
 }
 
 function Empty() {
+  const t = useT(storeMessages);
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>מצב חנות</h1>
+      <h1 className={styles.title}>{t("title")}</h1>
       <Card data-testid="store-empty">
-        <h2 className={styles.sectionTitle}>אין קנייה פעילה</h2>
-        <p className={styles.muted}>
-          בחרי חנות בתוצאות ההשוואה ולחצי &quot;התחילי קנייה&quot;. הרשימה תישמר במכשיר ותעבוד גם
-          בלי קליטה.
-        </p>
+        <h2 className={styles.sectionTitle}>{t("emptyTitle")}</h2>
+        <p className={styles.muted}>{t("emptyBody")}</p>
         <div>
           <Button href="/compare" size="sm">
-            לתוצאות ההשוואה
+            {t("emptyCta")}
           </Button>
         </div>
       </Card>
@@ -91,6 +98,9 @@ function Empty() {
  * is copied into localStorage at the start, so it works offline and after a reload.
  */
 function StoreModeInner() {
+  const t = useT(storeMessages);
+  const shared = useT(sharedMessages);
+  const { locale } = useLocale();
   const router = useRouter();
   const params = useSearchParams();
   const storeParam = Number(params.get("store")) || null;
@@ -151,13 +161,16 @@ function StoreModeInner() {
     return () => clearTimeout(t);
   }, [undo]);
 
-  const groups = useMemo(() => (session ? groupByDepartment(session.items) : []), [session]);
+  const groups = useMemo(
+    () => (session ? groupByDepartment(session.items, locale) : []),
+    [session, locale],
+  );
 
   if (!session) {
     // A start is pending when the URL names a store and a result exists.
     return storeParam && result ? (
       <div className={styles.page} aria-busy="true">
-        <h1 className={styles.title}>מצב חנות</h1>
+        <h1 className={styles.title}>{t("title")}</h1>
         <Skeleton height={64} radius={16} />
         <Skeleton height={64} radius={16} />
       </div>
@@ -207,11 +220,11 @@ function StoreModeInner() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>מצב חנות</h1>
-        <p className={styles.storeName}>{session.storeName}</p>
+        <h1 className={styles.title}>{t("title")}</h1>
+        <p className={styles.storeName}>{storeLabel(session.storeName, locale)}</p>
         {!online ? (
           <p className={styles.offline} role="status" data-testid="offline-banner">
-            <IconInfo size={16} /> אין חיבור. הרשימה נשמרה במכשיר והסימונים נשמרים.
+            <IconInfo size={16} /> {t("offline")}
           </p>
         ) : null}
       </header>
@@ -219,20 +232,25 @@ function StoreModeInner() {
       <Card className={styles.progressCard} data-testid="progress-card">
         <div className={styles.progressRow}>
           <span className={styles.progressText} data-testid="progress-count">
-            נאספו <span dir="ltr">{progress.checked}</span> מתוך{" "}
-            <span dir="ltr">{progress.total}</span>
+            {formatRich(t("collectedOf"), {
+              checked: <span dir="ltr">{progress.checked}</span>,
+              total: <span dir="ltr">{progress.total}</span>,
+            })}
           </span>
           <span className={styles.muted}>
-            בעגלה <Price amount={progress.checkedTotal} /> מתוך <Price amount={progress.allTotal} />
+            {formatRich(t("inCart"), {
+              checked: <Price amount={progress.checkedTotal} />,
+              all: <Price amount={progress.allTotal} />,
+            })}
           </span>
         </div>
         <div
           role="progressbar"
-          aria-label="התקדמות הקנייה"
+          aria-label={t("progressLabel")}
           aria-valuemin={0}
           aria-valuemax={progress.total}
           aria-valuenow={progress.checked}
-          aria-valuetext={`נאספו ${progress.checked} מתוך ${progress.total}`}
+          aria-valuetext={t("collectedOf", { checked: progress.checked, total: progress.total })}
           className={styles.bar}
         >
           <span
@@ -243,7 +261,11 @@ function StoreModeInner() {
           />
         </div>
         {session.missingCount > 0 ? (
-          <Tag variant="missing">{session.missingCount} פריטים לא נמצאו בחנות הזו</Tag>
+          <Tag variant="missing">
+            {translatePlural(storeMessages, locale, "missing", session.missingCount, {
+              n: session.missingCount,
+            })}
+          </Tag>
         ) : null}
       </Card>
 
@@ -272,23 +294,37 @@ function StoreModeInner() {
                     {item.checked ? <IconCheck size={22} /> : null}
                   </span>
                   <span className={styles.itemText}>
-                    <span className={styles.itemName}>{item.name}</span>
+                    <span className={styles.itemName}>
+                      <ItemName
+                        item={{ display_name_he: item.name, canonical_name_ar: item.nameAr }}
+                        show="line"
+                      />
+                    </span>
                     <span className={styles.muted}>
                       <span dir="ltr">{item.quantity}</span> {item.uom ? "×" : ""}
                     </span>
                     <span className={styles.tags}>
-                      {item.isSubstitute ? <Tag variant="differs">תחליף</Tag> : null}
-                      {item.isEstimated ? <Tag variant="estimated">מחיר משוער</Tag> : null}
-                      {item.promo ? <Tag variant="matched">{item.promo}</Tag> : null}
+                      {item.isSubstitute ? (
+                        <Tag variant="differs">{t("substituteLabel")}</Tag>
+                      ) : null}
+                      {item.isEstimated ? (
+                        <Tag variant="estimated">{t("estimatedShort")}</Tag>
+                      ) : null}
+                      {item.promo ? (
+                        <Tag variant="matched">
+                          <DataText>{item.promo}</DataText>
+                        </Tag>
+                      ) : null}
                     </span>
                     <span className={styles.updated}>
-                      <IconClock size={12} /> עודכן {formatTime(item.priceUpdatedAt)}
+                      <IconClock size={12} />{" "}
+                      {t("updated", { time: formatTime(item.priceUpdatedAt, locale) })}
                     </span>
                   </span>
                   <Price amount={item.lineTotal} size="md" className={styles.itemPrice} />
                 </button>
                 <ReportGapButton
-                  label="דיווח"
+                  label={shared("reportShort")}
                   context={{
                     storeId: session.storeId,
                     storeName: session.storeName,
@@ -306,18 +342,18 @@ function StoreModeInner() {
       ))}
 
       <p className={styles.muted}>
-        המחיר הקובע הוא בקופה. מחירים עודכנו {formatTime(session.pricesUpdatedAt)}.
+        {t("footer", { time: formatTime(session.pricesUpdatedAt, locale) })}
       </p>
 
       <div className={styles.finishBar}>
         <Button block size="md" onClick={() => setFinishOpen(true)} data-testid="finish">
-          סיימתי לקנות
+          {t("finish")}
         </Button>
       </div>
 
       {undo ? (
         <div className={styles.snackbar} role="status" data-testid="undo-bar">
-          <span>סומן: {undo.name}</span>
+          <span>{t("marked", { name: undo.name })}</span>
           <Button
             size="sm"
             variant="ghost"
@@ -326,7 +362,7 @@ function StoreModeInner() {
               setUndo(null);
             }}
           >
-            ביטול
+            {t("undo")}
           </Button>
         </div>
       ) : null}
@@ -334,42 +370,43 @@ function StoreModeInner() {
       <BottomSheet
         open={finishOpen}
         onClose={() => setFinishOpen(false)}
-        eyebrow={session.storeName}
-        title="סיכום הקנייה"
+        eyebrow={storeLabel(session.storeName, locale)}
+        title={t("sheetTitle")}
         footer={
           <>
             <Button variant="outline" onClick={() => setFinishOpen(false)}>
-              חזרה לקנייה
+              {t("backToShop")}
             </Button>
             <Button onClick={finish} data-testid="finish-confirm">
-              סיום וניקוי
+              {t("finishConfirm")}
             </Button>
           </>
         }
       >
         <dl className={styles.summary} data-testid="summary">
           <div>
-            <dt>נאספו</dt>
+            <dt>{t("collectedDt")}</dt>
             <dd>
-              <span dir="ltr">{progress.checked}</span> מתוך <span dir="ltr">{progress.total}</span>
+              {formatRich(t("ofTotal"), {
+                checked: <span dir="ltr">{progress.checked}</span>,
+                total: <span dir="ltr">{progress.total}</span>,
+              })}
             </dd>
           </div>
           <div>
-            <dt>סכום הפריטים שנאספו</dt>
+            <dt>{t("itemsTotal")}</dt>
             <dd>
               <Price amount={progress.checkedTotal} size="lg" />
             </dd>
           </div>
           <div>
-            <dt>חיסכון נטו שנרשם</dt>
+            <dt>{t("netSaved")}</dt>
             <dd>
               {saving !== null && progress.checked > 0 ? (
                 <Price amount={saving} size="lg" tone={saving > 0 ? "good" : "default"} />
               ) : (
                 <span className={styles.muted}>
-                  {progress.checked === 0
-                    ? "לא נאספו פריטים"
-                    : "אין חנות בסיס, לכן אין חיסכון להציג"}
+                  {progress.checked === 0 ? t("noneCollected") : t("noBaseline")}
                 </span>
               )}
             </dd>
@@ -377,10 +414,15 @@ function StoreModeInner() {
         </dl>
         {unchecked.length > 0 ? (
           <div>
-            <p className={styles.legend}>לא נאספו ({unchecked.length})</p>
+            <p className={styles.legend}>{t("notCollected", { n: unchecked.length })}</p>
             <ul className={styles.uncheckedList}>
               {unchecked.map((i) => (
-                <li key={i.itemId}>{i.name}</li>
+                <li key={i.itemId}>
+                  <ItemName
+                    item={{ display_name_he: i.name, canonical_name_ar: i.nameAr }}
+                    show="product"
+                  />
+                </li>
               ))}
             </ul>
           </div>
@@ -389,36 +431,31 @@ function StoreModeInner() {
           <Switch
             checked={recordInBudget}
             onChange={setRecordInBudget}
-            label="לרשום בתקציב החודשי"
-            description={
-              <>
-                יירשמו <Price amount={spend.total} />{" "}
-                {spend.ofPlan
-                  ? `(כל ${spend.count} הפריטים בחנות הזו, כי לא סומן דבר)`
-                  : `(${spend.count} פריטים שנאספו)`}
-                , לפי המחירים שהוצגו ולא לפי קבלה. רק תאריך, חנות, סכום ומספר פריטים.
-              </>
-            }
+            label={t("budgetLabel")}
+            description={formatRich(t("budgetDesc"), {
+              total: <Price amount={spend.total} />,
+              scope: t(spend.ofPlan ? "scopePlan" : "scopeChecked", { n: spend.count }),
+            })}
           />
         ) : null}
-        <p className={styles.muted}>
-          בסיום, הרשימה נמחקת מהמכשיר והחיסכון נרשם בפרופיל. המחיר הקובע הוא בקופה.
-        </p>
+        <p className={styles.muted}>{t("sheetNote")}</p>
       </BottomSheet>
     </div>
   );
 }
 
 export function StoreMode() {
+  const t = useT(storeMessages);
   return (
     <Suspense
       fallback={
         <div className={styles.page} aria-busy="true">
-          <h1 className={styles.title}>מצב חנות</h1>
+          <h1 className={styles.title}>{t("title")}</h1>
           <Skeleton height={64} radius={16} />
         </div>
       }
     >
+      <DocumentTitle text={t("title")} />
       <StoreModeInner />
     </Suspense>
   );

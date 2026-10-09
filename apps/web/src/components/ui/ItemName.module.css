@@ -1,0 +1,7 @@
+/* The chain's own item name under the product name: smaller and muted, on its own line. */
+.shelf {
+  display: block;
+  font-size: 0.8125em;
+  font-weight: 400;
+  color: var(--sc-muted);
+}

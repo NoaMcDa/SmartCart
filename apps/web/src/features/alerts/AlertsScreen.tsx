@@ -3,8 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { deleteAlert, listAlerts, updateAlert, type PriceAlert } from "@/api/client";
+import { DocumentTitle } from "@/components/shell/PageChrome";
 import { Button, Card, FlexChip, Price, Skeleton, Tag, UpdatedAt } from "@/components/ui";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
+import { formatRich } from "@/i18n/format";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import type { Locale } from "@/i18n/locales";
+import { alertMessages } from "@/i18n/messages/alerts";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { alertLabel } from "./alertNames";
 import { alertError } from "./AlertMe";
@@ -17,12 +22,12 @@ type State =
   | { kind: "error"; message: string }
   | { kind: "ready"; alerts: PriceAlert[] };
 
-async function fetchAlerts(): Promise<State> {
+async function fetchAlerts(locale: Locale): Promise<State> {
   try {
     ensureApiAuth();
     return { kind: "ready", alerts: await listAlerts() };
   } catch (err) {
-    return { kind: "error", message: alertError(err) };
+    return { kind: "error", message: alertError(err, locale) };
   }
 }
 
@@ -32,6 +37,8 @@ async function fetchAlerts(): Promise<State> {
  * from what the device remembered when the alert was created.
  */
 export function AlertsScreen() {
+  const t = useT(alertMessages);
+  const { locale } = useLocale();
   const auth = useAuth();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [notice, setNotice] = useState<string | null>(null);
@@ -42,17 +49,17 @@ export function AlertsScreen() {
   useEffect(() => {
     if (needsSignIn || waiting) return;
     let cancelled = false;
-    void fetchAlerts().then((next) => {
+    void fetchAlerts(locale).then((next) => {
       if (!cancelled) setState(next);
     });
     return () => {
       cancelled = true;
     };
-  }, [needsSignIn, waiting]);
+  }, [needsSignIn, waiting, locale]);
 
   function retry() {
     setState({ kind: "loading" });
-    void fetchAlerts().then(setState);
+    void fetchAlerts(locale).then(setState);
   }
 
   async function remove(alert: PriceAlert) {
@@ -65,9 +72,9 @@ export function AlertsScreen() {
           ? { kind: "ready", alerts: s.alerts.filter((a) => a.id !== alert.id) }
           : s,
       );
-      setNotice(`ההתראה על ${alertLabel(alert.canonical_id).name} נמחקה.`);
+      setNotice(t("noticeDeleted", { name: alertLabel(alert.canonical_id, locale).name }));
     } catch (err) {
-      setNotice(alertError(err));
+      setNotice(alertError(err, locale));
     }
   }
 
@@ -84,34 +91,32 @@ export function AlertsScreen() {
     try {
       ensureApiAuth();
       replace(await updateAlert(alert.id, alertBody(alert, { active })));
-      const name = alertLabel(alert.canonical_id).name;
-      setNotice(active ? `ההתראה על ${name} פעילה שוב.` : `ההתראה על ${name} הושהתה.`);
+      const name = alertLabel(alert.canonical_id, locale).name;
+      setNotice(t(active ? "noticeResumed" : "noticePaused", { name }));
     } catch (err) {
-      setNotice(alertError(err));
+      setNotice(alertError(err, locale));
     }
   }
 
-  const editingLabel = editing ? alertLabel(editing.canonical_id) : null;
+  const editingLabel = editing ? alertLabel(editing.canonical_id, locale) : null;
 
   return (
     <div className={styles.page}>
-      <p className={styles.hint}>
-        אנחנו מתריעות על סוג מוצר, לא על ברקוד אחד: כל מותג, תחליף קרוב או מוצר מדויק, במחיר ליחידה.
-        כך גם מבצעי מותג פרטי נתפסים.
-      </p>
+      <DocumentTitle text={t("pageTitle")} />
+      <p className={styles.hint}>{t("lead")}</p>
 
       <Card as="section" aria-labelledby="push-heading">
         <h2 id="push-heading" className={styles.title}>
-          התראות בדפדפן
+          {t("pushHeading")}
         </h2>
         <PushPanel />
       </Card>
 
       {needsSignIn ? (
         <Card data-testid="alerts-signin">
-          <p>התראות נשמרות בחשבון שלך. התחברי כדי לראות ולנהל אותן.</p>
+          <p>{t("signinBody")}</p>
           <Button variant="outline" size="sm" onClick={auth.openSignIn}>
-            התחברות
+            {t("signIn")}
           </Button>
         </Card>
       ) : null}
@@ -121,7 +126,7 @@ export function AlertsScreen() {
       </div>
 
       {!needsSignIn && state.kind === "loading" ? (
-        <Card aria-busy="true" aria-label="טוענת התראות">
+        <Card aria-busy="true" aria-label={t("loadingLabel")}>
           <Skeleton height={20} width="50%" />
           <Skeleton height={16} width="30%" />
         </Card>
@@ -131,27 +136,25 @@ export function AlertsScreen() {
         <Card role="alert">
           <p>{state.message}</p>
           <Button variant="outline" size="sm" onClick={retry}>
-            נסי שוב
+            {t("retry")}
           </Button>
         </Card>
       ) : null}
 
       {!needsSignIn && state.kind === "ready" && state.alerts.length === 0 ? (
         <Card data-testid="alerts-empty">
-          <h2 className={styles.title}>אין עדיין התראות</h2>
-          <p className={styles.hint}>
-            פתחי מוצר מהרשימה או מההשוואה ולחצי על ״התריעי לי מתחת ל-₪״ בדף המוצר.
-          </p>
+          <h2 className={styles.title}>{t("emptyTitle")}</h2>
+          <p className={styles.hint}>{t("emptyBody")}</p>
           <Button href="/" variant="outline" size="sm">
-            לרשימה שלי
+            {t("toList")}
           </Button>
         </Card>
       ) : null}
 
       {!needsSignIn && state.kind === "ready" && state.alerts.length > 0 ? (
-        <ul className={styles.alertList} aria-label="ההתראות שלי" data-testid="alerts-list">
+        <ul className={styles.alertList} aria-label={t("listLabel")} data-testid="alerts-list">
           {state.alerts.map((a) => {
-            const label = alertLabel(a.canonical_id);
+            const label = alertLabel(a.canonical_id, locale);
             return (
               <li key={a.id}>
                 <Card className={styles.alertItem} data-testid="alert-item">
@@ -163,21 +166,25 @@ export function AlertsScreen() {
                       {label.name}
                     </Link>
                     <span className={styles.alertMeta}>
-                      מתחת ל-
-                      <Price amount={a.threshold_unit_price} fractionDigits={2} /> {label.unitLabel}
+                      {formatRich(t("below"), {
+                        price: <Price amount={a.threshold_unit_price} fractionDigits={2} />,
+                        unit: label.unitLabel,
+                      })}
                     </span>
                     <span className={styles.alertMeta}>
                       <FlexChip level={a.flex_level} />
                       <span>
-                        עד <span dir="ltr">{Math.round(a.radius_m / 100) / 10}</span> ק&quot;מ
+                        {formatRich(t("radius"), {
+                          km: <span dir="ltr">{Math.round(a.radius_m / 100) / 10}</span>,
+                        })}
                       </span>
-                      {a.active ? null : <Tag variant="unverified">מושהית</Tag>}
+                      {a.active ? null : <Tag variant="unverified">{t("paused")}</Tag>}
                     </span>
                     <span className={styles.alertMeta}>
                       {a.last_fired_at ? (
-                        <UpdatedAt iso={a.last_fired_at} prefix="הופעלה לאחרונה" withIcon />
+                        <UpdatedAt iso={a.last_fired_at} prefix={t("lastFired")} withIcon />
                       ) : (
-                        "עוד לא הופעלה"
+                        t("neverFired")
                       )}
                     </span>
                   </div>
@@ -186,25 +193,25 @@ export function AlertsScreen() {
                       variant="outline"
                       size="sm"
                       onClick={() => void setActive(a, !a.active)}
-                      aria-label={`${a.active ? "השהיית" : "הפעלה מחדש של"} ההתראה על ${label.name}`}
+                      aria-label={t(a.active ? "pauseLabel" : "resumeLabel", { name: label.name })}
                     >
-                      {a.active ? "השהיה" : "הפעלה מחדש"}
+                      {a.active ? t("pause") : t("resume")}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setEditing(a)}
-                      aria-label={`עריכת ההתראה על ${label.name}`}
+                      aria-label={t("editLabel", { name: label.name })}
                     >
-                      עריכה
+                      {t("edit")}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => void remove(a)}
-                      aria-label={`מחיקת ההתראה על ${label.name}`}
+                      aria-label={t("deleteLabel", { name: label.name })}
                     >
-                      מחיקה
+                      {t("delete")}
                     </Button>
                   </div>
                 </Card>
@@ -224,12 +231,12 @@ export function AlertsScreen() {
           onSaved={(saved) => {
             replace(saved);
             setEditing(null);
-            setNotice(`ההתראה על ${editingLabel.name} עודכנה.`);
+            setNotice(t("noticeUpdated", { name: editingLabel.name }));
           }}
         />
       ) : null}
 
-      <p className={styles.hint}>המחיר הקובע הוא בקופה. כל התראה כוללת את מועד עדכון המחיר.</p>
+      <p className={styles.hint}>{t("footnote")}</p>
     </div>
   );
 }

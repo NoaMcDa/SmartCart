@@ -13,18 +13,17 @@ import {
   Price,
   UpdatedAt,
 } from "@/components/ui";
+import type { Locale } from "@/i18n/locales";
 import { PlanHandoff } from "@/features/handoff/PlanHandoff";
+import { formatRich } from "@/i18n/format";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { compareMessages } from "@/i18n/messages/compare";
+import { sharedMessages } from "@/i18n/messages/shared";
 import { formatDistance } from "@/lib/format";
+import { chainLabel, storeLabel } from "@/lib/storeName";
 import { planPromos, planSubstitutions, planUpdatedAt } from "@/state/comparison";
+import { Count } from "./Count";
 import styles from "./Results.module.css";
-
-export function Count({ n, one, many }: { n: number; one: string; many: string }) {
-  return (
-    <>
-      <span dir="ltr">{n}</span> {n === 1 ? one : many}
-    </>
-  );
-}
 
 export type PlanCardProps = {
   plan: Plan;
@@ -34,8 +33,8 @@ export type PlanCardProps = {
   names: Map<number, string>;
 };
 
-function chainList(plan: Plan) {
-  return plan.stores.map((s) => s.store.chain_name);
+function chainList(plan: Plan, locale: Locale) {
+  return plan.stores.map((s) => chainLabel(s.store.chain_name, locale));
 }
 
 /**
@@ -43,6 +42,9 @@ function chainList(plan: Plan) {
  * (the home store). The saving block is always versus the home store, named explicitly.
  */
 export function PlanCard({ plan, home, names }: PlanCardProps) {
+  const t = useT(compareMessages);
+  const shared = useT(sharedMessages);
+  const { locale } = useLocale();
   const [showMissing, setShowMissing] = useState(false);
   const missingId = useId();
   const subs = planSubstitutions(plan);
@@ -55,7 +57,7 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
   const net = breakdown ? Number.parseFloat(breakdown.net_saving) : null;
   const travel = breakdown ? Number.parseFloat(breakdown.travel_cost) : 0;
   const extraStop = breakdown ? Number.parseFloat(breakdown.extra_stop_cost) : 0;
-  const homeName = home?.store_name ?? null;
+  const homeName = home ? storeLabel(home.store_name, locale) : null;
   const testId = `plan-${plan.kind}`;
 
   return (
@@ -73,25 +75,25 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
           {plan.recommended ? (
             <span className={styles.badgeRecommended}>
               <IconCheck size={13} />
-              מומלץ
+              {t("recommended")}
             </span>
           ) : null}
           {plan.kind === "split" ? (
             <span className={styles.badgeSplit}>
-              פיצול ל-<span dir="ltr">{plan.stores.length}</span> סופרים
+              {formatRich(t("splitBadge"), { n: <span dir="ltr">{plan.stores.length}</span> })}
             </span>
           ) : null}
-          {isHome ? <span className={styles.badgeHome}>מינימום מאמץ · הסופר שלך</span> : null}
+          {isHome ? <span className={styles.badgeHome}>{t("homeBadge")}</span> : null}
         </div>
         {plan.kind === "split" ? (
           <span className={styles.meta}>
             <IconClock size={14} />
-            <span dir="ltr">+{plan.extra_minutes}</span> דק&apos;
+            <span dir="ltr">+{plan.extra_minutes}</span> {t("minutes")}
           </span>
         ) : first ? (
           <span className={styles.meta}>
             <IconPin size={14} />
-            {formatDistance(first.distance_m)}
+            {formatDistance(first.distance_m, locale)}
           </span>
         ) : null}
       </div>
@@ -99,41 +101,44 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
       <div className={styles.planHead}>
         <h2 id={`${missingId}-title`} className={styles.storeName}>
           {plan.kind === "split"
-            ? chainList(plan).map((c, i) => (
+            ? chainList(plan, locale).map((c, i) => (
                 <span key={c + i}>
                   {i > 0 ? <span className={styles.plus}> + </span> : null}
                   {c}
                 </span>
               ))
-            : (first?.store_name ?? "")}
+            : first
+              ? storeLabel(first.store_name, locale)
+              : ""}
         </h2>
         <div className={styles.planSub}>
           {plan.kind === "split"
             ? plan.stores.map((s, i) => (
                 <span key={s.store.store_id}>
                   {i > 0 ? " · " : ""}
-                  <Count n={s.item_ids.length} one="פריט" many="פריטים" /> ב{s.store.chain_name}
+                  <Count n={s.item_ids.length} noun="item" />{" "}
+                  {t("inChain", { chain: chainLabel(s.store.chain_name, locale) })}
                 </span>
               ))
             : isHome
-              ? "הבסיס שאליו משווים"
+              ? t("homeBase")
               : missing.length
-                ? "סופר אחד"
-                : "סופר אחד, כל הרשימה"}
+                ? t("oneStore")
+                : t("oneStoreAll")}
         </div>
       </div>
 
       <div className={styles.totals}>
         <div className={styles.total}>
-          <div className={styles.totalLabel}>סך הסל</div>
+          <div className={styles.totalLabel}>{t("basketTotal")}</div>
           <Price amount={plan.total} size="hero" data-testid={`${testId}-total`} />
         </div>
 
         {isHome ? (
           <div className={styles.baseline}>
-            <div className={styles.baselineTitle}>הבסיס להשוואה</div>
+            <div className={styles.baselineTitle}>{t("baselineTitle")}</div>
             <div className={styles.baselineSub}>
-              <Count n={plan.substituted_count} one="פריט הוחלף" many="פריטים הוחלפו" />
+              <Count n={plan.substituted_count} noun="replaced" />
             </div>
           </div>
         ) : breakdown && net !== null && net > 0 ? (
@@ -141,19 +146,20 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
             <div className={styles.savingValue}>
               <IconCheck size={16} />
               <span>
-                חוסך <Price amount={breakdown.net_saving} tone="good" />
-                {plan.kind === "split" ? " נטו" : ""}
+                {formatRich(t(plan.kind === "split" ? "savesNet" : "saves"), {
+                  price: <Price amount={breakdown.net_saving} tone="good" />,
+                })}
               </span>
             </div>
             <div className={styles.savingVs}>
-              {homeName ? `לעומת ${homeName}, הסופר שלך` : "לעומת הסופר שלך"}
+              {homeName ? t("vsHome", { name: homeName }) : t("vsHomeGeneric")}
             </div>
           </div>
         ) : breakdown ? (
           <div className={styles.baseline} data-testid={`${testId}-saving`}>
-            <div className={styles.baselineTitle}>לא זול יותר מהסופר שלך</div>
+            <div className={styles.baselineTitle}>{t("notCheaper")}</div>
             <div className={styles.baselineSub}>
-              {homeName ? `לעומת ${homeName}, ` : ""}אחרי נסיעה ועצירות
+              {homeName ? t("afterTravelVs", { name: homeName }) : t("afterTravel")}
             </div>
           </div>
         ) : null}
@@ -161,15 +167,13 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
 
       {breakdown && !isHome && (travel > 0 || extraStop > 0) ? (
         <p className={styles.afterTravel}>
-          חיסכון בסל <Price amount={breakdown.basket_saving} />, פחות <Price amount={travel} />{" "}
-          נסיעה
-          {extraStop > 0 ? (
-            <>
-              {" "}
-              ו-
-              <Price amount={extraStop} /> שווי העצירה הנוספת
-            </>
-          ) : null}
+          {formatRich(t("breakdown"), {
+            basket: <Price amount={breakdown.basket_saving} />,
+            travel: <Price amount={travel} />,
+          })}
+          {extraStop > 0
+            ? formatRich(t("breakdownStop"), { stop: <Price amount={extraStop} /> })
+            : null}
           .
         </p>
       ) : null}
@@ -181,18 +185,18 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
             className={styles.subsLink}
           >
             <IconRefresh size={14} />
-            <Count n={subs.length} one="פריט הוחלף" many="פריטים הוחלפו" />
+            <Count n={subs.length} noun="replaced" />
           </Link>
         ) : !isHome ? (
           <span className={styles.muted}>
-            <Count n={0} one="פריט הוחלף" many="פריטים הוחלפו" />
+            <Count n={0} noun="replaced" />
           </span>
         ) : null}
 
         {plan.kind === "split" ? (
           <Link href="/split" className={styles.subsLink} data-testid="split-link">
             <IconRefresh size={14} />
-            פירוט הפיצול בין הסופרים
+            {t("splitLink")}
           </Link>
         ) : null}
 
@@ -205,22 +209,20 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
             onClick={() => setShowMissing((v) => !v)}
           >
             <IconClose size={14} />
-            <Count n={missing.length} one="פריט חסר" many="פריטים חסרים" />
+            <Count n={missing.length} noun="missing" />
           </button>
         ) : (
           <span className={styles.muted}>
-            <Count n={0} one="פריט חסר" many="פריטים חסרים" />
+            <Count n={0} noun="missing" />
           </span>
         )}
 
         {promos.total ? (
           <span className={styles.muted}>
-            <Count n={promos.total} one="מבצע כלול" many="מבצעים כלולים" />
-            {promos.club ? (
-              <>
-                , <span dir="ltr">{promos.club}</span> למועדון
-              </>
-            ) : null}
+            <Count n={promos.total} noun="promo" />
+            {promos.club
+              ? formatRich(t("promoClub"), { n: <span dir="ltr">{promos.club}</span> })
+              : null}
           </span>
         ) : null}
 
@@ -228,18 +230,18 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
       </div>
 
       {missing.length && showMissing ? (
-        <ul id={missingId} className={styles.missingList} aria-label="פריטים חסרים">
+        <ul id={missingId} className={styles.missingList} aria-label={t("missingListLabel")}>
           {missing.map((id) => (
             <li key={id}>
               <IconClose size={13} />
-              {names.get(id) ?? `פריט ${id}`}
-              <span className={styles.missingNote}> · לא נמכר בסניף, לא נספר בסך</span>
+              {names.get(id) ?? t("missingFallback", { id })}
+              <span className={styles.missingNote}> · {t("missingNote")}</span>
             </li>
           ))}
         </ul>
       ) : null}
 
-      <UpdatedAt iso={updated} prefix="מחירים עודכנו" withIcon />
+      <UpdatedAt iso={updated} prefix={shared("pricesUpdated")} withIcon />
     </Card>
   );
 }

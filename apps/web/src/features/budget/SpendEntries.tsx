@@ -3,7 +3,9 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Button, IconInfo, Price, Tag } from "@/components/ui";
 import controls from "@/features/profile/controls/controls.module.css";
-import { useT } from "@/i18n/LocaleProvider";
+import { Count } from "@/features/compare/Count";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { storeLabel } from "@/lib/storeName";
 import { budgetMessages } from "@/i18n/messages/budget";
 import { dayLabel } from "./month";
 import {
@@ -38,6 +40,7 @@ export function SpendEntries({
   heading: string;
 }) {
   const t = useT(budgetMessages);
+  const { locale, intl } = useLocale();
   const fieldId = useId();
   const [editing, setEditing] = useState<{
     id: string;
@@ -79,7 +82,7 @@ export function SpendEntries({
   );
 
   const label = (e: SpendRow) =>
-    `${dayLabel(e.date)} · ${e.store_name}${e.plan === "split" ? " (פיצול)" : ""}`;
+    `${dayLabel(e.date)} · ${storeLabel(e.store_name, locale)}${e.plan === "split" ? t("splitMark") : ""}`;
 
   async function onSave(event: FormEvent, row: SpendRow) {
     event.preventDefault();
@@ -90,7 +93,7 @@ export function SpendEntries({
     if (outcome === "invalid") {
       setEditing({
         ...editing,
-        error: t("invalidTotal", { max: MAX_SPEND_TOTAL.toLocaleString("he-IL") }),
+        error: t("invalidTotal", { max: MAX_SPEND_TOTAL.toLocaleString(intl) }),
       });
       return;
     }
@@ -135,11 +138,11 @@ export function SpendEntries({
               <li key={e.id} data-testid="spend-entry">
                 <span className={styles.entryMain}>
                   <span>
-                    <span dir="ltr">{dayLabel(e.date)}</span> · {e.store_name}
-                    {e.plan === "split" ? " (פיצול)" : ""}
+                    <span dir="ltr">{dayLabel(e.date)}</span> · {storeLabel(e.store_name, locale)}
+                    {e.plan === "split" ? t("splitMark") : ""}
                     <span className={styles.muted}>
                       {" · "}
-                      <span dir="ltr">{e.item_count}</span> פריטים
+                      <Count n={e.item_count} noun="items" />
                     </span>
                   </span>
                   <Tag variant={e.corrected ? "matched" : "estimated"}>

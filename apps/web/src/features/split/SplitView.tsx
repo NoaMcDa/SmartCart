@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type PointerEvent } from "react";
 import type { PricedItem } from "@/api/client";
+import { DocumentTitle } from "@/components/shell/PageChrome";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Price } from "@/components/ui/Price";
@@ -15,7 +16,15 @@ import { reportSplitViewed } from "@/features/consent/betaEvents";
 import { ReportGapButton } from "@/features/feedback/GapReportSheet";
 import { HandoffAction } from "@/features/handoff/HandoffAction";
 import { buildSession, startSession } from "@/features/store/session";
-import { formatDistance, formatTime } from "@/lib/format";
+import { ItemName } from "@/components/ui/ItemName";
+import { Count } from "@/features/compare/Count";
+import { DataText } from "@/i18n/DataText";
+import { formatRich } from "@/i18n/format";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { sharedMessages } from "@/i18n/messages/shared";
+import { splitMessages } from "@/i18n/messages/split";
+import { formatDistance, formatTime, itemProductName, listNameLabel } from "@/lib/format";
+import { chainLabel, storeLabel } from "@/lib/storeName";
 import { useComparison, type LastResult } from "./lastResult";
 import {
   assignmentOf,
@@ -29,15 +38,16 @@ import styles from "./Split.module.css";
 import { Waterfall } from "./Waterfall";
 
 function EmptyState({ title, body }: { title: string; body: string }) {
+  const t = useT(splitMessages);
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>פיצול סל</h1>
+      <h1 className={styles.title}>{t("title")}</h1>
       <Card data-testid="split-empty">
         <h2 className={styles.sectionTitle}>{title}</h2>
         <p className={styles.muted}>{body}</p>
         <div>
           <Button href="/compare" size="sm">
-            חזרה להשוואה
+            {t("backToCompare")}
           </Button>
         </div>
       </Card>
@@ -52,40 +62,36 @@ function EmptyState({ title, body }: { title: string; body: string }) {
  * subtotals, the net saving and the waterfall at once, with no request.
  */
 export function SplitView() {
+  const t = useT(splitMessages);
+  return (
+    <>
+      <DocumentTitle text={t("title")} />
+      <SplitViewBody />
+    </>
+  );
+}
+
+function SplitViewBody() {
+  const t = useT(splitMessages);
   const { status, result } = useComparison();
   const model = useMemo(() => (result ? buildSplitModel(result) : null), [result]);
   if (status === "loading") {
     return (
       <div className={styles.page} aria-busy="true">
-        <h1 className={styles.title}>פיצול סל</h1>
+        <h1 className={styles.title}>{t("title")}</h1>
         <Skeleton height={96} radius={16} />
         <Skeleton height={160} radius={16} />
       </div>
     );
   }
   if (status === "error") {
-    return (
-      <EmptyState
-        title="לא הצלחנו לחשב את הפיצול"
-        body="בדקי את החיבור ונסי שוב מתוצאות ההשוואה."
-      />
-    );
+    return <EmptyState title={t("errTitle")} body={t("errBody")} />;
   }
   if (!result) {
-    return (
-      <EmptyState
-        title="אין עדיין השוואה לפצל"
-        body="כשתשווי רשימה נציג כאן את הפיצול בין שתי חנויות, ותוכלי להזיז פריטים ביניהן ולראות איך החיסכון משתנה."
-      />
-    );
+    return <EmptyState title={t("noneTitle")} body={t("noneBody")} />;
   }
   if (!model) {
-    return (
-      <EmptyState
-        title="אין פיצול משתלם לרשימה הזו"
-        body="אחרי נסיעה ואחרי השווי של עצירה נוספת, קנייה בחנות אחת משתלמת יותר. אפשר לשנות את שווי העצירה בפרופיל."
-      />
-    );
+    return <EmptyState title={t("noSplitTitle")} body={t("noSplitBody")} />;
   }
   return <SplitBoard key={result.savedAt} result={result} model={model} />;
 }
@@ -106,6 +112,9 @@ function overStore(x: number, y: number): number | null {
 }
 
 function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }) {
+  const t = useT(splitMessages);
+  const shared = useT(sharedMessages);
+  const { locale } = useLocale();
   const router = useRouter();
   const initial = useMemo(() => assignmentOf(model.plan), [model]);
   const [assignment, setAssignment] = useState<Assignment>(initial);
@@ -130,12 +139,13 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
     .at(-1);
 
   function move(canonicalId: number, toStoreId: number) {
-    const reason = moveBlockedReason(model, canonicalId, toStoreId);
-    const name = model.pool.priced
-      .get(canonicalId)
-      ?.get(assignment.get(canonicalId) ?? -1)?.display_name_he;
+    const reason = moveBlockedReason(model, canonicalId, toStoreId, locale);
+    const priced = model.pool.priced.get(canonicalId)?.get(assignment.get(canonicalId) ?? -1);
+    const name = priced ? itemProductName(priced, locale) : undefined;
     if (reason) {
-      setAnnouncement(`לא ניתן להעביר${name ? ` את ${name}` : ""}: ${reason}`);
+      setAnnouncement(
+        name ? t("moveBlocked", { name, reason }) : t("moveBlockedNoName", { reason }),
+      );
       return;
     }
     const next = new Map(assignment);
@@ -144,8 +154,10 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
     const after = computeSplit(model, next);
     setAssignment(next);
     setAnnouncement(
-      `${name ?? "הפריט"} הועבר ל${target?.chain_name ?? "החנות השנייה"}.` +
-        (after.waterfall ? ` חיסכון נטו ₪${after.waterfall.net.toFixed(2)}.` : ""),
+      t("moved", {
+        name: name ?? t("itemFallback"),
+        store: target ? chainLabel(target.chain_name, locale) : t("otherStoreFallback"),
+      }) + (after.waterfall ? t("movedNet", { net: after.waterfall.net.toFixed(2) }) : ""),
     );
   }
 
@@ -158,7 +170,7 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
       x: e.clientX,
       y: e.clientY,
       over: null,
-      name: item.display_name_he,
+      name: itemProductName(item, locale),
     });
   }
 
@@ -192,13 +204,16 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
   }
 
   const w = view.waterfall;
+  const homeLabel = model.homeName ? chainLabel(model.homeName, locale) : t("homeFallback");
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>פיצול סל</h1>
+        <h1 className={styles.title}>{t("title")}</h1>
         <p className={styles.muted}>
-          {result.listName ? `${result.listName} · ` : ""}
-          {first?.chain_name} ו{second?.chain_name}
+          {result.listName ? `${listNameLabel(result.listName, locale)} · ` : ""}
+          {first ? chainLabel(first.chain_name, locale) : ""}
+          {locale === "ar" ? " و" : " ו"}
+          {second ? chainLabel(second.chain_name, locale) : ""}
         </p>
       </header>
 
@@ -212,7 +227,7 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
           <>
             <div className={styles.heroNet} data-good={w.net > 0}>
               {w.net > 0 ? <IconCheck size={18} /> : <IconInfo size={18} />}
-              <span>חיסכון נטו מול {model.homeName ?? "החנות שלי"}</span>
+              <span>{t("heroNet", { home: homeLabel })}</span>
               <Price
                 amount={w.net}
                 size="hero"
@@ -222,34 +237,36 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
             </div>
             {w.net <= 0 ? (
               <p className={styles.warn} role="status">
-                אחרי הנסיעה והעצירה הנוספת, החלוקה הזו כבר לא חוסכת. אפשר להחזיר פריטים או לאפס.
+                {t("warnNoSave")}
               </p>
             ) : null}
           </>
         ) : (
           <p className={styles.warn} role="status" data-testid="baseline-missing">
-            <IconInfo size={16} /> בלי חנות בסיס אי אפשר להציג חיסכון נטו. בחרי את הסופר שלך{" "}
-            <Link href="/profile">בפרופיל</Link>.
+            <IconInfo size={16} />{" "}
+            {formatRich(t("baselineMissing"), {
+              link: <Link href="/profile">{t("inProfile")}</Link>,
+            })}
           </p>
         )}
         <dl className={styles.facts}>
           <div>
-            <dt>סה״כ לקנייה</dt>
+            <dt>{t("factTotal")}</dt>
             <dd>
               <Price amount={view.total} data-testid="split-total" />
             </dd>
           </div>
           <div>
-            <dt>זמן נוסף</dt>
+            <dt>{t("factExtraTime")}</dt>
             <dd>
-              <span dir="ltr">+{view.extraMinutes}</span> דק&apos;
+              <span dir="ltr">+{view.extraMinutes}</span> {t("minutes")}
             </dd>
           </div>
           {updatedAt ? (
             <div>
-              <dt>מחירים</dt>
+              <dt>{t("factPrices")}</dt>
               <dd className={styles.updated}>
-                <IconClock size={13} /> עודכנו {formatTime(updatedAt)}
+                <IconClock size={13} /> {t("updatedPlural")} {formatTime(updatedAt, locale)}
               </dd>
             </div>
           ) : null}
@@ -258,26 +275,24 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
 
       <BudgetRemaining planTotal={view.total} updatedAt={updatedAt} />
 
-      {w ? <Waterfall data={w} homeName={model.homeName ?? "החנות שלי"} /> : null}
+      {w ? <Waterfall data={w} homeName={homeLabel} /> : null}
 
       <div className={styles.toolbar}>
-        <p className={styles.hintText}>
-          גררי פריט אל החנות השנייה, או השתמשי בכפתור &quot;העברה&quot; בכל שורה.
-        </p>
+        <p className={styles.hintText}>{t("hint")}</p>
         <Button
           variant="outline"
           size="sm"
           disabled={!changed}
           onClick={() => {
             setAssignment(new Map(initial));
-            setAnnouncement("הפיצול המומלץ שוחזר.");
+            setAnnouncement(t("restored"));
           }}
         >
-          איפוס לפיצול המומלץ
+          {t("reset")}
         </Button>
       </div>
 
-      <div className={styles.tabs} role="tablist" aria-label="חנויות בפיצול">
+      <div className={styles.tabs} role="tablist" aria-label={t("tabsLabel")}>
         {view.columns.map((col, i) => (
           <button
             key={col.store.store_id}
@@ -291,7 +306,7 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
             data-over={drag?.over === col.store.store_id}
             onClick={() => setTab(i)}
           >
-            {col.store.chain_name} · <Price amount={col.subtotal} />
+            {chainLabel(col.store.chain_name, locale)} · <Price amount={col.subtotal} />
           </button>
         ))}
       </div>
@@ -313,14 +328,14 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
             >
               <header className={styles.columnHead}>
                 <div>
-                  <h2 className={styles.columnTitle}>{col.store.store_name}</h2>
+                  <h2 className={styles.columnTitle}>{storeLabel(col.store.store_name, locale)}</h2>
                   <p className={styles.muted}>
-                    {formatDistance(col.store.distance_m)} ·{" "}
-                    <span dir="ltr">{col.items.length}</span> פריטים
+                    {formatDistance(col.store.distance_m, locale)} ·{" "}
+                    <Count n={col.items.length} noun="items" />
                   </p>
                 </div>
                 <div className={styles.subtotal}>
-                  <span className={styles.muted}>סכום ביניים</span>
+                  <span className={styles.muted}>{t("subtotal")}</span>
                   <Price
                     amount={col.subtotal}
                     size="lg"
@@ -330,13 +345,11 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
               </header>
               <ul className={styles.items}>
                 {col.items.length === 0 ? (
-                  <li className={styles.emptyColumn}>
-                    אין פריטים בחנות הזו. אפשר לקנות הכול בחנות אחת.
-                  </li>
+                  <li className={styles.emptyColumn}>{t("emptyColumn")}</li>
                 ) : null}
                 {col.items.map((item) => {
                   const reason = other
-                    ? moveBlockedReason(model, item.canonical_id, other.store_id)
+                    ? moveBlockedReason(model, item.canonical_id, other.store_id, locale)
                     : null;
                   return (
                     <li
@@ -357,16 +370,24 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
                         ⋮⋮
                       </span>
                       <div className={styles.itemMain}>
-                        <span className={styles.itemName}>{item.display_name_he}</span>
+                        <span className={styles.itemName}>
+                          <ItemName item={item} show="line" />
+                        </span>
                         <span className={styles.muted}>
-                          <span dir="ltr">{item.quantity}</span> × · <IconClock size={12} /> עודכן{" "}
-                          {formatTime(item.price_valid_from)}
+                          <span dir="ltr">{item.quantity}</span> × · <IconClock size={12} />{" "}
+                          {t("updatedShort")} {formatTime(item.price_valid_from, locale)}
                         </span>
                         <span className={styles.tags}>
-                          {item.is_substitute ? <Tag variant="differs">תחליף</Tag> : null}
-                          {item.is_estimated ? <Tag variant="estimated">מחיר משוער</Tag> : null}
+                          {item.is_substitute ? (
+                            <Tag variant="differs">{t("substituteLabel")}</Tag>
+                          ) : null}
+                          {item.is_estimated ? (
+                            <Tag variant="estimated">{t("estimatedShort")}</Tag>
+                          ) : null}
                           {item.promo_description ? (
-                            <Tag variant="matched">{item.promo_description}</Tag>
+                            <Tag variant="matched">
+                              <DataText>{item.promo_description}</DataText>
+                            </Tag>
                           ) : null}
                         </span>
                         {reason ? (
@@ -375,7 +396,7 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
                             className={styles.reason}
                             data-testid="move-reason"
                           >
-                            <IconInfo size={13} /> {reason}, לכן אי אפשר להעביר
+                            <IconInfo size={13} /> {t("blockedBecause", { reason })}
                           </span>
                         ) : null}
                       </div>
@@ -387,23 +408,26 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
                           <Button
                             size="sm"
                             variant="outline"
-                            aria-label={`העברת ${item.display_name_he} ל${other.chain_name}`}
+                            aria-label={t("moveAria", {
+                              item: itemProductName(item, locale),
+                              chain: chainLabel(other.chain_name, locale),
+                            })}
                             aria-disabled={reason ? true : undefined}
                             aria-describedby={reason ? `why-${item.item_id}` : undefined}
                             className={reason ? styles.blocked : undefined}
                             onClick={() => move(item.canonical_id, other.store_id)}
                           >
-                            העברה ל{other.chain_name}
+                            {t("moveTo", { chain: chainLabel(other.chain_name, locale) })}
                           </Button>
                         ) : null}
                         <ReportGapButton
-                          label="דיווח"
+                          label={shared("reportShort")}
                           context={{
                             storeId: col.store.store_id,
                             storeName: col.store.store_name,
                             canonicalId: item.canonical_id,
                             itemId: item.item_id,
-                            itemName: item.display_name_he,
+                            itemName: itemProductName(item, locale),
                             shownPrice: item.line_total,
                             priceUpdatedAt: item.price_valid_from,
                           }}
@@ -419,7 +443,7 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
                 disabled={col.items.length === 0}
                 onClick={() => startShopping(i)}
               >
-                התחילי קנייה ב{col.store.chain_name}
+                {t("start", { chain: chainLabel(col.store.chain_name, locale) })}
               </Button>
               <HandoffAction store={col.store} items={col.items} />
             </section>
@@ -427,9 +451,7 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
         })}
       </div>
 
-      <p className={styles.muted}>
-        המחיר הקובע הוא בקופה. הסכומים מחושבים מהמחירים שנשמרו בהשוואה האחרונה.
-      </p>
+      <p className={styles.muted}>{t("footer")}</p>
 
       <div className="sr-only" role="status" aria-live="polite" data-testid="split-announcer">
         {announcement}

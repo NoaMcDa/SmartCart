@@ -4,6 +4,9 @@ import { useId, useState, type FormEvent } from "react";
 import { reportGap, type StoreResult } from "@/api/client";
 import { BottomSheet, Button, Price, UpdatedAt } from "@/components/ui";
 import { reportGapReported } from "@/features/consent/betaEvents";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { compareMessages } from "@/i18n/messages/compare";
+import { storeLabel } from "@/lib/storeName";
 import styles from "./Results.module.css";
 
 export type ReportGapSheetProps = {
@@ -24,14 +27,17 @@ function toNumber(raw: string): number | null {
  * is missing. Sends /feedback/gap with the store, item and both prices; no location.
  */
 export function ReportGapSheet({ open, onClose, stores, items }: ReportGapSheetProps) {
+  const t = useT(compareMessages);
   return (
-    <BottomSheet open={open} onClose={onClose} title="דיווח על פער" eyebrow="עזרי לנו לדייק">
+    <BottomSheet open={open} onClose={onClose} title={t("gapTitle")} eyebrow={t("gapEyebrow")}>
       {open ? <GapForm key="form" stores={stores} items={items} onClose={onClose} /> : null}
     </BottomSheet>
   );
 }
 
 function GapForm({ stores, items, onClose }: Omit<ReportGapSheetProps, "open">) {
+  const t = useT(compareMessages);
+  const { locale } = useLocale();
   const id = useId();
   const [storeId, setStoreId] = useState<number | null>(stores[0]?.store_id ?? null);
   const [canonicalId, setCanonicalId] = useState<string>("");
@@ -66,8 +72,8 @@ function GapForm({ stores, items, onClose }: Omit<ReportGapSheetProps, "open">) 
   if (status === "sent") {
     return (
       <div className={styles.gapDone} role="status">
-        <p>תודה! הדיווח נשלח ונבדוק אותו מול קובץ המחירים של הרשת.</p>
-        <Button onClick={onClose}>סגירה</Button>
+        <p>{t("gapThanks")}</p>
+        <Button onClick={onClose}>{t("close")}</Button>
       </div>
     );
   }
@@ -75,7 +81,7 @@ function GapForm({ stores, items, onClose }: Omit<ReportGapSheetProps, "open">) 
   return (
     <form className={styles.gapForm} onSubmit={submit}>
       <div className={styles.field}>
-        <label htmlFor={`${id}-store`}>סניף</label>
+        <label htmlFor={`${id}-store`}>{t("gapStore")}</label>
         <select
           id={`${id}-store`}
           value={storeId ?? ""}
@@ -83,19 +89,19 @@ function GapForm({ stores, items, onClose }: Omit<ReportGapSheetProps, "open">) 
         >
           {stores.map((s) => (
             <option key={s.store_id} value={s.store_id}>
-              {s.store_name}
+              {storeLabel(s.store_name, locale)}
             </option>
           ))}
         </select>
       </div>
       <div className={styles.field}>
-        <label htmlFor={`${id}-item`}>פריט</label>
+        <label htmlFor={`${id}-item`}>{t("gapItem")}</label>
         <select
           id={`${id}-item`}
           value={canonicalId}
           onChange={(e) => setCanonicalId(e.target.value)}
         >
-          <option value="">פריט שלא מופיע ברשימה / כללי</option>
+          <option value="">{t("gapItemGeneral")}</option>
           {items.map((i) => (
             <option key={i.canonical_id} value={i.canonical_id}>
               {i.name}
@@ -104,12 +110,13 @@ function GapForm({ stores, items, onClose }: Omit<ReportGapSheetProps, "open">) 
         </select>
         {line ? (
           <span className={styles.fieldHint}>
-            הצגנו: <Price amount={line.shelf_price} /> · <UpdatedAt iso={line.price_valid_from} />
+            {t("gapShown")} <Price amount={line.shelf_price} /> ·{" "}
+            <UpdatedAt iso={line.price_valid_from} />
           </span>
         ) : null}
       </div>
       <div className={styles.field}>
-        <label htmlFor={`${id}-actual`}>המחיר שראית בפועל (₪)</label>
+        <label htmlFor={`${id}-actual`}>{t("gapActual")}</label>
         <input
           id={`${id}-actual`}
           inputMode="decimal"
@@ -120,26 +127,26 @@ function GapForm({ stores, items, onClose }: Omit<ReportGapSheetProps, "open">) 
         />
       </div>
       <div className={styles.field}>
-        <label htmlFor={`${id}-note`}>הערה (לא חובה)</label>
+        <label htmlFor={`${id}-note`}>{t("gapNote")}</label>
         <textarea
           id={`${id}-note`}
           rows={2}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="למשל: המוצר לא היה על המדף"
+          placeholder={t("gapNotePlaceholder")}
         />
       </div>
       {status === "error" ? (
         <p role="alert" className={styles.formError}>
-          לא הצלחנו לשלוח. נסי שוב בעוד רגע.
+          {t("gapError")}
         </p>
       ) : null}
       <div className={styles.gapActions}>
         <Button type="submit" disabled={status === "sending" || storeId === null}>
-          {status === "sending" ? "שולחת…" : "שליחת הדיווח"}
+          {status === "sending" ? t("gapSending") : t("gapSend")}
         </Button>
         <Button variant="secondary" onClick={onClose}>
-          ביטול
+          {t("cancel")}
         </Button>
       </div>
     </form>

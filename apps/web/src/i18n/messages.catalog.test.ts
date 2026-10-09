@@ -16,6 +16,11 @@ const DIR = fileURLToPath(new URL("./messages/", import.meta.url));
 const HEBREW_LETTER = /[֐-׿]/;
 const TODO_AR = /\/\/\s*TODO ar\b/;
 
+/** Plural-form keys (`item_two`, see `i18n/plural.ts`) are the Arabic dual, which carries its own number. */
+const DUAL_FORMS = /_two$/;
+/** Other keys that are a dual form by meaning ("two days ago"). */
+const DUAL_KEYS = new Set(["ui.ts:updatedTwoDaysAgo"]);
+
 const files = readdirSync(DIR)
   .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
   .sort();
@@ -61,10 +66,21 @@ describe("message catalogs", () => {
       });
 
       it("keeps the same {placeholders} in he and ar", async () => {
-        const holders = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort();
+        const holders = (s: string): string[] => (s.match(/\{\w+\}/g) ?? []).sort();
         for (const [name, c] of await catalogsOf(file)) {
           for (const key of Object.keys(c.he)) {
-            expect(holders(c.ar[key] ?? ""), `${file} ${name}.${key}`).toEqual(holders(c.he[key]!));
+            const ar = holders(c.ar[key] ?? "");
+            const he = holders(c.he[key]!);
+            if (DUAL_FORMS.test(key) || DUAL_KEYS.has(`${file}:${key}`)) {
+              // Arabic has a dual ("يومين", "صنفان") that names the number itself, so it may drop
+              // a placeholder. It may not invent one.
+              expect(
+                ar.filter((h) => !he.includes(h)),
+                `${file} ${name}.${key}`,
+              ).toEqual([]);
+            } else {
+              expect(ar, `${file} ${name}.${key}`).toEqual(he);
+            }
           }
         }
       });

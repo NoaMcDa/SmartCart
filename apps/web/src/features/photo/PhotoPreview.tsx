@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState, type Ref } from "react";
 import type { ParsedRow, ParseImageResponse } from "@/api/client";
 import { Price, Tag } from "@/components/ui";
-import { CHAINS } from "@/features/profile/chains";
-import { useT } from "@/i18n/LocaleProvider";
+import { CHAINS, chainName, type Chain } from "@/features/profile/chains";
+import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { photoMessages } from "@/i18n/messages/photo";
+import { productName } from "@/lib/format";
+import { storeLabel } from "@/lib/storeName";
 import styles from "./Photo.module.css";
 
 /** What the person ticked, as the sheet's "add" button needs it. */
@@ -32,9 +34,9 @@ export type PhotoPreviewProps = {
 
 type Line = { original: string; text: string; checked: boolean };
 
-function chainName(hint: string | null | undefined): string | null {
+function chainOf(hint: string | null | undefined): Chain | null {
   if (!hint) return null;
-  return CHAINS.find((c) => c.apiId === hint || c.id === hint)?.name ?? null;
+  return CHAINS.find((c) => c.apiId === hint || c.id === hint) ?? null;
 }
 
 /**
@@ -46,6 +48,7 @@ function chainName(hint: string | null | undefined): string | null {
  */
 export function PhotoPreview({ result, file, headingRef, onSelectionChange }: PhotoPreviewProps) {
   const t = useT(photoMessages);
+  const { locale } = useLocale();
   // A row the server could not match is an unresolved line, whatever list it arrived in.
   const matched = useMemo(() => result.items.filter((r) => !r.not_found), [result.items]);
   const sure = useMemo(() => matched.filter((r) => !r.needs_confirmation), [matched]);
@@ -87,7 +90,9 @@ export function PhotoPreview({ result, file, headingRef, onSelectionChange }: Ph
   }, [selection, onSelectionChange]);
 
   const receipt = result.kind === "receipt" ? result.receipt : null;
-  const chain = chainName(receipt?.chain_hint);
+  const chainEntry = chainOf(receipt?.chain_hint);
+  const chain = chainEntry ? chainName(chainEntry, locale) : null;
+  const storeHint = receipt?.store_hint ? storeLabel(receipt.store_hint, locale) : null;
 
   return (
     <div className={styles.body} data-testid="photo-preview">
@@ -115,8 +120,8 @@ export function PhotoPreview({ result, file, headingRef, onSelectionChange }: Ph
             <div>
               <dt>{t("summaryChain")}</dt>
               <dd data-testid="photo-chain">
-                {chain ?? receipt.store_hint ?? t("summaryChainUnknown")}
-                {chain && receipt.store_hint ? ` · ${receipt.store_hint}` : ""}
+                {chain ?? storeHint ?? t("summaryChainUnknown")}
+                {chain && storeHint ? ` · ${storeHint}` : ""}
               </dd>
             </div>
             <div>
@@ -243,7 +248,8 @@ function ReadRow({
   unsure?: boolean;
 }) {
   const t = useT(photoMessages);
-  const name = row.canonical?.display_name_he ?? row.input_text;
+  const { locale } = useLocale();
+  const name = row.canonical ? productName(row.canonical, locale) : row.input_text;
   const weighed = row.is_weighed || row.unit === "kg";
   // What was read next to what it was matched to, when they differ (D10: show the work).
   const showRead = Boolean(row.canonical) && row.input_text.trim() !== name.trim();

@@ -84,7 +84,8 @@ describe("privacy audit: no third-party ad or tracking SDKs", () => {
   });
 
   it("the privacy policy page exists and states the no-sale commitment", () => {
-    const page = readFileSync(join(ROOT, "src/app/(secondary)/privacy/page.tsx"), "utf8").replace(
+    // The words live in the catalog (the route file is a server component that renders them).
+    const page = readFileSync(join(ROOT, "src/i18n/messages/privacy.ts"), "utf8").replace(
       /\s+/g,
       " ",
     );

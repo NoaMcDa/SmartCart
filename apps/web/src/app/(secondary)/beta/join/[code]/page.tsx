@@ -17,7 +17,7 @@ export default async function Page({ params }: { params: Promise<{ code: string 
   if (!/^[A-Za-z0-9-]{6,32}$/.test(code)) notFound();
   return (
     <div className={styles.page}>
-      <BetaTitle />
+      <BetaTitle join />
       <BetaJoin code={code} />
     </div>
   );

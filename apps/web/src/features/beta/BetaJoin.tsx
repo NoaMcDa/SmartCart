@@ -10,6 +10,7 @@ import { useAuth } from "@/features/auth/AuthProvider";
 import { ConsentSheet } from "@/features/consent/ConsentSheet";
 import { useTrackingConsent } from "@/features/consent/useTrackingConsent";
 import { setTrackingConsent } from "@/features/seo/track";
+import { LegalNotice } from "@/i18n/LegalNotice";
 import { useT } from "@/i18n/LocaleProvider";
 import { betaMessages } from "@/i18n/messages/beta";
 import { BetaFeedbackSheet } from "./BetaFeedback";
@@ -99,6 +100,7 @@ export function BetaJoin({ code }: { code?: string }) {
 
   return (
     <div className={styles.page}>
+      <LegalNotice />
       <Card as="section" aria-labelledby="beta-state" data-testid="beta-state">
         <div className={styles.section}>
           {phase === "left" ? (

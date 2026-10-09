@@ -6,7 +6,10 @@
  */
 import { useSyncExternalStore } from "react";
 import type { PricedItem, StoreResult } from "@/api/client";
-import { DEPARTMENTS } from "@/features/profile/dietOptions";
+import { departmentLabel as profileDepartmentLabel } from "@/features/profile/dietOptions";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { storeMessages } from "@/i18n/messages/store";
 import {
   STORAGE_KEYS,
   notifyStorageChange,
@@ -21,7 +24,10 @@ export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 export type ShopItem = {
   itemId: number;
   canonicalId: number;
+  /** The chain's own item name (Hebrew): what the shelf label says. */
   name: string;
+  /** The canonical product's Arabic name, when the API had one when the session started. */
+  nameAr?: string;
   /** True when this is a substitute for the item on the list: it stays labeled (D10). */
   isSubstitute: boolean;
   confidence: number | null;
@@ -94,8 +100,10 @@ export function departmentOf(taxonomyId: string | null | undefined): string {
   return DEPARTMENT_ORDER.includes(aliased) ? aliased : "other";
 }
 
-export function departmentLabel(id: string): string {
-  return id === "other" ? "אחר" : (DEPARTMENTS.find((d) => d.id === id)?.label ?? "אחר");
+export function departmentLabel(id: string, locale: Locale = DEFAULT_LOCALE): string {
+  const other = translate(storeMessages, locale, "departmentOther");
+  if (id === "other" || !DEPARTMENT_ORDER.includes(id)) return other;
+  return profileDepartmentLabel(id, locale);
 }
 
 export function departmentRank(id: string): number {
@@ -145,6 +153,7 @@ export function buildSession(
       itemId: item.item_id,
       canonicalId: item.canonical_id,
       name: item.display_name_he,
+      ...(item.canonical_name_ar ? { nameAr: item.canonical_name_ar } : {}),
       isSubstitute: item.is_substitute,
       confidence: item.confidence ?? null,
       quantity: item.quantity,
@@ -179,7 +188,7 @@ export function buildSession(
 }
 
 /** Items grouped by department in aisle order; checked items sink to the bottom of each group. */
-export function groupByDepartment(items: ReadonlyArray<ShopItem>) {
+export function groupByDepartment(items: ReadonlyArray<ShopItem>, locale: Locale = DEFAULT_LOCALE) {
   const groups = new Map<string, ShopItem[]>();
   for (const item of items) {
     const g = groups.get(item.department) ?? [];
@@ -190,7 +199,7 @@ export function groupByDepartment(items: ReadonlyArray<ShopItem>) {
     .sort((a, b) => departmentRank(a[0]) - departmentRank(b[0]))
     .map(([department, list]) => ({
       department,
-      label: departmentLabel(department),
+      label: departmentLabel(department, locale),
       items: [...list].sort((a, b) => Number(a.checked) - Number(b.checked)),
     }));
 }
