@@ -56,7 +56,11 @@ jobs:
           git diff --exit-code -- src/api/types.ts
 
       - name: Unit tests
-        run: npm test
+        run: |
+          fails=0
+          for i in 1 2 3 4 5 6; do npm test > unit-$i.log 2>&1 || { fails=$((fails+1)); grep -E "FAIL|DEBUGFLAKE" unit-$i.log | cut -c1-3000; }; done
+          echo "fails=$fails/6"
+          exit 1
 
       - name: Build
         run: npm run build

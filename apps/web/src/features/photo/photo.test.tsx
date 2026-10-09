@@ -435,7 +435,17 @@ describe("events", () => {
     setImageConsent(true);
     const { user } = await openSheet();
     await pick(user, "receipt", image("secret-name.jpg"));
-    await screen.findByTestId("photo-preview");
+    try {
+      await screen.findByTestId("photo-preview");
+    } catch (err) {
+      const dialog = document.querySelector('[role="dialog"]');
+      const html = (dialog?.innerHTML ?? "NO DIALOG").replace(/<svg[\s\S]*?<\/svg>/g, "");
+      console.error("DEBUGFLAKE uploads", JSON.stringify(uploads));
+      console.error("DEBUGFLAKE events", JSON.stringify(vi.mocked(trackEvent).mock.calls));
+      console.error("DEBUGFLAKE testids", JSON.stringify([...(dialog?.querySelectorAll("[data-testid]") ?? [])].map((e) => e.getAttribute("data-testid"))));
+      console.error("DEBUGFLAKE html", html.slice(0, 3000));
+      throw err;
+    }
     const calls = vi.mocked(trackEvent).mock.calls.filter(([name]) => name === "image_parsed");
     expect(calls).toHaveLength(1);
     const props = calls[0]![1] as Record<string, unknown>;
