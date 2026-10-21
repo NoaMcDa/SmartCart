@@ -42,9 +42,9 @@ return a 500 or a wrong answer on purpose; Low is hardening.
 | W2 | Low | The production bundle contained the MSW library and every mock handler as lazy chunks, off only at run time | fixed |
 | R1 | Medium | One anonymous request can pull a product match out of the price run (`not_good` feedback) | open |
 | R2 | Medium | The session token lives in `localStorage` and the CSP still needs `'unsafe-inline'` for scripts | open |
-| R3 | Low | Limits are counted per process and per address | open |
+| R3 | Low | Limits are counted per process and per address | per process: fixed (opt-in `postgres` backend); per address: open |
 | R4 | Low | `/parse-image` is anonymous; its monthly cap is global | open |
-| R5 | Low | HS256 shared secret instead of Supabase's asymmetric signing keys | open |
+| R5 | Low | HS256 shared secret instead of Supabase's asymmetric signing keys | fixed in the API (ES256/RS256 via JWKS); the project switch is the owner's |
 | R6 | Low | A location is stored without consent when written through the data API, if it is ever opened for profiles | open |
 
 ### S1. Anybody could read and edit anybody's list (High, fixed)
@@ -227,7 +227,7 @@ the Caddy on the same host). Over the limit: 429 with `Retry-After` and CORS hea
 | `/me/*` | 240 | |
 
 `API_RATE_LIMIT=0` turns it off (the load test script sets it, the test suite sets it, one test file
-turns it on). Tests: `test_api_security_ratelimit.py` (14): the window, the table bound, per-route
+turns it on). The counters are per process unless `API_RATE_LIMIT_BACKEND=postgres` (R3 below). Tests: `test_api_security_ratelimit.py` (14): the window, the table bound, per-route
 numbers, user versus address, forged tokens, spoofed headers, 429 headers, the events bypass with a new
 session id each time, code guessing per account and across accounts.
 
@@ -248,7 +248,8 @@ here; run it once on the real project.
 
 ### S9. JWT verification (Low, fixed; the core was already sound)
 
-Already right: HS256 pinned (`alg: none`, `HS384`, `RS256` headers refused whatever the key), `exp` and
+Already right: the algorithm pinned (at the time HS256 only; since R5 also ES256/RS256 against the
+project's JWKS, still never chosen by the token: `alg: none`, `HS384`, `RS256` headers refused whatever the key), `exp` and
 `sub` required, `aud` checked, `anon` refused, `sub` a UUID, `user_conn` switches to a role without
 BYPASSRLS and sets the claims transaction-locally, no `/me/*` route reachable without a token.
 Changed: the 401 no longer repeats the library's message (`invalid token`, `token expired`); 30 s of
@@ -369,21 +370,142 @@ CSP on the app routes only (`/(core)`, `/(phase2)`, `/(secondary)`) while the SE
 with a different, stricter policy; cookie sessions (`@supabase/ssr`) so the token is not readable by
 script, which also means the API reads a cookie and gets CSRF handling.
 
-**R3. Limits are per process and per address (Low).** With `WEB_CONCURRENCY` workers the limit is the
-configured one times the workers; a mobile carrier's shared address is one client for the people who
-are signed out (signed-in people are counted per account). The events route also has its per-session
-limit in the database, which holds across processes. A shared counter (the database, as events do, or
-Redis) is the next step if the beta shows abuse; the numbers are proposals, not measured.
+**R3. Limits were per process and per address (Low; per process fixed, per address open).** With
+`WEB_CONCURRENCY` workers (2 in the unit) or replicas the limit was the configured one times the
+processes. `API_RATE_LIMIT_BACKEND=postgres` now counts in the one database, shared by all of them
+(`smartcart_api/ratelimit.py`, migration `20261022120000_api_rate_limits.sql`):
+
+- Table `api_rate_limits (bucket, client_key, window_seconds, window_start, window_end, hits)`,
+  primary key `(bucket, client_key, window_seconds, window_start)`. `bucket` is the route class and how
+  the client is keyed (`search:principal`, `beta-join:ip`), `client_key` is `u:<user id>` or
+  `ip:<address>` exactly as the in-memory limiter keys them (verified user, else the peer address;
+  `X-Forwarded-For` and `FORWARDED_ALLOW_IPS` are unchanged).
+- A fixed window per window length (60 s and 3600 s), cut from the database's clock so replicas with
+  drifting clocks agree. One statement per limit does it atomically:
+  `INSERT ... ON CONFLICT (...) DO UPDATE SET hits = hits + 1 RETURNING hits, window_end, now`, then
+  the API compares `hits` with the limit. There is no read-then-write, so concurrent processes cannot
+  both pass the last slot (`test_the_limit_is_atomic_under_threads`: 240 hits from 8 threads on 4
+  limiters at a limit of 30 let exactly 30 through). Costs of a fixed window, accepted for numbers
+  that are proposals: across a window boundary a client can send up to twice the limit within one
+  window's length, and a refused request still counts (a client that keeps hammering stays refused).
+- Cost on the hot routes: one statement on its own small autocommit pool per process
+  (`API_RATE_LIMIT_POOL_MAX`, default 3; a 0.5 s wait for a connection at most), not on the request's
+  transaction, so one round trip and the count survives a rolled-back request. The coarse ceiling on
+  every route (`all`: 600 a minute) stays in the process, so a route with no limit of its own (stores,
+  barcode, chains) costs no statement at all and `/search`, `/compare`, `/me/*` cost exactly one. The
+  ceiling is "times the workers" by design: its job is to stop a flood, not to be exact. `hits` is
+  not indexed and the key never changes, so every update is a HOT update (fillfactor 70).
+- Cleanup: each process deletes windows that ended more than a minute ago, at most every 5 minutes,
+  from the request that happens to be due, under `pg_try_advisory_xact_lock` so only one process
+  does it at a time; a failing cleanup is logged and never fails a request. By hand:
+  `DELETE FROM api_rate_limits WHERE window_end < extract(epoch FROM now())`. The table holds client
+  addresses for at most an hour plus the cleanup interval.
+- Grants: `smartcart_grant_api_role` is wrapped again (the previous version is kept as
+  `smartcart_grant_api_role_pre_rate_limits`) and gives `smartcart_api` `SELECT, INSERT, UPDATE (hits),
+  DELETE` on the table and one policy; row-level security is on, and nobody else has any privilege
+  (not `anon`, `authenticated`, `smartcart_app`, `PUBLIC`). The API role cannot change a key or a
+  window, truncate, or switch the policy off.
+- Default `memory`, and why: laptops, CI and a single worker need nothing new, a deploy that has not
+  yet run the migration keeps working, and a database problem cannot touch the limiter. The
+  production runbook (`docs/deploy.md`) sets `postgres` in `api.env` after `smartcart-ingest migrate`.
+  If the migration is forgotten, the table is missing, the first statement fails and the API degrades
+  as below, with a logged warning, rather than answering 500.
+- If the database cannot count (connection refused, pool timeout, missing table), the decision is per
+  route class. Everything except guess protection **fails open to the per-process counters**: the
+  request is served and counted in memory (so the limit is "times the workers", the posture before
+  this change, never "no limit"), one warning is logged every 30 s, and the database is not asked
+  again for 5 s, so an outage costs no latency per request. Failing closed there would turn a limiter
+  blip into an outage of the whole API, while almost every route needs the database anyway and would
+  fail for its own reasons. The two classes that exist to stop guessing a secret, **`beta-join`
+  (beta code) and `accept-share` (share link), fail closed**: 503 with `Retry-After: 5`, because a
+  guesser who reaches N workers would otherwise get N times the tries exactly when the database is
+  struggling. Both are set in `ratelimit.FAIL_CLOSED_BUCKETS`.
+- Still open: a mobile carrier's shared address is one client for the people who are signed out
+  (signed-in people are counted per account). Distinct-address floods are bounded by the table, not
+  by a per-subnet rule. The numbers in the S7 table are proposals; the shared counter only makes them
+  mean what they say across processes.
+
+Tests: `test_api_security_ratelimit_pg.py` (33): `test_two_processes_share_the_limit` (two limiters on
+two connections with their in-memory counters wiped between requests, so only the table can stop the
+31st) against `test_the_memory_backend_would_have_let_each_process_have_its_own`,
+`test_the_limit_is_atomic_under_threads`, window rollover and the hour still counting
+(`test_a_window_rolls_over_and_the_hour_still_counts`), one clock for every process
+(`test_the_windows_are_cut_from_one_clock_not_from_the_caller`), cleanup
+(`test_expired_windows_are_deleted_and_live_ones_kept`,
+`test_the_cleanup_runs_by_itself_without_blocking_a_request`, `test_only_one_process_cleans_at_a_time`,
+`test_a_failing_cleanup_never_fails_the_request`), the statement budget
+(`test_a_hot_route_costs_at_most_one_statement`,
+`test_the_ceiling_is_counted_in_the_process_not_in_the_database`), the real pool
+(`test_the_real_pool_is_autocommit_and_counts`), the role's grants
+(`test_the_api_role_runs_the_limiter_and_can_do_nothing_else_to_the_table`,
+`test_nobody_else_can_reach_the_table`, `test_granting_twice_keeps_one_policy`), and the failure behavior
+(`test_an_outage_degrades_to_per_process_counting_with_a_warning`,
+`test_the_breaker_lets_the_database_back_in_after_a_few_seconds`,
+`test_the_routes_that_stop_guessing_fail_closed`, `test_a_missing_table_is_an_outage_not_a_500`,
+`test_the_default_backend_is_memory_and_never_touches_the_database`). The migration itself is applied in
+a throwaway schema by `services/ingest/tests/test_db.py`. `test_api_role.py` counts 18 policies now
+(it is skipped on the CI image, see S8).
 
 **R4. `/parse-image` is anonymous (Low).** The monthly cap is global, so a determined caller from many
 addresses can use it up (availability, not cost: the cap is the brake). Requiring a signed-in user for
 photos, or a per-user monthly count, would fix it; it changes the product (a signed-out person can use
 photos today).
 
-**R5. HS256 shared secret (Low).** `SUPABASE_JWT_SECRET` can mint any user's token, so whoever reads
-the API's environment is every user. Supabase projects can sign with an asymmetric key (published as
-JWKS); verifying with the public key and pinning ES256 removes the secret from the API host. Do this
-when the project is created, before the first token is issued, since changing it signs everyone out.
+**R5. HS256 shared secret (Low; fixed in the API, the project switch is the owner's).**
+`SUPABASE_JWT_SECRET` can mint any user's token, so whoever reads the API's environment is every user.
+The API now also verifies tokens signed with the project's asymmetric key, which it fetches as a JWKS
+(`smartcart_api/jwks.py`, `auth.verify_token`); only the public half ever reaches the API host.
+
+- Keys: `SUPABASE_JWKS_URL`, else `$SUPABASE_URL/auth/v1/.well-known/jwks.json`, fetched lazily the
+  first time an ES256 or RS256 token arrives (a project that still signs with the secret never causes
+  a request), cached for `SUPABASE_JWKS_TTL_S` (600 s). A `kid` that is not in the cache refreshes the
+  set, and any refresh, for an unknown `kid` or an expired TTL, happens at most once per
+  `SUPABASE_JWKS_MIN_REFRESH_S` (30 s) per process, so a caller who sends random key ids cannot make
+  the API fetch per request (`jwt.PyJWKClient` would, which is why it is not used). Fetch: no
+  redirects, 3 s timeout, 64 KB cap. A failed refresh keeps serving the keys held for up to an hour
+  past the TTL (a key Supabase has revoked stays trusted that long during an outage of the endpoint at
+  worst); with nothing usable the answer is **503** `signing keys are unavailable`, not 401, so the app
+  does not sign people out because of our network.
+- Algorithms: decided by the key, never by the token. The verifier picks the key by `kid` and verifies
+  with the algorithm the key declares (`alg`, or from its type when absent: EC P-256 is ES256, RSA is
+  RS256). A token whose header names another algorithm, `none`, `HS384/512`, `PS*`, `ES384`, `EdDSA`
+  or a different case is refused. Entries that are symmetric (`oct`), carry private material (`d`), are
+  `use: enc`, are malformed, or declare an algorithm their type cannot do are never loaded. An
+  asymmetric token must carry a `kid`. `jwk`, `jku`, `x5u` and `x5c` headers are ignored.
+- Algorithm confusion: an HS256 token is only ever checked against `SUPABASE_JWT_SECRET`, and never
+  against anything from the key set. A token HS256-signed with the published public key (PEM, JWK,
+  raw coordinates or modulus) therefore fails whether the shared secret is configured or not.
+- Claims are checked by the same code for every algorithm: `exp` and `sub` required, `aud`, `iss`
+  when `SUPABASE_JWT_ISSUER` is set (set it: it also ties the keys to one project), 30 s of skew,
+  `nbf`/`iat`, role `authenticated`, `sub` a UUID, 8 KB cap, fixed 401 messages.
+- Fallback: HS256 with `SUPABASE_JWT_SECRET` stays on while the secret is configured, for a project
+  that has not migrated and for tokens issued before it does. Remove the variable to switch it off:
+  HS256 tokens are then 401 (`invalid token`) even with the right secret. With neither a secret nor a
+  JWKS URL the behavior is as before (503 `SUPABASE_JWT_SECRET is not configured`).
+- Dependency: `pyjwt[crypto]` (the `cryptography` package was already in `uv.lock` through another
+  dependency; the lock file only records the extra).
+- Owner's steps once the project exists (not verified against a real project: there is none): in the
+  Supabase dashboard (Project Settings, JWT Signing Keys) create an asymmetric key (ES256 recommended)
+  and rotate to it, set `SUPABASE_JWT_ISSUER`, check `/me/profile` works for a fresh sign-in, wait one
+  access-token lifetime (default 1 hour) so every old HS256 token has expired, then delete
+  `SUPABASE_JWT_SECRET` from `api.env` and restart. Do it before the first real token if you can: until
+  the secret is removed, whoever has it can still mint a user.
+
+Tests: `test_api_security_jwks.py` (65): ES256 and RS256 tokens from generated keys served by a fake
+JWKS endpoint (a real HTTP server), the URL derived from `SUPABASE_URL`, the claim matrix run for
+HS256, ES256 and RS256 (expired and skew, `aud`, `iss`, role, `sub`, `nbf`), tampering, a wrong key
+under the right `kid`, `test_hs256_signed_with_the_public_key_is_refused` (7 kinds of key material, 3
+`kid` forms, shared secret on and off), `test_alg_none_is_refused_with_and_without_a_kid`,
+`test_only_the_algorithms_the_key_declares_are_accepted` (14 headers),
+`test_the_header_cannot_move_a_token_to_another_keys_algorithm`, `test_asymmetric_tokens_need_a_kid`,
+`test_keys_or_urls_carried_by_the_token_are_ignored`,
+`test_a_shared_secret_published_in_the_key_set_is_not_used`,
+`test_entries_that_are_not_usable_signing_keys_are_skipped`, rotation
+(`test_a_rotated_in_key_is_picked_up_on_its_first_token`), the refresh limit
+(`test_random_kids_cannot_make_the_api_fetch_over_and_over`: 50 random kids, one fetch), parallel first
+requests (one fetch), the fallback on and off, a project on the secret never fetching, endpoint
+failures (500, garbage, oversized, redirect, nothing listening: 503 and no URL in the body), and the
+cache on a controlled clock (TTL, throttle, stale-on-failure, revocation at the next refresh).
 
 **R6. Consent for a location is enforced by the API only (Low).** `profiles` has no CHECK that a
 location needs `consent_location`; the API enforces it. After S2 the data API cannot write `profiles`,
@@ -401,6 +523,11 @@ by `list_id` and by row-level security, not by a channel secret.
 |---|---|---|
 | `SUPABASE_JWT_ISSUER` | API | `https://<project>.supabase.co/auth/v1`; set it once the project exists |
 | `API_RATE_LIMIT` | API | `0` switches the per-client limits off (load tests only) |
+| `API_RATE_LIMIT_BACKEND` | API | `memory` (default) or `postgres`: counters shared by every worker and replica; set `postgres` after the migration `20261022120000` (R3) |
+| `API_RATE_LIMIT_POOL_MAX` | API | 3: connections per process for the shared limiter's own pool; count it in the pooler's budget (workers x (`API_POOL_MAX` + this)) |
+| `SUPABASE_JWKS_URL` | API | the project's key set; default `$SUPABASE_URL/auth/v1/.well-known/jwks.json` when `SUPABASE_URL` is set (R5) |
+| `SUPABASE_JWT_SECRET` | API | the HS256 fallback; delete it once the project signs with an asymmetric key and the old tokens have expired |
+| `SUPABASE_JWKS_TTL_S`, `SUPABASE_JWKS_MIN_REFRESH_S` | API | 600 and 30: how long keys are trusted, and the least time between two fetches |
 | `API_MAX_BODY_BYTES` | API | default 262144 |
 | `API_PUSH_ENDPOINT_HOSTS` | API | `fcm.googleapis.com,.push.services.mozilla.com,.notify.windows.com,.push.apple.com` in production |
 | `FORWARDED_ALLOW_IPS` | uvicorn | `127.0.0.1` (the default) when Caddy is on the same host; the proxy's address otherwise, or every client shares one limit |
