@@ -15,6 +15,8 @@ name: Real day
 # Run it after about 08:00 Israel time (the laibcatalog listing is empty before that, D13).
 
 on:
+  push:
+    branches: [more7/realday2]
   workflow_dispatch:
     inputs:
       chains:
@@ -89,12 +91,12 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       PYTHONUNBUFFERED: "1"
       CHAINS: ${{ inputs.chains || '' }}
-      ANCHORS: ${{ inputs.anchors }}
-      PER_CHAIN: ${{ inputs.per_chain }}
-      MAX_FILES: ${{ inputs.max_files }}
-      TIMEOUT: ${{ inputs.timeout }}
-      WITH_PROMOS: ${{ inputs.with_promos }}
-      STRESS: ${{ inputs.stress }}
+      ANCHORS: ${{ inputs.anchors || 3 }}
+      PER_CHAIN: ${{ inputs.per_chain || 2 }}
+      MAX_FILES: ${{ inputs.max_files || 40 }}
+      TIMEOUT: ${{ inputs.timeout || 240 }}
+      WITH_PROMOS: ${{ github.event_name == 'push' && 'true' || inputs.with_promos }}
+      STRESS: ${{ github.event_name == 'push' && 'true' || inputs.stress }}
 
     steps:
       # The code lives on the chosen ref; no schedule, so no default-branch fallback is needed.
