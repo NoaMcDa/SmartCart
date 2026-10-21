@@ -26,12 +26,12 @@ from smartcart_catalog.audit_real import (
     write_csv,
 )
 from smartcart_catalog.cli import app
-from smartcart_catalog.review_packet import load_real_items
+from smartcart_catalog.review_packet import AUDIT_SNAPSHOT_DIR, load_real_items
 
 
 @pytest.fixture(scope="module")
 def items():
-    found = load_real_items()
+    found = load_real_items(AUDIT_SNAPSHOT_DIR)
     if not found:
         pytest.skip("real fixtures not present")
     return found

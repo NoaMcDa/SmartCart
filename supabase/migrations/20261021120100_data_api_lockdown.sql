@@ -32,22 +32,25 @@
 DO $$
 DECLARE
   r text;
+  -- The schema the migration runs in: public in production. The migration tests apply every
+  -- file inside a throwaway schema, and a hard-coded public would strip the real schema there.
+  s text := current_schema();
 BEGIN
   FOREACH r IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
       CONTINUE;  -- a plain Postgres (a laptop): no data API roles, nothing to do
     END IF;
-    EXECUTE format('REVOKE ALL ON ALL TABLES IN SCHEMA public FROM %I', r);
-    EXECUTE format('REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM %I', r);
-    EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM %I', r);
-    EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM %I', r);
+    EXECUTE format('REVOKE ALL ON ALL TABLES IN SCHEMA %I FROM %I', s, r);
+    EXECUTE format('REVOKE ALL ON ALL SEQUENCES IN SCHEMA %I FROM %I', s, r);
+    EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I REVOKE ALL ON TABLES FROM %I', s, r);
+    EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I REVOKE ALL ON SEQUENCES FROM %I', s, r);
     -- Supabase's own default privileges are declared for supabase_admin as well; the migrating role
     -- may not be allowed to change those.
     BEGIN
       EXECUTE format(
-        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL ON TABLES FROM %I', r);
+        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA %I REVOKE ALL ON TABLES FROM %I', s, r);
       EXECUTE format(
-        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL ON SEQUENCES FROM %I', r);
+        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA %I REVOKE ALL ON SEQUENCES FROM %I', s, r);
     EXCEPTION WHEN insufficient_privilege OR undefined_object THEN
       RAISE NOTICE 'default privileges of supabase_admin left as they are (run as supabase_admin to change them)';
     END;
