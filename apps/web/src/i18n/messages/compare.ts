@@ -14,6 +14,7 @@ export const compareMessages = defineMessages({
     methodologyLink: "איך אנחנו משווים מחירים",
     reportGapButton: "דיווח על פער במחיר",
     loadingResults: "טוען תוצאות",
+    resultsReady: "התוצאות מוכנות",
     emptyTitle: "אין עדיין מה להשוות",
     emptyBody: "הוסיפי פריטים לרשימה ונחשב איפה הכי משתלם לקנות אותם.",
     buildList: "לבניית הרשימה",
@@ -78,6 +79,10 @@ export const compareMessages = defineMessages({
     undoSwap: "בטלי",
     undoSwapLabel: "ביטול ההחלפה של {name}",
     walkThrough: "לעבור על ההחלפות אחת אחת",
+    subAtThisStore: "באותו סניף",
+    subAtYourStore: "בסופר שלך",
+    subSavingBasisHere: "בהשוואה למוצר המקורי באותו סניף",
+    subSavingBasisHome: "בהשוואה למוצר המקורי בסופר שלך",
 
     // Smart cart
     reasonAnyBrand: "אותו סוג מוצר ואותה כמות, במותג אחר. מתאים לרמת ״כל מותג״.",
@@ -128,6 +133,7 @@ export const compareMessages = defineMessages({
     methodologyLink: "كيف نقارن الأسعار",
     reportGapButton: "الإبلاغ عن فرق في السعر",
     loadingResults: "جارٍ تحميل النتائج",
+    resultsReady: "النتائج جاهزة",
     emptyTitle: "لا يوجد ما يمكن مقارنته بعد",
     emptyBody: "أضف أصنافًا إلى القائمة وسنحسب أين الأفضل لشرائها.",
     buildList: "إنشاء القائمة",
@@ -189,6 +195,10 @@ export const compareMessages = defineMessages({
     undoSwap: "تراجع",
     undoSwapLabel: "التراجع عن استبدال {name}",
     walkThrough: "مراجعة البدائل واحدًا واحدًا",
+    subAtThisStore: "في الفرع نفسه",
+    subAtYourStore: "في سوبرماركتك",
+    subSavingBasisHere: "مقارنةً بالمنتج الأصلي في الفرع نفسه",
+    subSavingBasisHome: "مقارنةً بالمنتج الأصلي في سوبرماركتك",
 
     reasonAnyBrand: "نفس نوع المنتج ونفس الكمية، بماركة مختلفة. مناسب لمستوى «أي ماركة».",
     reasonClose:

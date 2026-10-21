@@ -73,6 +73,8 @@ class LocalRawStore:
         try:
             with os.fdopen(fd, "wb") as fh:
                 fh.write(data)
+                fh.flush()
+                os.fsync(fh.fileno())  # a power cut after the rename must not leave an empty file
             os.replace(tmp, path)
         except BaseException:
             Path(tmp).unlink(missing_ok=True)

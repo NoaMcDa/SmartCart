@@ -200,7 +200,12 @@ class SearchResponse(_Model):
 
 class BasketItem(_Model):
     canonical_id: int
-    quantity: Decimal = Field(gt=0)
+    quantity: Decimal = Field(
+        ge=Decimal("0.01"),
+        le=Decimal(1000),
+        description="Packs, or kg for a canonical sold by weight. At least 0.01 (a smaller "
+        "quantity prices to 0.00) and at most 1000 (an absurd one overflows the money type).",
+    )
     flex_level: FlexLevel = "any_brand"
     exact_item_id: int | None = Field(default=None, description="Required when flex_level is exact")
     allow: list[SoftAttribute] = Field(

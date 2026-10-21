@@ -23,7 +23,11 @@ permissions:
 jobs:
   web:
     name: lint, typecheck, unit, build, e2e, lighthouse
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26.04 in November 2026, and Playwright 1.56.1 (exact pin
+    # in apps/web/package.json) fails there ("Playwright does not support chromium on
+    # ubuntu26.04-x64", seen on an ubuntu-26.04 runner on 2026-10-21; Playwright supports 26.04
+    # from 1.61). Unpin when the Playwright pin is raised to 1.61 or newer.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     defaults:
       run:
@@ -33,9 +37,9 @@ jobs:
       CI: "true"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -62,7 +66,7 @@ jobs:
         run: npm run build
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
@@ -80,7 +84,7 @@ jobs:
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: |
@@ -94,7 +98,11 @@ jobs:
   # failure and the other way round.
   a11y:
     name: accessibility (axe, keyboard, reflow) and SEO pages
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26.04 in November 2026, and Playwright 1.56.1 (exact pin
+    # in apps/web/package.json) fails there ("Playwright does not support chromium on
+    # ubuntu26.04-x64", seen on an ubuntu-26.04 runner on 2026-10-21; Playwright supports 26.04
+    # from 1.61). Unpin when the Playwright pin is raised to 1.61 or newer.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -104,9 +112,9 @@ jobs:
       CI: "true"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -119,7 +127,7 @@ jobs:
         run: npm run build
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
@@ -137,7 +145,7 @@ jobs:
 
       - name: Upload accessibility report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: a11y-report
           path: |

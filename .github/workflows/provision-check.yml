@@ -33,14 +33,14 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       APPLY_MIGRATIONS: ${{ inputs.apply_migrations && '1' || '0' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: psql
         run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
 
       - name: Set up uv (only for apply_migrations)
         if: inputs.apply_migrations
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
           enable-cache: true
@@ -64,7 +64,7 @@ jobs:
       VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
       VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: VPS smoke tests
         run: SUMMARY_OUT="$GITHUB_STEP_SUMMARY" scripts/unblock/provision_check.sh vps
@@ -80,10 +80,10 @@ jobs:
       S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
       S3_REGION: ${{ secrets.S3_REGION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
 

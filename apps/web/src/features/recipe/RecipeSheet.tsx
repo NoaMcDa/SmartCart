@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { ApiError, parseRecipe, type ParsedRow, type ParseRecipeResponse } from "@/api/client";
 import {
   BottomSheet,
@@ -50,6 +50,15 @@ export function RecipeSheet({ open, onClose, onAdd }: RecipeSheetProps) {
   const [error, setError] = useState<RecipeMessageKey | null>(null);
   const [recipe, setRecipe] = useState<ParseRecipeResponse | null>(null);
   const [servings, setServings] = useState(4);
+  // The read that may still change the sheet. Closing (or leaving the page) starts a new number,
+  // so an answer that arrives later is dropped instead of filling a sheet the person dismissed.
+  const attempt = useRef(0);
+  useEffect(
+    () => () => {
+      attempt.current += 1;
+    },
+    [],
+  );
 
   const scaled = useMemo(
     // A recipe whose yield is unknown (servings null) cannot be scaled: its quantities stay as read.
@@ -63,6 +72,8 @@ export function RecipeSheet({ open, onClose, onAdd }: RecipeSheetProps) {
   );
 
   function close() {
+    attempt.current += 1;
+    setLoading(false);
     setRecipe(null);
     setError(null);
     onClose();
@@ -86,10 +97,12 @@ export function RecipeSheet({ open, onClose, onAdd }: RecipeSheetProps) {
       setError("errLinkHttps");
       return;
     }
+    const mine = (attempt.current += 1);
     setLoading(true);
     setError(null);
     try {
       const res = await parseRecipe(mode === "text" ? { text: value } : { url: value });
+      if (mine !== attempt.current) return;
       if (res.items.length === 0 && res.unresolved.length === 0) {
         setError("errNoIngredients");
         return;
@@ -97,9 +110,9 @@ export function RecipeSheet({ open, onClose, onAdd }: RecipeSheetProps) {
       setRecipe(res);
       setServings(Math.min(MAX_SERVINGS, Math.max(MIN_SERVINGS, res.servings ?? 4)));
     } catch (err) {
-      setError(errorKey(err, mode));
+      if (mine === attempt.current) setError(errorKey(err, mode));
     } finally {
-      setLoading(false);
+      if (mine === attempt.current) setLoading(false);
     }
   }
 

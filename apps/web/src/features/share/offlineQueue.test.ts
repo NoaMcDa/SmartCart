@@ -198,6 +198,8 @@ describe("telling no connection from a refusal", () => {
     expect(isNetworkFailure(new TypeError("Failed to fetch"))).toBe(true);
     expect(isNetworkFailure({ message: "TypeError: Failed to fetch" })).toBe(true);
     expect(isNetworkFailure({ message: "Load failed" })).toBe(true);
+    // A request the client gave up on (no answer within the timeout) is a dead link, not a refusal.
+    expect(isNetworkFailure(new DOMException("timed out", "TimeoutError"))).toBe(true);
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
     expect(isNetworkFailure(new Error("anything"))).toBe(true);
   });

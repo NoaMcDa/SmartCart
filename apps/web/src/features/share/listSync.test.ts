@@ -7,6 +7,7 @@ import {
   itemsOf,
   serverBody,
   type SharedItem,
+  sharedItemName,
 } from "./listSync";
 import { localListToServer } from "./sharedLists";
 
@@ -104,14 +105,19 @@ describe("rows and Realtime payloads", () => {
       flexLevel: "close",
       sort: 3,
     });
-    expect(itemFromRow({ id: 6, canonical_id: 1001, input_text: null })?.name).toBe(
-      "מוצר מס' 1001",
-    );
+    // A row without a name keeps none (it goes back to the server as it came); the screen names it.
+    const unnamed = itemFromRow({ id: 6, canonical_id: 1001, input_text: null })!;
+    expect(unnamed.name).toBe("");
+    expect(sharedItemName(unnamed)).toBe("מוצר מס' 1001");
+    expect(sharedItemName(unnamed, "ar")).toBe("منتج رقم 1001");
+    expect(serverBody("x", [unnamed]).items[0]).toMatchObject({ input_text: null });
     expect(itemFromRow({ id: 7, flex_level: "weird", quantity: -1 })).toMatchObject({
       flexLevel: "any_brand",
       quantity: 1,
-      name: "פריט",
+      name: "",
     });
+    expect(sharedItemName({ name: "", canonicalId: null })).toBe("פריט");
+    expect(sharedItemName({ name: "", canonicalId: null }, "ar")).toBe("صنف");
     expect(itemFromRow({})).toBeNull();
   });
 

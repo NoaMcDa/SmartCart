@@ -3,6 +3,14 @@
  * in try/catch: storage can be missing or throw (private window, blocked site data, SSR).
  * "Delete my data" removes every key listed in LOCAL_DATA_KEYS.
  */
+import {
+  readJson as stateReadJson,
+  removeKey as stateRemoveKey,
+  writeJson as stateWriteJson,
+} from "@/state/storage";
+
+export { readRaw, writeRaw } from "@/state/storage";
+
 export const STORAGE_KEYS = {
   /** LocalProfile (features/profile/profileState.ts). */
   profile: "sc-profile",
@@ -25,6 +33,20 @@ export const CORE_DATA_KEYS: ReadonlyArray<string> = [
   "sc-profile-v1",
   // Photo consent (features/consent/imageConsent.ts, issues #61 and #68).
   "sc-image-consent-v1",
+  // Shared lists this device owns or joined (features/share/sharedLists.ts) and the edits still
+  // waiting to be sent, which hold item names (features/share/offlineQueue.ts).
+  "sc-shared-lists-v1",
+  "sc-shared-queue-v1",
+  // Names remembered for price alerts (features/alerts/alertNames.ts).
+  "sc-alert-names-v1",
+  // Scan counters and the store the shopper picked (features/scan/scanLog.ts, scan/stores.ts).
+  "sc-scan-log-v1",
+  "sc-scan-store-v1",
+  // Dismissed swap suggestions (features/swaps/swapState.ts).
+  "sc-swaps-v1",
+  // The random id that ties usage events to one browser (features/seo/track.ts): deleting the data
+  // starts a new one. The yes or no answer about events (`sc-events-consent`) is a setting and stays.
+  "sc-session",
 ];
 
 export const LOCAL_DATA_KEYS: ReadonlyArray<string> = [
@@ -33,29 +55,15 @@ export const LOCAL_DATA_KEYS: ReadonlyArray<string> = [
 ];
 
 export function readJson<T>(key: string): T | null {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw === null ? null : (JSON.parse(raw) as T);
-  } catch {
-    return null;
-  }
+  return stateReadJson<T | null>(key, null);
 }
 
 export function writeJson(key: string, value: unknown): boolean {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
-  }
+  return stateWriteJson(key, value);
 }
 
 export function removeKey(key: string): void {
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    /* nothing to remove */
-  }
+  stateRemoveKey(key);
 }
 
 /** Removes everything the secondary screens persisted. The theme choice is a device setting and stays. */

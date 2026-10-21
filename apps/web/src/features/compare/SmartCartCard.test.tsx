@@ -89,6 +89,38 @@ describe("smart cart card", () => {
     expect(screen.queryByTestId("smart-cart")).toBeNull(); // nothing to suggest: nothing shown
   });
 
+  it("sends each row's allowed attributes with the swaps request, none for an exact row", async () => {
+    type Body = { items: Array<{ canonical_id: number; flex_level: string; allow?: string[] }> };
+    const bodies: Body[] = [];
+    server.use(
+      http.post(`${API_BASE_URL}/optimize/swaps`, async ({ request }) => {
+        bodies.push((await request.json()) as Body);
+        return HttpResponse.json({
+          store_id: 101,
+          swaps: [],
+          top_swap: null,
+          total_saving: "0.00",
+          generated_at: "2026-10-07T03:40:00Z",
+        });
+      }),
+    );
+    const idOf = (canonical: number) =>
+      getListState().items.find((i) => i.canonical?.canonical_id === canonical)!.id;
+    listActions.setFlex(idOf(1001), { level: "any_brand", allow: ["fat_pct"], remember: false });
+    listActions.setFlex(idOf(1002), {
+      level: "close",
+      allow: ["pack_size", "flavor"],
+      remember: false,
+    });
+    listActions.setFlex(idOf(1004), { level: "exact", allow: ["fat_pct"], remember: false });
+    render(<SmartCartCard plan={plan()} />);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    const by = new Map(bodies[0]!.items.map((i) => [i.canonical_id, i]));
+    expect(by.get(1001)).toMatchObject({ flex_level: "any_brand", allow: ["fat_pct"] });
+    expect(by.get(1002)).toMatchObject({ flex_level: "close", allow: ["pack_size", "flavor"] });
+    expect(by.get(1004)!.allow).toBeUndefined(); // exact ignores allow
+  });
+
   it("dismissing the top swap leaves the other two and a smaller total, and it stays dismissed", async () => {
     const user = userEvent.setup();
     const { unmount } = render(<SmartCartCard plan={plan()} />);

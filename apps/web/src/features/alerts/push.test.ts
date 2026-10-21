@@ -74,9 +74,12 @@ describe("push feature detection", () => {
 
   describe("enablePush", () => {
     let subscribe: ReturnType<typeof vi.fn>;
+    let unsubscribe: ReturnType<typeof vi.fn>;
     beforeEach(() => {
+      unsubscribe = vi.fn(() => Promise.resolve(true));
       subscribe = vi.fn(() =>
         Promise.resolve({
+          unsubscribe,
           toJSON: () => ({
             endpoint: "https://push.example/abc",
             keys: { p256dh: "P", auth: "A" },
@@ -205,6 +208,46 @@ describe("push feature detection", () => {
         ),
       );
       await expect(enablePush(KEY)).resolves.toEqual({ ok: false, reason: "error" });
+    });
+
+    it("drops the browser subscription it just made when the server did not take it", async () => {
+      stub(w, "Notification", {
+        permission: "default",
+        requestPermission: () => Promise.resolve("granted"),
+      });
+      server.use(
+        http.post(`${API_BASE_URL}/me/push-subscriptions`, () =>
+          HttpResponse.json({ detail: "x" }, { status: 500 }),
+        ),
+      );
+      await expect(enablePush(KEY)).resolves.toEqual({ ok: false, reason: "error" });
+      // Left in place, the panel would read "notifications on" for a device the server never heard of.
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps a subscription that was already there when the server call fails", async () => {
+      const existing = {
+        unsubscribe,
+        toJSON: () => ({ endpoint: "https://push.example/old", keys: { p256dh: "P", auth: "A" } }),
+      };
+      stub(nav, "serviceWorker", {
+        getRegistration: () =>
+          Promise.resolve({
+            pushManager: { getSubscription: () => Promise.resolve(existing), subscribe },
+          }),
+      });
+      stub(w, "Notification", {
+        permission: "granted",
+        requestPermission: () => Promise.resolve("granted"),
+      });
+      server.use(
+        http.post(`${API_BASE_URL}/me/push-subscriptions`, () =>
+          HttpResponse.json({ detail: "x" }, { status: 500 }),
+        ),
+      );
+      await expect(enablePush(KEY)).resolves.toEqual({ ok: false, reason: "error" });
+      expect(unsubscribe).not.toHaveBeenCalled();
+      expect(subscribe).not.toHaveBeenCalled();
     });
 
     it("does nothing without a key", async () => {

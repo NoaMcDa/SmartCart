@@ -10,6 +10,7 @@ import {
   planUpdatedAt,
   substitutionSaving,
   substitutionSavingHere,
+  substitutionSavingWithBasis,
 } from "./comparison";
 import { shopperFromStored } from "./shopper";
 
@@ -84,6 +85,29 @@ describe("plans and substitutions", () => {
     // The store that does not sell the original: null, and the home comparison stays.
     expect(findSubstitution(res, 10104, "single")!.item.original_here).toBeNull();
     expect(substitutionSavingHere(findSubstitution(res, 10104, "single")!.item)).toBeNull();
+  });
+
+  it("the shared saving rule says which comparison it made", () => {
+    // Same store when the API sends the original there; home store otherwise.
+    expect(substitutionSavingWithBasis(findSubstitution(res, 10101, "single")!)).toEqual({
+      perUnit: 0.6,
+      quantity: 2,
+      total: 1.2,
+      basis: "here",
+    });
+    expect(substitutionSavingWithBasis(findSubstitution(res, 10104, "single")!)).toEqual({
+      perUnit: 2.4,
+      quantity: 2,
+      total: 4.8,
+      basis: "home",
+    });
+    // A response without the field says nothing: the home comparison, as before.
+    const old = findSubstitution(res, 10101, "single")!;
+    const { original_here: _omit, ...item } = old.item;
+    expect(substitutionSavingWithBasis({ item, original: old.original })?.basis).toBe("home");
+    // Neither original known.
+    const noHome = findSubstitution(optimizeFixture({ homeStoreId: null }), 10104)!;
+    expect(substitutionSavingWithBasis(noHome)).toBeNull();
   });
 
   it("without a home store there is no original to compare with", () => {

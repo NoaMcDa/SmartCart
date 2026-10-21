@@ -6,7 +6,7 @@ import { useRich } from "@/i18n/format-2";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { StoreText } from "@/i18n/StoreText";
 import { mapMessages } from "@/i18n/messages/map";
-import { approxLocationNote } from "@/lib/format";
+import { approxLocationNote, formatPrice } from "@/lib/format";
 import { chainLabel } from "@/lib/storeName";
 import styles from "./Map.module.css";
 
@@ -46,7 +46,7 @@ export function PinButton({
   const { locale } = useLocale();
   const label =
     [
-      t("pinBasket", { chain: chainLabel(pin.chainName, locale), total: pin.total }),
+      t("pinBasket", { chain: chainLabel(pin.chainName, locale), total: formatPrice(pin.total) }),
       pin.approximate ? approxLocationNote(locale) : null,
       pin.recommended ? t("recommended") : null,
       pin.cheapest ? t("cheapest") : null,

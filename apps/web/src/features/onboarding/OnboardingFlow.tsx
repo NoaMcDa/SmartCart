@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DocumentTitle } from "@/components/shell/PageChrome";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -41,6 +41,19 @@ export function OnboardingFlow() {
   const [step, setStep] = useState(0);
   const last = STEPS.length - 1;
   const current = STEPS[step]!;
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const firstStep = useRef(true);
+
+  // The button that was pressed stays where it is while the card changes under it, so a screen
+  // reader would say nothing about the new step. Focus goes to the step's heading, which reads the
+  // title; the first render keeps the page's own start.
+  useEffect(() => {
+    if (firstStep.current) {
+      firstStep.current = false;
+      return;
+    }
+    titleRef.current?.focus();
+  }, [step]);
 
   function finish() {
     updateProfile({ onboardingDone: true });
@@ -84,7 +97,7 @@ export function OnboardingFlow() {
       </nav>
 
       <Card as="section" aria-labelledby="step-title" className={styles.card}>
-        <h2 id="step-title" className={styles.stepTitle}>
+        <h2 id="step-title" ref={titleRef} tabIndex={-1} className={styles.stepTitle}>
           {t(current.titleKey)}
         </h2>
         <aside className={styles.why} aria-label={t("whyAside")}>

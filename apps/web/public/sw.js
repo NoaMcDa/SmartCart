@@ -166,7 +166,7 @@ function alertBody(data) {
   const parts = [];
   if (data.product) parts.push(String(data.product));
   if (data.store) parts.push(String(data.store));
-  if (data.price !== undefined && data.price !== null) parts.push(`₪\u00A0${data.price}`);
+  if (data.price !== undefined && data.price !== null) parts.push(`\u2066₪\u00A0${data.price}\u2069`); // LTR isolate: the sign stays in front of the digits in Hebrew text
   const updated = data.updated_at ? formatUpdated(data.updated_at) : "";
   const head = parts.join(" · ") || "מוצר ברשימת ההתראות שלך הגיע למחיר שביקשת.";
   return [head, updated ? `מחיר מ-${updated}.` : "", CHECKOUT_NOTE].filter(Boolean).join(" ");

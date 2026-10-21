@@ -85,8 +85,9 @@ export async function enablePush(key: string = VAPID_PUBLIC_KEY): Promise<Enable
     if (before !== "granted") trackEvent("push_opt_in", { platform: detectPlatform() });
     const reg = await registration();
     if (!reg) return { ok: false, reason: "unsupported" };
+    const existing = await reg.pushManager.getSubscription();
     const sub =
-      (await reg.pushManager.getSubscription()) ??
+      existing ??
       (await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(key),
@@ -95,13 +96,20 @@ export async function enablePush(key: string = VAPID_PUBLIC_KEY): Promise<Enable
     const p256dh = json.keys?.p256dh;
     const auth = json.keys?.auth;
     if (!json.endpoint || !p256dh || !auth) return { ok: false, reason: "error" };
-    ensureApiAuth();
-    await addPushSubscription({
-      endpoint: json.endpoint,
-      p256dh,
-      auth,
-      user_agent: navigator.userAgent.slice(0, 200),
-    });
+    try {
+      ensureApiAuth();
+      await addPushSubscription({
+        endpoint: json.endpoint,
+        p256dh,
+        auth,
+        user_agent: navigator.userAgent.slice(0, 200),
+      });
+    } catch (err) {
+      // The server does not know this device, so it must not look "on": a browser subscription
+      // made just now is dropped again, and the next tap starts clean.
+      if (!existing) await sub.unsubscribe().catch(() => false);
+      throw err;
+    }
     return { ok: true };
   } catch {
     return { ok: false, reason: "error" };

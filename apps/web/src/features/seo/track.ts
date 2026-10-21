@@ -256,6 +256,11 @@ export function trackEvent<N extends EventName>(
 export async function flushEvents(): Promise<void> {
   if (timer) clearTimeout(timer);
   timer = undefined;
+  // Consent may have been withdrawn in another tab since these were queued: nothing leaves then.
+  if (!isTrackingEnabled()) {
+    queue = [];
+    return;
+  }
   const batch = queue.splice(0, MAX_BATCH);
   if (batch.length === 0) return;
   const headers: Record<string, string> = { "Content-Type": "application/json" };

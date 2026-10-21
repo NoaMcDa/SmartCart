@@ -5,6 +5,7 @@
  * does not read until a profile field exists to write it. Removed by "delete my data".
  */
 import { useSyncExternalStore } from "react";
+import { normalizeNumberInput } from "@/lib/numberInput";
 import {
   STORAGE_KEYS,
   notifyStorageChange,
@@ -18,9 +19,20 @@ export const MAX_BUDGET = 1_000_000;
 
 type StoredBudget = { monthly?: unknown };
 
+/** What was typed as plain digits: Arabic digits read, "₪" dropped, "2,500" taken as 2500. */
+function typedBudget(text: string): string {
+  const plain = normalizeNumberInput(normalizeNumberInput(text).replace(/₪/g, ""));
+  return /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(plain) ? plain.replace(/,/g, "") : plain;
+}
+
 /** A usable budget: a positive whole number of shekels up to a million; anything else is null. */
 export function validBudget(value: unknown): number | null {
-  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(typedBudget(value))
+        : NaN;
   if (!Number.isFinite(n)) return null;
   const whole = Math.round(n);
   return whole >= 1 && whole <= MAX_BUDGET ? whole : null;

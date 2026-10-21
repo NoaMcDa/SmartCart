@@ -109,9 +109,26 @@ async function mockFetch(request: Request): Promise<Response> {
   );
 }
 
+/**
+ * A request that gets no answer for this long fails (the screens then show their error and retry),
+ * instead of leaving a spinner on a connection that hangs. Photo reading is the slowest call.
+ */
+export const REQUEST_TIMEOUT_MS = 60_000;
+
+/** The request with a timeout added to its own abort signal. Browsers without `AbortSignal.any`
+ * keep the request as it is. */
+function withTimeout(request: Request): Request {
+  if (typeof AbortSignal.timeout !== "function" || typeof AbortSignal.any !== "function") {
+    return request;
+  }
+  return new Request(request, {
+    signal: AbortSignal.any([request.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
+  });
+}
+
 export const api = createClient<paths>({
   baseUrl: API_BASE_URL,
-  fetch: API_MOCK ? mockFetch : (request) => globalThis.fetch(request),
+  fetch: API_MOCK ? mockFetch : (request) => globalThis.fetch(withTimeout(request)),
 });
 
 function unwrap<T>(result: { data?: T; error?: unknown; response: Response }): T {

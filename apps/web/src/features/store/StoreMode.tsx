@@ -196,7 +196,10 @@ function StoreModeInner() {
       : { total: progress.allTotal, count: progress.total, ofPlan: true };
 
   function finish() {
-    if (!session) return;
+    // A second tap before the page has left (the handler still sees this session) would record
+    // the same shop twice, in the savings history and in the budget.
+    if (!session || finishing.current) return;
+    finishing.current = true;
     if (saving !== null && progress.checked > 0) {
       recordSaving({ storeName: session.storeName, listName: session.listName, net: saving });
     }
@@ -212,7 +215,6 @@ function StoreModeInner() {
       });
       if (signedIn) void pushPendingSpend();
     }
-    finishing.current = true;
     clearSession();
     router.push("/");
   }

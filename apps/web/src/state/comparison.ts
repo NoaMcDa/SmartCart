@@ -93,7 +93,7 @@ export function estimateRange(
   if (items.length === 0) return null;
   const totals: Array<{ store: StoreResult; total: number }> = [];
   for (const store of res.stores) {
-    let total = 0;
+    let agorot = 0; // whole agorot per line, so a long list never drifts by a float error
     let complete = true;
     for (const it of items) {
       const line = store.items.find((l) => l.canonical_id === it.canonical_id);
@@ -101,9 +101,9 @@ export function estimateRange(
         complete = false;
         break;
       }
-      total += perUnit(line) * Number(it.quantity);
+      agorot += Math.round(perUnit(line) * Number(it.quantity) * 100);
     }
-    if (complete) totals.push({ store, total: Math.round(total * 100) / 100 });
+    if (complete) totals.push({ store, total: agorot / 100 });
   }
   if (totals.length === 0) return null;
   totals.sort((a, b) => a.total - b.total);
@@ -272,4 +272,20 @@ export function substitutionSaving(ctx: Pick<SubstitutionContext, "item" | "orig
 } | null {
   if (!ctx.original) return null;
   return shelfSaving(ctx.original.item.shelf_price, ctx.item);
+}
+
+export type SubstitutionSavingBasis = "here" | "home";
+
+/**
+ * The saving every substitute shows, on the card and in the results screen's list alike: against
+ * the original at the substitute's own store when the API sends it (`here`), otherwise against the
+ * home store's original (`home`, D7). Null when neither is known.
+ */
+export function substitutionSavingWithBasis(
+  ctx: Pick<SubstitutionContext, "item" | "original">,
+): { perUnit: number; quantity: number; total: number; basis: SubstitutionSavingBasis } | null {
+  const here = substitutionSavingHere(ctx.item);
+  if (here) return { ...here, basis: "here" };
+  const home = substitutionSaving(ctx);
+  return home ? { ...home, basis: "home" } : null;
 }

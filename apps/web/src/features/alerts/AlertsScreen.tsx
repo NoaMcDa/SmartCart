@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { deleteAlert, listAlerts, updateAlert, type PriceAlert } from "@/api/client";
 import { DocumentTitle } from "@/components/shell/PageChrome";
 import { Button, Card, FlexChip, Price, Skeleton, Tag, UpdatedAt } from "@/components/ui";
@@ -11,6 +11,7 @@ import { useLocale, useT } from "@/i18n/LocaleProvider";
 import type { Locale } from "@/i18n/locales";
 import { alertMessages } from "@/i18n/messages/alerts";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { rescueFocus } from "@/lib/focus";
 import { alertLabel } from "./alertNames";
 import { alertError } from "./AlertMe";
 import { alertBody, EditAlertSheet } from "./EditAlertSheet";
@@ -62,11 +63,18 @@ export function AlertsScreen() {
     void fetchAlerts(locale).then(setState);
   }
 
-  async function remove(alert: PriceAlert) {
+  // Alerts with a request on the way: a second tap on the same button would delete twice and
+  // report the 404 of the second as a server error, or toggle the pause back.
+  const sending = useRef(new Set<number>());
+
+  async function remove(alert: PriceAlert, button: HTMLElement) {
+    if (sending.current.has(alert.id)) return;
+    sending.current.add(alert.id);
     setNotice(null);
     try {
       ensureApiAuth();
       await deleteAlert(alert.id);
+      rescueFocus(button); // the row goes: focus to the next alert, or to the empty state
       setState((s) =>
         s.kind === "ready"
           ? { kind: "ready", alerts: s.alerts.filter((a) => a.id !== alert.id) }
@@ -75,6 +83,8 @@ export function AlertsScreen() {
       setNotice(t("noticeDeleted", { name: alertLabel(alert.canonical_id, locale).name }));
     } catch (err) {
       setNotice(alertError(err, locale));
+    } finally {
+      sending.current.delete(alert.id);
     }
   }
 
@@ -87,6 +97,8 @@ export function AlertsScreen() {
   }
 
   async function setActive(alert: PriceAlert, active: boolean) {
+    if (sending.current.has(alert.id)) return;
+    sending.current.add(alert.id);
     setNotice(null);
     try {
       ensureApiAuth();
@@ -95,6 +107,8 @@ export function AlertsScreen() {
       setNotice(t(active ? "noticeResumed" : "noticePaused", { name }));
     } catch (err) {
       setNotice(alertError(err, locale));
+    } finally {
+      sending.current.delete(alert.id);
     }
   }
 
@@ -143,7 +157,9 @@ export function AlertsScreen() {
 
       {!needsSignIn && state.kind === "ready" && state.alerts.length === 0 ? (
         <Card data-testid="alerts-empty">
-          <h2 className={styles.title}>{t("emptyTitle")}</h2>
+          <h2 className={styles.title} tabIndex={-1} data-focus-fallback>
+            {t("emptyTitle")}
+          </h2>
           <p className={styles.hint}>{t("emptyBody")}</p>
           <Button href="/" variant="outline" size="sm">
             {t("toList")}
@@ -208,7 +224,7 @@ export function AlertsScreen() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => void remove(a)}
+                      onClick={(e) => void remove(a, e.currentTarget)}
                       aria-label={t("deleteLabel", { name: label.name })}
                     >
                       {t("delete")}

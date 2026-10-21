@@ -39,12 +39,19 @@ export function loadSupabase(): Promise<SupabaseClient | null> {
     client = null;
     return Promise.resolve(null);
   }
-  loading ??= import("@supabase/supabase-js").then(({ createClient }) => {
-    client ??= createClient(URL_, ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+  loading ??= import("@supabase/supabase-js")
+    .then(({ createClient }) => {
+      client ??= createClient(URL_, ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+      });
+      return client;
+    })
+    .catch((err: unknown) => {
+      // The chunk could not be fetched (offline, a flaky connection): forget the failure so the
+      // next call tries again, instead of handing every later caller the same rejected promise.
+      loading = undefined;
+      throw err;
     });
-    return client;
-  });
   return loading;
 }
 

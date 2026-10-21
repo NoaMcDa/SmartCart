@@ -7,6 +7,7 @@ import controls from "@/features/profile/controls/controls.module.css";
 import { formatRich } from "@/i18n/format";
 import { useT } from "@/i18n/LocaleProvider";
 import { authMessages } from "@/i18n/messages/auth";
+import { normalizeNumberInput } from "@/lib/numberInput";
 import { loadSupabase } from "./supabaseClient";
 
 type Step = "email" | "code";
@@ -45,49 +46,66 @@ export function SignInSheet({ open, configured, onClose, onSignedIn }: SignInShe
 
   async function sendCode(e: FormEvent) {
     e.preventDefault();
-    const supabase = await loadSupabase();
-    if (!supabase) return;
+    // A second Enter while the first code is being sent would ask for a second code and show its
+    // rate-limit refusal as "could not send", on top of a code that did go out.
+    if (busy) return;
     if (!EMAIL_RE.test(email.trim())) {
       setError(t("errorEmailInvalid"));
       return;
     }
     setBusy(true);
     setError(null);
-    const { error: err } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { shouldCreateUser: true },
-    });
-    setBusy(false);
-    if (err) {
+    try {
+      const supabase = await loadSupabase();
+      if (!supabase) return;
+      const { error: err } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: { shouldCreateUser: true },
+      });
+      if (err) {
+        setError(t("errorSendFailed"));
+        return;
+      }
+      setStep("code");
+    } catch {
+      // No connection, or the library did not load: say so instead of leaving the button busy.
       setError(t("errorSendFailed"));
-      return;
+    } finally {
+      setBusy(false);
     }
-    setStep("code");
   }
 
   async function verify(e: FormEvent) {
     e.preventDefault();
-    const supabase = await loadSupabase();
-    if (!supabase) return;
-    if (!/^\d{6,10}$/.test(code.trim())) {
+    if (busy) return;
+    // An Arabic keyboard types Arabic-Indic digits; the code is the same number.
+    const token = normalizeNumberInput(code);
+    if (!/^\d{6,10}$/.test(token)) {
       setError(t("errorCodeFormat"));
       return;
     }
     setBusy(true);
     setError(null);
-    const { error: err } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: code.trim(),
-      type: "email",
-    });
-    setBusy(false);
-    if (err) {
-      setError(t("errorCodeWrong"));
-      return;
+    try {
+      const supabase = await loadSupabase();
+      if (!supabase) return;
+      const { error: err } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token,
+        type: "email",
+      });
+      if (err) {
+        setError(t("errorCodeWrong"));
+        return;
+      }
+      setStep("email");
+      setCode("");
+      onSignedIn();
+    } catch {
+      setError(t("errorVerifyFailed"));
+    } finally {
+      setBusy(false);
     }
-    setStep("email");
-    setCode("");
-    onSignedIn();
   }
 
   return (

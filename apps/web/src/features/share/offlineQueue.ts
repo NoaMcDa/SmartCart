@@ -71,7 +71,25 @@ function sanitize(raw: unknown): Stored {
   return { version: 1, lists };
 }
 
+let watching = false;
+
+/**
+ * Another tab changed the queue (it replayed it, or added edits), or the data was deleted: read it
+ * again instead of writing this tab's older copy over it, which would replay edits twice or bring
+ * back what "delete my data" removed.
+ */
+function watchOtherTabs() {
+  if (watching || typeof window === "undefined") return;
+  watching = true;
+  window.addEventListener("storage", (e) => {
+    if (e.key !== null && e.key !== SHARED_QUEUE_KEY) return;
+    snapshot = null;
+    listeners.forEach((l) => l());
+  });
+}
+
 function load(): Stored {
+  watchOtherTabs();
   if (!snapshot) snapshot = sanitize(readJson(SHARED_QUEUE_KEY, null));
   return snapshot;
 }
@@ -209,6 +227,14 @@ export function isNetworkFailure(err: unknown): boolean {
   if (err instanceof ApiError) return false;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
   if (err instanceof TypeError) return true;
+  // The client gives up on a request that gets no answer (`REQUEST_TIMEOUT_MS`): a dead link.
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: unknown }).name === "TimeoutError"
+  ) {
+    return true;
+  }
   const message =
     typeof err === "object" && err !== null && "message" in err
       ? String((err as { message: unknown }).message)

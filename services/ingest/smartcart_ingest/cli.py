@@ -8,7 +8,8 @@ Commands match the systemd units in ``infra/vps``:
 * ``smartcart-ingest status``                           file_tracking counts by chain and status
 
 ``run`` exits 1 when a chain could not run (portal down after backoff, no adapter) or a file
-failed to parse or load; quarantines are not errors. Alerts carry the details either way.
+failed to parse or load; quarantines are not errors. It exits 75 without doing anything when
+another run holds the database lock. Alerts carry the details either way.
 """
 
 from __future__ import annotations
@@ -32,11 +33,14 @@ from smartcart_ingest import tracking
 from smartcart_ingest.alerts import build_alerter
 from smartcart_ingest.download import Fetcher, ScraperFetcher, quiet_upstream_loggers
 from smartcart_ingest.rawstore import RawStore, rawstore_from_settings
-from smartcart_ingest.scheduler import D13_CHAINS, RunReport, Scheduler
+from smartcart_ingest.scheduler import D13_CHAINS, RunLocked, RunReport, Scheduler
 from smartcart_ingest.settings import Settings, load_settings
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="SmartCart ingestion worker.")
 log = structlog.get_logger("smartcart_ingest.cli")
+
+
+EXIT_LOCKED = 75
 
 
 class Mode(StrEnum):
@@ -159,6 +163,11 @@ def run(
                 if missing:
                     log.warning("no adapter registered yet, skipping", chains=missing)
             report = sched.run_full(chains) if mode is Mode.full else sched.run_delta(chains)
+    except RunLocked as exc:
+        # Not an error of this run, but not a success either: nothing was ingested. 75 is
+        # EX_TEMPFAIL ("try again"), so a timer shows the skipped tick as failed.
+        typer.echo(f"skipped: {exc}", err=True)
+        raise typer.Exit(code=EXIT_LOCKED) from exc
     finally:
         close = getattr(fetcher, "close", None)
         if callable(close):

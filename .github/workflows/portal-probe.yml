@@ -74,12 +74,12 @@ jobs:
     steps:
       # Scheduled runs use the default branch, which may hold only docs and workflow copies; the
       # code lives on main, so a scheduled run checks main out. Manual runs use the chosen ref.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'schedule' && 'main' || '' }}
 
       - name: Set up uv and Python 3.12
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
           enable-cache: true
@@ -150,7 +150,7 @@ jobs:
 
       - name: Upload the fixtures for the commit job
         if: inputs.commit_fixtures && steps.fixtures.outputs.chains != '0'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: portal-probe-fixtures
           path: ${{ runner.temp }}/portal-probe/fixtures
@@ -159,7 +159,7 @@ jobs:
 
       - name: Upload the downloaded files
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: portal-probe-files
           path: ${{ runner.temp }}/portal-probe/files
@@ -168,7 +168,7 @@ jobs:
 
       - name: Upload the probe table
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: portal-probe-report
           path: |
@@ -187,12 +187,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
 
       - name: Download the fixtures
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: portal-probe-fixtures
           path: ${{ runner.temp }}/fixtures

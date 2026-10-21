@@ -2,7 +2,7 @@
  * Monthly budget and spend on screen (issue #70): "נותר החודש" on the results and the split, the
  * Profile section with its six-month chart, and "סיימתי לקנות" in store mode.
  */
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -198,7 +198,24 @@ describe("the Profile section", () => {
     await user.click(screen.getByRole("button", { name: "ניקוי התקציב" }));
     expect(window.localStorage.getItem(STORAGE_KEYS.budget)).toBeNull();
     expect(screen.getByTestId("budget-facts")).toHaveTextContent("לא הוגדר תקציב");
-    expect(field).toHaveValue(null);
+    expect(field).toHaveValue("");
+  });
+
+  it("reads a budget typed with a thousands separator or on an Arabic keyboard", async () => {
+    const user = userEvent.setup();
+    render(<MonthlyBudgetSection />);
+    const field = screen.getByLabelText(/כמה את רוצה להוציא/);
+    await user.type(field, "2,500");
+    await user.click(screen.getByRole("button", { name: "שמירת תקציב" }));
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEYS.budget)!)).toEqual({
+      monthly: 2500,
+    });
+    await user.clear(field);
+    await user.type(field, "٣١٠٠");
+    await user.click(screen.getByRole("button", { name: "שמירת תקציב" }));
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEYS.budget)!)).toEqual({
+      monthly: 3100,
+    });
   });
 
   it("refuses an amount that is not a positive number of shekels", async () => {
@@ -477,6 +494,22 @@ describe("סיימתי לקנות in store mode", () => {
     expect(screen.getByRole("dialog")).toHaveTextContent("כל 8 הפריטים בחנות הזו, כי לא סומן דבר");
     await user.click(screen.getByTestId("finish-confirm"));
     expect(loadSpend().entries[0]).toMatchObject({ item_count: 8 });
+  });
+
+  it("a double tap on the confirm button records the shop once", async () => {
+    start();
+    const user = userEvent.setup();
+    render(<StoreMode />);
+    await user.click((await screen.findAllByRole("checkbox"))[0]!);
+    await user.click(screen.getByTestId("finish"));
+    const confirm = screen.getByTestId("finish-confirm");
+    // Two taps before the page has had a chance to leave: both reach the same handler.
+    act(() => {
+      fireEvent.click(confirm);
+      fireEvent.click(confirm);
+    });
+    expect(loadSpend().entries).toHaveLength(1);
+    expect(push).toHaveBeenCalledTimes(1);
   });
 
   it("the switch off records nothing", async () => {

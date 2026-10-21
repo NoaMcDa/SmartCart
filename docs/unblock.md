@@ -21,6 +21,16 @@ GitHub yet (they were linted with actionlint and every script was run locally, s
 | Extraction pilot | `extraction-pilot.yml` | dispatch | `max_items` (1 to 1000, default 200) | `ANTHROPIC_API_KEY` | `extraction-pilot-report` (30 days) | under 1 min without the key; with it, a few minutes plus the batch (usually well under an hour; the job stops at 2 h) |
 | Provision check | `provision-check.yml` | dispatch | `apply_migrations` (default off) | `SUPABASE_DB_URL`; `VPS_SSH_HOST`, `VPS_SSH_KEY` (optional `VPS_SSH_USER`, `VPS_SSH_PORT`, `VPS_SSH_KNOWN_HOSTS`); `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ENDPOINT_URL` or `S3_REGION` | none | 1 to 3 min |
 
+One more manual workflow needs no secret and no network beyond the package indexes:
+
+| Workflow (Actions tab name) | File | Trigger | Inputs | Secrets | Artifacts | Runtime (estimate) |
+|---|---|---|---|---|---|---|
+| Dependency upgrade | `deps-upgrade.yml` | dispatch; Mondays 04:41 UTC | `dry_run` (default off: run the push job without creating the branch) | none (the push job uses the workflow token with `contents: write`) | `uv-lock` and `package-lock` (the upgraded lock files and the list of moved packages, 14 days) | 10 to 20 min |
+
+It runs `uv lock --upgrade` and `npm update` and, if the full suites pass and a lock changed, pushes
+the lock files to `deps/upgrade-<YYYYMMDD>`; see [dev-setup.md](dev-setup.md). A failure lists the
+packages that moved.
+
 Every workflow step has a local entry point under `scripts/unblock/`:
 
 | Script | Used by | Run here (no network) |
@@ -82,6 +92,12 @@ For the lead to copy into the blocker column (this file does not edit that one):
   `main` explicitly; before that fix the scheduled Portal probe and BGE-M3 runs failed at
   Install from 2026-10-11 to 2026-10-21. Setting the default branch to `main` (repository
   settings) removes the need for the copies.
+- **Dependency upgrade.** Like the others it appears in the Actions tab only once it is on the
+  default branch, and its schedule runs from there; the scheduled run checks out `main`. The
+  branch it pushes (`deps/upgrade-<YYYYMMDD>`, `-<run id>` appended when the name exists) holds
+  only `uv.lock` and `apps/web/package-lock.json`; open the pull request by hand, and CI runs then.
+  The web dependencies are exact pins, so only transitive packages move; the web job prints
+  `npm outdated` for the direct ones.
 - **BGE-M3 evaluation.** The first run downloads torch with its CUDA wheels (the lock file pins
   the PyPI build) and the model; later runs reuse the model cache (`actions/cache`, key
   `huggingface-Linux-<model>-v1`). Start with `max_items: 100` for a quick check, then 0. The job

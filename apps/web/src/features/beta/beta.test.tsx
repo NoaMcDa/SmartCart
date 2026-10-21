@@ -157,6 +157,8 @@ describe("leaving the beta", () => {
     await user.click(screen.getByTestId("beta-leave-confirm"));
     await screen.findByTestId("beta-left");
     expect(screen.getByRole("heading", { name: "יצאת מהבטא" })).toBeInTheDocument();
+    // The leave button went with the member view: focus is on the new heading, not on the page.
+    await waitFor(() => expect(screen.getByRole("heading", { name: "יצאת מהבטא" })).toHaveFocus());
     expect(await getBetaMembership()).toEqual({ member: false, segment: null });
     expect(getTrackingConsent()).toBe("declined");
     expect(localStorage.getItem("sc-events-consent")).toBe("0");

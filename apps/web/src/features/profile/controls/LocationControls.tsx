@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
 import { IconPin } from "@/components/ui/icons";
@@ -39,6 +39,17 @@ export function LocationControls() {
   const listId = useId();
   const cityId = useId();
   const hoodId = useId();
+  // The device-location request that may still store a location. Leaving the step (skip, back,
+  // navigation) or removing the location starts a new number: a position that arrives after that
+  // is dropped, so it never saves a location (and the consent that goes with it) the person has
+  // moved on from.
+  const askRun = useRef(0);
+  useEffect(
+    () => () => {
+      askRun.current += 1;
+    },
+    [],
+  );
 
   function askDevice() {
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
@@ -47,8 +58,10 @@ export function LocationControls() {
       return;
     }
     setGeo("asking");
+    const mine = (askRun.current += 1);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        if (mine !== askRun.current) return;
         setLocation({
           lat: pos.coords.latitude,
           lon: pos.coords.longitude,
@@ -57,6 +70,7 @@ export function LocationControls() {
         setGeo("idle");
       },
       () => {
+        if (mine !== askRun.current) return;
         setGeo("denied");
         setManualOpen(true);
       },
@@ -97,7 +111,15 @@ export function LocationControls() {
                   ? t("locationDevice")
                   : t("locationSaved")}
             </Tag>
-            <Button size="sm" variant="ghost" onClick={() => clearLocation()}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                askRun.current += 1;
+                setGeo("idle");
+                clearLocation();
+              }}
+            >
               {t("removeLocation")}
             </Button>
           </div>

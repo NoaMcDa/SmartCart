@@ -19,7 +19,18 @@ from smartcart_ingest.scheduler import (
     spread_order,
 )
 from smartcart_ingest.settings import Settings
-from tests.fakes import ISRAEL, NOW, counts, encode, item, make_harness, price, promo, statuses
+from tests.fakes import (
+    ISRAEL,
+    NOW,
+    counts,
+    encode,
+    item,
+    make_harness,
+    price,
+    promo,
+    statuses,
+    store,
+)
 
 # --- schedule (no database) --------------------------------------------------------------------
 
@@ -259,7 +270,7 @@ def test_delta_of_a_store_whose_full_was_quarantined_stays_held(h) -> None:
 
 def test_running_the_same_job_twice_gives_identical_state(h) -> None:
     _full_and_delta(h)
-    h.fetcher.add("stores", encode(stores=[]), at=NOW - timedelta(hours=5))
+    h.fetcher.add("stores", encode(stores=[store("1")]), at=NOW - timedelta(hours=5))
     first = h.scheduler().run_full(["fake"]).chains[0]
     first_delta = h.scheduler().run_delta(["fake"]).chains[0]
     assert first.loaded == 2 and first_delta.loaded == 1

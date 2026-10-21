@@ -11,7 +11,9 @@ Gates (thresholds per chain from :meth:`Settings.thresholds_for`):
 * ``item_count_drop``  a full file (PriceFull, PromoFull, Stores) with fewer records than
                        ``item_count_drop_ratio`` times the previous loaded file of the same kind
                        for the same chain and store.
-* ``stale_date``       ``published_at`` older than ``stale_file_max_age_hours``.
+* ``stale_date``       ``published_at`` older than ``stale_file_max_age_hours`` (elapsed time, so
+                       a daylight-saving change does not shift it).
+* ``empty_file``       a Stores or PriceFull file with no records.
 
 Every gate runs, so one file can fail several. A failing file gets one ``quarantine_events`` row
 per failed gate, status ``quarantined`` with the reasons, and none of its rows reach the data
@@ -34,7 +36,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import psycopg
@@ -152,7 +154,10 @@ def gate_item_count_drop(
 
 
 def gate_stale_date(parsed: ParsedFile, max_age_hours: float, now: datetime) -> GateFailure | None:
-    age = now - parsed.raw.published_at
+    # Both times are Israel time, so they usually share one tzinfo object, and Python then
+    # subtracts their wall clocks and ignores the UTC offset: across the autumn change the age
+    # would read an hour too short, across the spring one an hour too long. Subtract in UTC.
+    age = now.astimezone(UTC) - parsed.raw.published_at.astimezone(UTC)
     if age > timedelta(hours=max_age_hours):
         hours = age.total_seconds() / 3600
         return GateFailure(
@@ -161,6 +166,16 @@ def gate_stale_date(parsed: ParsedFile, max_age_hours: float, now: datetime) -> 
             f" (limit {max_age_hours:g} h)",
         )
     return None
+
+
+def gate_empty_full(parsed: ParsedFile) -> GateFailure | None:
+    """A Stores or PriceFull file with no records is a portal glitch, never a real store. It
+    would otherwise load "successfully" (and count as a nightly load) while changing nothing, and
+    it would set the item-count baseline to zero. An empty PromoFull is legitimate."""
+    raw = parsed.raw
+    if raw.kind not in {"stores", "price_full"} or record_count(parsed) > 0:
+        return None
+    return GateFailure("empty_file", f"{raw.kind} file with no records")
 
 
 def check(
@@ -176,6 +191,7 @@ def check(
         gate_zero_price(parsed),
         gate_price_jump(conn, parsed, thresholds.price_jump_factor),
         gate_item_count_drop(conn, parsed, thresholds.item_count_drop_ratio, file_id),
+        gate_empty_full(parsed),
         gate_stale_date(parsed, thresholds.stale_file_max_age_hours, now),
     ]
     return [r for r in results if r is not None]

@@ -15,9 +15,10 @@ export type VoiceSheetProps = {
   onClose: () => void;
   /**
    * Sends the confirmed text down the same path as a pasted list (`/parse-list`). Resolves to the
-   * number of rows added, or null when the request failed (the sheet keeps the text).
+   * number of rows added, or null when the request failed (the sheet keeps the text). `isCurrent`
+   * turns false once the person closed the sheet: the answer is then not added to the list.
    */
-  onAdd: (text: string) => Promise<number | null>;
+  onAdd: (text: string, isCurrent: () => boolean) => Promise<number | null>;
 };
 
 function outcomeOf(failure: VoiceFailure): VoiceOutcome {
@@ -40,6 +41,8 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
   const [addFailed, setAddFailed] = useState(false);
   // performance.now() of the tap on "start" while an attempt is open (events: started -> completed).
   const attemptStart = useRef<number | null>(null);
+  // The "add" that may still change the list; closing the sheet starts a new number.
+  const addRun = useRef(0);
 
   const closeAttempt = useCallback((outcome: VoiceOutcome, itemCount?: number) => {
     const startedAt = attemptStart.current;
@@ -53,7 +56,13 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
   useEffect(() => {
     if (phase === "error" && failure) closeAttempt(outcomeOf(failure));
   }, [phase, failure, closeAttempt]);
-  useEffect(() => () => closeAttempt("cancelled"), [closeAttempt]);
+  useEffect(
+    () => () => {
+      addRun.current += 1;
+      closeAttempt("cancelled");
+    },
+    [closeAttempt],
+  );
 
   function begin() {
     closeAttempt("cancelled"); // a re-record abandons the previous attempt
@@ -65,6 +74,8 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
   }
 
   function close() {
+    addRun.current += 1; // a request still on its way adds nothing
+    setAdding(false);
     closeAttempt("cancelled");
     voice.reset();
     setDraft(null);
@@ -78,9 +89,11 @@ export function VoiceSheet({ open, onClose, onAdd }: VoiceSheetProps) {
   async function add() {
     const value = text.trim();
     if (!value || adding) return;
+    const mine = (addRun.current += 1);
     setAdding(true);
     setAddFailed(false);
-    const count = await onAdd(value);
+    const count = await onAdd(value, () => mine === addRun.current);
+    if (mine !== addRun.current) return; // closed meanwhile: close() already reset the sheet
     setAdding(false);
     if (count === null) {
       setAddFailed(true);

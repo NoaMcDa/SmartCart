@@ -21,10 +21,16 @@ EnvironmentFile=-/etc/smartcart/jobs.env
 
 # Never while an ingestion run holds the shared lock: waits for it (the 08:30 second pass can run
 # long), so the prices it reads are a finished load.
+# The flock only serializes, it does not order: if a delta tick is running at 09:30 and the 08:30
+# full sync is queued behind it, both wait on the lock and either may get it first. So first wait
+# (up to two hours) while the full sync unit is running or queued ("activating", the state of a
+# running oneshot); the lock then keeps the delta ticks out as before.
 RuntimeDirectory=smartcart
 RuntimeDirectoryPreserve=yes
+ExecStartPre=/bin/sh -c 'i=0; while [ "$$(systemctl is-active smartcart-ingest-full.service)" = activating ] && [ "$$i" -lt 360 ]; do i=$$((i+1)); sleep 20; done; exit 0'
 ExecStart=/usr/bin/flock --timeout 7200 /run/smartcart/ingest.lock /opt/smartcart/.venv/bin/smartcart-api precompute $SMARTCART_PRECOMPUTE_ARGS
-TimeoutStartSec=3h
+# Up to two hours waiting for the full sync, then up to two for the lock.
+TimeoutStartSec=5h
 
 StandardOutput=append:/var/log/smartcart/precompute.log
 StandardError=append:/var/log/smartcart/precompute.log

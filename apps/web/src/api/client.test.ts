@@ -56,3 +56,39 @@ describe("API client with NEXT_PUBLIC_API_MOCK=1", () => {
     expect(networkFetch).toHaveBeenCalledOnce();
   });
 });
+
+describe("requests that get no answer", () => {
+  it("fail with a timeout instead of waiting for ever, and a caller's own abort still works", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_MOCK", "");
+    // A connection that never answers: it only ends when the request's signal fires.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (request: Request) =>
+          new Promise<Response>((_, reject) => {
+            if (request.signal.aborted) reject(request.signal.reason);
+            request.signal.addEventListener("abort", () => reject(request.signal.reason));
+          }),
+      ),
+    );
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    vi.resetModules();
+    const { deleteMe, parseImage, REQUEST_TIMEOUT_MS } = await import("./client");
+
+    // The client asked for a timeout; let it fire at once.
+    timeout.mockImplementation(() =>
+      AbortSignal.abort(new DOMException("timed out", "TimeoutError")),
+    );
+    await expect(deleteMe()).rejects.toMatchObject({ name: "TimeoutError" });
+    expect(timeout).toHaveBeenCalledWith(REQUEST_TIMEOUT_MS);
+
+    // With a long timeout, the caller's own signal still cancels the request.
+    timeout.mockRestore();
+    const controller = new AbortController();
+    const pending = parseImage("list", new Blob([new Uint8Array(10)]), true, {
+      signal: controller.signal,
+    });
+    controller.abort(new DOMException("cancelled", "AbortError"));
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+});

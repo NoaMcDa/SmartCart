@@ -206,9 +206,13 @@ five). Matching is per canonical, so `allow` does not loosen the judge: nothing 
   differences are the level's own business.
 - **Which item.** The sibling's row of `effective_prices` at the same level (so the same
   mappings: not `needs_review`, not human-rejected) and the same club gating as any line. At each
-  store the cheapest of the requested canonical's own offer and its siblings' wins by effective
-  unit price (per 100 g, 100 ml, unit or kg, so pack sizes compare by unit price); a tie keeps
-  the requested canonical. The quantity logic is the existing one (packs, promo bundles, weight).
+  store the cheapest line for the quantity asked wins among the requested canonical's own offer
+  and its siblings' (each priced as any line: packs, promo bundles, weight); a tie keeps the
+  requested canonical. The precompute ranks a store's offers by effective unit price (per 100 g,
+  100 ml, unit or kg), which does not know the quantity: a promo that needs 4 packs wins the
+  unit price for a list with 2. So the line is chosen after the quantity is known, never by unit
+  price alone (a sibling at 4.50 beats the own offer at 5.90 with "4 for 14" when 2 are asked, and
+  loses when 4 are).
 - **Always labeled.** A sibling's offer is `is_substitute = true`, carries the mapping confidence,
   `original_item_id` (the store's own non-substitute item for the canonical when it has one), and a
   `differs` tag for every critical attribute that made it a sibling (value from the item, or from
@@ -221,8 +225,10 @@ five). Matching is per canonical, so `allow` does not loosen the judge: nothing 
   typical pack differs); the `close` level already covers a different pack size of the same
   canonical. `packaging` is not an extracted attribute at all. They are accepted so the sheet's
   keys never produce a 422. `flavor` opens siblings only for the product types where it is
-  critical (yogurt, cream cheese, ...). Swap suggestions (`/swaps`) price their alternatives
-  without `allow`.
+  critical (yogurt, cream cheese, ...). Swap suggestions (`/optimize/swaps`) honor each row's `allow` the same
+  way: the alternatives of an `any_brand` or `close` row are priced with it, a sibling suggestion is
+  labeled with its `differs` tags and a critical difference that is not allowed still drops the
+  candidate; an `exact` row ignores `allow` and an empty `allow` changes nothing.
 - **Evaluation.** The gold set measures the judge, which this does not touch: precision per level
   is unchanged (1.00 at any brand, Hebrew and Arabic). The behavior is covered by
   `services/api/tests/test_api_allow.py`.
@@ -612,6 +618,103 @@ rule 3 restore them.
 5. Replace this audit with a human-labeled gold set (#38): sample at least 150 served rows for any
    brand, stratified by chain and department, two labelers on a subset, and report precision per level
    with its interval. Until then the only real-data number in this repository is the machine audit above.
+
+## Real items, normalization issues (issue #20)
+
+The rule normalizer (`normalize.py`, [catalog.md](catalog.md) section 3) was written against realistic
+names. This is what `smartcart-catalog normalize` reports on the **real** items (the same 1,400
+fixture items as the audit above; read in memory through `load_real_items`, which gives the function
+the same fields as the `items` table), and what was done about each class. **Measured** unless marked.
+The cases are in `services/catalog/tests/test_normalize_real_sizes.py` (91 tests: 62 size cases and 23
+name cases, with names, codes, quantities and units verbatim from the fixtures, a test that every
+size case is a real item with those exact fields, and whole-set checks) and
+`test_normalize_real.py`.
+
+| | Before | After |
+|---|---|---|
+| Items with an issue in the list | 242 | 222 |
+| Unparseable (no size) | 165 | 173 |
+| of which a quantity with the unit `לא ידוע` | 0 listed as such | 143 (Rami Levy 89, Osher Ad 43, Carrefour 10, Shufersal 1) |
+| of which a field rejected as implausible | 0 | 10 |
+| of which no quantity at all | 165 | 20 |
+| Name and field disagree on the size | 35 | 11 |
+| Read as "weighed, 1 kg" without a weight | 25 | 0 (the 25 were 24 counted items and one cut `1 ק"`) |
+| Items whose size, pack count or base unit changed | | 87 of 1,400 |
+
+Unparseable went up by 8: ten Carrefour items whose field said 20 to 550 **liters** of spices and
+canned corn had a size 1000 times too large and a unit price 1000 times too small, and now have no
+size; two Osher Ad items (`4 ליט`, `1 ק"`) became parseable. That is the intended direction (an
+unknown size is shown as unknown; a wrong one is shown as a price).
+
+**Issue classes found, and the fix** (counts are items whose parse changed; some are in two classes):
+
+| Class | Real examples | Items | Fix |
+|---|---|---|---|
+| A number glued to a Hebrew letter was read from its last digits (64 g read as 4 g) | `מסטיק אורביט ויט מנטה64ג`, `תערובת לעוגת שוקולד425גר`, `קלינקס לושן 3 שכבות120יח` | about 26 | the guard in front of a number is now "not inside another number", not "not after a letter". Shufersal only. Silent apart from a "fields say 64 g, name says 4 g" line |
+| A PLU-style code on an item the chain sells by the piece (`1 יחידות`, `bIsWeighted` 0): read as 1 kg at a per-kg price | `חלה קלועה`, `פיתה (1461303)`, `מים מינרלים קטן`, `פיקדון בקבוקים` | 24 | the code only means "weighed" when the item has no unit field of its own |
+| Tea bags: `20שק*2גר`, `25שק`, `20ש` | `חליטת פירות יער20שקיק*3ג` (3 g read for 60 g), `תה שחור אוכמניות 25שק` | 13 | `שק`, `שקיק` count nouns, `N<noun>*size`, `20ש` cut to שקיקים |
+| Chain unit wrong, size 1000 times too large | Carrefour `גרעיני תירס מתוק 400` with `400 ליטר`; Shufersal `500ל` for `500מל` | 13 (12 fields, 1 name; 10 are left with no size, 3 take it from the other source) | `MAX_PIECE_ML` 20 L, `MAX_PIECE_G` 50 kg: above it the size is unknown, or comes from the other source |
+| A unit cut by the name width | `מארז צלחות  לבן 1 ק"`, `יין באזז מנגו 750 מ"`, `אקונומיקה פסגה 4 ליט`, `קרפרי אוורירי מגה פק 76י` | 13 names, 7 with a changed size | the cut forms are expanded only as the last characters, right after a number |
+| `N*M` with no or a different unit | `ביצים 2*30 יח'` (30 read for 60), `טונה בשמן טעמן 4*140`, `קלינקס טישו כיס 12*9יח` | 5 | `N*M יח'`; a bare `N*M` counts only when the field equals the product |
+| A pack word and the size | `המבורגר ביונד מיט זוג 226 גרם` (452 g read), `מארז 5 יחידות` (25 units read) | 2 | field equal to the size is the pack total; a pack word that repeats the count is the count |
+| Abbreviations not in the table | `ח"פ`, `חדפ`, `רב"ש`, `מס'`, `חב'`, `דאו.ניוואה`, `בוטנ.`, `שוקו.`, `סוכ.`, `ט.מנגו` | 24 names (no size change) | table rows; `דאו.` (8 deodorants) and `בוטנ.` (2 peanut butters) are now matched to their canonical, in the review queue |
+| Rounded field | `חטיף אמיצלי 187.5 גרם` with 187 | 1 | a difference under 1 is not reported |
+| Quantity with the unit `לא ידוע` | Rami Levy `750` on a shampoo | 143 | **not fixed on purpose**: the number may be g, ml or pieces. The issue now says so instead of "no quantity" |
+| Name and field disagree for real | `ציטוס ... 60 גרם` with 160 g, `תערובת לעוגת שיש 550 גרם` with 425 g | 11 | **not fixed**: the name wins (documented), the issue is listed, and the test pins the 11 names. The chain's published unit price would say which is right |
+
+**Not in the real files** (**measured**): the Hebrew gershayim and geresh variants (`״ ׳`), RTL and LTR
+marks and non-breaking spaces occur in none of the 1,400 names; the only quote variant is the backtick
+(`ג`מבו`, `צ`דר`, 3 names), which the existing quote unification already handled. They stay covered
+by the synthetic table in `test_normalize.py`. `ש"ס` does not occur either.
+
+**Left unknown on purpose** (precision over recall): a bare `מ` after a number (`רוטב טבסקו שום 150 מ`
+is ml; `מפת ניילון גליל 50 מ` and `מקל מעץ 1.5 מ'` are metres), the unit-less quantities above,
+`3*4` with no field, a count in front of the noun (`6חט.`, `5סכיני`), `כוסות יהלום 250 מ"ל` (the
+capacity of a cup, which stays a 250 ml size), and every name-versus-field disagreement.
+
+**Gold-set evaluations, before and after (measured; the commands of `matching-eval.yml`, threshold
+0.98, a freshly migrated database for each run, hash embedder).** Identical, to the digit:
+
+| Hebrew `evaluate` | precision | recall | served | gold items |
+|---|---|---|---|---|
+| exact | 1.0000 | 1.0000 | 104 | 104 |
+| any brand | 1.0000 | 0.8125 | 546 | 672 |
+| close | 1.0000 | 0.7611 | 634 | 833 |
+
+recall@10 0.9988; the review queue held 198 and 25 items were unmapped, before and after.
+
+| Arabic `evaluate-ar` | precision | recall | served | lines |
+|---|---|---|---|---|
+| exact | 1.0000 | 0.8889 | 24 | 34 |
+| any brand | 1.0000 | 0.9391 | 339 | 490 |
+| close | 1.0000 | 1.0000 | 23 | 30 |
+| all | 1.0000 | 0.9392 | 386 | 554 |
+
+Held-out lines (151): precision 1.0000, recall 0.7917. These are the numbers of the current state;
+the Arabic figures earlier in this file (0.9970 at any brand) are from before later changes.
+**Read this as "no regression", not as "an improvement":** the gold items carry no quantity or unit
+fields and almost no sizes in their names (0 of 857 gold items parse differently), so the synthetic
+sets cannot see this work at all. The any-brand gate stays at 1.00.
+
+**Real-item machine audit, before and after (`audit-real`, same caveat as above: one reader, the
+verdicts were written by the person who wrote the rules; not a measurement).**
+
+| | Before | After |
+|---|---|---|
+| Mapped to a canonical | 269 | 279 |
+| Served (accepted, no review flag) | 92 | 92 |
+| Mapped, in the review queue | 177 | 187 |
+| Unmapped | 1,131 | 1,121 |
+| Served any brand: correct / wrong / unsure | 53 / 0 / 6 (59 served) | 52 / 0 / 6 (58 served) |
+| Served close: correct / wrong / unsure | 31 / 0 / 2 (33 served) | 32 / 0 / 2 (34 served) |
+| Wrong accepted mappings | 0 | 0 |
+
+Nothing new is served and no served row became wrong. The ten new review-queue rows are real
+(8 deodorants, 2 peanut butters whose names used `דאו.` and `בוטנ.`). One served row moved from any
+brand to close because its size is now known (`פירורי לחם הנמל 1 ק"`: 1 kg against a 500 g
+canonical), the correct level. 80 rows changed in the audit file, most of them only in the pack size
+column, which the audit does not label. The effect of this work is on the **size and unit price** of
+87 items, not on what is served, so the audit cannot show it; the tests above do.
 
 ## Fine-tuning trigger
 

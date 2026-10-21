@@ -93,6 +93,9 @@ export function useSharedList(listId: number) {
   const membersRef = useRef<ListMember[]>([]);
   const nameRef = useRef("");
   const inflight = useRef(0);
+  // Counts the person's edits. A read of the list that started before an edit and ends after it
+  // is older than the screen: it must not replace the edited items.
+  const editSeq = useRef(0);
   const memberOps = useRef(0);
   const flushing = useRef(false);
 
@@ -113,12 +116,16 @@ export function useSharedList(listId: number) {
   );
 
   const load = useCallback(async () => {
+    const editsAtStart = editSeq.current;
     try {
       ensureApiAuth();
       const list = await getList(listId);
       nameRef.current = list.name;
       setName(list.name);
-      commit(withQueue(itemsOf(list)));
+      // The next poll, the edit's own answer or a Realtime event brings the newer state.
+      if (editSeq.current === editsAtStart && inflight.current === 0) {
+        commit(withQueue(itemsOf(list)));
+      }
       setStatus("ready");
     } catch (err) {
       setStatus((prev) => (prev === "ready" ? prev : statusOf(err)));
@@ -300,6 +307,7 @@ export function useSharedList(listId: number) {
     async (change: QueuedEdit, failure: ShareMessageKey = REFUSED) => {
       const previous = itemsRef.current;
       const next = applyEdit(previous, change);
+      editSeq.current += 1;
       commit(next);
       setMessage(null);
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;

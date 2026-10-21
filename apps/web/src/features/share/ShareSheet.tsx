@@ -133,7 +133,8 @@ function ShareSheetContent({
       }
     }
     setCopied(ok);
-    if (!ok) setError(t("copyFailed"));
+    // A failed copy leaves its message; a copy that worked afterwards clears it.
+    setError(ok ? null : t("copyFailed"));
   }
 
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";

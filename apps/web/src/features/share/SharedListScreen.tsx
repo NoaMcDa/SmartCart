@@ -17,12 +17,13 @@ import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
 import controls from "@/features/profile/controls/controls.module.css";
 import { useRich } from "@/i18n/format-2";
+import { rescueFocus } from "@/lib/focus";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import type { Locale } from "@/i18n/locales";
 import { translate } from "@/i18n/messages";
 import { shareMessages } from "@/i18n/messages/share";
 import { useList } from "@/state/list";
-import type { SharedItem } from "./listSync";
+import { sharedItemName, type SharedItem } from "./listSync";
 import { ROLE_KEY, ShareSheet, shareError } from "./ShareSheet";
 import { localListToServer, readRegistry, rememberJoined, setOwnedListId } from "./sharedLists";
 import { useSharedList } from "./useSharedList";
@@ -179,6 +180,8 @@ function ItemRow({
   onRemove: () => void;
 }) {
   const t = useT(shareMessages);
+  const { locale } = useLocale();
+  const name = sharedItemName(item, locale);
   return (
     <li className={styles.item} data-testid="shared-item" data-checked={item.checked}>
       <label className={styles.check}>
@@ -186,19 +189,22 @@ function ItemRow({
           type="checkbox"
           checked={item.checked}
           onChange={(e) => onChecked(e.target.checked)}
-          aria-label={t("checkAria", { name: item.name })}
+          aria-label={t("checkAria", { name })}
         />
       </label>
       <div className={styles.itemMain}>
-        <span className={styles.itemName}>{item.name}</span>
+        <span className={styles.itemName}>{name}</span>
         <FlexChip level={item.flexLevel} size="sm" />
       </div>
-      <Stepper value={item.quantity} onChange={onQuantity} min={1} label={item.name} />
+      <Stepper value={item.quantity} onChange={onQuantity} min={1} label={name} />
       <Button
         variant="ghost"
         size="sm"
-        onClick={onRemove}
-        aria-label={t("removeItemAria", { name: item.name })}
+        onClick={(e) => {
+          rescueFocus(e.currentTarget);
+          onRemove();
+        }}
+        aria-label={t("removeItemAria", { name })}
         iconStart={<IconClose size={16} />}
       >
         {t("removeItem")}
@@ -277,7 +283,7 @@ function SharedListView({ listId }: { listId: number }) {
       </div>
 
       <Card as="section" aria-labelledby="items-heading" padding="none">
-        <h2 id="items-heading" className={styles.itemsTitle}>
+        <h2 id="items-heading" className={styles.itemsTitle} tabIndex={-1} data-focus-fallback>
           {r(
             "itemsHeading",
             { ltr: (c) => <span dir="ltr">{c}</span> },
