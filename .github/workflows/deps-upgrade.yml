@@ -211,8 +211,20 @@ jobs:
       - name: Direct dependencies that are behind (information only)
         run: npm outdated || true
 
-      - name: Update inside the package.json ranges
-        run: npm update --no-audit --no-fund
+      # npm 10 (the one Node 22 ships, and the one web.yml uses) crashes in `npm update` on this
+      # tree ("Cannot read properties of null (reading 'edgesOut')" in arborist's #loadPeerSet),
+      # so the update runs with npm 11. npm 11 resolves the optional peer `msw` of @vitest/mocker
+      # differently, and npm 10's `npm ci` then rejects its lock as out of sync. So npm 10
+      # rewrites the lock (`install --package-lock-only` keeps the updated versions) and the
+      # `npm ci` below proves the result installs with the npm that CI uses.
+      - name: Update inside the package.json ranges (npm 11)
+        run: npx --yes npm@11 update --no-audit --no-fund
+
+      - name: Normalize the lock with the npm that CI uses
+        run: npm install --package-lock-only --no-audit --no-fund
+
+      - name: The new lock installs with that npm (npm ci)
+        run: npm ci --no-audit --no-fund
 
       - name: Which packages moved
         id: diff

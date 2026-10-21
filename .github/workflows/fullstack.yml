@@ -20,7 +20,10 @@ permissions:
 jobs:
   fullstack:
     name: demo pipeline, API smoke test, web e2e against the real API
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26.04 in November 2026, and Playwright 1.56.1 (exact pin
+    # in apps/web/package.json) cannot install its browser dependencies there (26.04 support
+    # arrives in Playwright 1.61). Unpin when the Playwright pin is raised to 1.61 or newer.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     services:

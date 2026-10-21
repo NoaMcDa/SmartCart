@@ -10,9 +10,9 @@ permissions:
   contents: read
 
 jobs:
-  audit:
+  image:
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 10
     services:
       postgres:
         image: supabase/postgres:17.11.0.004
@@ -26,58 +26,36 @@ jobs:
           --health-timeout 5s
           --health-retries 30
     steps:
-      - uses: actions/checkout@v7
-
       - name: Image
         run: |
-          cat /etc/os-release | head -4
-          echo "ImageVersion=$ImageVersion"
-          python3 --version
-          docker version --format '{{.Client.Version}} / {{.Server.Version}}'
-          docker run --rm alpine:3.20 echo docker-run-ok
-          command -v psql && psql --version || echo "psql not preinstalled"
-          pg_isready -h localhost -U postgres
+          echo "AUDIT os: $(grep PRETTY_NAME /etc/os-release)"
+          echo "AUDIT image: $ImageVersion"
+          echo "AUDIT python3: $(python3 --version)"
+          echo "AUDIT docker: $(docker version --format '{{.Client.Version}} / {{.Server.Version}}')"
+          docker run --rm alpine:3.20 echo "AUDIT docker run ok"
+          echo "AUDIT psql: $(command -v psql || echo none preinstalled)"
+          pg_isready -h localhost -U postgres | sed 's/^/AUDIT /'
 
       - name: apt packages of ocr-eval.yml
-        if: always()
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-heb fonts-noto-core
-          tesseract --version
-          tesseract --list-langs
-          fc-list | grep -i "NotoSansHebrew" | head -3
+          tesseract --version 2>&1 | head -1 | sed 's/^/AUDIT /'
+          tesseract --list-langs 2>&1 | tr '\n' ' ' | sed 's/^/AUDIT /'
+          echo
+          fc-list | grep -i "NotoSansHebrew" | head -1 | sed 's/^/AUDIT /'
 
-      - name: apt package of provision-check.yml
-        if: always()
-        run: |
-          (command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client))
-          psql --version
-
-      - uses: astral-sh/setup-uv@v7
-        if: always()
-        with:
-          python-version: "3.13"
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
-
-      - name: uv sync --locked and the DB tests that matter
-        if: always()
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
-          SMARTCART_REQUIRE_EXTENSIONS: "1"
-        run: |
-          uv sync --locked
-          uv run pytest -q -x
-
+  playwright:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
-        if: always()
         with:
           node-version: 22
-
       - name: Playwright install --with-deps (version pinned in apps/web/package.json)
-        if: always()
         working-directory: apps/web
         run: |
           npm ci
-          npx playwright --version
-          npx playwright install --with-deps chromium
+          npx playwright --version | sed 's/^/AUDIT /'
+          npx playwright install --with-deps chromium 2>&1 | sed 's/^/AUDIT /'

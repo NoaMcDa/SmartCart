@@ -19,6 +19,22 @@ and broke twice on upstream releases (the pydantic OpenAPI drift, and FastAPI 0.
 `openapi_version` argument on 2026-10-18). To upgrade: `uv lock --upgrade` (or
 `uv lock --upgrade-package <name>`), run the suites, commit the new lock.
 
+**Weekly upgrade check.** `.github/workflows/deps-upgrade.yml` does that every Monday (04:41 UTC)
+and on demand: `uv lock --upgrade`, then `uv sync --locked`, ruff, the whole Python suite on 3.12
+and 3.13 against the same `supabase/postgres:17.11.0.004` service as CI, and the generated-client
+check (`services/api/scripts/gen_ts_client.sh` plus `git diff`); in parallel `npm update` inside
+the `apps/web/package.json` ranges, then lint, typecheck and unit tests. If everything passes and
+`uv.lock` or `apps/web/package-lock.json` changed, a separate job (the only one with
+`contents: write`) pushes the two lock files to a branch `deps/upgrade-<YYYYMMDD>`; no pull
+request is opened, so open one by hand when you want the upgrade (a push with the workflow token
+starts no workflow, so CI runs when the pull request is opened). If anything fails, nothing is
+pushed, and the job log and summary list the packages that moved (`name: old -> new`) next to
+`git diff --stat`, which is the suspect list. Scheduled runs check out `main` explicitly because
+the default branch is a docs-only branch. Note that the web dependencies are exact pins
+(`"next": "16.4.0"`), so `npm update` moves only transitive packages; the job prints
+`npm outdated` for the direct ones, and those are raised by editing `package.json`. The
+`dry_run` input runs the push job with `git push --dry-run`.
+
 ## Everyday commands
 
 From the repository root:

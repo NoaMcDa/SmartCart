@@ -23,7 +23,10 @@ permissions:
 jobs:
   web:
     name: lint, typecheck, unit, build, e2e, lighthouse
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26.04 in November 2026, and Playwright 1.56.1 (exact pin
+    # in apps/web/package.json) cannot install its browser dependencies there (26.04 support
+    # arrives in Playwright 1.61). Unpin when the Playwright pin is raised to 1.61 or newer.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     defaults:
       run:
@@ -94,7 +97,10 @@ jobs:
   # failure and the other way round.
   a11y:
     name: accessibility (axe, keyboard, reflow) and SEO pages
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26.04 in November 2026, and Playwright 1.56.1 (exact pin
+    # in apps/web/package.json) cannot install its browser dependencies there (26.04 support
+    # arrives in Playwright 1.61). Unpin when the Playwright pin is raised to 1.61 or newer.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
