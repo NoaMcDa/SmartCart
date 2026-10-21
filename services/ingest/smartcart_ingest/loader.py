@@ -39,10 +39,11 @@ import json
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from functools import partial
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import psycopg
 import structlog
@@ -55,6 +56,13 @@ from smartcart_ingest.geocode.resolve import load_index as load_geo_index
 from smartcart_ingest.models import ParsedFile, PriceRecord, PromoRecord, StoreRecord
 
 log = structlog.get_logger("smartcart_ingest.loader")
+
+ISRAEL = ZoneInfo("Asia/Jerusalem")
+# A price observed later than the file's own publication time is a clock or typing error. Taken
+# at face value it would be the "latest" event, and every real update after it would then be
+# skipped as older (valid_from only moves forward), freezing the price. Up to a day of slack
+# covers a time zone mixed up; beyond it the publication time is used instead.
+FUTURE_TOLERANCE = timedelta(hours=24)
 
 _HUNDRED = Decimal(100)
 _TEN = Decimal(10)
@@ -77,6 +85,9 @@ class LoadResult:
     prices_written: int = 0
     prices_unchanged: int = 0
     prices_stale: int = 0
+    prices_clamped: int = 0
+    """Prices whose observation time was after the file's publication time (see
+    ``FUTURE_TOLERANCE``) and were dated at the publication time instead."""
     prices_same_as_base: int = 0
     base_prices_written: int = 0
     promos: int = 0
@@ -160,6 +171,32 @@ def normalize_unit_price(
 def _month(ts: datetime) -> date:
     utc = ts.astimezone(UTC)
     return date(utc.year, utc.month, 1)
+
+
+def aware(ts: datetime) -> datetime:
+    """``ts`` as an aware datetime; a naive one is Israel local time (how every chain dates its
+    files), never the server's time zone."""
+    return ts if ts.tzinfo is not None else ts.replace(tzinfo=ISRAEL)
+
+
+def effective_observed_at(p: PriceRecord, published_at: datetime) -> tuple[datetime, bool]:
+    """``(valid_from, clamped)`` for a price record: its observation time, or the file's
+    publication time when it claims to be more than ``FUTURE_TOLERANCE`` after it."""
+    observed = aware(p.observed_at)
+    published = aware(published_at)
+    if observed > published + FUTURE_TOLERANCE:
+        return published, True
+    return observed, False
+
+
+def _ensure_partitions(conn: psycopg.Connection, parsed: ParsedFile) -> None:
+    """Create the monthly ``prices`` partitions the file's events fall in, before (and outside)
+    the load transaction. Creating a partition locks the parent table, so doing it inside the
+    load would hold that lock, and block the API's reads of ``prices``, for the whole file."""
+    published = parsed.raw.published_at
+    months = {_month(effective_observed_at(p, published)[0]) for p in parsed.prices}
+    for month in sorted(months):
+        conn.execute("SELECT ensure_price_partition(%s::date)", (month,))
 
 
 def _has_column(conn: psycopg.Connection, table: str, column: str) -> bool:
@@ -395,10 +432,10 @@ def _insert_prices(
     for p in parsed.prices:
         item_id, weighed = items[(p.chain_id, p.item_code)]
         sid = None if p.store_code is None else store_ids[(p.chain_id, p.store_code)]
-        events[(item_id, sid)][p.observed_at] = (p, weighed)
-
-    for month in sorted({_month(p.observed_at) for p in parsed.prices}):
-        conn.execute("SELECT ensure_price_partition(%s::date)", (month,))
+        valid_from, clamped = effective_observed_at(p, parsed.raw.published_at)
+        if clamped:
+            result.prices_clamped += 1
+        events[(item_id, sid)][valid_from] = (p, weighed)
 
     store_list = sorted({s for _, s in events if s is not None})
     item_list = sorted({i for i, _ in events})
@@ -497,8 +534,8 @@ def _upsert_promos(
                 store_ids[(p.chain_id, p.store_code)],
                 p.promo_id,
                 p.description,
-                p.starts_at,
-                p.ends_at,
+                aware(p.starts_at) if p.starts_at else None,
+                aware(p.ends_at) if p.ends_at else None,
                 p.hours,
                 p.club_only,
                 p.club_name,
@@ -582,6 +619,7 @@ def load(
 
     result = LoadResult(file_id=row.id, record_count=record_count(parsed))
     try:
+        _ensure_partitions(conn, parsed)
         with conn.transaction():
             if row.status != "loading":
                 tracking.mark_loading(conn, row.id)
@@ -606,6 +644,7 @@ def load(
         records=result.record_count,
         prices_written=result.prices_written,
         prices_unchanged=result.prices_unchanged,
+        prices_clamped=result.prices_clamped,
         promos=result.promos,
         promo_items_unknown=result.promo_items_unknown,
     )

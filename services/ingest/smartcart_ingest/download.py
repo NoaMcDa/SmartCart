@@ -168,7 +168,16 @@ def describe(remote: RemoteFile, adapter: ChainAdapter, sha: str, now: datetime)
     listing or the filename. The path is the raw store key."""
     kind = remote.kind or adapter.detect_kind(remote.name)
     name_store, name_ts = _filename_info(remote.name, adapter)
-    published = remote.published_at or name_ts or now
+    published = remote.published_at or name_ts
+    if published is None:
+        # No time in the listing or the name: the stale-date gate can only judge the download
+        # time, so it cannot fire for this file. Visible in the log, never silent.
+        log.warning(
+            "no publication time in the listing or the file name, using the download time",
+            chain_id=remote.chain_id,
+            file=remote.name,
+        )
+        published = now
     if published.tzinfo is None:
         published = published.replace(tzinfo=ISRAEL)
     store_code = None if kind == "stores" else normalize_store_code(remote.store_code or name_store)
@@ -211,6 +220,7 @@ def download(
             status=existing.status,
             file_id=existing.id,
         )
+        _note_republished(conn, existing, remote, adapter, sha, now)
         return DownloadResult(existing, "skipped", data)
 
     raw = describe(remote, adapter, sha, now)
@@ -237,6 +247,38 @@ def download(
         status=row.status,
     )
     return DownloadResult(row, outcome, data)
+
+
+def _note_republished(
+    conn: psycopg.Connection,
+    existing: tracking.TrackedFile,
+    remote: RemoteFile,
+    adapter: ChainAdapter,
+    sha: str,
+    now: datetime,
+) -> None:
+    """A loaded full file seen again on a later Israel day, byte for byte: record it, so the
+    deltas of that day are not held for a "full file of the day" that was rightly skipped."""
+    if existing.status != "loaded" or existing.kind not in tracking.FULL_KINDS:
+        return
+    if existing.published_at is None:
+        return
+    try:
+        raw = describe(remote, adapter, sha, now)
+    except Exception:  # an unrecognised name is reported by the caller's normal path
+        return
+    if (
+        raw.kind == existing.kind
+        and raw.store_code == existing.store_code
+        and tracking.israel_day(raw.published_at) > tracking.israel_day(existing.published_at)
+        and tracking.record_republished(conn, existing, raw)
+    ):
+        log.info(
+            "identical full file republished on a later day, recorded as loaded",
+            chain_id=raw.chain_id,
+            file=remote.name,
+            source_file_id=existing.id,
+        )
 
 
 # --- upstream scraper ---------------------------------------------------------------------------

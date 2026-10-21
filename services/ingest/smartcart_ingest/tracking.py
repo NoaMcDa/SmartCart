@@ -11,7 +11,10 @@ them::
     loaded, quarantined: terminal
 
 ``loaded`` and ``quarantined`` are terminal: a file with that hash is never processed again.
-``failed`` is retried the next time the file is seen (or by ``run`` resuming open files).
+``failed`` is retried the next time the file is seen; a file a killed worker left in ``loading``
+is retried once even when it is not listed again (:func:`recover_interrupted`). Held files older
+than a day are failed ("expired", :func:`expire_held`). A loaded full file seen again byte for
+byte on a later Israel day gets a synthetic ``loaded`` row (:func:`record_republished`).
 Every change goes through :func:`transition`, which updates the row only if its current status
 allows the move, so two code paths cannot silently overwrite each other's outcome.
 
@@ -21,6 +24,7 @@ statement is its own transaction; inside ``conn.transaction()`` (the loader) the
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -140,15 +144,30 @@ def get_by_sha(conn: psycopg.Connection, sha256: str) -> TrackedFile | None:
     return _one(conn, f"SELECT {_COLUMNS} FROM file_tracking WHERE sha256 = %s", (sha256,))
 
 
+# Processing order inside one run: Stores, PriceFull, PromoFull, then deltas (a delta is applied
+# only after its full file, so a full must come first whatever the publication times say).
+_KIND_ORDER_SQL = (
+    "CASE kind WHEN 'stores' THEN 0 WHEN 'price_full' THEN 1 WHEN 'promo_full' THEN 2"
+    " WHEN 'price' THEN 3 WHEN 'promo' THEN 4 ELSE 5 END"
+)
+
+
 def open_files(
-    conn: psycopg.Connection, chain_id: str, statuses: tuple[str, ...] = ("downloaded", "held")
+    conn: psycopg.Connection,
+    chain_id: str,
+    statuses: tuple[str, ...] = ("downloaded", "held"),
+    include_interrupted: bool = False,
 ) -> list[TrackedFile]:
-    """Files of a chain that still need work, oldest publication first."""
+    """Files of a chain that still need work: stores and full files first, then deltas, each
+    group oldest publication first. ``include_interrupted`` adds files a killed process left
+    ``failed`` for the first time (reason :data:`INTERRUPTED`): they are retried even when the
+    portal no longer lists them."""
     return _many(
         conn,
-        f"SELECT {_COLUMNS} FROM file_tracking WHERE chain_id = %s AND status = ANY(%s)"
-        " ORDER BY published_at NULLS FIRST, id",
-        (chain_id, list(statuses)),
+        f"SELECT {_COLUMNS} FROM file_tracking WHERE chain_id = %s"
+        " AND (status = ANY(%s) OR (%s AND status = 'failed' AND reason = %s))"
+        f" ORDER BY {_KIND_ORDER_SQL}, published_at NULLS FIRST, id",
+        (chain_id, list(statuses), include_interrupted, INTERRUPTED),
     )
 
 
@@ -320,6 +339,9 @@ def transition(
 
 
 RETRY_PREFIX = "retry after: "
+INTERRUPTED = "interrupted: process stopped mid-load"
+RETRYING_AFTER_INTERRUPTION = "loading: retry after an interruption"
+INTERRUPTED_TWICE = "interrupted twice: process stopped mid-load again, not retried automatically"
 
 
 def mark_downloaded(
@@ -332,8 +354,8 @@ def mark_held(conn: psycopg.Connection, file_id: int, reason: str) -> TrackedFil
     return transition(conn, file_id, "held", reason)
 
 
-def mark_loading(conn: psycopg.Connection, file_id: int) -> TrackedFile:
-    return transition(conn, file_id, "loading")
+def mark_loading(conn: psycopg.Connection, file_id: int, reason: str | None = None) -> TrackedFile:
+    return transition(conn, file_id, "loading", reason)
 
 
 def mark_loaded(
@@ -383,15 +405,87 @@ def record_quarantine(
 def recover_interrupted(conn: psycopg.Connection, chain_id: str | None = None) -> int:
     """Mark files left in ``loading`` by a process that died as failed, so they are retried.
 
-    Safe because runs are serialized (the systemd units share one flock); call it at the start
-    of a run. Returns the number of files recovered.
+    The first interruption leaves reason :data:`INTERRUPTED`, which ``open_files(...,
+    include_interrupted=True)`` retries even when the portal no longer lists the file. A file
+    that dies again while being retried (:data:`RETRYING_AFTER_INTERRUPTION`) gets
+    :data:`INTERRUPTED_TWICE` and is left alone, so one file that kills the worker cannot block
+    every later run.
+
+    Safe because runs are serialized (the application's advisory lock and the systemd units'
+    shared flock); call it at the start of a run. Returns the number of files recovered.
     """
     rows = conn.execute(
-        "UPDATE file_tracking SET status = 'failed', reason = 'interrupted: process stopped mid-load'"
+        "UPDATE file_tracking SET status = 'failed',"
+        " reason = CASE WHEN reason = %s THEN %s ELSE %s END"
         " WHERE status = 'loading' AND (%s::text IS NULL OR chain_id = %s) RETURNING id",
-        (chain_id, chain_id),
+        (RETRYING_AFTER_INTERRUPTION, INTERRUPTED_TWICE, INTERRUPTED, chain_id, chain_id),
     ).fetchall()
     return len(rows)
+
+
+def expire_held(conn: psycopg.Connection, chain_id: str, before: datetime) -> int:
+    """Fail held files published before ``before``: their day's full file never loaded, so they
+    can no longer be applied in order, and a later day's full file supersedes them. Without this
+    a chain whose full file is quarantined every night would re-check an ever longer list of held
+    deltas on every hourly tick. Returns the number expired."""
+    rows = conn.execute(
+        "UPDATE file_tracking SET status = 'failed', reason = left('expired: ' || coalesce(reason, ''), 2000)"
+        " WHERE chain_id = %s AND status = 'held' AND published_at < %s RETURNING id",
+        (chain_id, before),
+    ).fetchall()
+    return len(rows)
+
+
+def _loaded_item_count(conn: psycopg.Connection, file_id: int) -> int | None:
+    if _has_item_count_column(conn):
+        row = conn.execute(
+            "SELECT item_count FROM file_tracking WHERE id = %s", (file_id,)
+        ).fetchone()
+        if row and row[0] is not None:
+            return int(row[0])
+    row = conn.execute("SELECT reason FROM file_tracking WHERE id = %s", (file_id,)).fetchone()
+    m = _ITEMS_REASON.search(row[0]) if row and row[0] else None
+    return int(m.group(1)) if m else None
+
+
+def record_republished(conn: psycopg.Connection, source: TrackedFile, raw: RawFile) -> bool:
+    """Record that a full file published on a later Israel day is byte-identical to ``source``,
+    a loaded file, so it was (rightly) skipped by hash.
+
+    A store whose prices did not change can publish the same bytes two days running. The hash
+    skip is correct (nothing to load), but the deltas of that second day wait for "a loaded full
+    file of the same day" (:func:`is_full_loaded`) and would stay held for good. A synthetic
+    ``loaded`` row, keyed by a hash derived from the content hash and the day, carries the fact
+    and the record count (for the item-count gate). Returns True when a row was added.
+    """
+    day = israel_day(raw.published_at)
+    synthetic = hashlib.sha256(
+        f"{source.sha256}:republished:{day.isoformat()}".encode()
+    ).hexdigest()
+    count = _loaded_item_count(conn, source.id)
+    reason = (
+        f"items={count}; identical to file {source.id}, republished"
+        if count is not None
+        else (f"identical to file {source.id}, republished")
+    )
+    row = conn.execute(
+        "INSERT INTO file_tracking (sha256, chain_id, store_code, kind, path, published_at,"
+        " schema_version, status, reason) VALUES (%s, %s, %s, %s, %s, %s, %s, 'loaded', %s)"
+        " ON CONFLICT (sha256) DO NOTHING RETURNING id",
+        (
+            synthetic,
+            source.chain_id,
+            source.store_code,
+            source.kind,
+            source.path,
+            raw.published_at,
+            source.schema_version,
+            reason,
+        ),
+    ).fetchone()
+    if row is not None and count is not None and _has_item_count_column(conn):
+        conn.execute("UPDATE file_tracking SET item_count = %s WHERE id = %s", (count, row[0]))
+    return row is not None
 
 
 def strip_retry(reason: str | None) -> str:

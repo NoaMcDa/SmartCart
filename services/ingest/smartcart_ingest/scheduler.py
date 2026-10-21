@@ -13,15 +13,19 @@ The systemd timers in ``infra/vps`` are the production trigger: the full unit ru
 Every file goes through the same path: download (hash idempotency), hold check, parse, quality
 gates, load. Portal calls are retried with exponential backoff and full jitter; after
 ``PORTAL_MAX_ATTEMPTS`` the chain is skipped for this tick and a ``portal_failure`` alert fires.
+
+A run holds a database advisory lock (:meth:`Scheduler.exclusive`) so two runs never overlap, and
+one chain's unexpected crash is reported and alerted without stopping the other chains.
 """
 
 from __future__ import annotations
 
 import random
 import time
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from datetime import time as dtime
 from typing import Any, TypeVar
 from zoneinfo import ZoneInfo
@@ -32,7 +36,13 @@ import structlog
 from smartcart_ingest import loader, quality, tracking
 from smartcart_ingest.adapters.base import AdapterError, ChainAdapter, UnknownSchemaError
 from smartcart_ingest.alerts import Alerter
-from smartcart_ingest.download import Fetcher, PortalError, download, order_for_processing
+from smartcart_ingest.download import (
+    Fetcher,
+    PortalError,
+    RemoteFile,
+    download,
+    order_for_processing,
+)
 from smartcart_ingest.models import FileKind, ParsedFile, RawFile
 from smartcart_ingest.rawstore import RawStore
 from smartcart_ingest.settings import Settings, Thresholds
@@ -43,6 +53,17 @@ T = TypeVar("T")
 
 FULL_KINDS: tuple[FileKind, ...] = ("stores", "price_full", "promo_full")
 DELTA_KINDS: tuple[FileKind, ...] = ("price", "promo")
+
+# One ingestion run at a time, per database. The systemd units already share a flock, but a manual
+# `smartcart-ingest run` (or a unit started by hand) bypasses it. Two overlapping runs would
+# both list and load the same files, and one run's start-up recovery would mark the other's
+# in-flight file "interrupted". Any constant works; it only has to be the same for every worker.
+RUN_LOCK_KEY = 7_290_027_600_008
+# Held deltas older than this many Israel days are given up on (see tracking.expire_held).
+HELD_MAX_DAYS = 1
+# The first delta ticks after midnight (00:20, 01:20) also list yesterday: a delta published
+# between the 23:20 tick and midnight would otherwise never be listed again.
+LATE_DELTA_HOURS = 2
 
 
 # --- D13 chain list ----------------------------------------------------------------------------
@@ -117,6 +138,10 @@ def spread_order(schedules: Sequence[ChainSchedule]) -> list[ChainSchedule]:
 # --- backoff -----------------------------------------------------------------------------------
 
 
+class RunLocked(RuntimeError):
+    """Another ingestion run holds the database lock."""
+
+
 class PortalUnavailable(RuntimeError):
     def __init__(self, chain_id: str, attempts: int, last: BaseException) -> None:
         self.chain_id = chain_id
@@ -160,6 +185,25 @@ class Backoff:
                 self.sleep(wait)
         assert last is not None
         raise PortalUnavailable(chain_id, self.max_attempts, last)
+
+
+class _RetryingFetcher:
+    """Retries ``fetch`` and ``list_files`` on portal errors, and nothing else. :func:`download`
+    also archives the bytes and writes the tracking row; an error there (a full disk, a closed
+    connection) is not the portal's fault, must not be retried as if it were, and must not read
+    as a portal failure. Retrying the whole download would also fetch again a file the fetcher
+    has already consumed."""
+
+    def __init__(self, inner: Fetcher, backoff: Backoff, chain_id: str) -> None:
+        self.inner = inner
+        self.backoff = backoff
+        self.chain_id = chain_id
+
+    def list_files(self, *args: Any, **kwargs: Any) -> list[RemoteFile]:
+        return self.backoff.call(self.chain_id, self.inner.list_files, *args, **kwargs)
+
+    def fetch(self, remote: RemoteFile) -> bytes:
+        return self.backoff.call(self.chain_id, self.inner.fetch, remote)
 
 
 # --- reports -----------------------------------------------------------------------------------
@@ -233,11 +277,28 @@ class Scheduler:
 
     # -- public jobs --
 
+    @contextmanager
+    def exclusive(self) -> Iterator[None]:
+        """Hold the run lock (a session-level Postgres advisory lock) or raise :class:`RunLocked`.
+        It is released when the connection closes, so a killed worker never leaves it behind. It
+        needs a direct connection: a transaction-mode pooler would lose a session lock."""
+        row = self.conn.execute("SELECT pg_try_advisory_lock(%s)", (RUN_LOCK_KEY,)).fetchone()
+        if not row or not row[0]:
+            raise RunLocked("another ingestion run holds the database lock")
+        try:
+            yield
+        finally:
+            try:
+                self.conn.execute("SELECT pg_advisory_unlock(%s)", (RUN_LOCK_KEY,))
+            except psycopg.Error:  # a dead connection has already dropped it
+                log.warning("could not release the run lock")
+
     def run_full(self, chains: Iterable[str]) -> RunReport:
         report = RunReport("full")
-        self.ensure_partitions_ahead()
-        for chain_id in self._ordered(chains):
-            report.chains.append(self._run_chain(chain_id, FULL_KINDS))
+        with self.exclusive():
+            self.ensure_partitions_ahead()
+            for chain_id in self._ordered(chains):
+                report.chains.append(self._run_chain_safely(chain_id, FULL_KINDS))
         return report
 
     def run_delta(self, chains: Iterable[str] | None = None) -> RunReport:
@@ -251,8 +312,9 @@ class Scheduler:
                 sched = self.schedules.get(chain_id)
                 if sched is None or not sched.has_deltas:
                     log.warning("delta run for a chain without a delta schedule", chain_id=chain_id)
-        for chain_id in self._ordered(chosen):
-            report.chains.append(self._run_chain(chain_id, DELTA_KINDS))
+        with self.exclusive():
+            for chain_id in self._ordered(chosen):
+                report.chains.append(self._run_chain_safely(chain_id, DELTA_KINDS))
         return report
 
     def ensure_partitions_ahead(self) -> None:
@@ -276,6 +338,20 @@ class Scheduler:
         ]
         return [s.chain_id for s in spread_order(scheds)]
 
+    def _run_chain_safely(self, chain_id: str, kinds: Sequence[FileKind]) -> ChainReport:
+        """One chain's unexpected failure (an adapter or database bug, a full disk) is reported
+        and alerted, and the other chains still run. A dead database connection is not a
+        per-chain problem and ends the run."""
+        try:
+            return self._run_chain(chain_id, kinds)
+        except Exception as exc:
+            if self.conn.closed or self.conn.broken:
+                raise
+            log.exception("chain run crashed", chain_id=chain_id)
+            message = f"unexpected {type(exc).__name__}: {exc}"
+            self.alert(chain_id, "load_failure", f"chain run crashed: {message}")
+            return ChainReport(chain_id, error=message)
+
     def _run_chain(self, chain_id: str, kinds: Sequence[FileKind]) -> ChainReport:
         rep = ChainReport(chain_id)
         try:
@@ -294,9 +370,14 @@ class Scheduler:
             self._process_open(chain_id, adapter, rep, processed)
 
         now = self.now()
-        since = datetime.combine(now.astimezone(ISRAEL).date(), dtime(0), tzinfo=ISRAEL)
+        local = now.astimezone(ISRAEL)
+        day = local.date()
+        if kinds == DELTA_KINDS and local.hour < LATE_DELTA_HOURS:
+            day -= timedelta(days=1)
+        since = datetime.combine(day, dtime(0), tzinfo=ISRAEL)
+        fetcher = _RetryingFetcher(self.fetcher, self.backoff, chain_id)
         try:
-            remote = self.backoff.call(chain_id, self.fetcher.list_files, chain_id, kinds, since)
+            remote = fetcher.list_files(chain_id, kinds, since)
         except PortalUnavailable as exc:
             self._portal_down(rep, exc)
             return rep
@@ -306,16 +387,7 @@ class Scheduler:
 
         for rf in order_for_processing(remote, adapter):
             try:
-                res = self.backoff.call(
-                    chain_id,
-                    download,
-                    self.conn,
-                    self.fetcher,
-                    self.rawstore,
-                    rf,
-                    adapter,
-                    self.now(),
-                )
+                res = download(self.conn, fetcher, self.rawstore, rf, adapter, self.now())
             except PortalUnavailable as exc:
                 self._portal_down(rep, exc)
                 return rep
@@ -333,13 +405,21 @@ class Scheduler:
 
         # Held deltas whose full file loaded in this run, and anything an earlier run left.
         self._process_open(chain_id, adapter, rep, processed)
+        cutoff = datetime.combine(
+            local.date() - timedelta(days=HELD_MAX_DAYS), dtime(0), tzinfo=ISRAEL
+        )
+        expired = tracking.expire_held(self.conn, chain_id, cutoff)
+        if expired:
+            log.warning("gave up on held deltas whose full file never loaded", files=expired)
         log.info("chain done", **rep.as_dict())
         return rep
 
     def _process_open(
         self, chain_id: str, adapter: ChainAdapter, rep: ChainReport, processed: set[int]
     ) -> None:
-        for f in tracking.open_files(self.conn, chain_id):
+        # Fulls before deltas, whatever the publication times: a delta checked first would be
+        # held again although its full file loads a moment later in this same loop.
+        for f in tracking.open_files(self.conn, chain_id, include_interrupted=True):
             if f.id in processed:
                 continue
             processed.add(f.id)
@@ -420,7 +500,13 @@ class Scheduler:
                 log.info("delta held", file_id=f.id, chain_id=f.chain_id, reason=reason)
                 return "held"
 
-        f = tracking.mark_loading(self.conn, f.id)
+        # A file that already died once is marked, so a second death is not retried again.
+        again = (
+            tracking.RETRYING_AFTER_INTERRUPTION
+            if previous_failure == tracking.INTERRUPTED
+            else None
+        )
+        f = tracking.mark_loading(self.conn, f.id, again)
         try:
             payload = data if data is not None else self.rawstore.get(raw.path)
             parsed = adapter.parse(raw, payload)
@@ -439,7 +525,16 @@ class Scheduler:
         parsed = _with_tracked_raw(parsed, raw)
 
         thresholds = self.settings.thresholds_for(raw.chain_id)
-        failures = quality.check(self.conn, parsed, thresholds, now=self.now(), file_id=f.id)
+        try:
+            failures = quality.check(self.conn, parsed, thresholds, now=self.now(), file_id=f.id)
+        except Exception as exc:  # a gate that crashes must not load the file, nor stop the run
+            return self._fail(
+                f,
+                rep,
+                f"quality check crashed: {type(exc).__name__}: {exc}",
+                "load_failure",
+                previous_failure,
+            )
         if failures:
             quality.quarantine(self.conn, f.id, failures, parsed.raw.schema_version)
             rep.quarantined += 1
@@ -456,7 +551,7 @@ class Scheduler:
 
         self._soft_warnings(parsed, thresholds, f.id)
         try:
-            loader.load(self.conn, parsed, adapter)
+            result = loader.load(self.conn, parsed, adapter)
         except loader.LoadError as exc:
             rep.failed += 1
             if exc.reason != previous_failure:
@@ -467,7 +562,8 @@ class Scheduler:
                     file_id=f.id,
                 )
             return "failed"
-        rep.loaded += 1
+        if not result.skipped:
+            rep.loaded += 1
         return "loaded"
 
 
