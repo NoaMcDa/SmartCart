@@ -50,8 +50,13 @@ Per (canonical product, chain):
    - `wait` when the next window opens within 14 days, or is open now without a promo yet.
 
 Club-only promos count only for a club the user marked (`clubs` on the API, `--club` on the CLI),
-with the same rule as /compare (`basket.club_member`); without one they are left out, so a
-non-member is never told to wait for a deal they cannot get.
+with the same rule as /compare (`club_member`, `smartcart_ingest.adapters.membership`; both the
+route and the CLI build their callback with `club_filter`); without one they are left out, so a
+non-member is never told to wait for a deal they cannot get. `--club` takes club ids
+(`ramilevy:club`) or labels, and the stored rule of a promo (`A | B`, `A & B`, brackets, the
+unknown marker `אחר` that matches nobody) is evaluated against them on the chain's club table;
+before, the CLI compared the whole rule text with the names given, so a rule with an operator never
+matched (`test_cli_promo_clubs.py`).
 
 | Threshold | Value | Kind |
 |---|---|---|

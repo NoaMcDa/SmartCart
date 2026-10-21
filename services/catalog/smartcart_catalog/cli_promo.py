@@ -16,6 +16,7 @@ from typing import Annotated
 import typer
 
 from smartcart_catalog import promo_cycles as pc
+from smartcart_ingest.adapters.membership import club_filter
 
 
 def _canonical_id(conn, ref: str) -> tuple[int, str]:
@@ -28,15 +29,13 @@ def _canonical_id(conn, ref: str) -> tuple[int, str]:
     return row[0], row[1]
 
 
-def _include_clubs(clubs: list[str]) -> pc.IncludeClub | None:
-    if not clubs:
-        return None
-    marked = {" ".join(c.split()).casefold() for c in clubs}
-
-    def include(club_name, chain_name, chain_clubs) -> bool:
-        return " ".join((club_name or "").split()).casefold() in marked
-
-    return include
+def _include_clubs(conn, clubs: list[str]) -> pc.IncludeClub | None:
+    """The clubs the person marked, judged like the API does (``/promo-cycles``, ``/compare``): the
+    stored rule of a promo (``A | B``, ``A & B``, brackets) is evaluated by the shared
+    ``club_member`` against the club ids (``ramilevy:club``) or labels given, using the chain's club
+    table. Nothing marked: club-only promos are left out."""
+    marked = [c for c in clubs if c.strip()]
+    return club_filter(conn, marked) if marked else None
 
 
 def promo_cycles_cmd(
@@ -44,7 +43,8 @@ def promo_cycles_cmd(
     club: Annotated[
         list[str],
         typer.Option(
-            help="A club the user marked (repeat). Club-only promos count only for these, by exact name."
+            help="A club the user marked (repeat), by id (ramilevy:club) or label. Club-only promos "
+            "count only when the stored club rule (A | B, A & B) is satisfied by these."
         ),
     ] = [],  # noqa: B006
     as_of: Annotated[
@@ -58,7 +58,7 @@ def promo_cycles_cmd(
     today = date.fromisoformat(as_of) if as_of else datetime.now(UTC).date()
     with cli.open_connection(cli.load_settings()) as conn:
         cid, name = _canonical_id(conn, canonical)
-        rows = pc.promo_cycles(conn, cid, today, _include_clubs(club))
+        rows = pc.promo_cycles(conn, cid, today, _include_clubs(conn, club))
     if as_json:
         typer.echo(
             json.dumps(

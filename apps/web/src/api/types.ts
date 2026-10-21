@@ -354,6 +354,9 @@ export interface paths {
         /**
          * Add Item
          * @description Appends an item to the end of the list (owner or editor). ``id`` in the body is ignored.
+         *     With a ``client_id`` the add is idempotent per list: a replay answers 200 with the stored item
+         *     (the one that was added first, as it is now) and inserts nothing, also when the list has since
+         *     reached its size cap.
          */
         post: operations["add_item_me_lists__list_id__items_post"];
         delete?: never;
@@ -1056,6 +1059,11 @@ export interface components {
              */
             checked: boolean;
             /**
+             * Client Id
+             * @description POST /me/lists/{id}/items only, an idempotency key: a random id the client makes for this add and sends again on every retry (a lost response, an offline queue replayed twice). The first POST inserts the item and answers 201; a POST carrying the same id for the same list answers 200 with the stored item and inserts nothing. Without one, every POST inserts. Read back as the key the item was added with; ignored by PUT (a kept item keeps its key) and when creating a list.
+             */
+            client_id?: string | null;
+            /**
              * Confirmed
              * @default true
              */
@@ -1103,6 +1111,11 @@ export interface components {
              * @default false
              */
             checked: boolean;
+            /**
+             * Client Id
+             * @description POST /me/lists/{id}/items only, an idempotency key: a random id the client makes for this add and sends again on every retry (a lost response, an offline queue replayed twice). The first POST inserts the item and answers 201; a POST carrying the same id for the same list answers 200 with the stored item and inserts nothing. Without one, every POST inserts. Read back as the key the item was added with; ignored by PUT (a kept item keeps its key) and when creating a list.
+             */
+            client_id?: string | null;
             /**
              * Confirmed
              * @default true
@@ -3279,6 +3292,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description A replay: the item stored before */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListItem"];
+                };
+            };
             /** @description Successful Response */
             201: {
                 headers: {

@@ -20,7 +20,7 @@ from smartcart_api.auth import User
 
 ITEM_COLS = (
     "id, list_id, canonical_id, input_text, quantity, flex_level, confirmed, checked, sort,"
-    " updated_at"
+    " updated_at, client_id"
 )
 MAX_ITEMS_PER_LIST = 200  # the same cap as ShoppingListIn.items
 Role = Literal["owner", "editor", "viewer"]

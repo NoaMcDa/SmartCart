@@ -264,12 +264,27 @@ def _locked_item(
     "/me/lists/{list_id}/items",
     response_model=schemas.ListItem,
     status_code=201,
+    responses={200: {"model": schemas.ListItem, "description": "A replay: the item stored before"}},
 )
-def add_item(list_id: int, body: schemas.ListItemIn, uc: UserConn) -> schemas.ListItem:
-    """Appends an item to the end of the list (owner or editor). ``id`` in the body is ignored."""
+def add_item(
+    list_id: int, body: schemas.ListItemIn, uc: UserConn, response: Response
+) -> schemas.ListItem:
+    """Appends an item to the end of the list (owner or editor). ``id`` in the body is ignored.
+    With a ``client_id`` the add is idempotent per list: a replay answers 200 with the stored item
+    (the one that was added first, as it is now) and inserts nothing, also when the list has since
+    reached its size cap."""
     user, conn = uc
     require_editor(conn, user, list_id)
     lock_list_items(conn, list_id)
+    if body.client_id is not None:
+        with conn.cursor(row_factory=dict_row) as cur:
+            stored = cur.execute(
+                f"SELECT {ITEM_COLS} FROM list_items WHERE list_id = %s AND client_id = %s",
+                (list_id, body.client_id),
+            ).fetchone()
+        if stored is not None:
+            response.status_code = 200
+            return item_from_row(stored)
     count, top = conn.execute(
         "SELECT count(*), COALESCE(max(sort), -1) FROM list_items WHERE list_id = %s", (list_id,)
     ).fetchone()
@@ -280,7 +295,8 @@ def add_item(list_id: int, body: schemas.ListItemIn, uc: UserConn) -> schemas.Li
     with conn.cursor(row_factory=dict_row) as cur:
         row = cur.execute(
             "INSERT INTO list_items (list_id, user_id, canonical_id, input_text, quantity,"
-            " flex_level, confirmed, checked, sort) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            " flex_level, confirmed, checked, sort, client_id)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             f" RETURNING {ITEM_COLS}",
             (
                 list_id,
@@ -292,6 +308,7 @@ def add_item(list_id: int, body: schemas.ListItemIn, uc: UserConn) -> schemas.Li
                 body.confirmed,
                 body.checked,
                 top + 1,
+                body.client_id,
             ),
         ).fetchone()
     return item_from_row(row)

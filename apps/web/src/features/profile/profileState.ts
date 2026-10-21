@@ -250,9 +250,10 @@ export function resetProfileCache(): void {
  * for the chain's nearest physical store to the profile's neighborhood-level location (the default
  * city when none is set) and stores its id as `homeStoreId`, which `mirrorToShopper` passes on as
  * `home_store_id`, so "versus your store" is measured against it (D7). Resolves to the store id, or
- * null when the pick changed while the request ran, or the lookup failed (the chain has no
- * physical store, or no connection): the profile is left as it was and `adoptHomeStore` fills the
- * store in from the next compare result.
+ * null when the pick or the location changed while the request ran (the answer is the nearest store
+ * to a place the shopper no longer is at), or the lookup failed (the chain has no physical store,
+ * or no connection): the profile is left as it was and `adoptHomeStore` fills the store in from the
+ * next compare result.
  */
 export async function adoptNearestHomeStore(chainId: string): Promise<number | null> {
   const chain = chainById(chainId);
@@ -262,6 +263,10 @@ export async function adoptNearestHomeStore(chainId: string): Promise<number | n
     const store = await nearestStore(chain.apiId, lat, lon);
     const current = getProfile();
     if (current.homeChainId !== chainId || current.homeStoreId !== null) return null;
+    // The location is stored at neighborhood precision, so comparing the coordinates is comparing
+    // what the request was made for with what the shopper has now.
+    const now = readShopper();
+    if (now.lat !== lat || now.lon !== lon) return null;
     updateProfile({ homeStoreId: store.store_id });
     return store.store_id;
   } catch {
@@ -272,18 +277,21 @@ export async function adoptNearestHomeStore(chainId: string): Promise<number | n
 /**
  * Keeps "הסופר שלי" a store while a screen that needs it is open: a chain without a store (the
  * lookup failed or the network was down when it was picked, or the profile came from another
- * device) is looked up once per chain, and the stores of a result on screen fill it in as a
+ * device) is looked up once per chain and location (a new location is a new question, and an
+ * answer for the old one is dropped), and the stores of a result on screen fill it in as a
  * fallback. The results page uses it, so its first view already measures the saving against the
  * shopper's own store instead of asking "מה הסופר שלך?".
  */
 export function useResolveHomeStore(stores?: ReadonlyArray<StoreLike>): void {
-  const { homeChainId, homeStoreId } = useProfile();
+  const { homeChainId, homeStoreId, location } = useProfile();
   const tried = useRef<string | null>(null);
+  const where = location ? `${location.lat},${location.lon}` : "";
   useEffect(() => {
-    if (!homeChainId || homeStoreId !== null || tried.current === homeChainId) return;
-    tried.current = homeChainId;
+    const key = `${homeChainId}@${where}`;
+    if (!homeChainId || homeStoreId !== null || tried.current === key) return;
+    tried.current = key;
     void adoptNearestHomeStore(homeChainId);
-  }, [homeChainId, homeStoreId]);
+  }, [homeChainId, homeStoreId, where]);
   useEffect(() => {
     if (stores && stores.length > 0) adoptHomeStore(stores);
   }, [stores]);

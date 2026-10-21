@@ -33,8 +33,20 @@ export type QueuedEdit =
   | ({ kind: "quantity"; itemId: number; quantity: number; from?: number } & Seen)
   | ({ kind: "checked"; itemId: number; checked: boolean; from?: boolean } & Seen)
   | ({ kind: "remove"; itemId: number } & Seen)
-  /** `itemId` is a negative placeholder until the server gives the row its real id. */
-  | { kind: "add"; itemId: number; canonicalId: number | null; name: string; quantity: number };
+  /**
+   * `itemId` is a negative placeholder until the server gives the row its real id. `clientId` is
+   * made once with the add and sent with every attempt: the API answers a repeat of an add it
+   * already saved (the response was lost) with the stored row, so the item is not added twice.
+   * Absent on an add queued before it existed.
+   */
+  | {
+      kind: "add";
+      itemId: number;
+      canonicalId: number | null;
+      name: string;
+      quantity: number;
+      clientId?: string;
+    };
 
 type Stored = { version: 1; lists: Record<string, QueuedEdit[]> };
 
@@ -67,7 +79,8 @@ function isEdit(raw: unknown): raw is QueuedEdit {
         typeof e.name === "string" &&
         typeof e.quantity === "number" &&
         e.quantity > 0 &&
-        (e.canonicalId === null || typeof e.canonicalId === "number")
+        (e.canonicalId === null || typeof e.canonicalId === "number") &&
+        (e.clientId === undefined || typeof e.clientId === "string")
       );
     default:
       return false;

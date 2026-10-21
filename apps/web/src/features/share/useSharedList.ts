@@ -34,6 +34,7 @@ import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { getSupabase } from "@/features/auth/supabaseClient";
 import type { ShareMessageKey } from "@/i18n/messages/share";
+import { newClientId } from "@/state/clientId";
 import { writeItem, type WriteOutcome } from "./itemWrites";
 import { applyChange, changeFromPayload, itemFromRow, itemsOf, type SharedItem } from "./listSync";
 import {
@@ -52,6 +53,8 @@ import {
 } from "./offlineQueue";
 
 export const POLL_MS = 4000;
+/** Postgres `unique_violation`: the idempotency key of an add that was saved before. */
+const UNIQUE_VIOLATION = "23505";
 const MEMBERS_MS = 10000;
 
 export type SyncMode = "realtime" | "polling";
@@ -160,9 +163,21 @@ export function useSharedList(listId: number) {
             quantity: change.quantity,
             flex_level: "any_brand",
             sort: itemsRef.current.find((i) => i.id === change.itemId)?.sort ?? 0,
+            ...(change.clientId ? { client_id: change.clientId } : {}),
           })
           .select()
           .single();
+        if (error?.code === UNIQUE_VIOLATION && change.clientId) {
+          // The same add was saved before and its answer was lost: the row is already there.
+          const stored = await client
+            .from("list_items")
+            .select()
+            .eq("list_id", listId)
+            .eq("client_id", change.clientId)
+            .single();
+          if (stored.error || !stored.data) throw stored.error ?? new Error("no row");
+          return itemFromRow(stored.data as Parameters<typeof itemFromRow>[0]);
+        }
         if (error || !data) throw error ?? new Error("no row");
         return itemFromRow(data as Parameters<typeof itemFromRow>[0]);
       }
@@ -443,6 +458,7 @@ export function useSharedList(listId: number) {
           canonicalId: canonical.canonical_id,
           name: canonical.display_name_he,
           quantity: 1,
+          clientId: newClientId(),
         },
         "msgAddFailed",
       );
