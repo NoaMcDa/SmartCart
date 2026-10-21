@@ -67,12 +67,14 @@ it("keeps a tick made while an older poll was still being answered", async () =>
       return HttpResponse.json(before);
     }),
   );
-  act(() => {
-    vi.advanceTimersByTime(POLL_MS); // the poll starts and waits for the server
-  });
-  // `waitFor` polls with setInterval, which is faked here; wait on the real clock instead.
+  // The poll interval is set once the screen's first load settles, which can take a few real
+  // milliseconds on a busy machine: advance until the first poll starts (and waits for the
+  // server). `waitFor` polls with setInterval, which is faked here, so wait on the real clock.
   await act(async () => {
-    await new Promise((r) => setTimeout(r, 100));
+    for (let i = 0; i < 100 && polls === 0; i += 1) {
+      vi.advanceTimersByTime(POLL_MS);
+      await new Promise((r) => setTimeout(r, 20));
+    }
   });
   expect(polls).toBe(1);
 
