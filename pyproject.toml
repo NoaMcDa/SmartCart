@@ -34,7 +34,7 @@ select = ["E", "F", "I", "B", "UP", "W"]
 ignore = ["E501"]
 
 [tool.pytest.ini_options]
-testpaths = ["services/ingest/tests", "services/dashboard/tests", "services/catalog/tests", "services/api/tests"]
+testpaths = ["services/ingest/tests", "services/dashboard/tests", "services/catalog/tests", "services/api/tests", "scripts/exit_dry_run/tests", "scripts/unblock/tests"]
 addopts = "-ra"
 markers = [
   "postgis: needs the postgis extension (run in CI against supabase/postgres)",

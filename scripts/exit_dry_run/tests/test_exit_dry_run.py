@@ -45,9 +45,10 @@ def test_markdown_helpers() -> None:
     assert dry_run.pct(7, 10) == "70%" and dry_run.pct(0, 0) == "n/a"
 
 
-def test_the_real_set_is_stores_and_price_files_of_seven_chains() -> None:
+def test_the_real_set_is_stores_price_and_promo_files_of_seven_chains() -> None:
     files = replay.fixture_set("real")
-    assert {f.kind for f in files} == {"stores", "price_full"}
+    # Real PromoFull files joined the fixtures on 2026-10-21 (the portal probe, #47).
+    assert {f.kind for f in files} == {"stores", "price_full", "promo_full"}
     assert len({f.chain_id for f in files}) == 7
     assert all(f.path.parent.name == "real" for f in files)
     assert [f.published_at for f in files] == sorted(f.published_at for f in files)
@@ -79,7 +80,7 @@ def test_end_to_end_writes_the_dry_run_and_cleans_up(
     out = tmp_path / "dry-run.md"
     result = dry_run.run(pg_dsn, out)
     text = out.read_text(encoding="utf-8")
-    assert result["real_files"] == result["real_loaded"] == 14
+    assert result["real_files"] == result["real_loaded"] == 21  # 7 chains x Stores, Price, Promo
 
     # the banner and the verdict
     assert text.startswith("# Phase 0 exit dry run")
