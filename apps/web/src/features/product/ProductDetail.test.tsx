@@ -128,15 +128,15 @@ describe("product detail: requests that outlive the product on screen", () => {
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
+    // Hold only the first product's request, whatever order the two requests arrive in; the
+    // second product's goes on to the default handler.
     server.use(
-      http.post(
-        `${API_BASE_URL}/compare`,
-        async () => {
-          await held;
-          return HttpResponse.json({ detail: "late and refused" }, { status: 500 });
-        },
-        { once: true },
-      ),
+      http.post(`${API_BASE_URL}/compare`, async ({ request }) => {
+        const body = (await request.clone().json()) as { items?: { canonical_id?: number }[] };
+        if (!body.items?.some((item) => item.canonical_id === 1001)) return undefined;
+        await held;
+        return HttpResponse.json({ detail: "late and refused" }, { status: 500 });
+      }),
     );
     const view = render(<ProductDetail canonicalId={1001} nameHint="חלב טרי 3%, 1 ליטר" />);
     view.rerender(<ProductDetail canonicalId={1003} nameHint="משקה סויה" />);
