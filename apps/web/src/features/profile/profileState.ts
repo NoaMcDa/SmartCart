@@ -11,6 +11,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { nearestStore } from "@/api/client";
 import { readShopper, saveShopperProfile } from "@/state/shopper";
 import { chainById, resolveHomeStoreId } from "./chains";
+import { clubIdsOnly, toggleClubId } from "./clubs";
 import { STORAGE_KEYS, notifyStorageChange, readRaw, subscribeStorage, writeRaw } from "./storage";
 
 export type TravelMode = "car" | "walk_transit" | "delivery";
@@ -37,7 +38,7 @@ export type LocalProfile = {
   homeChainId: string | null;
   /** Resolved store id when known (see resolveHomeStoreId in chains.ts). */
   homeStoreId: number | null;
-  /** Club names (chain names). */
+  /** Club ids (`ramilevy:club`, see clubs.ts): the API's `clubs`. */
   clubs: string[];
   travelMode: TravelMode;
   /** 0 to 50 ILS. */
@@ -122,7 +123,7 @@ export function sanitizeProfile(raw: unknown): LocalProfile {
     homeChainId: typeof r.homeChainId === "string" ? r.homeChainId : null,
     homeStoreId:
       typeof r.homeStoreId === "number" && Number.isInteger(r.homeStoreId) ? r.homeStoreId : null,
-    clubs: strings(r.clubs),
+    clubs: clubIdsOnly(strings(r.clubs)),
     travelMode: mode === "walk_transit" || mode === "delivery" ? mode : "car",
     extraStopValue: clamp(
       Math.round(num(r.extraStopValue, DEFAULT_PROFILE.extraStopValue)),
@@ -228,9 +229,7 @@ export function clearLocation(): LocalProfile {
 }
 
 export function toggleClub(profile: LocalProfile, club: string): string[] {
-  return profile.clubs.includes(club)
-    ? profile.clubs.filter((c) => c !== club)
-    : [...profile.clubs, club];
+  return toggleClubId(profile.clubs, club);
 }
 
 export function useProfile(): LocalProfile {

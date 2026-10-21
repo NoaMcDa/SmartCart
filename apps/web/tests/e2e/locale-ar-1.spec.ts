@@ -192,7 +192,7 @@ test.describe("Arabic copy, sampled", () => {
       "aria-pressed",
       "true",
     );
-    await expect(page.getByRole("button", { name: "نادي Rami Levy" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "نوادي Rami Levy" })).toBeVisible();
     await page.getByTestId("onboarding-next").click();
     await expect(page.getByRole("radiogroup", { name: "وسيلة التنقل" })).toBeVisible();
     await expect(page.getByTestId("onboarding-next")).toHaveText("إنهاء");

@@ -405,6 +405,32 @@ token wrapper. The `(secondary)` layout mounts `AuthProvider` and `ProfileSync`.
 | `sc-shopping` | W5 `features/store/session.ts` | The in-store session: items, labels, prices, update times, check marks. Written when shopping starts, deleted by "סיימתי", expires after 12 hours |
 | `sc-savings-history` | W5 `features/profile/savingsHistory.ts` | "החיסכון שלי": one entry per finished trip, only the lines the user checked, against their own store, after travel and the extra stop |
 
+### Clubs (club promotions)
+
+The club picker (`features/profile/controls/ChainControls.tsx`, shared by onboarding and Profile)
+lists what the API says, not a fixed list: `GET /chains/clubs` through `features/profile/clubs.ts`
+(`useChainClubs()`, one request shared by every reader, the last good answer kept in
+`sc-chain-clubs-v1` so the picker works offline; it is not personal data and is not in
+`LOCAL_DATA_KEYS`). One group per chain that has a club in its real files, one card per club or
+card (credit or payment) with its Hebrew name, what kind it is and a check icon when picked;
+chains with none are named in one line ("עדיין אין מועדון מוכר ב..."). A load error says so and
+offers a retry; the rest of onboarding is not blocked.
+
+`profile.clubs` holds the API's club ids (`ramilevy:club`), and `clubs` of /compare, /optimize and
+the barcode lookup get the same ids. Stored profiles from the first picker held chain names
+("רמי לוי"): `clubIdsOnly` drops anything that is not an id on every read (local and from
+`/me/profile`), so nothing invisible stays selected. A promo's club shows the club's own name
+(`ClubName`, `clubRuleText`): a rule from the API (`A | B`, `(A | B) & C`) reads "או" and "וגם"
+(Arabic: أو and و), the names stay Hebrew (a `lang="he"` run in Arabic, like any data text), and
+the API's unknown marker `אחר` shows the plain "מבצע מועדון". The "רק לחברי המועדון" note on the
+product page is shown with every club price: the API only applies a club price to a member.
+The mock (`MOCK_CHAIN_CLUBS` in `mocks/handlers.phase3.ts`) serves the same list as the API; its
+compare fixtures are a fixed artboard and do not gate by club. Hebrew copy is in
+`i18n/messages/profile.ts` with the Arabic (machine-drafted, native review pending, #73).
+Tests: `profile/clubs.test.tsx`, the club steps of `OnboardingFlow.test.tsx`,
+`ProfileScreen.test.tsx`, `secondary-onboarding-profile.spec.ts`, the `onboarding-2-store` aria
+snapshot.
+
 There is no stored comparison. `useComparison()` (`features/split/lastResult.ts`) assembles one from
 the list, the shopper context, the `/optimize` response through W4b's cache (`useOptimize`, no
 second request) and a `/compare` response with the real quantities. After a reload it is fetched

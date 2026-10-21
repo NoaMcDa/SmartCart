@@ -198,3 +198,48 @@
   border-radius: var(--sc-radius-small);
   padding: var(--sc-space-2) var(--sc-space-3);
 }
+
+/* Clubs: one group per chain, each card names the club and what kind it is */
+.clubs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+.clubGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+/* Club names are longer than chain names: columns as wide as the text needs, not five of them. */
+.clubCards {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+}
+
+.clubGroupTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sc-muted);
+}
+
+.cardText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.cardKind {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--sc-muted);
+}
+
+.card[aria-pressed="true"] .cardKind {
+  color: inherit;
+}

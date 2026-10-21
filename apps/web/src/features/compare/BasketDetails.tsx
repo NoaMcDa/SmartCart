@@ -4,7 +4,10 @@ import Link from "next/link";
 import type { Plan } from "@/api/client";
 import { PromoConfidence, Tag, TrustedPrice } from "@/components/ui";
 import { ItemName } from "@/components/ui/ItemName";
+import { ClubName } from "@/features/profile/ClubName";
+import { clubRuleText } from "@/features/profile/clubs";
 import { DataText } from "@/i18n/DataText";
+import { formatRich } from "@/i18n/format";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { compareMessages } from "@/i18n/messages/compare";
 import { chainLabel, storeLabel } from "@/lib/storeName";
@@ -69,8 +72,10 @@ export function BasketDetails({
                       ) : null}
                       {line.club_required ? (
                         <Tag variant="club">
-                          {line.club_name
-                            ? t("clubPromoNamed", { club: chainLabel(line.club_name, locale) })
+                          {clubRuleText(line.club_name, locale)
+                            ? formatRich(t("clubPromoNamed"), {
+                                club: <ClubName rule={line.club_name} />,
+                              })
                             : t("clubPromo")}
                         </Tag>
                       ) : null}
