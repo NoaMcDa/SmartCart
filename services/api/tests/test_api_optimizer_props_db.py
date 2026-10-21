@@ -56,7 +56,7 @@ class Promo:
     label: str
     chain: str
     store: int | None  # None: chain-wide
-    kind: str  # price | percent | bogo | bundle
+    kind: str  # price | percent | bogo | bogo_pct (buy 1, get 1 at value % off) | bundle
     value: Decimal | None
     n: int | None
     club: str | None
@@ -83,6 +83,8 @@ def fold(shelf: Decimal, p: Promo) -> tuple[Decimal, int] | None:
         eff, need = shelf * (1 - p.value / 100), p.n or 1
     elif p.kind == "bogo":
         eff, need = shelf / 2, 2
+    elif p.kind == "bogo_pct":  # "the second at P %": pay 1 + (1 - P/100) shelf prices for 2 packs
+        eff, need = shelf * (2 - p.value / 100) / 2, 2
     else:  # bundle: N for X; a value below one shelf price is a price per unit
         eff, need = (p.value if p.value < shelf else p.value / p.n), p.n
     eff = m4(eff)
@@ -356,14 +358,19 @@ def build_world(db, rnd: random.Random, w: World) -> Built:
             store,
             label,
             covered,
-            {"price": "price", "percent": "percent", "bogo": "buy_x_get_y", "bundle": "bundle"}[
-                kind
-            ],
-            None if value is None else str(value),
-            None if n is None or kind == "bogo" else str(n),
+            {
+                "price": "price",
+                "percent": "percent",
+                "bogo": "buy_x_get_y",
+                "bogo_pct": "buy_x_get_y",
+                "bundle": "bundle",
+            }[kind],
+            "1" if kind == "bogo_pct" else (None if value is None else str(value)),
+            None if n is None or kind in ("bogo", "bogo_pct") else str(n),
             club_only=club is not None,
             club_name=club,
             description=desc,
+            get_percent=str(value) if kind == "bogo_pct" else None,
         )
         built.promos.append(
             Promo(label, ch, store, kind, value, n, club, {c for c in cids if (ch, c) in items})
@@ -374,7 +381,9 @@ def build_world(db, rnd: random.Random, w: World) -> Built:
         cid = rnd.choice(list(built.canon))
         weighed = built.canon[cid]
         kind = rnd.choice(
-            ["price", "percent"] if weighed else ["price", "percent", "bogo", "bundle", "bundle"]
+            ["price", "percent"]
+            if weighed
+            else ["price", "percent", "bogo", "bogo_pct", "bundle", "bundle"]
         )
         mine = [s for s in stores if s["chain"] == ch]
         store = rnd.choice([None, None, rnd.choice(mine)["id"]]) if mine else None
@@ -385,6 +394,7 @@ def build_world(db, rnd: random.Random, w: World) -> Built:
             "price": m2(ref * D(rnd.randint(55, 95)) / 100),
             "percent": D(rnd.randint(5, 40)),
             "bogo": None,
+            "bogo_pct": D(rnd.choice([25, 50, 75])),
             "bundle": m2(ref * n * D(rnd.randint(60, 95)) / 100),
         }[kind]
         if kind in ("price", "percent"):

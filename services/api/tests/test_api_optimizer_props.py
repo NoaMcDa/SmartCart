@@ -14,7 +14,7 @@ test_api_optimizer_props_db.py.
 from __future__ import annotations
 
 import random
-from decimal import Decimal
+from decimal import ROUND_CEILING, Decimal
 from itertools import product
 
 import pytest
@@ -113,7 +113,9 @@ def random_problem(seed: int, shared: bool = True, limits: bool = True) -> milp.
     lines: list[milp.Line] = []
     groups: dict[str, milp.Group] = {}
     for s in stores:
-        kind = rnd.choice(["none", "fixed", "fixed", "bogo", "unit"]) if shared else "none"
+        kind = (
+            rnd.choice(["none", "fixed", "fixed", "bogo", "bogo_pct", "unit"]) if shared else "none"
+        )
         size = rnd.randint(2, 3)
         limit = rnd.choice([None, None, size, 2 * size]) if limits else None
         shelves: dict[int, Decimal] = {}
@@ -143,6 +145,18 @@ def random_problem(seed: int, shared: bool = True, limits: bool = True) -> milp.
             elif kind == "bogo":
                 g = milp.Group(
                     key, s.store_id, "1+1", size, -cheapest, {c: shelves[c] for c in members}, limit
+                )
+            elif kind == "bogo_pct":  # "the second at P %": the cheapest unit P % off, per bundle
+                pct = D(rnd.choice([25, 50, 75]))
+                fixed = (-(cheapest * pct / 100)).quantize(D("0.01"), rounding=ROUND_CEILING)
+                g = milp.Group(
+                    key,
+                    s.store_id,
+                    "השני ב-P%",
+                    size,
+                    fixed,
+                    {c: shelves[c] for c in members},
+                    limit,
                 )
             else:
                 g = milp.Group(

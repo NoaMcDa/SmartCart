@@ -121,11 +121,14 @@ def add_promo(
     starts_at: datetime | None = None,
     ends_at: datetime | None = None,
     file_id: int | None = None,
+    get_percent: str | None = None,
 ) -> int:
+    """``get_percent``: a ``buy_x_get_y`` whose "got" units are P % off, as the adapters write it
+    (``raw.get_percent``, a decimal string); None means free."""
     pid = db.execute(
         "INSERT INTO promos (chain_id, store_id, promo_id, description, starts_at, ends_at,"
-        " club_only, club_name, min_qty, reward_type, reward_value, file_id)"
-        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        " club_only, club_name, min_qty, reward_type, reward_value, file_id, raw)"
+        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
         (
             chain,
             store_id,
@@ -139,6 +142,7 @@ def add_promo(
             reward_type,
             D(reward_value) if reward_value else None,
             file_id,
+            Jsonb({"get_percent": get_percent} if get_percent else {}),
         ),
     ).fetchone()[0]
     for iid in items:

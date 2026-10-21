@@ -77,8 +77,8 @@ EXPECTED: dict[str, dict] = {
     "shufersal": {
         "file": "PromoFull7290027600007-001-310-20261021-043100.gz",
         "store": "310", "promos": 100, "item_codes": 625, "club_only": 0,
-        "rewards": {"bundle": 60, "other": 14, "price": 26},
-        "unapplied": {"basket_condition": 3, "coupon_required": 10, "multi_group": 1},
+        "rewards": {"bundle": 60, "buy_x_get_y": 1, "other": 13, "price": 26},
+        "unapplied": {"basket_condition": 3, "coupon_required": 10},  # "1+1": was multi_group
         "pinned": {
             "4632236": ("bundle", D("50.00"), D("2"), False),
             "4632340": ("price", D("24.90"), D("1"), False),
@@ -86,9 +86,11 @@ EXPECTED: dict[str, dict] = {
     },
     "tivtaam": {
         "file": "PromoFull7290873255550-000-002-20261021-004004.gz",
-        "store": "2", "promos": 100, "item_codes": 233, "club_only": 59,
-        "rewards": {"bundle": 36, "other": 4, "price": 60},
-        "unapplied": {"multi_group": 3, "reward_value_unusable": 1},
+        "store": "2", "promos": 100, "item_codes": 229, "club_only": 59,
+        # item_codes was 233: two "second at 50 %" promotions list 2 reward-only items each, which
+        # are no longer linked (they need a trigger of another item).
+        "rewards": {"bundle": 36, "buy_x_get_y": 2, "other": 2, "price": 60},
+        "unapplied": {"club_in_description": 1, "reward_value_unusable": 1},
         "pinned": {
             "289904": ("bundle", D("12.90"), D("2"), True),  # "water 2 for 12.9, club"
             "314977": ("price", D("159.90"), D("1"), True),
@@ -97,9 +99,9 @@ EXPECTED: dict[str, dict] = {
     "yohananof": {
         "file": "PromoFull7290803800003-000-009-20261021-004031.gz",
         "store": "9", "promos": 100, "item_codes": 302, "club_only": 2,
-        "rewards": {"bundle": 65, "other": 9, "price": 26},
-        "unapplied": {"basket_condition": 3, "coupon_required": 2, "multi_group": 3,
-                      "packaging_credit": 1},  # fmt: skip
+        "rewards": {"bundle": 65, "buy_x_get_y": 3, "other": 6, "price": 26},
+        "unapplied": {"basket_condition": 3, "coupon_required": 2,
+                      "packaging_credit": 1},  # fmt: skip  (3 "1+1" were multi_group)
         "pinned": {
             "365892": ("price", D("29.90"), D("1"), False),
             "78510": ("bundle", D("61.75"), D("1.90"), False),  # "2 kg for 65": 1.9 kg for 61.75

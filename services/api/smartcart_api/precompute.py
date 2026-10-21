@@ -23,7 +23,7 @@ the adapters' provisional mapping (docs/adapters.md) and is not yet verified on 
 |---|---|---|---|
 | price | ``reward_value`` is the promo price of one unit | reward_value | min_qty or 1 |
 | percent | ``reward_value`` is the discount, 20 = 20 %, 0.2 = 20 % | shelf * (1 - rate) | min_qty or 1 |
-| buy_x_get_y | buy X = ``min_qty`` (default 1), get Y = ``reward_value`` free | shelf * X / (X + Y) | X + Y |
+| buy_x_get_y | buy X = ``min_qty`` (default 1), get Y = ``reward_value`` free, or (``get_percent`` P, from ``raw``) P % off: "the second at 50 %" | shelf * (X + Y (1 - P/100)) / (X + Y) | X + Y |
 | bundle | N = ``min_qty`` for ``reward_value`` in total ("3 for 20"); a value below one shelf price is read as a per-unit price | reward_value / N | N |
 | other | not applied | | |
 
@@ -76,6 +76,8 @@ class PromoTerms:
     min_qty: Decimal | None
     reward_type: str
     reward_value: Decimal | None
+    get_percent: Decimal | None = None
+    """``buy_x_get_y`` only: the units "got" are this percentage off (100 or None: free)."""
 
 
 @dataclass(frozen=True)
@@ -136,7 +138,12 @@ def fold_promo(shelf: Decimal, promo: PromoTerms) -> tuple[Decimal, Decimal] | N
         case "buy_x_get_y":
             x = min_qty or _ONE
             y = v if v is not None and v > 0 else _ONE
-            eff, need = shelf * x / (x + y), x + y
+            off = _ONE  # the units got are free ...
+            if promo.get_percent is not None:  # ... or this much off ("the second at 50 %")
+                if not 0 < promo.get_percent <= _HUNDRED:
+                    return None
+                off = promo.get_percent / _HUNDRED
+            eff, need = shelf * (x + y * (_ONE - off)) / (x + y), x + y
         case "bundle":
             if v is None or v <= 0:
                 return None
@@ -240,9 +247,16 @@ WHERE s.id = ANY(%(stores)s)
   AND (sp.item_id IS NOT NULL OR bp.item_id IS NOT NULL)
 """
 
-_PROMOS_SQL = """
+GET_PERCENT_SQL = (
+    "CASE WHEN p.raw->>'get_percent' ~ '^[0-9]+(\\.[0-9]+)?$'"
+    " THEN (p.raw->>'get_percent')::numeric END"
+)
+"""``PromoTerms.get_percent`` from the promo row: the adapters write ``raw.get_percent`` for a
+two-group "buy one, get one at P % off" promotion (docs/adapters.md)."""
+
+_PROMOS_SQL = f"""
 SELECT p.id, p.store_id, p.description, p.club_only, p.club_name, p.min_qty, p.reward_type,
-       p.reward_value, pi.item_id
+       p.reward_value, {GET_PERCENT_SQL}, pi.item_id
 FROM promos AS p
 JOIN promo_items AS pi ON pi.promo_id = p.id
 LEFT JOIN file_tracking AS f ON f.id = p.file_id
@@ -278,7 +292,7 @@ def item_options(
     priced = [PricedItem(*r) for r in conn.execute(_PRICES_SQL, params).fetchall()]
     promos: dict[int, list[PromoTerms]] = defaultdict(list)
     for r in conn.execute(_PROMOS_SQL, params).fetchall():
-        promos[r[8]].append(PromoTerms(*r[:8]))
+        promos[r[9]].append(PromoTerms(*r[:9]))
 
     out: dict[tuple[int, int], tuple[Option, Option]] = {}
     for p in priced:
