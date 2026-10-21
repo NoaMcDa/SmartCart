@@ -197,5 +197,30 @@ def status() -> None:
             typer.echo(f"{chain_id:<16} {total:>11} {recent:>9}")
 
 
+@app.command("clubs-report")
+def clubs_report(
+    only_unmapped: Annotated[
+        bool, typer.Option("--unmapped", help="Only texts with a name the club table lacks.")
+    ] = False,
+) -> None:
+    """List the ClubID texts of the loaded club promotions, the rule each resolves to and the club
+    names the table (adapters/chain_clubs.json) does not know: those match nobody yet."""
+    from smartcart_ingest.clubs_report import club_texts
+
+    settings = load_settings()
+    with open_connection(settings) as conn:
+        rows = club_texts(conn)
+    if only_unmapped:
+        rows = [r for r in rows if r.unmapped]
+    if not rows:
+        typer.echo("no club promotions" if not only_unmapped else "every club text is mapped")
+        return
+    for r in rows:
+        typer.echo(f"{r.chain_id}\t{r.promos}\t{r.text[:200]}")
+        typer.echo(f"\t-> {r.rule}")
+        if r.unmapped:
+            typer.echo(f"\tunmapped: {' | '.join(r.unmapped)[:200]}")
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

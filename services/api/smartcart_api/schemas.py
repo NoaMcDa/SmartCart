@@ -222,6 +222,20 @@ class ChainOnline(_Model):
     )
 
 
+class ClubChoice(_Model):
+    id: str = Field(description="Stable club id the profile stores and /compare takes in `clubs`")
+    label: str = Field(description="The club's name (Hebrew), also the `club_name` of its promos")
+    kind: Literal["club", "card", "staff", "other"] = Field(
+        description="club (loyalty club), card (credit or payment card), staff, other"
+    )
+
+
+class ChainClubs(_Model):
+    chain_id: str
+    chain_name: str
+    clubs: list[ClubChoice]
+
+
 # --- search ----------------------------------------------------------------------------------
 
 

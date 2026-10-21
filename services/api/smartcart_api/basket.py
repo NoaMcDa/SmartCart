@@ -53,6 +53,7 @@ from smartcart_api import schemas
 from smartcart_api.precompute import FLEX_ORDER, Option, item_options
 from smartcart_catalog.judge import BRAND_KEYS, quantity_in_base, values_equal
 from smartcart_catalog.models import ALWAYS_UNVERIFIED
+from smartcart_ingest.adapters import clubs as clubrules
 
 _C2 = Decimal("0.01")
 _Q4 = Decimal("0.0001")
@@ -152,6 +153,24 @@ def norm_club(name: str | None) -> str:
     return " ".join((name or "").split()).casefold()
 
 
+class ChainClubNames(list):
+    """A chain's ``chains.club_names`` plus its club table: ``ids`` maps a club id the profile
+    stores (``ramilevy:club``, lower-cased) to the label a promo's ``club_name`` uses. It is a
+    ``list`` of the legacy names so code that only iterates them keeps working."""
+
+    def __init__(self, names: Iterable[str] = (), ids: dict[str, str] | None = None) -> None:
+        super().__init__(names)
+        self.ids: dict[str, str] = dict(ids or {})
+
+
+def chain_club_names(chain_id: str, names: Iterable[str] | None = None) -> ChainClubNames:
+    """The legacy ``chains.club_names`` of a chain plus the ids of its club table."""
+    defs = clubrules.chain_clubs_for(chain_id)
+    return ChainClubNames(
+        names or [], {c.id.casefold(): c.label for c in defs.clubs} if defs else {}
+    )
+
+
 def club_member(
     club_name: str | None,
     clubs: Iterable[str],
@@ -160,40 +179,60 @@ def club_member(
 ) -> bool:
     """Whether a user who marked ``clubs`` gets a club-only promo restricted to ``club_name``.
 
-    * The promo's club name equals one of ``clubs`` (case-insensitive, trimmed). Credit cards
-      follow the same rule: the user marks the card's name.
+    ``club_name`` is a rule written by the ingest (``adapters/clubs.py``): a club label, or labels
+    joined by ``|`` (any of) and ``&`` (all of) with brackets, e.g. ``(A | B) & C``. The rule is
+    evaluated as written; each name in it is checked as below. A name without operators (and a
+    text that is not a well-formed rule) is a single name.
+
+    * The name equals one of ``clubs`` (case-insensitive, trimmed, spaces collapsed), or is the
+      label of a club of this chain's table whose id (``ramilevy:club``) is in ``clubs``. Credit
+      and payment card clubs are clubs of the table too.
     * The chain's own customer club (``CHAIN_OWN_CLUB``, or a name listed in the chain's
       ``chains.club_names``) also matches when the user marked the chain itself (its name, or
-      "מועדון <chain name>"), which is what the web app sends.
+      "מועדון <chain name>"): the rule of the first picker, kept for profiles saved before the
+      per-chain club list.
     * A restriction that could not be parsed (no name, "אחר", "club <n>") never matches: the
       promo stays restricted (safe default).
     """
-    want = norm_club(club_name)
-    if want in _UNPARSEABLE or _UNKNOWN_CODE.match(want):
+    if not (club_name or "").strip():
         return False
     marked = {norm_club(c) for c in clubs} - {""}
-    if want in marked:
-        return True
+    ids: dict[str, str] = getattr(chain_club_names, "ids", None) or {}
+    for club_id, label in ids.items():
+        if club_id in marked:
+            marked.add(norm_club(label))
     chain = norm_club(chain_name)
     own = {norm_club(CHAIN_OWN_CLUB), *(norm_club(n) for n in chain_club_names)}
-    if chain and want in own:
-        return any(
-            m == chain or m == f"{norm_club('מועדון')} {chain}" or chain.startswith(f"{m} ")
-            for m in marked
-        )
-    return False
+
+    def holds(name: str) -> bool:
+        want = norm_club(name)
+        if want in _UNPARSEABLE or _UNKNOWN_CODE.match(want):
+            return False
+        if want in marked:
+            return True
+        if chain and want in own:
+            return any(
+                m == chain or m == f"{norm_club('מועדון')} {chain}" or chain.startswith(f"{m} ")
+                for m in marked
+            )
+        return False
+
+    node = clubrules.parse_rule(club_name or "")
+    if node is None:
+        return holds(club_name or "")
+    return clubrules.evaluate(node, holds)
 
 
 def chain_clubs(
     conn: psycopg.Connection, chain_ids: Iterable[str]
-) -> dict[str, tuple[str, list[str]]]:
-    """chain_id -> (chain name, club names) for ``club_member``."""
-    return {
-        r[0]: (r[1], list(r[2] or []))
-        for r in conn.execute(
-            "SELECT id, name, club_names FROM chains WHERE id = ANY(%s)", (sorted(set(chain_ids)),)
-        ).fetchall()
-    }
+) -> dict[str, tuple[str, ChainClubNames]]:
+    """chain_id -> (chain name, club names and club ids) for ``club_member``."""
+    out: dict[str, tuple[str, ChainClubNames]] = {}
+    for chain_id, name, club_names in conn.execute(
+        "SELECT id, name, club_names FROM chains WHERE id = ANY(%s)", (sorted(set(chain_ids)),)
+    ).fetchall():
+        out[chain_id] = (name, chain_club_names(chain_id, club_names))
+    return out
 
 
 def promo_confidence(raw: Any) -> float | None:

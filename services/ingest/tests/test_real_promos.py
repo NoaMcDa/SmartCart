@@ -182,8 +182,17 @@ def test_club_values_of_the_real_files() -> None:
     assert names["tivtaam"] == {"המועדון החדש": 59}
     assert names["yohananof"] == {"מועדון עובדים": 2}
     assert not names["shufersal"] and not names["osherad"] and not names["mega"]
-    # Expressions list their alternatives and are never a name a user marks (safe default).
-    assert all(" | " in n for n in names["king_store"])
+    # Expressions are resolved against the chain's club table (chain_clubs.json) into a rule over
+    # club labels: the 18 King Store customer groups keep the three that are clubs a person can
+    # belong to, Rami Levy's "A|B & C|D" keeps its AND (test_club_rules.py has the membership).
+    assert names["king_store"] == {
+        "מועדון לקוחות | לקוחות סיטונאים | עובדי קינגסטור": 18,
+        "לקוחות סיטונאים": 3,
+    }
+    assert names["ramilevy"] == {
+        "(מועדון רמי לוי | מועדון לקוחות אשראי) & (ישראכרט מגנטי | תווי זיכוי מימוש)": 1,
+        "מועדון חברתי | מועדון רמי לוי | מועדון לקוחות אשראי | מועדון נטען | לקוחות ארנק": 1,
+    }
     assert all(len(n) <= 120 for slug in names for n in names[slug])
     for slug in ("king_store", "ramilevy"):
         promos = [p for p in _parsed(slug).promos if p.club_only]

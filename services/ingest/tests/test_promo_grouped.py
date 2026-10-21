@@ -244,7 +244,10 @@ def test_a_club_expression_lists_its_alternatives() -> None:
     rami = "((2=מועדון לקוחות אשראי))&(3=תווי זיכוי|3=מולטיפס)"
     assert parse_club(rami).name == "מועדון לקוחות אשראי | תווי זיכוי | מולטיפס"
     p = only(promo("1", group(item(price="11.90")), club=mega))
-    assert (p.club_only, p.club_name) == (True, "מועדון קרפור אשראי | מועדון אפליקציה")
+    # Shufersal has no club table (none of its real files names a club), so the expression
+    # matches nobody: stored as "אחר" with the text kept in raw. The chain-specific reading is in
+    # test_club_rules.py.
+    assert (p.club_only, p.club_name) == (True, "אחר")
     assert p.raw["club_expression"] == mega and p.raw["club_ids"] == [mega]
 
 
