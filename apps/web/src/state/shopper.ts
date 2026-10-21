@@ -16,7 +16,7 @@ import { cityLabelFor } from "@/features/profile/cities";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import { translate } from "@/i18n/messages";
 import { stateMessages } from "@/i18n/messages/state";
-import { readJson, writeJson } from "./storage";
+import { readJson, readRaw, writeJson } from "./storage";
 
 export const PROFILE_KEY = "sc-profile-v1";
 
@@ -66,12 +66,19 @@ export function shopperFromStored(
   mock = API_MOCK,
   locale: Locale = DEFAULT_LOCALE,
 ): ShopperContext {
-  const s = stored ?? {};
+  // Anything that is not a plain object (a hand-edited or damaged value) is "nothing stored".
+  const s: StoredProfile =
+    stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
   const hasLocation =
-    typeof s.neighborhood_lat === "number" && typeof s.neighborhood_lon === "number";
+    typeof s.neighborhood_lat === "number" &&
+    typeof s.neighborhood_lon === "number" &&
+    Number.isFinite(s.neighborhood_lat) &&
+    Number.isFinite(s.neighborhood_lon) &&
+    Math.abs(s.neighborhood_lat) <= 90 &&
+    Math.abs(s.neighborhood_lon) <= 180;
   // An explicit null means "no home store yet"; only a missing field takes the mock default.
   const homeStoreId =
-    typeof s.home_store_id === "number"
+    typeof s.home_store_id === "number" && Number.isInteger(s.home_store_id)
       ? s.home_store_id
       : s.home_store_id === undefined && mock
         ? MOCK_HOME_STORE_ID
@@ -82,7 +89,7 @@ export function shopperFromStored(
     lon: hasLocation ? s.neighborhood_lon! : DEFAULT_LOCATION.lon,
     radiusM: Math.min(15000, Math.max(1000, num(s.radius_m, 5000))),
     cityLabel:
-      s.city_label !== undefined && s.city_label !== null
+      typeof s.city_label === "string"
         ? cityLabelFor(s.city_label, locale)
         : hasLocation
           ? null
@@ -90,10 +97,11 @@ export function shopperFromStored(
     homeStoreId,
     clubs: Array.isArray(s.clubs) ? s.clubs.filter((c) => typeof c === "string") : [],
     travelMode: mode === "walk_transit" || mode === "delivery" ? mode : "car",
-    costPerKm: num(s.cost_per_km, 1.2),
-    extraStopValue: num(s.extra_stop_value, 25),
+    // Never negative: a damaged value must not turn travel into a saving.
+    costPerKm: Math.max(0, num(s.cost_per_km, 1.2)),
+    extraStopValue: Math.max(0, num(s.extra_stop_value, 25)),
     maxStores: Math.min(2, Math.max(1, Math.round(num(s.max_stores, 2)))),
-    usingDefaults: stored === null,
+    usingDefaults: s !== stored,
   };
 }
 
@@ -105,11 +113,7 @@ let cached: { raw: string | null; ctx: ShopperContext } | null = null;
 const listeners = new Set<() => void>();
 
 function rawProfile(): string | null {
-  try {
-    return typeof window === "undefined" ? null : window.localStorage.getItem(PROFILE_KEY);
-  } catch {
-    return null;
-  }
+  return readRaw(PROFILE_KEY);
 }
 
 function snapshot(): ShopperContext {
@@ -137,7 +141,8 @@ export function useShopper(): ShopperContext | null {
 
 /** Merge and store profile fields (onboarding, Profile). */
 export function saveShopperProfile(patch: StoredProfile): void {
-  const prev = readJson<StoredProfile | null>(PROFILE_KEY, null) ?? {};
+  const stored = readJson<unknown>(PROFILE_KEY, null);
+  const prev = stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
   writeJson(PROFILE_KEY, { ...prev, ...patch });
   for (const l of listeners) l();
 }

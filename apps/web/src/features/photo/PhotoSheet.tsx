@@ -62,6 +62,9 @@ export function PhotoSheet({ open, onClose, onAdd, onTypeInstead, flexDefaults }
   const pickedKind = useRef<Kind>("receipt");
   const abort = useRef<AbortController | null>(null);
   const focusRef = useRef<HTMLElement | null>(null);
+  // The "add" that may still put rows in the list: closing the sheet starts a new number, so a
+  // corrected line that is answered later is not added after the person gave up.
+  const addRun = useRef(0);
   const seenOpen = useRef(false);
   const groupId = useId();
 
@@ -73,6 +76,7 @@ export function PhotoSheet({ open, onClose, onAdd, onTypeInstead, flexDefaults }
   const [selection, setSelection] = useState<PreviewSelection | null>(null);
 
   function reset() {
+    addRun.current += 1;
     abort.current?.abort();
     abort.current = null;
     setAttempt(null);
@@ -94,7 +98,13 @@ export function PhotoSheet({ open, onClose, onAdd, onTypeInstead, flexDefaults }
   }
 
   // Leaving the page mid-request cancels it.
-  useEffect(() => () => abort.current?.abort(), []);
+  useEffect(
+    () => () => {
+      addRun.current += 1;
+      abort.current?.abort();
+    },
+    [],
+  );
 
   // Move focus to the new step's heading or message. The first render is the sheet's own focus.
   const focusKey = `${stage.name}:${stage.name === "error" ? stage.kind : ""}:${problem ?? ""}`;
@@ -197,6 +207,7 @@ export function PhotoSheet({ open, onClose, onAdd, onTypeInstead, flexDefaults }
   /** Confirm: the person's selection becomes list rows; edited lines try `/parse-list` first. */
   async function add() {
     if (!selection || selection.count === 0 || adding) return;
+    const mine = (addRun.current += 1);
     setAdding(true);
     const { rows, edited, kept } = selection.build();
     let reparsed: ParsedRow[] = [];
@@ -208,6 +219,7 @@ export function PhotoSheet({ open, onClose, onAdd, onTypeInstead, flexDefaults }
         reparsed = edited.map(unresolvedRow);
       }
     }
+    if (mine !== addRun.current) return; // closed meanwhile: close() already reset the sheet
     reset();
     onAdd([...rows, ...reparsed, ...kept.map(unresolvedRow)]);
   }

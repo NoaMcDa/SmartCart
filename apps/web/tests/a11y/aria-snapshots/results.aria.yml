@@ -8,6 +8,7 @@
   - radiogroup "תצוגה":
     - radio "רשימה" [checked]
     - radio "מפה"
+  - status: התוצאות מוכנות
   - article "רמי לוי · מודיעין":
     - text: מומלץ 4.2 ק"מ
     - heading "רמי לוי · מודיעין" [level=2]

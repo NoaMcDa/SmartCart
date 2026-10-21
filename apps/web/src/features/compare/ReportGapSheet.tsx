@@ -6,6 +6,7 @@ import { BottomSheet, Button, Price, UpdatedAt } from "@/components/ui";
 import { reportGapReported } from "@/features/consent/betaEvents";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { compareMessages } from "@/i18n/messages/compare";
+import { normalizeNumberInput } from "@/lib/numberInput";
 import { storeLabel } from "@/lib/storeName";
 import styles from "./Results.module.css";
 
@@ -18,7 +19,7 @@ export type ReportGapSheetProps = {
 };
 
 function toNumber(raw: string): number | null {
-  const n = Number.parseFloat(raw.replace(",", "."));
+  const n = Number.parseFloat(normalizeNumberInput(raw).replace(",", "."));
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 

@@ -261,6 +261,16 @@ export function ResultsView() {
         </Card>
       ) : null}
 
+      {/* The screen reader hears that the answer came: the skeleton and the cards replace each
+          other silently otherwise. The region is always in the page so the change is announced. */}
+      <p className="sr-only" role="status" data-testid="results-status">
+        {data
+          ? t("resultsReady")
+          : basket.length > 0 && result.status !== "error"
+            ? t("loadingResults")
+            : ""}
+      </p>
+
       <div aria-busy={result.status === "loading"}>{body}</div>
 
       <ReportGapSheet

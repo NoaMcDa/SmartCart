@@ -28,7 +28,8 @@ function downloadJson(filename: string, data: unknown) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(href);
+  // Revoked at once, some browsers (Safari, Firefox) have not started the download yet.
+  window.setTimeout(() => URL.revokeObjectURL(href), 10_000);
 }
 
 /** Privacy statement, consent toggles, export and "מחקי את הנתונים שלי" (issue #30). */

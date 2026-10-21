@@ -18,6 +18,7 @@ import {
   correctSpendTotal,
   ensureClientId,
   loadSpend,
+  markRemovedOnAccount,
   markSynced,
   mergeServerEntries,
   replaceSpendRow,
@@ -37,8 +38,21 @@ export async function pushPendingSpend(): Promise<number> {
     try {
       const saved = await postSpend(spendInput(entry));
       accepted += 1;
+      // The person may have deleted or corrected the entry while the request was on its way.
+      const now = loadSpend().entries.find((e) => e.id === id);
+      if (!now) {
+        // Deleted meanwhile: the account has it now, so it goes there too and a pull must not
+        // bring it back, even if this delete fails.
+        markRemovedOnAccount(saved.id);
+        await deleteSpend(saved.id).catch(() => undefined);
+        continue;
+      }
       // Recorded one by one: a failure later must not lose the ids of the ones that went through.
       markSynced([{ id, serverId: saved.id }]);
+      if (now.total !== entry.total) {
+        // Corrected meanwhile: the account got the old total, so send the new one.
+        await updateSpend(saved.id, spendInput(now)).catch(() => undefined);
+      }
     } catch {
       break; // offline or signed out: keep the rest pending, try again next time
     }

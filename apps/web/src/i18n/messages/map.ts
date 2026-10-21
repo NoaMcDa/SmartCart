@@ -23,7 +23,7 @@ export const mapMessages = defineMessages({
     attribution:
       "נתוני המפה: © <osm>תורמי OpenStreetMap</osm>. הדפדפן טוען את המפה מ-OpenStreetMap, ראי <privacy>מדיניות הפרטיות</privacy>.",
     storesHeading: "הסניפים ברדיוס",
-    storeRowAria: "{store}, {distance}, סל ₪{total}. לפרטים",
+    storeRowAria: "{store}, {distance}, סל {total}. לפרטים",
     recommended: "מומלץ",
     cheapest: "הכי זול",
     missingShort: "חסרים {count}",
@@ -45,7 +45,7 @@ export const mapMessages = defineMessages({
     reportPriceGap: "דווחי על פער במחיר",
 
     // Pins
-    pinBasket: "{chain}, סל ₪{total}",
+    pinBasket: "{chain}, סל {total}",
     listSep: ", ",
     pinMissingItems: "חסרים {count} פריטים",
     pinTap: ". לחצי לפרטים",
@@ -72,7 +72,7 @@ export const mapMessages = defineMessages({
     attribution:
       "بيانات الخريطة: © <osm>مساهمو OpenStreetMap</osm>. يحمّل المتصفح الخريطة من OpenStreetMap، انظر <privacy>سياسة الخصوصية</privacy>.",
     storesHeading: "الفروع ضمن النطاق",
-    storeRowAria: "{store}، {distance}، سلة ₪{total}. للتفاصيل",
+    storeRowAria: "{store}، {distance}، سلة {total}. للتفاصيل",
     recommended: "موصى به",
     cheapest: "الأرخص",
     missingShort: "ينقص {count}",
@@ -92,7 +92,7 @@ export const mapMessages = defineMessages({
     pricesUpdated: "حُدّثت الأسعار {time}",
     reportPriceGap: "الإبلاغ عن فرق في السعر",
 
-    pinBasket: "{chain}، سلة ₪{total}",
+    pinBasket: "{chain}، سلة {total}",
     listSep: "، ",
     pinMissingItems: "ينقص {count} أصناف",
     pinTap: ". اضغط للتفاصيل",

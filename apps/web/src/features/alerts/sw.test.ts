@@ -98,6 +98,8 @@ describe("push handler", () => {
     expect(body).toContain("משקה סויה ללא סוכר, 1 ליטר");
     expect(body).toContain("יוחננוף · מודיעין");
     expect(body).toContain("₪ 8.90");
+    // An LTR isolate around the price, or the shekel sign lands after the digits in Hebrew text.
+    expect(body).toContain("\u2066\u20aa\u00a08.90\u2069");
     expect(body).toContain("07.10 06:40"); // Israel time, not UTC
     expect(body).toContain("המחיר הקובע הוא בקופה.");
     expect(n.options).toMatchObject({ lang: "he", dir: "rtl", tag: "alert-5" });

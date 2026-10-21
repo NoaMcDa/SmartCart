@@ -9,11 +9,18 @@
  * an update, so a reconnect that replays events cannot duplicate an item.
  */
 import type { FlexLevel, ListItemInput, ShoppingList, ShoppingListInput } from "@/api/client";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
+import { translate } from "@/i18n/messages";
+import { shareMessages } from "@/i18n/messages/share";
 
 export type SharedItem = {
   id: number;
   canonicalId: number | null;
-  /** What members see: the Hebrew product name written when the item was added. */
+  /**
+   * The Hebrew product name written when the item was added; empty for a row that has none (it is
+   * never filled with a placeholder: it travels back to the server as written). The screens show
+   * `sharedItemName`.
+   */
   name: string;
   quantity: number;
   flexLevel: FlexLevel;
@@ -49,7 +56,7 @@ export function itemFromRow(row: RawRow): SharedItem | null {
   return {
     id,
     canonicalId: canonicalId !== null && Number.isFinite(canonicalId) ? canonicalId : null,
-    name: row.input_text?.trim() || (canonicalId !== null ? `מוצר מס' ${canonicalId}` : "פריט"),
+    name: row.input_text?.trim() ?? "",
     quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
     flexLevel: LEVELS.has(row.flex_level ?? "") ? (row.flex_level as FlexLevel) : "any_brand",
     confirmed: row.confirmed !== false,
@@ -57,6 +64,17 @@ export function itemFromRow(row: RawRow): SharedItem | null {
     sort: typeof row.sort === "number" ? row.sort : 0,
     updatedAt: Number.isFinite(updated) ? updated : null,
   };
+}
+
+/** The name to show for an item: its own, else a numbered or generic one in the UI language. */
+export function sharedItemName(
+  item: Pick<SharedItem, "name" | "canonicalId">,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  if (item.name) return item.name;
+  return item.canonicalId !== null
+    ? translate(shareMessages, locale, "itemNumbered", { id: item.canonicalId })
+    : translate(shareMessages, locale, "itemUnnamed");
 }
 
 export function itemsOf(list: Pick<ShoppingList, "items">): SharedItem[] {
@@ -113,7 +131,7 @@ export function changeFromPayload(payload: {
 export function serverBody(name: string, items: ReadonlyArray<SharedItem>): ShoppingListInput {
   const rows: ListItemInput[] = items.map((i) => ({
     canonical_id: i.canonicalId,
-    input_text: i.name,
+    input_text: i.name || null,
     quantity: i.quantity,
     flex_level: i.flexLevel,
     confirmed: i.confirmed,

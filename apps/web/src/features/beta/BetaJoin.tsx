@@ -13,6 +13,7 @@ import { setTrackingConsent } from "@/features/seo/track";
 import { LegalNotice } from "@/i18n/LegalNotice";
 import { useT } from "@/i18n/LocaleProvider";
 import { betaMessages } from "@/i18n/messages/beta";
+import { rescueFocus } from "@/lib/focus";
 import { BetaFeedbackSheet } from "./BetaFeedback";
 import styles from "./Beta.module.css";
 import { setBetaMembership } from "./betaState";
@@ -90,6 +91,8 @@ export function BetaJoin({ code }: { code?: string }) {
       setBetaMembership(false, null);
       setConfirmLeave(false);
       setPhase("left");
+      // The "leave" button is gone with the member view: focus goes to the new heading.
+      rescueFocus(null);
     } catch {
       setError(t("errLeave"));
       setPhase("idle");
@@ -105,7 +108,7 @@ export function BetaJoin({ code }: { code?: string }) {
         <div className={styles.section}>
           {phase === "left" ? (
             <>
-              <h2 id="beta-state" className={styles.heading}>
+              <h2 id="beta-state" className={styles.heading} tabIndex={-1} data-focus-fallback>
                 {t("leftTitle")}
               </h2>
               <p role="status" data-testid="beta-left">

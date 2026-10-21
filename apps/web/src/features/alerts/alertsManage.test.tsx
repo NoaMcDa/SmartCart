@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
@@ -152,5 +152,48 @@ describe("turning push off", () => {
     expect(unsubscribed).toBe(true);
     expect(endpoint).toBe("https://push.example/abc");
     delete (navigator as unknown as Record<string, unknown>).serviceWorker;
+  });
+});
+
+describe("focus after a delete", () => {
+  it("moves to the empty state when the last alert is deleted, not to the top of the page", async () => {
+    rememberAlertLabel(1003, { name: "משקה סויה", unitLabel: 'ל-100 מ"ל' });
+    let alerts = [alert()];
+    server.use(
+      http.get(`${API_BASE_URL}/me/alerts`, () => HttpResponse.json(alerts)),
+      http.delete(`${API_BASE_URL}/me/alerts/:id`, () => {
+        alerts = [];
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    render(<AlertsScreen />);
+    await user.click(await screen.findByRole("button", { name: "מחיקת ההתראה על משקה סויה" }));
+    const empty = await screen.findByTestId("alerts-empty");
+    await waitFor(() => expect(within(empty).getByRole("heading")).toHaveFocus());
+  });
+
+  it("a double tap on delete sends one request and shows no error", async () => {
+    rememberAlertLabel(1003, { name: "משקה סויה", unitLabel: 'ל-100 מ"ל' });
+    let alerts = [alert()];
+    let deletes = 0;
+    server.use(
+      http.get(`${API_BASE_URL}/me/alerts`, () => HttpResponse.json(alerts)),
+      http.delete(`${API_BASE_URL}/me/alerts/:id`, () => {
+        deletes += 1;
+        if (deletes > 1) return HttpResponse.json({ detail: "gone" }, { status: 404 });
+        alerts = [];
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(<AlertsScreen />);
+    const button = await screen.findByRole("button", { name: "מחיקת ההתראה על משקה סויה" });
+    act(() => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+    });
+    await screen.findByTestId("alerts-empty");
+    expect(deletes).toBe(1);
+    expect(screen.getByRole("status")).toHaveTextContent("נמחקה");
   });
 });

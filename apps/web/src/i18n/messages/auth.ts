@@ -23,6 +23,7 @@ export const authMessages = defineMessages({
     errorSendFailed: "לא הצלחנו לשלוח קוד. נסי שוב בעוד רגע.",
     errorCodeFormat: "הקוד הוא ספרות בלבד, כפי שהגיע באימייל.",
     errorCodeWrong: "הקוד שגוי או שפג תוקפו.",
+    errorVerifyFailed: "לא הצלחנו לאמת את הקוד כרגע. בדקי את החיבור ונסי שוב.",
   },
   ar: {
     title: "تسجيل الدخول",
@@ -43,5 +44,6 @@ export const authMessages = defineMessages({
     errorSendFailed: "لم ننجح في إرسال الرمز. حاول مرة أخرى بعد قليل.",
     errorCodeFormat: "الرمز أرقام فقط، كما وصل في البريد الإلكتروني.",
     errorCodeWrong: "الرمز خاطئ أو انتهت صلاحيته.",
+    errorVerifyFailed: "لم ننجح في التحقق من الرمز الآن. تحقق من الاتصال وحاول مرة أخرى.",
   },
 });

@@ -270,23 +270,35 @@ export function groupByDepartment(
 // ---------------------------------------------------------------------------------------------
 // Validation of what comes back from storage (it may be stale, edited or from an older version).
 
+/** A canonical the screens can draw and the API can price: an object with a numeric id and a name. */
+function isCanonical(raw: unknown): raw is CanonicalRef {
+  if (!raw || typeof raw !== "object") return false;
+  const c = raw as Partial<CanonicalRef>;
+  return (
+    typeof c.canonical_id === "number" &&
+    Number.isInteger(c.canonical_id) &&
+    typeof c.display_name_he === "string"
+  );
+}
+
 function sanitizeItem(raw: unknown): ListItem | null {
   if (!raw || typeof raw !== "object") return null;
   const it = raw as Partial<ListItem>;
   if (typeof it.id !== "string" || typeof it.inputText !== "string") return null;
+  const canonical = isCanonical(it.canonical) ? it.canonical : null;
   return {
     id: it.id,
     inputText: it.inputText,
-    canonical: it.canonical ?? null,
-    candidates: Array.isArray(it.candidates) ? it.candidates : [],
+    canonical,
+    candidates: Array.isArray(it.candidates) ? it.candidates.filter(isCanonical) : [],
     quantity: toQuantity(it.quantity),
     unit: it.unit === "kg" ? "kg" : null,
     isWeighed: Boolean(it.isWeighed),
     flexLevel: isFlexLevel(it.flexLevel) ? it.flexLevel : "any_brand",
     allow: Array.isArray(it.allow) ? it.allow.filter((a) => typeof a === "string") : [],
     exactItemId: typeof it.exactItemId === "number" ? it.exactItemId : null,
-    needsConfirmation: Boolean(it.needsConfirmation),
-    notFound: Boolean(it.notFound) || !it.canonical,
+    needsConfirmation: Boolean(it.needsConfirmation) && canonical !== null,
+    notFound: Boolean(it.notFound) || canonical === null,
     confidence: typeof it.confidence === "number" ? it.confidence : 1,
   };
 }
@@ -329,7 +341,8 @@ function emit() {
 }
 
 function onStorage(e: StorageEvent) {
-  if (e.key !== LIST_KEY) return;
+  // `key` is null when another tab cleared all of localStorage.
+  if (e.key !== null && e.key !== LIST_KEY) return;
   snapshot = { state: sanitizeState(readJson(LIST_KEY, null)), hydrated: true };
   emit();
 }

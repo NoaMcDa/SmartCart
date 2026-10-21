@@ -5,6 +5,7 @@ import { Button, IconInfo, Price, Tag } from "@/components/ui";
 import controls from "@/features/profile/controls/controls.module.css";
 import { Count } from "@/features/compare/Count";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { rescueFocus } from "@/lib/focus";
 import { storeLabel } from "@/lib/storeName";
 import { budgetMessages } from "@/i18n/messages/budget";
 import { dayLabel } from "./month";
@@ -84,9 +85,19 @@ export function SpendEntries({
   const label = (e: SpendRow) =>
     `${dayLabel(e.date)} · ${storeLabel(e.store_name, locale)}${e.plan === "split" ? t("splitMark") : ""}`;
 
+  /** The form or question closes: focus goes back to this entry's first button, not to the page. */
+  function backToEntry(from: Element) {
+    const li = from.closest("li");
+    rescueFocus(from, {
+      neighbors: false,
+      fallback: () => li?.querySelector("button") ?? null,
+    });
+  }
+
   async function onSave(event: FormEvent, row: SpendRow) {
     event.preventDefault();
     if (!editing || busy) return;
+    const form = event.currentTarget;
     setBusy(true);
     const outcome = await correctSpend(row.id, editing.draft, signedIn);
     setBusy(false);
@@ -97,6 +108,7 @@ export function SpendEntries({
       });
       return;
     }
+    backToEntry(form);
     setEditing(null);
     setNotice(
       outcome === "failed"
@@ -107,8 +119,9 @@ export function SpendEntries({
     );
   }
 
-  async function onConfirmRemove(row: SpendRow) {
+  async function onConfirmRemove(row: SpendRow, button: Element) {
     await flush(); // an earlier delete still in its undo window is final now
+    rescueFocus(button); // the entry goes: focus to the next one
     const removed = removeSpendRow(row.id);
     setConfirmId(null);
     setNotice(null);
@@ -194,7 +207,10 @@ export function SpendEntries({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => setEditing(null)}
+                        onClick={(ev) => {
+                          backToEntry(ev.currentTarget);
+                          setEditing(null);
+                        }}
                       >
                         {t("cancel")}
                       </Button>
@@ -217,7 +233,7 @@ export function SpendEntries({
                         type="button"
                         size="sm"
                         tone="bad"
-                        onClick={() => void onConfirmRemove(e)}
+                        onClick={(ev) => void onConfirmRemove(e, ev.currentTarget)}
                         data-testid="spend-delete-confirm"
                       >
                         {t("confirmYes")}
@@ -227,7 +243,10 @@ export function SpendEntries({
                         size="sm"
                         variant="outline"
                         autoFocus
-                        onClick={() => setConfirmId(null)}
+                        onClick={(ev) => {
+                          backToEntry(ev.currentTarget);
+                          setConfirmId(null);
+                        }}
                       >
                         {t("cancel")}
                       </Button>

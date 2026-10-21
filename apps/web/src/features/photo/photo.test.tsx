@@ -323,6 +323,33 @@ describe("the preview of a handwritten list", () => {
     expect(screen.getByTestId("not-found-row")).toHaveTextContent("סבון כלים");
   });
 
+  it("closing the sheet while a corrected line is being read adds nothing to the list", async () => {
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let asked = false;
+    server.use(
+      http.post(`${API_BASE_URL}/parse-list`, async () => {
+        asked = true;
+        await held;
+        return HttpResponse.json({ rows: [] });
+      }),
+    );
+    const { user } = await readList();
+    const field = within(screen.getAllByTestId("photo-unresolved-row")[0]!).getByRole("textbox");
+    await user.clear(field);
+    await user.type(field, "קוטג");
+    await user.click(screen.getByTestId("photo-add"));
+    await waitFor(() => expect(asked).toBe(true));
+    await user.click(screen.getByRole("button", { name: "סגירה" })); // the sheet's X
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    // The person gave up: the answer that arrives later adds no rows.
+    expect(getListState().items).toEqual([]);
+  });
+
   it("a rewrite that /parse-list cannot take still joins the list as the person's own words", async () => {
     server.use(http.post(`${API_BASE_URL}/parse-list`, () => HttpResponse.error()));
     const { user } = await readList();

@@ -13,8 +13,10 @@ import { storeMessages } from "@/i18n/messages/store";
 import {
   STORAGE_KEYS,
   notifyStorageChange,
+  readRaw,
   removeKey,
   subscribeStorage,
+  writeRaw,
 } from "@/features/profile/storage";
 import { buildPool, toAgorot, type Pool } from "@/features/split/savings";
 import type { LastResult } from "@/features/split/lastResult";
@@ -233,19 +235,41 @@ export function realizedSaving(session: ShoppingSession): number | null {
 let cachedRaw: string | null | undefined;
 let cached: ShoppingSession | null = null;
 
+function isShopItem(raw: unknown): raw is ShopItem {
+  if (!raw || typeof raw !== "object") return false;
+  const i = raw as Partial<Record<keyof ShopItem, unknown>>;
+  return (
+    typeof i.itemId === "number" &&
+    typeof i.canonicalId === "number" &&
+    typeof i.name === "string" &&
+    typeof i.lineTotal === "string" &&
+    Number.isFinite(Number(i.lineTotal)) &&
+    typeof i.checked === "boolean" &&
+    typeof i.department === "string"
+  );
+}
+
+/**
+ * A usable session from stored text that may be old, edited or damaged: items the checklist
+ * cannot draw are dropped, and a session left with none is no session.
+ */
+export function sanitizeSession(raw: unknown): ShoppingSession | null {
+  if (!raw || typeof raw !== "object") return null;
+  const s = raw as Partial<ShoppingSession>;
+  if (s.version !== 1 || !Array.isArray(s.items) || typeof s.expiresAt !== "string") return null;
+  if (typeof s.storeId !== "number") return null;
+  const items = s.items.filter(isShopItem);
+  if (items.length === 0 && s.items.length > 0) return null;
+  return { ...(s as ShoppingSession), items };
+}
+
 export function loadSession(now: Date = new Date()): ShoppingSession | null {
   if (typeof window === "undefined") return null;
-  let raw: string | null = null;
-  try {
-    raw = window.localStorage.getItem(STORAGE_KEYS.shopping);
-  } catch {
-    raw = null;
-  }
+  const raw = readRaw(STORAGE_KEYS.shopping);
   if (raw !== cachedRaw) {
     cachedRaw = raw;
     try {
-      const parsed = raw === null ? null : (JSON.parse(raw) as ShoppingSession);
-      cached = parsed && parsed.version === 1 && Array.isArray(parsed.items) ? parsed : null;
+      cached = raw === null ? null : sanitizeSession(JSON.parse(raw));
     } catch {
       cached = null;
     }
@@ -260,11 +284,8 @@ export function loadSession(now: Date = new Date()): ShoppingSession | null {
 }
 
 export function saveSession(session: ShoppingSession): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEYS.shopping, JSON.stringify(session));
-  } catch {
-    /* storage unavailable: the session lives only in memory for this page view */
-  }
+  // Storage unavailable: the session lives only in memory for this page view (`writeRaw`).
+  writeRaw(STORAGE_KEYS.shopping, JSON.stringify(session));
   notifyStorageChange();
 }
 

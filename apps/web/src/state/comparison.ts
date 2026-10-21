@@ -93,7 +93,7 @@ export function estimateRange(
   if (items.length === 0) return null;
   const totals: Array<{ store: StoreResult; total: number }> = [];
   for (const store of res.stores) {
-    let total = 0;
+    let agorot = 0; // whole agorot per line, so a long list never drifts by a float error
     let complete = true;
     for (const it of items) {
       const line = store.items.find((l) => l.canonical_id === it.canonical_id);
@@ -101,9 +101,9 @@ export function estimateRange(
         complete = false;
         break;
       }
-      total += perUnit(line) * Number(it.quantity);
+      agorot += Math.round(perUnit(line) * Number(it.quantity) * 100);
     }
-    if (complete) totals.push({ store, total: Math.round(total * 100) / 100 });
+    if (complete) totals.push({ store, total: agorot / 100 });
   }
   if (totals.length === 0) return null;
   totals.sort((a, b) => a.total - b.total);

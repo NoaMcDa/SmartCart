@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { FlexChip, IconClose, IconWarning, Stepper, Tag } from "@/components/ui";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { listMessages } from "@/i18n/messages/list";
+import { rescueFocus } from "@/lib/focus";
 import { productName } from "@/lib/format";
 import { listActions, type ListItem } from "@/state/list";
 import styles from "./ListBuilder.module.css";
@@ -46,7 +47,11 @@ export function ListRow({ item, onOpenFlex }: ListRowProps) {
         <button
           type="button"
           className={styles.iconButton}
-          onClick={() => listActions.remove(item.id)}
+          onClick={(e) => {
+            // The button leaves the page with its row: focus goes to the next row, not to <body>.
+            rescueFocus(e.currentTarget, { row: '[data-testid="list-row"]' });
+            listActions.remove(item.id);
+          }}
           aria-label={t("removeAria", { name })}
         >
           <IconClose size={18} />
@@ -55,6 +60,16 @@ export function ListRow({ item, onOpenFlex }: ListRowProps) {
       {item.needsConfirmation ? <Confirmation item={item} /> : null}
     </div>
   );
+}
+
+/** The question disappears once answered; focus goes to the row's own first control. */
+function confirmKeepingFocus(button: HTMLElement, answer: () => void) {
+  const row = button.closest<HTMLElement>('[data-testid="list-row"]');
+  rescueFocus(button, {
+    neighbors: false,
+    fallback: () => row?.querySelector<HTMLElement>("button") ?? null,
+  });
+  answer();
 }
 
 function Confirmation({ item }: { item: ListItem }) {
@@ -82,7 +97,9 @@ function Confirmation({ item }: { item: ListItem }) {
         <button
           type="button"
           className={styles.confirmYes}
-          onClick={() => listActions.confirm(item.id)}
+          onClick={(e) => {
+            confirmKeepingFocus(e.currentTarget, () => listActions.confirm(item.id));
+          }}
           aria-label={t("yesAria", { suggestion })}
         >
           {t("yes")}
@@ -104,7 +121,9 @@ function Confirmation({ item }: { item: ListItem }) {
               <button
                 type="button"
                 className={styles.candidate}
-                onClick={() => listActions.confirm(item.id, c)}
+                onClick={(e) => {
+                  confirmKeepingFocus(e.currentTarget, () => listActions.confirm(item.id, c));
+                }}
               >
                 {productName(c, locale)}
               </button>

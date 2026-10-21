@@ -158,12 +158,17 @@ describe("recording a shop", () => {
     expect(loadSpend().pending).not.toContain(local.id);
   });
 
-  it("works with storage blocked: no throw, nothing persisted", () => {
+  it("works with storage blocked: no throw, nothing persisted, kept for this page view", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("blocked", "SecurityError");
     });
-    expect(() => shop()).not.toThrow();
-    expect(loadSpend().entries).toEqual([]);
+    let row: ReturnType<typeof shop> | undefined;
+    expect(() => {
+      row = shop();
+    }).not.toThrow();
+    expect(window.localStorage.getItem(STORAGE_KEYS.spend)).toBeNull();
+    // The shop the person just finished is still on the screen for this page view.
+    expect(loadSpend().entries).toEqual([row]);
   });
 
   it("drops damaged entries and pending ids that point nowhere", () => {

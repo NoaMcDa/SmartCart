@@ -188,3 +188,18 @@ describe("onboarding", () => {
     expect(screen.getByTestId("step-count")).toHaveTextContent("שלב 1 מתוך 3");
   });
 });
+
+describe("onboarding focus", () => {
+  it("moves focus to the new step's heading on next and back, and leaves the first render alone", async () => {
+    const user = userEvent.setup();
+    render(<OnboardingFlow />);
+    expect(document.body).toHaveFocus(); // nothing was pulled on load
+    await user.click(screen.getByTestId("onboarding-next"));
+    const title = screen.getByRole("heading", { level: 2 });
+    expect(title).toHaveFocus();
+    expect(screen.getByTestId("step-count")).toHaveTextContent("שלב 2 מתוך 3");
+    await user.click(screen.getByRole("button", { name: "חזרה" }));
+    expect(screen.getByRole("heading", { level: 2 })).toHaveFocus();
+    expect(screen.getByTestId("step-count")).toHaveTextContent("שלב 1 מתוך 3");
+  });
+});
