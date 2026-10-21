@@ -10,14 +10,14 @@
       "sha256_original": "94a034ea9f6e2bd5f003f4fd6f8ef980e999f5f266baa2200da0d66062b3ae9b",
       "bytes_original": 9790,
       "published_at": "2026-10-19T08:05+03:00",
-      "fetched_at": "2026-10-21T17:33:09+00:00",
+      "fetched_at": "2026-10-21T18:08:48+00:00",
       "schema": "v1",
       "gate": {
         "status": "quarantined",
         "gates": [
           "stale_date"
         ],
-        "reason": "stale_date: published 2026-10-19T05:05:01+00:00, 60.6 h old (limit 36 h)"
+        "reason": "stale_date: published 2026-10-19T05:05:01+00:00, 61.2 h old (limit 36 h)"
       },
       "stores": 24,
       "sha256": "94a034ea9f6e2bd5f003f4fd6f8ef980e999f5f266baa2200da0d66062b3ae9b",
@@ -36,7 +36,7 @@
       "sha256_original": "167b3971b16c9b20c7927bed7ae141df7dd384a14d7f886c9ae4486a3367927b",
       "bytes_original": 502372,
       "published_at": "2026-10-21T08:00+03:00",
-      "fetched_at": "2026-10-21T17:33:16+00:00",
+      "fetched_at": "2026-10-21T18:08:55+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
@@ -61,7 +61,7 @@
       "sha256_original": "61367fe8a38850d98cf394dd532b0a2cc7e6c25eae0a264180269ed942fef866",
       "bytes_original": 85621,
       "published_at": "2026-10-21T08:00+03:00",
-      "fetched_at": "2026-10-21T17:33:23+00:00",
+      "fetched_at": "2026-10-21T18:09:02+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
@@ -70,8 +70,8 @@
       },
       "promos_original": 658,
       "promos_trimmed": 100,
-      "sha256": "4593483530e17ab91985204e585093995e4b7f1dcffd55fc72b8e3031bde24b6",
-      "bytes": 8881,
+      "sha256": "e3f41ab809e6bf51867bfdf33be29a9dd922c9e3d5881a675acb9b6a8b83bc95",
+      "bytes": 9677,
       "parsed": {
         "stores": 0,
         "items": 0,
