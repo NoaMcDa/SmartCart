@@ -18,16 +18,70 @@ deletes it.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 from dataclasses import dataclass
 from typing import Protocol
+from urllib.parse import urlsplit
 
 import structlog
 
 log = structlog.get_logger("smartcart_api.push")
 
 GONE = frozenset({404, 410})
+
+
+def validate_endpoint(url: str) -> str:
+    """Refuse a push endpoint the server should never POST to (SSRF), at registration.
+
+    The endpoint is a URL the browser's push service issued, but the person registering it types
+    whatever they like, and the alerts job later POSTs to it from inside our network. So: https
+    only, on the default port, no credentials, a DNS name (not an address literal), and not a name
+    that is local by construction. When ``API_PUSH_ENDPOINT_HOSTS`` is set (comma separated host
+    suffixes, e.g. ``fcm.googleapis.com,.push.services.mozilla.com,.notify.windows.com,
+    .push.apple.com``) the host must also match one of them. The address the name resolves to is
+    checked again right before every send (``WebPushSender``)."""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower().rstrip(".")
+    if parts.scheme != "https" or not host:
+        raise ValueError("a push endpoint is an https URL")
+    if parts.username or parts.password:
+        raise ValueError("a push endpoint carries no credentials")
+    try:
+        port = parts.port
+    except ValueError:
+        raise ValueError("invalid port") from None
+    if port not in (None, 443):
+        raise ValueError("a push endpoint uses the default https port")
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        raise ValueError("a push endpoint is a host name, not an address")
+    if "." not in host or host.endswith((".local", ".localhost", ".internal", ".lan", ".home")):
+        raise ValueError("a push endpoint is a public host name")
+    allowed = [h.strip().lower() for h in os.environ.get("API_PUSH_ENDPOINT_HOSTS", "").split(",")]
+    allowed = [h for h in allowed if h]
+    if allowed and not any(
+        host == h.lstrip(".") or host.endswith("." + h.lstrip(".")) for h in allowed
+    ):
+        raise ValueError("this push service is not accepted")
+    return url
+
+
+def deliverable(endpoint: str) -> bool | None:
+    """True when ``endpoint`` resolves to public addresses only; False when it does not; None when
+    the name does not resolve right now (try again on the next run)."""
+    from smartcart_api.recipe_fetch import _resolve, public_address
+
+    host = urlsplit(endpoint).hostname or ""
+    try:
+        addrs = _resolve(host)
+    except OSError:
+        return None
+    return bool(addrs) and all(public_address(a) for a in addrs)
 
 
 @dataclass(frozen=True)
@@ -66,6 +120,14 @@ class WebPushSender:
         from pywebpush import WebPushException, webpush
         from requests import RequestException
 
+        ok = deliverable(target.endpoint)
+        if ok is None:  # the name does not resolve now: try again on the next run
+            return 0
+        if not ok:  # registered before the check existed, or the name moved: drop it
+            log.warning(
+                "push endpoint is not public, subscription dropped", subscription_id=target.id
+            )
+            return 410
         try:
             resp = webpush(
                 subscription_info={

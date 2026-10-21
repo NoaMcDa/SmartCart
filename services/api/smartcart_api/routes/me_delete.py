@@ -27,7 +27,6 @@ connection and the user's RLS view in one request (``auth.user_conn`` covers the
 
 from __future__ import annotations
 
-import json
 import os
 import uuid
 from collections.abc import Iterator
@@ -42,7 +41,7 @@ from psycopg import sql
 from psycopg.pq import TransactionStatus
 
 from smartcart_api import schemas
-from smartcart_api.auth import User, current_user
+from smartcart_api.auth import User, current_user, rls_claims
 from smartcart_api.db import get_conn
 from smartcart_api.settings import get_settings
 
@@ -58,7 +57,7 @@ def as_user(conn: psycopg.Connection, user: User) -> Iterator[psycopg.Connection
     conn.execute(
         "SELECT set_config('request.jwt.claim.sub', %s, true),"
         " set_config('request.jwt.claims', %s, true)",
-        (str(user.id), json.dumps(user.claims, default=str)),
+        (str(user.id), rls_claims(user)),
     )
     try:
         yield conn

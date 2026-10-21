@@ -6,15 +6,19 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 import psycopg
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from smartcart_api import schemas
 from smartcart_api.db import get_conn
 from smartcart_api.listparse import Fragment, parse_fragment, split_items, split_vav
 from smartcart_api.misses import record_miss
+from smartcart_api.ratelimit import limit
 from smartcart_api.search import Hit, ancestors, hybrid_search
 
 router = APIRouter()
+
+MAX_LIST_ITEMS = 200  # the same ceiling as POST /compare
+_STORABLE = r"^[^\x00]*$"  # a NUL cannot be stored or searched: refuse it with a 422, not a 500
 
 CONFIRM_BELOW = 0.75
 NOT_FOUND_BELOW = 0.35
@@ -35,9 +39,14 @@ def canonical_ref(h: Hit) -> schemas.CanonicalRef:
     )
 
 
-@router.get("/search", response_model=schemas.SearchResponse, tags=["basket"])
+@router.get(
+    "/search",
+    response_model=schemas.SearchResponse,
+    tags=["basket"],
+    dependencies=[Depends(limit("search", 120, per_hour=3000))],
+)
 def search(
-    q: Annotated[str, Query(min_length=1, max_length=200)],
+    q: Annotated[str, Query(min_length=1, max_length=200, pattern=_STORABLE)],
     conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
 ) -> schemas.SearchResponse:
@@ -124,13 +133,25 @@ def _row(
     )
 
 
-@router.post("/parse-list", response_model=schemas.ParseListResponse, tags=["basket"])
+@router.post(
+    "/parse-list",
+    response_model=schemas.ParseListResponse,
+    tags=["basket"],
+    dependencies=[Depends(limit("parse-list", 30, per_hour=600))],
+)
 def parse_list(
     body: schemas.ParseListRequest,
     conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> schemas.ParseListResponse:
     resolved: list[tuple[Fragment, list[Hit], float]] = []
-    for part in split_items(body.text):
+    items = split_items(body.text)
+    if len(items) > MAX_LIST_ITEMS:
+        # Every item is several database queries and an embedding: 4000 characters of commas
+        # would otherwise be two thousand lookups for one request.
+        raise HTTPException(
+            status_code=422, detail=f"a list may have at most {MAX_LIST_ITEMS} items"
+        )
+    for part in items:
         pieces = split_vav(part)
         parsed = []
         for piece in pieces:

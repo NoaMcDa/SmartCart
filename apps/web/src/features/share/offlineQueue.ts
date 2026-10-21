@@ -177,6 +177,24 @@ export function dropFirstEdits(listId: number, count: number): void {
   save(lists);
 }
 
+/**
+ * An item added offline reached the server and got its real id: removes the "add" (the first
+ * edit, just sent) and gives the edits still waiting for that item (a tick, a quantity, a removal)
+ * the real id, in one write. A flush that fails right after, or a reload, then retries those edits
+ * against the real row instead of the placeholder, which no row has.
+ */
+export function completeAdd(listId: number, placeholder: number, realId: number): void {
+  const state = load();
+  const key = String(listId);
+  const rest = (state.lists[key] ?? [])
+    .slice(1)
+    .map((e) => (e.itemId === placeholder ? { ...e, itemId: realId } : e));
+  const lists = { ...state.lists };
+  if (rest.length > 0) lists[key] = rest;
+  else delete lists[key];
+  save(lists);
+}
+
 export function clearEdits(listId: number): void {
   dropFirstEdits(listId, Number.MAX_SAFE_INTEGER);
 }

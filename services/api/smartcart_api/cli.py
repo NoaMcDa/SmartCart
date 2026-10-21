@@ -43,7 +43,15 @@ def serve(
     """Run the API with uvicorn."""
     import uvicorn
 
-    uvicorn.run("smartcart_api.main:app", host=host, port=port, reload=reload)
+    from smartcart_api.logsafe import uvicorn_log_config
+
+    uvicorn.run(
+        "smartcart_api.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_config=uvicorn_log_config(),
+    )
 
 
 @app.command()

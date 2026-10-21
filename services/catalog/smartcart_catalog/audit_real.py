@@ -31,6 +31,7 @@ from typing import Annotated, Any
 import typer
 
 from smartcart_catalog.review_packet import (
+    AUDIT_SNAPSHOT_DIR,
     ItemMatch,
     SourceItem,
     load_real_items,
@@ -54,8 +55,8 @@ COLUMNS = (
 
 HEADER = (
     "# SmartCart machine audit of the rule pipeline on REAL chain items (issue #38 groundwork).",
-    "# Items: the 200-row price files of seven chains committed as regression fixtures"
-    " (services/ingest/tests/fixtures/<chain>/real).",
+    "# Items: the 200-row price files of seven chains fetched on 2026-10-08"
+    " (data/audit/real-2026-10-08/<chain>/real).",
     "# Pipeline: normalize, RuleExtractor, block, hash embedder, RuleJudge (no API key, no database).",
     "# machine_verdict is a MACHINE AUDIT, not a gold set: one reader (Claude) judged each ACCEPTED"
     " (served, needs_review=False) mapping from the name, the extracted attributes and the"
@@ -187,7 +188,7 @@ def run_audit(
     from smartcart_catalog.normalize import is_truncated, normalize
 
     catalog = catalog or load_catalog()
-    items = list(items) if items is not None else load_real_items()
+    items = list(items) if items is not None else load_real_items(AUDIT_SNAPSHOT_DIR)
     verdicts = verdicts if verdicts is not None else load_verdicts()
     matches = match_items(catalog, items)
     names = {c.slug: c.display_name_he for c in catalog.canonicals}

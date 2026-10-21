@@ -92,7 +92,77 @@ EMPTY_ALLOWED: frozenset[str] = frozenset({"price", "promo", "promo_full"})
 changes). A Stores or PriceFull file with zero rows is always an error."""
 
 CLUB_NAMES: dict[str, str] = {"1": "מועדון לקוחות", "2": "כרטיס אשראי", "3": "אחר"}
-"""Regulation ClubId codes (0 = all customers). Unverified against real files; raw kept."""
+"""Fallback names for a bare numeric club code (0 = all customers). The real files do not use
+bare codes: they publish ``0``, ``0 - כלל הלקוחות``, ``1 - המועדון החדש`` or an expression such as
+``(2=מועדון קרפור אשראי|2=מועדון אפליקציה)`` (see :func:`parse_club`), so the fallback only serves
+the older layout, which is unverified."""
+
+_CLUB_CODE = re.compile(r"^(\d+)\s*(?:[-\u2013]\s*(.*))?$")
+_CLUB_EXPR_CHARS = re.compile(r"[=|&()]")
+_CLUB_ALT = re.compile(r"[|&()]")
+
+
+class Club(NamedTuple):
+    """One reading of a ``ClubID`` value: ``all_customers`` (code 0), or a club ``name``."""
+
+    all_customers: bool
+    name: str | None
+    expression: bool = False
+
+
+def _shorten(name: str, limit: int = 120) -> str:
+    """A very long club label (Shufersal lists dozens of credit-card clubs after "3 - ") cut to
+    ``limit`` characters; the full value stays in ``raw.club_ids``."""
+    return name if len(name) <= limit else name[: limit - 1].rstrip() + "\u2026"
+
+
+def parse_club(value: str) -> Club:
+    """Read one ``ClubID`` value from a promotion (verified on real files, 2026-10-21).
+
+    * ``""`` and ``0`` and ``0 - כלל הלקוחות``: every customer (code 0, any label).
+    * ``<n>`` and ``<n> - <name>`` (n not 0): a club; the name is the label after the dash, else
+      the fallback of :data:`CLUB_NAMES`, else ``club <n>``.
+    * anything with ``=``, ``|``, ``&`` or brackets is a boolean expression over clubs, written
+      ``<type>=<name>`` or ``"<name>=<type>"`` and joined by ``|`` (any of) and ``&``. It is a club
+      restriction; ``name`` lists the distinct club names joined by `` | `` (alternatives), which
+      never equals a name a user marked, so the promo stays restricted (safe default), and the
+      full text is kept in ``raw``. An ``&`` between bracketed groups (Rami Levy) is an AND that
+      no flat name list can express; it is flagged the same way.
+    """
+    text = value.strip()
+    if not text:
+        return Club(True, None)
+    match = _CLUB_CODE.match(text)
+    if match:
+        code, label = match.group(1), (match.group(2) or "").strip()
+        if int(code) == 0:
+            return Club(True, None)
+        return Club(False, _shorten(label) or CLUB_NAMES.get(code) or f"club {code}")
+    if _CLUB_EXPR_CHARS.search(text):
+        names: list[str] = []
+        for token in _CLUB_ALT.split(text):
+            token = token.strip().strip('"').strip()
+            if "=" not in token:
+                continue
+            left, right = (part.strip().strip('"').strip() for part in token.split("=", 1))
+            name = right if left.isdigit() else left
+            if name and name not in names:
+                names.append(name)
+        joined = " | ".join(names)
+        if len(joined) > 120:  # King Store lists 18 customer groups; the full text stays in raw
+            joined = " | ".join(names[:3]) + f" | +{len(names) - 3}"
+        return Club(False, joined or text, True)
+    return Club(False, _shorten(text))
+
+
+def resolve_clubs(values: list[str]) -> tuple[bool, str | None, str | None]:
+    """``(club_only, club_name, expression text)`` for the ClubID values of one promotion: club
+    only when any value names a club other than 0; the first such club names it."""
+    for value in values:
+        club = parse_club(value)
+        if not club.all_customers:
+            return True, club.name, value.strip() if club.expression else None
+    return False, None, None
 
 
 # --------------------------------------------------------------------------- filenames
@@ -270,7 +340,15 @@ PROMO_CONFIDENCE_UNPARSED = 0.1
 """A promo whose reward could not be read from any explicit field (``reward_type = other``).
 The deductions below add up to at most 0.8, so a parsed promo always scores above this."""
 _DESC_X_PLUS_Y = re.compile(r"\d+\s*\+\s*\d+")
-_DESC_PERCENT = re.compile(r"\d+(?:[.,]\d+)?\s*%")
+_DESC_PERCENT = re.compile(
+    r"(?:הנחה\s*(?:של\s*)?\d+(?:[.,]\d+)?\s*%|\d+(?:[.,]\d+)?\s*%\s*(?:הנחה|על\s)"
+    r"|\bב-?\s*\d+(?:[.,]\d+)?\s*%)"
+)
+"""A percentage the description presents as a discount ("20% הנחה", "50% על השני", "ב-60%"). A bare
+``%`` is mostly a product attribute in the real files (3.6% milk fat, 100% juice, 25% cheese), so it
+no longer counts."""
+_DESC_N_FOR_P = re.compile(r"(\d+)\s*ב[-\s]*(\d+(?:[.,]\d+)?)")
+"""``3ב11.90`` / ``2 ב 15``: N units for P, as Rami Levy, Osher Ad, Tiv Taam and King Store write it."""
 
 
 def promo_parse_confidence(
@@ -280,6 +358,8 @@ def promo_parse_confidence(
     gift_count: Decimal | None,
     description: str,
     ends_at: datetime | None,
+    reward_value: Decimal | None = None,
+    unapplied: str | None = None,
 ) -> tuple[float, list[str]]:
     """How sure the adapter is that it read the promo's terms right, in [0, 1], with the reasons
     for every deduction (docs/adapters.md, "Promo parse confidence").
@@ -289,6 +369,8 @@ def promo_parse_confidence(
     the file and the description does not contradict them. The reward is never inferred from
     the description; the description is only a cross-check that lowers the confidence.
     """
+    if unapplied:
+        return PROMO_CONFIDENCE_UNPARSED, [unapplied]  # read, but not a plain per-item reward
     if reward_type == "other":
         return PROMO_CONFIDENCE_UNPARSED, ["reward_unparsed"]
     score = 1.0
@@ -303,12 +385,171 @@ def promo_parse_confidence(
         score -= 0.1
         reasons.append("end_date_missing")
     text = description or ""
-    if (_DESC_X_PLUS_Y.search(text) and reward_type != "buy_x_get_y") or (
+    disagrees = (_DESC_X_PLUS_Y.search(text) and reward_type != "buy_x_get_y") or (
         _DESC_PERCENT.search(text) and reward_type != "percent"
-    ):
+    )
+    n_for_p = _DESC_N_FOR_P.search(text)
+    if n_for_p and reward_type == "bundle" and reward_value is not None and min_qty is not None:
+        n, price = Decimal(n_for_p.group(1)), Decimal(n_for_p.group(2).replace(",", "."))
+        # The price must agree, or at least the price per unit (a weighed "2 ב 120" is 1.9 kg for
+        # 114 in the fields). A number in a product name ("יין פורטה 26 ב 90") does not count when
+        # the stated price is the published one.
+        same_unit_price = n > 0 and min_qty > 0 and price / n == reward_value / min_qty
+        disagrees = disagrees or not (price == reward_value or same_unit_price)
+    if disagrees:
         score -= 0.3
         reasons.append("description_disagrees")
     return round(score, 2), reasons
+
+
+# --------------------------------------------------------------------------- grouped promotions
+
+_WILDCARD_ITEM = re.compile(r"^0+$")
+_FULL_WEEK = frozenset(range(1, 8))
+_PACKAGING_CREDIT = re.compile(r"(?:זיכוי|קיזוז)\s+אריזה")
+"""Tiv Taam and Yohananof publish packaging credits ("זיכוי אריזה ירקות", "קיזוז אריזה פילה") as
+promotions with a 1 to 4 percent reward: a weight adjustment at the till, not a discount on the
+shelf price. The description only blocks (never creates) a reward."""
+UNAPPLIED_REASONS = (
+    "coupon_required",
+    "packaging_credit",
+    "basket_condition",
+    "multi_group",
+    "weekday_restricted",
+    "reward_type_unhandled",
+    "reward_value_unusable",
+    "reward_values_differ",
+)
+"""Why a grouped promotion was read but is not applied to a price (``reward_type`` ``other``, the
+reason in ``promos.raw->>'unapplied'`` and in ``confidence_reasons``, confidence 0.1)."""
+
+
+def _safe_decimal(value: str | None) -> Decimal | None:
+    """:func:`parse_decimal`, but a malformed number is "missing" instead of an error."""
+    try:
+        return parse_decimal(value)
+    except ValueError:
+        return None
+
+
+def grouped_terms(groups_el: etree._Element, fields: dict[str, str]) -> dict[str, Any]:
+    """Read the reward of a promotion in the grouped layout.
+
+    Seen in every real PromoFull of the six reachable chains (2026-10-21)::
+
+        <Promotion> PromotionID, PromotionDescription, PromotionStartDateTime, PromotionEndDateTime,
+          PromotionDays, MinNoOfItemOffered, ClubID, AdditionalIsCoupon, ...
+          <Groups><Group> GroupID, MinPurchaseAmount, DiscountType
+            <PromotionItems><PromotionItem> ItemCode, ItemType, RewardType, MinQty, MaxQty,
+              DiscountRate, DiscountedPrice, DiscountedPricePerMida, bIsWeighted
+
+    The reward is on the items. Verified against the stores' own shelf prices (docs/adapters.md):
+    for ``RewardType`` 1, 3 and 10, ``DiscountedPrice`` is the total price for ``MinQty`` units and
+    ``DiscountRate`` the percentage off ``MinQty`` shelf prices; for a weighed item
+    (``bIsWeighted`` 1) ``DiscountedPricePerMida`` is the price per kg. ``RewardType`` 2 is a
+    percentage (``DiscountRate`` in percent: 5 is 5 %, 100 is free). ``RewardType`` 0 is a
+    condition item (the basket condition of a multi-group promotion), item code all zeros stands
+    for "any item".
+
+    Only the plain case is applied to a price: one group, real item codes, no coupon, no minimum
+    purchase, no weekday restriction, every item the same reward. Everything else is read but
+    left unapplied (``unapplied`` names the reason, one of :data:`UNAPPLIED_REASONS`): applying a
+    coupon, a basket threshold or half of a two-group promotion as a shelf discount would show a
+    price nobody gets. Returns ``item_codes`` (wildcards removed), ``min_qty``, ``max_qty``,
+    ``reward_type``, ``reward_value``, ``unapplied``, ``groups`` (a summary for ``raw``) and
+    ``min_purchase``.
+    """
+    groups: list[dict[str, Any]] = []
+    item_codes: list[str] = []
+    wildcard = False
+    min_purchase: Decimal | None = None
+    for group in groups_el:
+        if xmlutil.localname(group) != "Group":
+            continue
+        gf = xmlutil.scalar_children(group)
+        items_el = _child(group, "PromotionItems")
+        items = [xmlutil.scalar_children(it) for it in items_el] if items_el is not None else []
+        amount = _safe_decimal(gf.get("minpurchaseamount"))
+        if amount is not None and amount > 0:
+            min_purchase = max(min_purchase or amount, amount)
+        for item in items:
+            code = item.get("itemcode", "")
+            if _WILDCARD_ITEM.match(code):
+                wildcard = True
+            elif code and code not in item_codes:
+                item_codes.append(code)
+        groups.append({"items": items, "summary": {
+            "id": gf.get("groupid"),
+            "min_purchase": str(amount) if amount else None,
+            "discount_type": gf.get("discounttype") or None,
+            "items": len(items),
+            "reward_types": sorted({i.get("rewardtype", "") for i in items}),
+        }})  # fmt: skip
+
+    out: dict[str, Any] = {
+        "item_codes": item_codes,
+        "min_qty": None,
+        "max_qty": None,
+        "reward_type": "other",
+        "reward_value": None,
+        "unapplied": None,
+        "groups": [g["summary"] for g in groups],
+        "min_purchase": min_purchase,
+    }
+    days = fields.get("promotiondays", "").replace(" ", "")
+    try:
+        weekdays = {int(d) for d in days.split(",") if d}
+    except ValueError:
+        weekdays = set()
+    if fields.get("additionaliscoupon") == "1":
+        out["unapplied"] = "coupon_required"
+    elif _PACKAGING_CREDIT.search(fields.get("promotiondescription", "")):
+        out["unapplied"] = "packaging_credit"
+    elif min_purchase is not None or wildcard:
+        out["unapplied"] = "basket_condition"
+    elif len(groups) != 1:
+        out["unapplied"] = "multi_group"
+    elif days and weekdays != _FULL_WEEK:
+        out["unapplied"] = "weekday_restricted"
+    else:
+        items = groups[0]["items"]
+        reward_types = {i.get("rewardtype", "") for i in items}
+        readings: set[tuple[str, Decimal | None, Decimal | None]] = set()
+        usable = bool(items)
+        for item in items:
+            qty = _safe_decimal(item.get("minqty"))
+            if qty is not None and 0 < qty < 1:
+                qty = Decimal(1)  # a weighed item's 0.01 or 0.1 kg is a step, not a pack size
+            price = _safe_decimal(item.get("discountedprice"))
+            per_kg = _safe_decimal(item.get("discountedpricepermida"))
+            rate = _safe_decimal(item.get("discountrate"))
+            weighed = item.get("bisweighted", "0").strip().lower() in ("1", "true")
+            if reward_types <= {"1", "3", "10"}:
+                if price is None or price <= 0:
+                    usable = False
+                elif qty is not None and qty > 1:
+                    readings.add(("bundle", price, qty))  # N units (kg) for the total price
+                elif weighed:
+                    readings.add(("price", per_kg if per_kg and per_kg > 0 else price, qty))
+                else:
+                    readings.add(("price", price, qty))
+            elif reward_types == {"2"}:
+                if rate is None or not 0 < rate < 100:
+                    usable = False
+                else:
+                    readings.add(("percent", rate, qty))
+        if not items or not (reward_types <= {"1", "3", "10"} or reward_types == {"2"}):
+            out["unapplied"] = "reward_type_unhandled"
+        elif not usable:
+            out["unapplied"] = "reward_value_unusable"
+        elif len(readings) != 1:
+            out["unapplied"] = "reward_values_differ"
+        else:
+            kind, value, qty = next(iter(readings))
+            out.update(reward_type=kind, reward_value=value, min_qty=qty)
+            maxima = [m for i in items if (m := _safe_decimal(i.get("maxqty")))]
+            out["max_qty"] = maxima[0] if maxima else None
+    return out
 
 
 # --------------------------------------------------------------------------- adapter base
@@ -538,7 +779,7 @@ class RegulationAdapter(ChainAdapter):
         self, raw: RawFile, xml: bytes, row_tags: set[str], header: dict[str, str]
     ) -> tuple[int, ParsedFile]:
         header_store = header.get("storeid") or raw.store_code or ""
-        grouped: dict[tuple[str, str], dict[str, Any]] = {}
+        merged: dict[tuple[str, str], dict[str, Any]] = {}
         seen = 0
         for index, row in enumerate(xmlutil.iter_rows(xml, row_tags)):
             seen += 1
@@ -550,11 +791,16 @@ class RegulationAdapter(ChainAdapter):
             store_code = normalize_store_code(fields.get("storeid") or header_store)
             if not store_code:
                 raise ValueError(f"promo row {index}: no StoreId in header, row or filename")
+            groups_el = _child(row, "Groups")
+            terms = grouped_terms(groups_el, fields) if groups_el is not None else None
             items_el = _child(row, "PromotionItems")
-            item_rows = (
-                [xmlutil.scalar_children(it) for it in items_el] if items_el is not None else []
-            )
-            if not item_rows and fields.get("itemcode"):
+            if terms is not None:
+                item_rows = [{"itemcode": code} for code in terms["item_codes"]]
+            elif items_el is not None:
+                item_rows = [xmlutil.scalar_children(it) for it in items_el]
+            else:
+                item_rows = []
+            if not item_rows and terms is None and fields.get("itemcode"):
                 item_rows = [fields]  # flat <Sale> rows carry one item each
             restrictions_el = _child(row, "AdditionalRestrictions")
             restrictions = (
@@ -566,9 +812,16 @@ class RegulationAdapter(ChainAdapter):
                 if xmlutil.localname(el).lower() == "clubid" and (el.text or "").strip()
             ]
             key = (store_code, promo_id)
-            entry = grouped.setdefault(
+            entry = merged.setdefault(
                 key,
-                {"fields": fields, "items": [], "gift": False, "clubs": [], "restrictions": {}},
+                {
+                    "fields": fields,
+                    "items": [],
+                    "gift": False,
+                    "clubs": [],
+                    "restrictions": {},
+                    "terms": terms,
+                },
             )
             for item in item_rows:
                 code = item.get("itemcode")
@@ -581,7 +834,7 @@ class RegulationAdapter(ChainAdapter):
 
         promos = [
             self._promo_record(raw, store_code, promo_id, entry)
-            for (store_code, promo_id), entry in grouped.items()
+            for (store_code, promo_id), entry in merged.items()
         ]
         return seen, ParsedFile(raw=raw, promos=promos)
 
@@ -590,30 +843,49 @@ class RegulationAdapter(ChainAdapter):
     ) -> PromoRecord:
         f: dict[str, str] = entry["fields"]
         restrictions: dict[str, str] = entry["restrictions"]
-        min_qty = parse_decimal(f.get("minqty"))
-        max_qty = parse_decimal(f.get("maxqty"))
-        discounted = parse_decimal(f.get("discountedprice"))
-        rate = parse_decimal(f.get("discountrate"))
-        gift_count = parse_decimal(
-            restrictions.get("additionalgiftcount") or f.get("additionalgiftcount")
-        )
+        terms: dict[str, Any] | None = entry["terms"]
+        gift_count: Decimal | None = None
+        unapplied: str | None = None
         reward_type: RewardType = "other"
         reward_value: Decimal | None = None
-        if entry["gift"] or (gift_count is not None and gift_count > 0):
-            reward_type = "buy_x_get_y"
-            reward_value = gift_count if gift_count else Decimal(1)
-        elif discounted is not None:
-            reward_type = "bundle" if min_qty is not None and min_qty > 1 else "price"
-            reward_value = discounted
-        elif rate is not None and f.get("discounttype") == "2":
-            reward_type = "percent"
-            reward_value = rate
-        clubs = [c for c in entry["clubs"] if c != "0"]
+        if terms is not None:
+            # The grouped layout (Groups/Group/PromotionItems/PromotionItem): the reward lives on
+            # the items, see grouped_terms.
+            min_qty, max_qty = terms["min_qty"], terms["max_qty"]
+            reward_type, reward_value = terms["reward_type"], terms["reward_value"]
+            unapplied = terms["unapplied"]
+        else:
+            min_qty = parse_decimal(f.get("minqty"))
+            max_qty = parse_decimal(f.get("maxqty"))
+            discounted = parse_decimal(f.get("discountedprice"))
+            rate = parse_decimal(f.get("discountrate"))
+            gift_count = parse_decimal(
+                restrictions.get("additionalgiftcount") or f.get("additionalgiftcount")
+            )
+            if entry["gift"] or (gift_count is not None and gift_count > 0):
+                reward_type = "buy_x_get_y"
+                reward_value = gift_count if gift_count else Decimal(1)
+            elif discounted is not None:
+                reward_type = "bundle" if min_qty is not None and min_qty > 1 else "price"
+                reward_value = discounted
+            elif rate is not None and f.get("discounttype") == "2":
+                reward_type = "percent"
+                reward_value = rate
+        club_only, club_name, club_expression = resolve_clubs(entry["clubs"])
+        start_dt, end_dt = f.get("promotionstartdatetime"), f.get("promotionenddatetime")
         start_hour, end_hour = f.get("promotionstarthour"), f.get("promotionendhour")
-        hours = (
-            f"{start_hour.strip()[:5]}-{end_hour.strip()[:5]}" if start_hour and end_hour else None
-        )
-        ends_at = parse_datetime(f.get("promotionenddate"), end_hour)
+        if start_dt or end_dt:
+            # Date-time layout (verified): the Start/EndHour elements only repeat the time of day
+            # of the date-times, they are not a daily window.
+            starts_at, ends_at, hours = parse_datetime(start_dt), parse_datetime(end_dt), None
+        else:
+            starts_at = parse_datetime(f.get("promotionstartdate"), start_hour)
+            ends_at = parse_datetime(f.get("promotionenddate"), end_hour)
+            hours = (
+                f"{start_hour.strip()[:5]}-{end_hour.strip()[:5]}"
+                if start_hour and end_hour
+                else None
+            )
         description = f.get("promotiondescription", "")
         confidence, confidence_reasons = promo_parse_confidence(
             reward_type,
@@ -621,26 +893,42 @@ class RegulationAdapter(ChainAdapter):
             gift_count=gift_count,
             description=description,
             ends_at=ends_at,
+            reward_value=reward_value,
+            unapplied=unapplied,
         )
+        # Flat <Sale> rows carry one item each; the grouped layout has IsGiftItem on the promotion.
+        skipped = (
+            ("itemcode", "itemtype")
+            if terms is not None
+            else ("itemcode", "itemtype", "isgiftitem")
+        )
+        extra: dict[str, Any] = {}
+        if terms is not None:
+            extra = {"layout": "grouped", "groups": terms["groups"], "unapplied": unapplied}
+            if terms["min_purchase"] is not None:
+                extra["min_purchase_amount"] = str(terms["min_purchase"])
+        if club_expression:
+            extra["club_expression"] = club_expression
         return PromoRecord(
             chain_id=raw.chain_id,
             store_code=store_code,
             promo_id=promo_id,
             description=description,
             item_codes=list(entry["items"]),
-            starts_at=parse_datetime(f.get("promotionstartdate"), start_hour),
+            starts_at=starts_at,
             ends_at=ends_at,
             hours=hours,
-            club_only=bool(clubs),
-            club_name=CLUB_NAMES.get(clubs[0], f"club {clubs[0]}") if clubs else None,
+            club_only=club_only,
+            club_name=club_name,
             min_qty=min_qty,
             max_qty=max_qty if max_qty else None,
             reward_type=reward_type,
             reward_value=reward_value,
             raw={
-                **{k: v for k, v in f.items() if k not in ("itemcode", "itemtype", "isgiftitem")},
+                **{k: v for k, v in f.items() if k not in skipped},
                 "club_ids": list(entry["clubs"]),
                 "additional_restrictions": dict(restrictions),
+                **extra,
                 "confidence": confidence,
                 "confidence_reasons": confidence_reasons,
             },

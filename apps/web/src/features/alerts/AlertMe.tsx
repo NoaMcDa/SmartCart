@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
   ApiError,
   createAlert,
@@ -73,6 +73,13 @@ export function AlertMe({
   const [busy, setBusy] = useState(false);
   const inputId = useId();
   const noteId = useId();
+  // What this form created or deleted. The first read of the list may have been asked before that
+  // and answers later: it must not bring a deleted alert back or drop the one just created.
+  const local = useRef({ added: new Map<number, PriceAlert>(), removed: new Set<number>() });
+  // A second tap while a request is on the way would send it twice (and show the 404 of the
+  // second delete as a server error).
+  const creating = useRef(false);
+  const removing = useRef(new Set<number>());
 
   const needsSignIn = auth.configured && auth.status !== "loading" && auth.status !== "signed-in";
   const waiting = auth.configured && auth.status === "loading";
@@ -83,7 +90,11 @@ export function AlertMe({
     ensureApiAuth();
     listAlerts().then(
       (all) => {
-        if (!cancelled) setExisting(all.filter((a) => a.canonical_id === canonicalId));
+        if (cancelled) return;
+        const { added, removed } = local.current;
+        const fromServer = all.filter((a) => a.canonical_id === canonicalId && !removed.has(a.id));
+        const mine = [...added.values()].filter((a) => !fromServer.some((s) => s.id === a.id));
+        setExisting([...fromServer, ...mine]);
       },
       () => {
         // The list is a convenience; creating still works and reports its own errors.
@@ -101,6 +112,8 @@ export function AlertMe({
       setError(t("thresholdInvalid"));
       return;
     }
+    if (creating.current) return;
+    creating.current = true;
     setBusy(true);
     setError(null);
     setCreated(null);
@@ -114,25 +127,33 @@ export function AlertMe({
       });
       rememberAlertLabel(canonicalId, { name, unitLabel });
       reportAlertCreated(level, "product");
-      setExisting((prev) => [...prev, alert]);
+      local.current.added.set(alert.id, alert);
+      setExisting((prev) => (prev.some((a) => a.id === alert.id) ? prev : [...prev, alert]));
       setCreated(alert);
       setThreshold("");
     } catch (err) {
       setError(alertError(err, locale));
     } finally {
+      creating.current = false;
       setBusy(false);
     }
   }
 
   async function remove(alert: PriceAlert) {
+    if (removing.current.has(alert.id)) return;
+    removing.current.add(alert.id);
     setError(null);
     try {
       ensureApiAuth();
       await deleteAlert(alert.id);
+      local.current.added.delete(alert.id);
+      local.current.removed.add(alert.id);
       setExisting((prev) => prev.filter((a) => a.id !== alert.id));
       setCreated((c) => (c?.id === alert.id ? null : c));
     } catch (err) {
       setError(alertError(err, locale));
+    } finally {
+      removing.current.delete(alert.id);
     }
   }
 

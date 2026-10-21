@@ -430,6 +430,7 @@ def test_no_upstream_types_leak_from_parse() -> None:
 DOCUMENTED_GATES = {"zero_price", "price_jump", "item_count_drop", "stale_date"}
 """The quality gates of docs/ingestion.md; a real file may only be quarantined by these."""
 MANIFEST_NAMES = {"MANIFEST.json", "manifest.json"}
+REWARD_TYPES = {"price", "percent", "buy_x_get_y", "bundle", "other"}
 
 
 def real_fixture_files(root: Path = FIXTURES) -> list[tuple[str, Path]]:
@@ -502,6 +503,19 @@ def test_real_fixture_parses(slug: str, file: Path) -> None:
         assert all(s.store_code for s in parsed.stores)
         return
     assert info.store_code, "store code not parsed from the file name"
+    if info.kind in ("promo_full", "promo"):
+        assert parsed.promos, "a promo file with no promotions"
+        entry = real_manifest_entry(file)
+        if entry.get("promos_trimmed") is not None:
+            assert len(parsed.promos) == entry["promos_trimmed"]
+        for promo in parsed.promos:
+            assert promo.store_code and promo.promo_id, promo
+            assert promo.reward_type in REWARD_TYPES, (promo.promo_id, promo.reward_type)
+            assert 0 < promo.raw["confidence"] <= 1, (promo.promo_id, promo.raw["confidence"])
+            assert (
+                promo.starts_at is None or promo.ends_at is None or promo.starts_at < promo.ends_at
+            )
+        return
     assert parsed.items, "no items"
     assert parsed.prices, "no prices"
     assert all(p.store_code for p in parsed.prices), "a price without a store code"

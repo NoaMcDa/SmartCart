@@ -45,6 +45,7 @@ from smartcart_api.ocr.providers import (
     select_provider,
 )
 from smartcart_api.ocr.rows import rows_from_list_lines, rows_from_receipt
+from smartcart_api.ratelimit import limit
 from smartcart_catalog.receipt import parse_receipt
 
 log = logging.getLogger("smartcart.ocr")
@@ -99,7 +100,12 @@ def get_provider() -> Provider:
         raise HTTPException(status_code=503, detail=str(exc)) from None
 
 
-@router.post("/parse-image", response_model=schemas.ParseImageResponse)
+@router.post(
+    "/parse-image",
+    response_model=schemas.ParseImageResponse,
+    # Per client, on top of the global monthly cap (ocr/usage.py): one person cannot use it all.
+    dependencies=[Depends(limit("parse-image", 6, per_hour=40))],
+)
 def parse_image(
     kind: Annotated[Literal["receipt", "list"], Form()],
     image: Annotated[UploadFile, File(description="JPEG, PNG or WebP, at most 8 MB")],

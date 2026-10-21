@@ -343,7 +343,7 @@ export function ProductDetail({
         />
       ) : null}
 
-      <AlertMe canonicalId={canonicalId} name={title} unitLabel={unitText} />
+      <AlertMe key={canonicalId} canonicalId={canonicalId} name={title} unitLabel={unitText} />
     </div>
   );
 }

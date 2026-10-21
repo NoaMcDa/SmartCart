@@ -76,7 +76,7 @@ Totals: 827 physical and 13 online stores, **0 with coordinates**; 839 of 839 st
 - The 7 chains with a real file: **100.0%**, streak 1.
 - Chains with no loaded full file on the day: Victory, Hazi Hinam, Machsanei Hashuk.
 - Stores: 827 physical, 0 with coordinates, 827 listed as exceptions (the report prints the first 50).
-- Promos: 0 parsed (the real set has no PromoFull file).
+- Promos: 0 parsed (the real set of this run has no PromoFull file; see the 2026-10-21 update under finding 8 below: real PromoFull files now exist for seven chains).
 
 <details><summary>Generator output, real day, ten chains (verbatim)</summary>
 
@@ -390,7 +390,7 @@ Criteria are those of issue #60 and `phase-0-exit-report.md`.
 |---|---|---|
 | 1. More than 95% nightly loads over 14 consecutive days | 1 day, 7 of 10 chains had a loaded full file (70%). On the 7 chains with a real file, 100% (one day, one file each, no nightly history). | **No.** Needs 14 days of timers on the VPS (#14, #22), and a real file for Victory, Hazi Hinam and Machsanei Hashuk (not in the committed set). |
 | 2. Every physical store has coordinates, or exceptions listed with reasons | 0 of 827 physical stores have coordinates. The city field is a number for all 839 stores that have one (76 of them `0`); street addresses are present for most. | **No.** Nothing in the repository geocodes stores (`stores.geog` is NULL until something fills it). Needs a decision on the method and a city-code table first. |
-| 3. Promo parsing demonstrated for the top chains, with a checked sample | 0 real promos (no PromoFull in the real set). Synthetic: 23 promos parsed, the sampler and its table render. | **No.** Needs real PromoFull files from the six main chains and a person to tick the sample against the raw descriptions. |
+| 3. Promo parsing demonstrated for the top chains, with a checked sample | 0 real promos in this run's real set (no PromoFull). Synthetic: 23 promos parsed, the sampler and its table render. Since 2026-10-21 real PromoFull files exist for seven chains (docs/adapters.md, "Promotions in real files"): they parse, 81 to 100 percent of each file's promotions are applied, the rest read but not applied with a reason. | **No.** Needs a regenerated report on the real files (promos for Shufersal, Rami Levy, Mega, Tiv Taam, Osher Ad, Yohananof, King Store), files from Victory, Hazi Hinam and Machsanei Hashuk, and a person to tick the sample against the raw descriptions. |
 | 4. Basket SQL over a radius, missing items reported | Runs on real prices (spot check above) but returns 0 stores because no store has coordinates. Synthetic: 6 stores with missing barcodes listed. | **Partly.** The query and its sample output are done (`phase-0-exit-report.md` section 4); the real-data run waits for criterion 2. |
 | Go or no-go | Not decided on evidence. | **NO-GO**, unchanged. |
 
@@ -405,7 +405,7 @@ Each is measured on the committed fixtures unless it says otherwise.
 5. **Manufacturer is often "לא ידוע" or empty:** אושר עד 0%; טיב טעם 99%; יוחננוף 24%; קינג סטור 100%; קרפור (מגה) 0%; רמי לוי 78%; שופרסל 1%. The private-label rules cannot lean on it.
 6. **Publication time decides which pass loads a file** (derived from the timers). PriceFull files published after 06:00 Israel time: אושר עד. They wait for the 08:30 pass, so a check at 06:00 would show them missing. Published in the first hour of the day: רמי לוי, טיב טעם, יוחננוף; the report counts a file on the Israel date of `published_at`, so those belong to the date in their name.
 7. **Two gates had nothing to compare against.** `price_jump` and `item_count_drop` need a previous load of the same store or file kind; on a first real day they cannot fire, so none of the gates' real-data behavior beyond `zero_price` and `stale_date` is shown. Day 2 of the real window is the first test of them.
-8. **No promo file was fetched.** The probe's fixtures are Stores and PriceFull only. The promo parser has never read a real chain file in this repository. This is the largest unknown for criterion 3.
+8. **No promo file was fetched** (as of this dry run, 2026-10-09). The probe's fixtures were Stores and PriceFull only. **Update 2026-10-21:** the Portal probe now fetches a PromoFull per chain; seven chains' files were read (Shufersal, Rami Levy, Mega, Tiv Taam, Osher Ad, Yohananof, King Store) and every one used a layout the adapters did not read, so the real promos of this dry run's kind parsed as reward `other` with no items. The adapter now reads it (docs/adapters.md, "Promotions in real files"); the counts of this report's section 3 are still from the synthetic set, to be regenerated on real files. Victory, Machsanei Hashuk and Hazi Hinam: no promo file yet. Criterion 3 still needs the hand check of the promo sample.
 9. **Three D13 chains are missing from the real set** (Victory, Hazi Hinam, Machsanei Hashuk). The probe ran on a non-Israeli runner; the reason for each is in that probe run's report, not in this repository (to confirm).
 
 ## 7. What the owner runs on the VPS later

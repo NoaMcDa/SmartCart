@@ -76,6 +76,10 @@ from smartcart_catalog.seed import (
 
 REPO = Path(__file__).resolve().parents[3]
 FIXTURES_DIR = REPO / "services" / "ingest" / "tests" / "fixtures"
+# The real price files of 2026-10-08, kept as a dated snapshot: the machine audit
+# (data/audit/real-2026-10-08.csv) and the normalization table (#20) are about that day, while the
+# adapter fixtures under FIXTURES_DIR are refreshed when the portal probe fetches newer files.
+AUDIT_SNAPSHOT_DIR = REPO / "data" / "audit" / "real-2026-10-08"
 GOLD_DIR = REPO / "data" / "gold"
 
 HTML_NAME = "canonicals-review.html"

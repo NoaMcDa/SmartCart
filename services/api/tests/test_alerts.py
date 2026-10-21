@@ -327,6 +327,7 @@ def test_web_push_sender(monkeypatch) -> None:
         return resp
 
     monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+    monkeypatch.setattr("smartcart_api.push.deliverable", lambda endpoint: True)  # no DNS here
     target = PushTarget(1, "https://push.example/ok", "p", "a")
     assert sender(target, {"title": "ירידת מחיר"}) == 201
     assert calls[0]["vapid_private_key"] == "priv" and calls[0]["vapid_claims"] == {
