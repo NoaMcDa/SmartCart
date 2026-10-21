@@ -39,8 +39,9 @@ installed with `npm ci`, because npm 11 resolves an optional peer (`msw`) differ
 rejects its lock. First run (2026-10-21): the Python side passed on 3.12 and 3.13 (fastapi
 0.157.0 to 0.158.0, pillow 12.3.0 to 13.0.0, streamlit 1.66.0 to 1.66.1) and the web typecheck
 failed, because the update installs a second `playwright-core` (1.64.1) next to the one
-`@playwright/test` 1.56.1 pins, so the two `Page` types differ. Pinning `playwright-core` with an
-`overrides` entry in `apps/web/package.json`, or raising the Playwright pin, clears it.
+`@playwright/test` 1.56.1 pins, so the two `Page` types differ. `apps/web/package.json` now pins
+`playwright-core` to 1.56.1 with an `overrides` entry; raise it together with `@playwright/test`
+(1.61 or later also runs on Ubuntu 26.04, see below).
 
 ## Everyday commands
 
