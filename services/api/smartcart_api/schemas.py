@@ -236,6 +236,29 @@ class AttributeTag(_Model):
     status: Literal["matched", "differs", "unverified"]
 
 
+class OriginalOffer(_Model):
+    """What the requested original (the non-substitute item) costs at the store a substitute is
+    sold in. Display only: it never enters a total, a ranking or a saving."""
+
+    item_id: int
+    display_name_he: str
+    canonical_name_ar: str | None = Field(
+        default=None, description="The canonical's first Arabic name, as on the line"
+    )
+    shelf_price: Decimal
+    effective_unit_price: Decimal
+    uom: str
+    line_total: Decimal = Field(description="The original at the line's quantity, promo folded")
+    is_estimated: bool = Field(default=False, description="Weighed goods")
+    promo_description: str | None = None
+    promo_min_qty: Decimal | None = None
+    promo_applied: bool = False
+    club_required: bool = False
+    club_name: str | None = None
+    price_valid_from: datetime
+    promo_confidence: float | None = Field(default=None, ge=0, le=1)
+
+
 class PricedItem(_Model):
     canonical_id: int
     item_id: int
@@ -273,6 +296,12 @@ class PricedItem(_Model):
     )
     tags: list[AttributeTag] = Field(default_factory=list)
     original_item_id: int | None = None
+    original_here: OriginalOffer | None = Field(
+        default=None,
+        description="Substitutes only: the original's offer at this same store (the one "
+        "original_item_id names), for an apples-to-apples comparison. null when the line is not "
+        "a substitute or this store does not sell the original. Display only.",
+    )
     promo_confidence: float | None = Field(
         default=None,
         ge=0,

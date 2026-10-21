@@ -19,6 +19,7 @@ import {
   buildOptimizeInput,
   findSubstitution,
   substitutionSaving,
+  substitutionSavingHere,
   useOptimize,
   type PlanKind,
   type SubstitutionContext,
@@ -66,9 +67,17 @@ export function SubstitutionCard({
   const r = useRich(substitutionMessages);
   const { locale } = useLocale();
   const { item, store, original, index, count } = ctx;
+  // The original at this same store (apples to apples) when the API sends it; null means this
+  // store does not sell it, and the saving falls back to the home store's original. A response
+  // without the field says nothing, so the card stays as it was.
+  const here = item.original_here ?? null;
+  const notSoldHere = item.original_here === null;
   const originalName =
-    original?.item.display_name_he ?? fallbackOriginalName ?? t("originalFallback");
-  const saving = substitutionSaving(ctx);
+    here?.display_name_he ??
+    original?.item.display_name_he ??
+    fallbackOriginalName ??
+    t("originalFallback");
+  const saving = substitutionSavingHere(item) ?? substitutionSaving(ctx);
   const tags = foldTags(item.tags ?? []).sort((a, b) => TAG_ORDER[a.status] - TAG_ORDER[b.status]);
   const conf = percent(item.confidence);
   const isLast = index + 1 >= count;
@@ -94,24 +103,49 @@ export function SubstitutionCard({
         <div className={styles.side} data-trust-scope="original" data-testid="sub-original">
           <div className={styles.sideLabel}>{t("yourList")}</div>
           <div className={styles.sideName}>{originalName}</div>
-          {original ? (
+          {here ? (
             <>
               <TrustedPrice
-                amount={original.item.shelf_price}
-                updatedAt={original.item.price_valid_from}
+                amount={here.shelf_price}
+                updatedAt={here.price_valid_from}
                 size="lg"
                 fractionDigits={2}
               />
               <div className={styles.unit}>
-                <Price amount={original.item.effective_unit_price} fractionDigits={2} />{" "}
-                {perUnit(original.item.uom, locale)}
+                <Price amount={here.effective_unit_price} fractionDigits={2} />{" "}
+                {perUnit(here.uom, locale)}
               </div>
-              <div className={styles.where}>
-                {t("atYourStore", { store: storeLabel(original.store.store_name, locale) })}
+              <div className={styles.where} data-testid="sub-original-where">
+                {t("atThisStore", { store: storeLabel(store.store_name, locale) })}
               </div>
             </>
           ) : (
-            <div className={styles.unit}>{t("noOriginalPrice")}</div>
+            <>
+              {original ? (
+                <>
+                  <TrustedPrice
+                    amount={original.item.shelf_price}
+                    updatedAt={original.item.price_valid_from}
+                    size="lg"
+                    fractionDigits={2}
+                  />
+                  <div className={styles.unit}>
+                    <Price amount={original.item.effective_unit_price} fractionDigits={2} />{" "}
+                    {perUnit(original.item.uom, locale)}
+                  </div>
+                  <div className={styles.where}>
+                    {t("atYourStore", { store: storeLabel(original.store.store_name, locale) })}
+                  </div>
+                </>
+              ) : notSoldHere ? null : (
+                <div className={styles.unit}>{t("noOriginalPrice")}</div>
+              )}
+              {notSoldHere ? (
+                <div className={styles.unit} data-testid="sub-not-sold-here">
+                  {t(original ? "notSoldHereHome" : "notSoldHere")}
+                </div>
+              ) : null}
+            </>
           )}
         </div>
         <div
@@ -156,6 +190,11 @@ export function SubstitutionCard({
             )}
           </span>
           <Price amount={saving.total} fractionDigits={2} size="lg" tone="good" />
+          {here ? (
+            <span className={styles.savingBasis} data-testid="sub-saving-basis">
+              {t("savingBasisHere")}
+            </span>
+          ) : null}
         </div>
       ) : saving ? (
         <div className={styles.noSaving}>{t("noSaving")}</div>
@@ -271,7 +310,8 @@ export function SubstitutionView({ itemId, plan }: { itemId: number; plan?: Plan
   const fallbackName =
     state.items.find((i) => i.canonical?.canonical_id === ctx.item.canonical_id)?.canonical
       ?.display_name_he ?? null;
-  const originalName = ctx.original?.item.display_name_he ?? fallbackName;
+  const originalName =
+    ctx.item.original_here?.display_name_he ?? ctx.original?.item.display_name_he ?? fallbackName;
   const next = ctx.siblings[ctx.index + 1];
 
   return (

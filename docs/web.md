@@ -332,9 +332,12 @@ car, ₪1.2/km, ₪25 per extra stop, up to 2 stores. The home store defaults to
   the next substitute (or back); "השאירי את המקורי" sends `kept_original` and sets the row to
   exact with `exact_item_id = original_item_id`; "לא תחליף טוב" sends `not_good` and does the same.
   Both return to `/compare`, which recomputes because the request changed.
-- **The original's price** is the home store's non-substitute line for the same canonical: the
-  API gives only `original_item_id`, not its price at the substitute's store. Without a home
-  store the card says there is no price to compare.
+- **The original's price** is `item.original_here`, the original's offer at the substitute's own
+  store (shelf price, unit price, its own update time), and the saving is computed from it
+  ("בהשוואה למוצר המקורי באותו סניף"). When it is `null` the store does not sell the original: the
+  card says so ("המוצר המקורי לא נמכר בסניף הזה") and falls back to the home store's non-substitute
+  line for the saving, as before (without a home store there is no saving). A response without
+  the field leaves the card as it was. The results list still shows the home-store comparison.
 
 ### Trust signals (#12)
 

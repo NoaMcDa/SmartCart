@@ -148,12 +148,22 @@ treat it like any other unreviewed copy. Where it appears:
     `confidence`, `tags` comparing the item's extracted attributes with the canonical's critical
     and soft attributes (`matched`, `differs`, `unverified`; kosher and diet flags stay
     unverified unless a human verified them), and `original_item_id`, the store's non-substitute
-    item when it has one;
+    item when it has one, with that item's offer at the same store as `original_here`
+    (`OriginalOffer`: `item_id`, `display_name_he`, `canonical_name_ar`, `shelf_price`,
+    `effective_unit_price`, `uom`, `line_total`, `is_estimated`, the promo and club fields of the
+    line, and `price_valid_from`, its own update time). It is the store's `any_brand` row for the
+    canonical (the one `original_item_id` names), already club-gated, priced at the line's
+    quantity; `null` when the line is not a substitute or the store does not sell the original.
+    It comes from the rows `price_baskets` already reads, so it adds no query per line. It is
+    display only: it never enters a total, a ranking or a saving (a test compares the whole
+    response with and without it). Present on `/compare` and on the lines of every `/optimize`
+    plan;
   - `BasketItem.allow` (the flexibility sheet's checked soft attributes: `pack_size`, `packaging`,
     `fat_pct`, `variety`, `flavor`; default empty, at most five, other keys are a 422, ignored for
     `exact`): a store may also offer an item of a sibling canonical that differs from the
     requested one only in these attributes. It is always a substitute with a `differs` tag, the
-    cheapest per unit price wins. Semantics and limits: [matching.md](matching.md#allowed-attributes-sibling-canonicals-31);
+    cheapest per unit price wins, and its `original_here` is the requested canonical's own offer
+    at that store. Semantics and limits: [matching.md](matching.md#allowed-attributes-sibling-canonicals-31);
   - `price_valid_from` on every line; `prices_updated_at` per store is the newest of its lines.
 - `missing` lists the canonical ids a store cannot supply; `found_count` the others. Never
   dropped, never priced as zero.

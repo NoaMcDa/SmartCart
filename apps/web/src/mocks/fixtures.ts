@@ -206,7 +206,13 @@ type Line = {
   /** Override the line total (multi-buy promos). */
   lineTotal?: number;
   name?: string;
-  substitute?: { originalName: string; confidence: number; tags: AttributeTag[] };
+  substitute?: {
+    originalName: string;
+    confidence: number;
+    tags: AttributeTag[];
+    /** The original's shelf price at this same store; absent when the store does not sell it. */
+    originalHere?: { price: number; validFrom?: string };
+  };
   promo?: string;
   club?: string;
 };
@@ -239,6 +245,7 @@ const STORES: StoreSpec[] = [
         substitute: {
           originalName: "חלב טרי 3% תנובה, 1 ליטר",
           confidence: 0.98,
+          originalHere: { price: 6.5, validFrom: "2026-10-06T19:15:00Z" },
           tags: [
             SAME_TYPE,
             { key: "אותו גודל", status: "matched", value: "1 ליטר" },
@@ -390,6 +397,31 @@ function quantityOf(canonicalId: number): number {
   return WEEKLY_BASKET.find((b) => b.canonical_id === canonicalId)?.quantity ?? 1;
 }
 
+/** `original_here` of a substitute line: the original's offer at the same store, or null. */
+function originalHere(
+  line: Line,
+  qty: number,
+  unitDivisor: number,
+  cat: CatalogEntry,
+): PricedItem["original_here"] {
+  const here = line.substitute?.originalHere;
+  if (!here) return null;
+  const agorot = toAgorot(here.price);
+  return {
+    item_id: 900000 + line.canonical_id,
+    display_name_he: line.substitute!.originalName,
+    canonical_name_ar: cat.display_name_ar ?? null,
+    shelf_price: money(agorot),
+    effective_unit_price: money(Math.round(agorot / unitDivisor)),
+    uom: cat.uom,
+    line_total: money(agorot * qty),
+    is_estimated: Boolean(cat.weighed),
+    promo_applied: false,
+    club_required: false,
+    price_valid_from: here.validFrom ?? PRICES_UPDATED_AT,
+  };
+}
+
 function pricedItem(store: StoreSpec, line: Line): PricedItem {
   const cat = CATALOG[line.canonical_id]!;
   const qty = quantityOf(line.canonical_id);
@@ -411,6 +443,7 @@ function pricedItem(store: StoreSpec, line: Line): PricedItem {
     line_total: money(lineAgorot),
     is_substitute: Boolean(line.substitute),
     original_item_id: line.substitute ? 900000 + line.canonical_id : null,
+    original_here: originalHere(line, qty, unitDivisor, cat),
     confidence: line.substitute?.confidence ?? null,
     tags: line.substitute?.tags ?? [],
     price_valid_from: PRICES_UPDATED_AT,

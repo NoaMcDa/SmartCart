@@ -133,3 +133,85 @@ describe("substitution card", () => {
     expect(tagText({ key: "מותג", status: "differs", value: null })).toBe("מותג");
   });
 });
+
+describe("substitution card, the original at this store", () => {
+  const res = optimizeFixture();
+
+  function renderCtx(ctx: NonNullable<ReturnType<typeof findSubstitution>>) {
+    return render(
+      <SubstitutionCard
+        ctx={ctx}
+        fallbackOriginalName={null}
+        busy={false}
+        onContinue={() => {}}
+        onKeep={() => {}}
+        onReject={() => {}}
+      />,
+    );
+  }
+
+  it("prices the original at the substitute's own store, with its own update time", () => {
+    const ctx = findSubstitution(res, 10101, "single")!;
+    expect(ctx.item.original_here).toMatchObject({ shelf_price: "6.50" });
+    renderCtx(ctx);
+    const original = screen.getByTestId("sub-original");
+    // Not the home store's 6.90: the same store sells the original at 6.50.
+    expect(original).toHaveTextContent("₪ 6.50");
+    expect(original).not.toHaveTextContent("₪ 6.90");
+    expect(original).toHaveTextContent("₪ 0.65");
+    expect(screen.getByTestId("sub-original-where")).toHaveTextContent(
+      "בסניף הזה, רמי לוי · מודיעין",
+    );
+    expect(screen.queryByTestId("sub-not-sold-here")).toBeNull();
+    // The original's timestamp is its own (06 Oct 19:15 UTC), not the substitute's.
+    expect(original.querySelector("time[datetime]")!.getAttribute("datetime")).toBe(
+      "2026-10-06T19:15:00Z",
+    );
+    expect(
+      screen
+        .getByTestId("sub-substitute")
+        .querySelector("time[datetime]")!
+        .getAttribute("datetime"),
+    ).toBe("2026-10-07T03:40:00Z");
+    // (6.50 - 5.90) x 2 at this store.
+    expect(screen.getByTestId("sub-saving")).toHaveTextContent("₪ 0.60 × 2 יחידות");
+    expect(screen.getByTestId("sub-saving")).toHaveTextContent("₪ 1.20");
+    expect(screen.getByTestId("sub-saving-basis")).toHaveTextContent("באותו סניף");
+    // The trust signals stay.
+    expect(screen.getByTestId("sub-disclaimer")).toHaveTextContent("המחיר הקובע הוא בקופה.");
+    expect(screen.getByTestId("sub-substitute")).toHaveTextContent("התחליף");
+  });
+
+  it("says so when the store does not sell the original, and compares with the home store", () => {
+    const ctx = findSubstitution(res, 10104, "single")!;
+    expect(ctx.item.original_here).toBeNull();
+    renderCtx(ctx);
+    expect(screen.getByTestId("sub-not-sold-here")).toHaveTextContent(
+      "המוצר המקורי לא נמכר בסניף הזה, לכן ההשוואה היא למחיר בסופר שלך.",
+    );
+    expect(screen.getByTestId("sub-original")).toHaveTextContent("₪ 6.90");
+    expect(screen.getByTestId("sub-original")).toHaveTextContent("בסופר שלך");
+    expect(screen.getByTestId("sub-saving")).toHaveTextContent("₪ 4.80");
+    expect(screen.queryByTestId("sub-saving-basis")).toBeNull();
+    expect(screen.getByTestId("sub-disclaimer")).toHaveTextContent("המחיר הקובע הוא בקופה.");
+  });
+
+  it("with no home store either, only says the store does not sell the original", () => {
+    const ctx = findSubstitution(optimizeFixture({ homeStoreId: null }), 10104, "single")!;
+    renderCtx(ctx);
+    expect(screen.getByTestId("sub-not-sold-here")).toHaveTextContent(
+      "המוצר המקורי לא נמכר בסניף הזה.",
+    );
+    expect(screen.queryByText("אין מחיר להשוואה בסופר שלך")).toBeNull();
+    expect(screen.queryByTestId("sub-saving")).toBeNull();
+  });
+
+  it("a response without the field keeps the card as it was", () => {
+    const ctx = findSubstitution(res, 10104, "single")!;
+    const { original_here: _omit, ...item } = ctx.item;
+    renderCtx({ ...ctx, item });
+    expect(screen.queryByTestId("sub-not-sold-here")).toBeNull();
+    expect(screen.getByTestId("sub-original")).toHaveTextContent("₪ 6.90");
+    expect(screen.getByTestId("sub-saving")).toHaveTextContent("₪ 4.80");
+  });
+});

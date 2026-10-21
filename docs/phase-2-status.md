@@ -33,7 +33,7 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 | #17 | Monorepo scaffold and CI | done by tests | All five items met. The last one, "a failing test turns CI red", was exercised once on the throwaway branch `ci/red-check` (commit `fba9fd7`, never merged): run https://github.com/NoaMcDa/SmartCart/actions/runs/37621263324 ended `failure` in the Test step on Python 3.12 and 3.13, with Lint green. Delete the branch with `git push origin --delete ci/red-check` if it still exists (the build environment could not). |
 | #22 | Israeli-IP VPS and object storage | blocked | Owner buys the VPS and bucket (about one person-hour, estimate), sets `VPS_SSH_HOST`, `VPS_SSH_KEY` and the `S3_*` secrets, and runs "Provision check", which runs the three smoke scripts against the live services. The deploy workflow then installs ingestion, the API and its timers (`deploy.md`). |
 | #27 | Schema v1 | done by tests | Six of six criteria pass in CI on `supabase/postgres:17.11`. |
-| #32 | Adapter framework, one adapter per chain | done with synthetic data | Eight adapters on synthetic fixtures. Real files need the VPS (`fetch_fixtures`). Archiving raw files to the bucket is not wired into the adapters. |
+| #32 | Adapter framework, one adapter per chain | done with synthetic data | Eight adapters on synthetic fixtures. Real files need the VPS (`fetch_fixtures`). The download step archives every file to the raw store before any adapter reads it (`download.py`, `rawstore.py`: local or S3/R2); the real bucket is untested until it exists (#22). |
 | #37 | Idempotent downloads, full before delta | done by tests | The real portals are unchecked until the VPS runs. |
 | #42 | Quality gates and quarantine | done by tests | Thresholds are the defaults from the issue, an estimate. Revisit after real publication delays are seen. |
 | #46 | Ingestion dashboard | done by tests | Verify the `smartcart_readonly` role and the numbers on the real project. |
@@ -75,19 +75,19 @@ Numbers that appear below are quoted from the status comments: 780 Python tests 
 | #43 | Feedback loop | done by tests | Context columns and RLS are in the phase 2 migration; see #92. No rejection rate exists until the beta. |
 | #44 | Monthly basket index | done with synthetic data | No month can be published until real prices load. Basket composition and check thresholds are estimates. |
 | #47 | Nightly effective-price precompute | done with synthetic data | 675,000 rows in 52 s on the small synthetic world and 144,380 rows in 27 to 33 s on the scaled one (`optimizer.md`), synthetic data only. The VPS timer exists (`infra/vps/smartcart-precompute.timer`, 09:30 Israel time after the full sync). Promo reward semantics are provisional until real promo files are seen. |
-| #48 | Substitution card | done by tests | Against the mock API; the original's price at the substitute's store is not in the API response. |
-| #50 | Product detail | done by tests | Promo confidence needs the API field (#90). Visual check of RTL, themes and targets. |
+| #48 | Substitution card | done by tests | Against the mock API. `/compare` and `/optimize` substitute lines carry `original_here`, the original's offer at the same store with its own update time (null when that store does not sell it); the card shows it and computes the saving from it, or says the store does not sell the original and falls back to the home store. Verified on the synthetic world and the mock only; real files decide how often a store sells both. |
+| #50 | Product detail | done by tests | Promo confidence comes from the API (`promo_confidence`, #90) and is shown next to the promo. Visual check of RTL, themes and targets. |
 | #51 | POST /parse-list | done with synthetic data | Resolves against the synthetic catalog; re-check on the real one. |
 | #54 | GET /search | done with synthetic data | Meaning-only criterion needs real BGE-M3 vectors and a one-line switch in `smartcart_api/search.py`. Latency measured on the test catalog only. |
-| #55 | Profile and preferences | done by tests | Full account deletion needs `DELETE /me` (#90). |
+| #55 | Profile and preferences | done by tests | Full account deletion uses `DELETE /me` (#90) from Profile. |
 | #58 | POST /compare | done with synthetic data | Totals and savings are correct by test; real numbers need the pipeline. |
-| #59 | Map view | done by tests | Pins use distance plus an approximate bearing until the API returns store coordinates (#90). |
+| #59 | Map view | done by tests | Pins sit at the store coordinates from the API (769 of 827 real stores located, `geocoding.md`); a town-centre location is drawn as an area, never a pin. Distance and bearing remain only as the fallback for a store without coordinates. |
 | #62 | POST /optimize (heuristic) | done by tests | Matches an exhaustive reference in 12 combinations. The walk and transit cost per store is an estimate. |
-| #63 | Dark mode | done by tests | Syncing the choice to the profile waits on auth wiring (#91). |
+| #63 | Dark mode | done by tests | The choice syncs to the profile when signed in (`ProfileSync`, #91). |
 | #64 | Supabase Auth, RLS, user tables | done by tests | RLS runs through a non-superuser role in CI. PostgREST itself is not in CI. Pick the Auth provider settings when the project exists. |
 | #66 | In-store shopping mode | done by tests | Visual check in both themes; Wake Lock is not testable in CI. |
 | #67 | Generated TypeScript client | done by tests | CI fails on drift. |
-| #80 | Loader: chain-level base prices | done by tests | The price-jump gate does not compare base records yet. |
+| #80 | Loader: chain-level base prices | done by tests | The price-jump gate compares a store's price with its own last price, else with the chain base price (`test_price_jump_falls_back_to_the_chain_base_price`). |
 | #90 | API follow-ups | done by tests | `DELETE /me`, store coordinates, promo confidence and `GET /stores/nearest` are implemented (PR #100 and the completion round). |
 | #91 | Web follow-ups | done by tests | All items landed in PR #100; the remaining loose ends became #101 and are done (below). |
 | #92 | Catalog contract follow-ups | done by tests | Columns and the catalog code that reads and writes them landed in PR #100; the remaining items became #102 and are done (below). |
@@ -105,7 +105,7 @@ and real users.
 | #23 | Price-drop alerts with web push | done with synthetic data | Alerts CRUD, `alerts-run` job, pywebpush sender tested with a fake. Needs the VAPID key pair (runbook step 11) and the real pipeline to fire on real drops. |
 | #28 | Price history, 90 days | done with synthetic data | Series from the price change events with promo markers; the chart is a small SVG component. Real history needs weeks of real loads. |
 | #34 | Shared family lists in real time | done with synthetic data | Invite link, accept, members, revoke by `share_id`, per-item `checked`, offline queue, Supabase Realtime with a polling fallback. Realtime itself needs the real project. |
-| #39 | Barcode scanning in the PWA | done by tests | BarcodeDetector with a ZXing fallback and a manual field; the lookup joins to effective prices in the radius. Device check of the camera flow remains. `/scan` reads no code from the URL yet. |
+| #39 | Barcode scanning in the PWA | done by tests | BarcodeDetector with a ZXing fallback and a manual field; the lookup joins to effective prices in the radius. Device check of the camera flow remains. `/scan?code=` looks the code up without the camera. |
 | #45 | Smart cart: single best swap | done by tests | Swap suggestions, apply, undo and dismiss (dismissal holds until the saving changes by ₪1 and 25%); verdicts stored as catalog feedback with `source=swap`; a dismissal never flags the mapping for review. |
 | #52 | Catalog expansion with active learning | blocked | Real labels and time. Built: search-miss logging without personal data, the expansion backlog (`smartcart-catalog backlog`), an uncertainty-first review queue with labels per hour, and the real-item audit. |
 | #56 | Native app decision | blocked | Retention data from real users. Built: install, push and store-mode events with platform; D1/D7/D30 cohort and install/push views and `smartcart-catalog native-report`; proposed criteria in `decisions.md` D15 for the owner to confirm before the data is seen. |
@@ -128,7 +128,7 @@ stack became deployable (`deploy.md`); and the phase 3 features that need no rea
 | Issue | Title | Status | What landed |
 |---|---|---|---|
 | #65 | Voice list input | done by tests | Web Speech API (`he-IL`) with a confirm step before parsing, feature-detected; events `voice_started`, `voice_completed`. The server speech-to-text fallback and the per-device check of `he-IL` on iOS Safari and Android Chrome remain. |
-| #70 | Monthly budget and spend tracking | done by tests | `profiles.monthly_budget`, `spend_entries` with RLS, `POST`/`GET`/`PUT`/`DELETE /me/spend`, export; "נותר החודש" on results and split, "סיימתי לקנות" records the plan total; six-month chart on Profile. Correct-a-total and per-entry delete exist in the API, not yet in the UI. |
+| #70 | Monthly budget and spend tracking | done by tests | `profiles.monthly_budget`, `spend_entries` with RLS, `POST`/`GET`/`PUT`/`DELETE /me/spend`, export; "נותר החודש" on results and split, "סיימתי לקנות" records the plan total; six-month chart on Profile. Correct-a-total and per-entry delete are in the UI too (finish round). |
 | #71 | Recipe to list | done with synthetic data | `POST /parse-recipe` with a rule-based Hebrew ingredient parser, JSON-LD recipe extraction for URLs, servings scaling; "ממתכון" in the list builder. Resolved against the synthetic catalog; re-check on the real one. |
 | #69 | Promo cycle prediction | done with synthetic data | `GET /promo-cycles/{canonical_id}`, advice only with 3 cycles and confidence 0.6 (`promo-cycles.md`). Synthetic backtest: hit rate 0.88, false alarms 0.02; no real history exists yet. |
 | #61, #68 | Receipt and handwritten-list photo | done with synthetic data | `POST /parse-image` (image in memory only, consent, monthly caps, Tesseract or Claude vision), a rule-based receipt structurer, "מצילום" in the list builder with a confirm step. On 40 synthetic receipts read by Tesseract: item recall 277/293, auto-accepted row precision 270/270 (`ocr.md`). Real receipts, real handwriting and the Claude provider (needs the key) are not measured yet. |
@@ -146,6 +146,15 @@ Fifteen parallel workstreams on `finish-round`, merged in one PR to `main`. Besi
 | Real-item matching (#2, #20, #33, #38) | done with real data, machine audit | The rule pipeline on 1,400 real chain items served 6 wrong products in 91 judged (0.93 precision); seven tested rules fix those classes (truncated names, product forms such as nectar or in sauce, diet variants). The after-figure is not independent: real precision needs the human gold set. |
 | Store coordinates (#60, #1) | done with real data | 769 of 827 real stores located through Wikidata's CBS municipal IDs and OpenStreetMap; the API marks town-centre distances as approximate. |
 | Deploy and CI | done by tests | Production web builds refuse a missing site URL; CI checks Python formatting; migrations verified on the Supabase Postgres 17 image. |
+
+## Follow-up round (2026-10-21)
+
+| Area | Status | What landed |
+|---|---|---|
+| Scheduled workflows | done by tests | Schedules run on the default branch, still `docs/project-context` (no code), so the daily Portal probe and the weekly BGE-M3 evaluation failed at Install from 2026-10-11 to 2026-10-21. A scheduled run now checks out `main` (PR #108). Setting the default branch to `main` is still the owner's step. |
+| Dependencies | done by tests | FastAPI 0.145 (2026-10-18) dropped the `openapi_version` argument and broke CI on every push, because no lock file was committed. `uv.lock` is now committed and enforced (`uv sync --locked` in CI and the API image; `dev-setup.md`). |
+| Soft attributes (#31) and the original at the substitute's store (#48) | done with synthetic data | Rows above. Gold-set precision unchanged at 1.00 at every level, Hebrew and Arabic. |
+| Status rows | done | #32, #39, #50, #55, #59, #63, #70 and #80 described gaps that earlier rounds had closed; the rows now say what exists. |
 
 ## Owner runbook
 

@@ -23,14 +23,17 @@ Line rules:
 * Substitutes: a line whose item is mapped to the canonical at ``close`` is a substitute. It
   carries the mapping confidence, the attribute tags (matched, differs, unverified) of the item
   against the canonical, and the non-substitute item of that store as ``original_item_id`` when
-  there is one.
+  there is one, with that item's offer at the same store as ``original_here`` (display only: it
+  is the store's ``any_brand`` row, already club-gated, priced at the line's quantity, and read
+  from the rows and item lookups the line itself uses, so it adds no query per line).
 * Allowed attributes (issue #31, ``BasketItem.allow``): with ``any_brand`` or ``close`` and a
   non-empty ``allow``, a store may also offer an item of a sibling canonical (same product type,
   taxonomy node and base unit) whose critical attributes differ from the requested canonical's
   only in allowed keys (``sibling_candidates``). The cheapest of the canonical's own offer and
   the siblings' (by effective unit price) wins, and a sibling's offer is always a substitute with
-  a ``differs`` tag on every allowed attribute that differs. Nothing the person did not allow is
-  relaxed; ``exact`` ignores ``allow``.
+  a ``differs`` tag on every allowed attribute that differs, and ``original_here`` is the
+  requested canonical's own offer at that store. Nothing the person did not allow is relaxed;
+  ``exact`` ignores ``allow``.
 """
 
 from __future__ import annotations
@@ -331,6 +334,17 @@ def line_total(c: _Choice, quantity: Decimal, by_weight: bool) -> tuple[Decimal,
     return money(total), bundles > 0
 
 
+def _unit_paid(c: _Choice, total: Decimal, qty: Decimal, by_weight: bool) -> Decimal:
+    """The unit price actually paid on a line: the effective one, scaled by what the quantity
+    pays against the shelf price (a half-filled bundle pays more than the promo unit price)."""
+    paid_ratio = total / money(qty * c.shelf_price) if not by_weight and c.shelf_price else None
+    if paid_ratio is not None and c.effective_price:
+        return (c.effective_unit_price * c.shelf_price / c.effective_price * paid_ratio).quantize(
+            _Q4
+        )
+    return c.effective_unit_price
+
+
 def _tags(
     item_attrs: dict, verified: list[str], critical: dict, soft: dict, rule_keys: list[str]
 ) -> list[schemas.AttributeTag]:
@@ -576,11 +590,28 @@ def price_baskets(
             else:  # the same canonical asked twice at different levels: keep both quantities
                 chosen[(s.store_id, cid)] = (prev[0], prev[1] + qty, *prev[2:])
 
-    item_ids = sorted({c.item_id for c, *_ in chosen.values()})
+    # The original at a substitute's own store (display only): the store's any_brand row of the
+    # requested canonical. A close-level pick or a sibling canonical's offer can be a substitute.
+    originals: dict[tuple[int, int], _Choice] = {}
+    for (sid, cid), (c, _q, flex, ex, _src, differs) in chosen.items():
+        if ex is not None or (flex != "close" and not differs):
+            continue
+        alt = eff.get((cid, sid, "any_brand"))
+        if alt is not None and alt.item_id != c.item_id:
+            originals[(sid, cid)] = alt
+
+    item_ids = sorted(
+        {c.item_id for c, *_ in chosen.values()} | {o.item_id for o in originals.values()}
+    )
     info = _item_info(conn, item_ids, price_ids)
     promo_rows = conn.execute(
         "SELECT id, description, raw->>'confidence' FROM promos WHERE id = ANY(%s)",
-        (sorted({c.promo_id for c, *_ in chosen.values() if c.promo_id}),),
+        (
+            sorted(
+                {c.promo_id for c, *_ in chosen.values() if c.promo_id}
+                | {o.promo_id for o in originals.values() if o.promo_id}
+            ),
+        ),
     ).fetchall()
     promo_desc = {r[0]: r[1] for r in promo_rows}
     promo_conf = {r[0]: promo_confidence(r[2]) for r in promo_rows}
@@ -606,17 +637,29 @@ def price_baskets(
                 more = qty + add_qty
                 with_promo, _ = line_total(c, more, False)
                 add_saving = money(more * c.shelf_price - with_promo)
-        paid_ratio = total / money(qty * c.shelf_price) if not by_weight and c.shelf_price else None
-        unit_paid = (
-            (c.effective_unit_price * c.shelf_price / c.effective_price * paid_ratio).quantize(_Q4)
-            if paid_ratio is not None and c.effective_price
-            else c.effective_unit_price
-        )
-        original = None
-        if is_sub:
-            alt = eff.get((cid, sid, "any_brand"))
-            if alt is not None and alt.item_id != c.item_id:
-                original = alt.item_id
+        unit_paid = _unit_paid(c, total, qty, by_weight)
+        original = original_here = None
+        alt = originals.get((sid, cid)) if is_sub else None
+        if alt is not None:
+            original = alt.item_id
+            alt_total, alt_applied = line_total(alt, qty, by_weight)
+            original_here = schemas.OriginalOffer(
+                item_id=alt.item_id,
+                display_name_he=info.get(alt.item_id, ("",))[0],
+                canonical_name_ar=canon[cid][5],
+                shelf_price=alt.shelf_price,
+                effective_unit_price=_unit_paid(alt, alt_total, qty, by_weight),
+                uom=alt.uom,
+                line_total=alt_total,
+                is_estimated=alt.is_estimated or by_weight,
+                promo_description=promo_desc.get(alt.promo_id) if alt.promo_id else None,
+                promo_min_qty=alt.promo_min_qty,
+                promo_applied=alt_applied,
+                club_required=alt.club_required,
+                club_name=alt.club_name,
+                price_valid_from=alt.price_valid_from,
+                promo_confidence=promo_conf.get(alt.promo_id) if alt.promo_id else None,
+            )
         offer_name = offer_discount = None
         offer = chosen_offer.get((sid, cid))
         if offer is not None:
@@ -648,6 +691,7 @@ def price_baskets(
             if is_sub
             else [],
             original_item_id=original,
+            original_here=original_here,
             promo_confidence=promo_conf.get(c.promo_id) if c.promo_id else None,
             club_offer_name=offer_name,
             club_offer_discount=offer_discount,
