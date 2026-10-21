@@ -26,6 +26,7 @@ import argparse
 import ftplib
 import json
 import os
+import re
 import shutil
 import ssl
 import subprocess
@@ -151,13 +152,26 @@ def ftp_login(host: str, user: str, timeout: float) -> str:
     return "ok"
 
 
-def fetch_one(slug: str, kind: str, work: Path, files: Path, timeout: float) -> dict:
+def fetch_one(
+    slug: str,
+    kind: str,
+    work: Path,
+    files: Path,
+    timeout: float,
+    store: int | None = None,
+    candidates: int = 1,
+) -> dict:
     """One file of ``kind`` for the chain through ``fetch_fixtures`` in a subprocess (so a hung
-    portal is killed), moved to ``files/<slug>/``. Returns the manifest entry."""
+    portal is killed), moved to ``files/<slug>/``. ``store`` asks for that store's file only,
+    ``candidates`` keeps the largest of that many. Returns the manifest entry."""
     out = work / f"{slug}-{kind}"
     shutil.rmtree(out, ignore_errors=True)
     cmd = [sys.executable, "-m", "smartcart_ingest.adapters.fetch_fixtures", slug,
            "--kind", kind, "--out", str(out), "--timeout", str(timeout)]  # fmt: skip
+    if store:
+        cmd += ["--store", str(store)]
+    if candidates > 1:
+        cmd += ["--candidates", str(candidates)]
     started = time.monotonic()
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 60, cwd=REPO)
@@ -178,6 +192,48 @@ def fetch_one(slug: str, kind: str, work: Path, files: Path, timeout: float) -> 
     elif "error" in entry:
         entry["log_tail"] = log[-600:]
     return entry
+
+
+PROMO_CANDIDATES = 10
+"""PromoFull files downloaded per chain; the largest is kept (a store's file can hold one promotion
+or thousands, and the first one listed is arbitrary)."""
+
+
+def fetch_chain(
+    slug: str,
+    work: Path,
+    files: Path,
+    timeout: float,
+    fetch=fetch_one,  # noqa: ANN001
+) -> dict:
+    """The chain's Stores, PromoFull and PriceFull files, in the order of ``KINDS`` in the result.
+
+    The PromoFull comes first (the largest of ``PROMO_CANDIDATES``) and the PriceFull is then
+    asked for **the same store** (the store code in the promo file's name): a promotion's prices
+    can only be checked against the shelf prices of its own store, and the first PriceFull the
+    portal lists is usually another store's (Shufersal, Yohananof). When that store has no
+    PriceFull the first one listed is taken and the entry says so (``same_store`` false)."""
+    got: dict[str, dict] = {"stores": fetch(slug, "stores", work, files, timeout)}
+    promo = got["promo_full"] = fetch(
+        slug, "promo_full", work, files, timeout, candidates=PROMO_CANDIDATES
+    )
+    store = None
+    code = str(promo.get("store_code") or "")
+    if "file" in promo and code.isdigit() and int(code) > 0:
+        store = int(code)
+    price = fetch(slug, "price_full", work, files, timeout, store=store) if store else {}
+    if store and "file" in price:
+        price["same_store"] = True
+    else:
+        price = fetch(slug, "price_full", work, files, timeout)
+        price["same_store"] = False
+        if store:
+            price["wanted_store"] = store
+    got["price_full"] = price
+    ordered = {kind: got[kind] for kind in KINDS}
+    for kind, entry in ordered.items():
+        print(f"  {kind:10} {json.dumps(entry, ensure_ascii=False)}", flush=True)
+    return ordered
 
 
 def probe(out: Path, slugs: Sequence[str], timeout: float, skip_downloads: bool) -> dict:
@@ -207,10 +263,7 @@ def probe(out: Path, slugs: Sequence[str], timeout: float, skip_downloads: bool)
             row["login"] = ftp_cache[portal.ftp_user]
         print(f"{slug:18} http {code:<3} {row['reachable']:<11} login {row['login']}", flush=True)
         if not skip_downloads:
-            for kind in KINDS:
-                row["downloads"][kind] = fetch_one(slug, kind, work, files, timeout)
-                print(f"  {kind:10} {json.dumps(row['downloads'][kind], ensure_ascii=False)}",
-                      flush=True)  # fmt: skip
+            row["downloads"] = fetch_chain(slug, work, files, timeout)
         result["chains"][slug] = row
     shutil.rmtree(work, ignore_errors=True)
     result["finished_at"] = datetime.now(UTC).isoformat(timespec="seconds")
@@ -331,6 +384,41 @@ def _shelf_check(groups: list, shelf: dict, check: Counter, bad: list, pid: str 
                         "rate": str(rate), "reward": str(price)})  # fmt: skip
 
 
+def _single_check(items: list, shelf: dict, check: Counter, bad: list, pid: str | None) -> None:
+    """Count, for the items of a one-group promotion whose shelf price is known, whether the
+    price per unit (``DiscountedPrice / MinQty``) is ``shelf x (1 - DiscountRate / 100)``, and
+    whether it is below the shelf price. Weighed items and all-zeros "any item" rows are left
+    out (their quantity is a step, not a pack)."""
+    from decimal import Decimal
+
+    def num(v: str | None) -> Decimal | None:
+        try:
+            return Decimal(v) if v else None
+        except Exception:  # noqa: BLE001
+            return None
+
+    for item in items:
+        code = item.get("itemcode")
+        base = shelf.get(code)
+        qty, rate = num(item.get("minqty")), num(item.get("discountrate"))
+        price = num(item.get("discountedprice"))
+        if (base is None or item.get("bisweighted") == "1" or set(code or "0") == {"0"}
+                or qty is None or qty <= 0 or rate is None or price is None):  # fmt: skip
+            continue
+        base = Decimal(str(base))
+        unit = price / qty
+        check["single_items_with_shelf"] += 1
+        gap = abs(base * (1 - rate / 100) - unit)
+        check["single_unit_equals_shelf_x_rate"] += gap <= Decimal("0.02")
+        # A whole-percent rate is a rounded number: the price may be off by up to half a point.
+        within = gap <= base * Decimal("0.005") + Decimal("0.02")
+        check["single_unit_within_rate_rounding"] += within
+        check["single_unit_below_shelf"] += unit < base
+        if not within:
+            bad.append({"promo": pid, "item": code, "shelf": str(base), "min_qty": str(qty),
+                        "rate": str(rate), "price": str(price)})  # fmt: skip
+
+
 def promo_shapes(
     data: bytes, examples: int = 3, limit_items: int = 3, shelf: dict | None = None
 ) -> dict:
@@ -376,6 +464,8 @@ def promo_shapes(
                 items = [xmlutil.scalar_children(i) for i in el.iter()
                          if xmlutil.localname(i) == "PromotionItem"]  # fmt: skip
                 groups.append((gf, items))
+        if shelf and len(groups) == 1:
+            _single_check(groups[0][1], shelf, check, check_bad, f.get("promotionid"))
         if len(groups) == 1 and not restricted:
             continue
         if shelf and len(groups) == 2:
@@ -428,6 +518,62 @@ def promo_shapes(
         "days": dict(days_seen.most_common()),
         "day_examples": day_examples,
         "shelf_check": {**check, "mismatches": check_bad[:8]} if shelf else None,
+    }
+
+
+CLUB_TEXT_CHARS = 3000
+"""A ClubID text longer than this is cut in the log line (its full length is kept); the JSON the
+probe uploads holds it whole."""
+CLUB_LINE_CHARS = 6000
+"""``PROMO_CLUBS`` lines are cut into parts of about this many characters."""
+
+
+def _club_atoms(value: str) -> list[str]:
+    """The club names a ClubID value mentions, for a count per name: the names of an expression
+    and, for ``<n> - <label>``, the label split at ``&`` and ``|`` too (Shufersal joins its card
+    clubs in one label). Only a measurement; the mapping never splits a label."""
+    from smartcart_ingest.adapters.clubs import value_names
+
+    atoms: list[str] = []
+    for name in value_names(value):
+        for part in re.split(r"[&|]", name):
+            part = " ".join(part.split())
+            if part and part not in atoms:
+                atoms.append(part)
+    return atoms
+
+
+def club_histogram(parsed) -> dict:  # noqa: ANN001
+    """Every distinct ``ClubID`` text of the promotions (``raw['club_ids']``, as the file wrote it,
+    trimmed) with the number of promotions that carry it and the rule the chain's club table makes
+    of it today, and a count per club name. Pure."""
+    from smartcart_ingest.adapters.clubs import resolve_value
+
+    chain = parsed.raw.chain_id
+    values: Counter[str] = Counter()
+    names: Counter[str] = Counter()
+    without = 0
+    for promo in parsed.promos:
+        ids = [str(v).strip() for v in promo.raw.get("club_ids") or [] if str(v).strip()]
+        without += not ids
+        for value in ids:
+            values[value] += 1
+            for atom in _club_atoms(value):
+                names[atom] += 1
+    return {
+        "promos": len(parsed.promos),
+        "without_club_id": without,
+        "distinct_values": len(values),
+        "distinct_names": len(names),
+        "values": [
+            {
+                "text": text,
+                "n": n,
+                "rule": resolve_value(chain, text) if not text.startswith("0") else "everyone",
+            }  # fmt: skip
+            for text, n in values.most_common()
+        ],
+        "names": [[name, n] for name, n in names.most_common()],
     }
 
 
@@ -504,6 +650,7 @@ def promo_profile(parsed, data: bytes, shelf: dict | None = None) -> dict:  # no
         "with_hours": sum(1 for p in promos if p.hours),
         "items_per_promo": {"min": min(per_item), "median": median(per_item),
                             "max": max(per_item), "empty": per_item.count(0)} if per_item else {},
+        "clubs": club_histogram(parsed),
         "fields": fields,
         "additional_restrictions": {k: dict(v.most_common(8)) for k, v in restrictions.items()},
         "layout": {k: v for k, v in layout.items() if k != "samples"},
@@ -513,20 +660,29 @@ def promo_profile(parsed, data: bytes, shelf: dict | None = None) -> dict:  # no
     }  # fmt: skip
 
 
-def _shelf_prices(adapter, parsed, price_path: Path | None) -> dict | None:  # noqa: ANN001
-    """item code -> shelf price from the chain's PriceFull, only when it is the promo file's store
-    (a promo file is per store; another store's shelf prices prove nothing)."""
+def _shelf_prices(
+    adapter,
+    parsed,
+    price_path: Path | None,  # noqa: ANN001
+) -> tuple[dict | None, dict]:
+    """``(item code -> shelf price, info)`` from the chain's PriceFull, only when it is the promo
+    file's store (a promo file is per store; another store's shelf prices prove nothing). ``info``
+    says which stores the two files are for and whether the shelf check could run."""
+    info: dict = {"checked": False}
     if price_path is None:
-        return None
+        return None, {**info, "why": "no PriceFull"}
     try:
         data = price_path.read_bytes()
         priced = adapter.parse(adapter.raw_file_for(price_path.name, data), data)
-    except Exception:  # noqa: BLE001 - extra; never fail the probe
-        return None
+    except Exception as exc:  # noqa: BLE001 - extra; never fail the probe
+        return None, {**info, "why": f"PriceFull unreadable: {type(exc).__name__}"}
     stores = {p.store_code for p in parsed.promos}
-    if not priced.prices or {p.store_code for p in priced.prices} != stores:
-        return None
-    return {p.item_code: p.price for p in priced.prices}
+    price_stores = {p.store_code for p in priced.prices}
+    info = {"checked": False, "promo_stores": sorted(stores)[:5],
+            "price_stores": sorted(price_stores)[:5], "price_rows": len(priced.prices)}  # fmt: skip
+    if not priced.prices or price_stores != stores:
+        return None, {**info, "why": "the PriceFull is for another store than the PromoFull"}
+    return {p.item_code: p.price for p in priced.prices}, {**info, "checked": True}
 
 
 def parse_summary(adapter, path: Path, price_path: Path | None = None) -> dict:  # noqa: ANN001
@@ -552,9 +708,9 @@ def parse_summary(adapter, path: Path, price_path: Path | None = None) -> dict: 
                                         if p.raw.get("unapplied")))  # fmt: skip
         if parsed.promos:
             try:
-                out["profile"] = promo_profile(
-                    parsed, data, _shelf_prices(adapter, parsed, price_path)
-                )
+                shelf, shelf_info = _shelf_prices(adapter, parsed, price_path)
+                out["profile"] = promo_profile(parsed, data, shelf)
+                out["profile"]["shelf"] = shelf_info
             except Exception as exc:  # noqa: BLE001 - the profile is extra; never fail the probe
                 out["profile_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
     return out
@@ -615,6 +771,51 @@ def _promo_rows_loaded(conn, file_id: int) -> dict:  # noqa: ANN001
     return {"promos": promos[0], "promo_items": links[0]}
 
 
+def club_lines(slug: str, clubs: dict | None) -> list[str]:
+    """``PROMO_CLUBS`` log lines for one PromoFull: a head (counts), then every distinct ClubID
+    text with its promotion count and the rule the table makes of it, then every club name with
+    its count, each in parts of at most about ``CLUB_LINE_CHARS`` characters (one text longer than
+    ``CLUB_TEXT_CHARS`` is cut and carries its length). The texts are copied verbatim."""
+    if not clubs:
+        return []
+    head = {k: v for k, v in clubs.items() if k not in ("values", "names")}
+    lines = ["PROMO_CLUBS " + json.dumps({"chain": slug, **head}, ensure_ascii=False)]
+
+    def parts(what: str, rows: list) -> None:
+        chunks: list[list] = [[]]
+        size = 0
+        for row in rows:
+            row = dict(row) if isinstance(row, dict) else list(row)
+            text = row["text"] if isinstance(row, dict) else row[0]
+            if len(text) > CLUB_TEXT_CHARS:
+                cut = text[:CLUB_TEXT_CHARS]
+                if isinstance(row, dict):
+                    row["text"], row["length"] = cut, len(text)
+                else:
+                    row[0] = cut
+            if isinstance(row, dict) and row.get("rule") and len(row["rule"]) > 300:
+                row["rule"] = row["rule"][:300] + "..."
+            width = len(json.dumps(row, ensure_ascii=False))
+            if chunks[-1] and size + width > CLUB_LINE_CHARS:
+                chunks.append([])
+                size = 0
+            chunks[-1].append(row)
+            size += width
+        for i, chunk in enumerate(chunks if rows else []):
+            lines.append("PROMO_CLUBS " + json.dumps(
+                {"chain": slug, what: chunk, "part": f"{i + 1}/{len(chunks)}"},
+                ensure_ascii=False))  # fmt: skip
+
+    parts("values", clubs.get("values") or [])
+    parts("names", clubs.get("names") or [])
+    return lines
+
+
+def _print_club_lines(slug: str, clubs: dict | None) -> None:
+    for line in club_lines(slug, clubs):
+        print(line, file=sys.stderr, flush=True)
+
+
 def _print_promo_profile(slug: str, entry: dict) -> None:
     """The promo profile as separate untruncated log lines (histogram, layout, samples), so a
     reader without the artifacts can see what the real file holds."""
@@ -622,7 +823,8 @@ def _print_promo_profile(slug: str, entry: dict) -> None:
     if not profile:
         return
     head = {k: v for k, v in profile.items()
-            if k not in ("samples", "layout_samples", "layout", "shapes")}  # fmt: skip
+            if k not in ("samples", "layout_samples", "layout", "shapes", "clubs")}  # fmt: skip
+    _print_club_lines(slug, profile.get("clubs"))
     for tag, body in (("PROMO_PROFILE", head), ("PROMO_LAYOUT", profile["layout"])):
         print(f"{tag} " + json.dumps({"chain": slug, **body}, ensure_ascii=False),
               file=sys.stderr, flush=True)  # fmt: skip
@@ -814,6 +1016,53 @@ def _promo_section(files: dict, slugs: Sequence[str]) -> list[str]:
     ]
 
 
+def _shelf_section(files: dict, slugs: Sequence[str]) -> list[str]:
+    """One row per chain: whether the PromoFull's prices were checked against the PriceFull of
+    the same store, and the counts (one-group promotions, then trigger/reward pairs)."""
+    rows = []
+    for slug in slugs:
+        entry = files.get(slug, {}).get("promo_full") if isinstance(files.get(slug), dict) else None
+        prof = ((entry or {}).get("parse") or {}).get("profile")
+        if not prof:
+            continue
+        info = prof.get("shelf") or {}
+        check = ((prof.get("shapes") or {}).get("shelf_check")) or {}
+        name = BY_SLUG[slug].name if slug in BY_SLUG else slug
+        promo_store = ",".join(info.get("promo_stores") or []) or "-"
+        price_store = ",".join(info.get("price_stores") or []) or "-"
+        if not info.get("checked"):
+            why = "not checked: " + str(info.get("why") or "no shelf prices")
+            cells = [name, promo_store, price_store, why, "", ""]
+        else:
+            n = check.get("single_items_with_shelf", 0)
+            pairs = check.get("items_with_shelf", 0)
+            single = (
+                f"{check.get('single_unit_equals_shelf_x_rate', 0)} of {n} equal shelf x "
+                f"(1 - rate), {check.get('single_unit_within_rate_rounding', 0)} within the "
+                f"rate's rounding, {check.get('single_unit_below_shelf', 0)} below shelf"
+            )
+            pair = (
+                f"{check.get('reward_equals_shelf_x_rate', 0)} of {pairs} rewards equal shelf x "
+                f"(1 - rate); {check.get('trigger_equals_shelf', 0)} of "
+                f"{check.get('trigger_priced', 0)} priced triggers equal shelf"
+                if pairs
+                else "no pair with a shelf price"
+            )
+            cells = [name, promo_store, price_store, "same store", single, pair]
+        rows.append("| " + " | ".join(md_escape(c) for c in cells) + " |")
+    if not rows:
+        return []
+    return [
+        "",
+        "### Promo prices against the same store's shelf prices",
+        "",
+        "| chain | PromoFull store | PriceFull store | shelf check | one-group promotions"
+        " (`DiscountedPrice / MinQty`, not weighed) | trigger and reward pairs |",
+        "|---|---|---|---|---|---|",
+        *rows,
+    ]
+
+
 def render(probe_result: dict | None, gate_result: dict, slugs: Sequence[str]) -> str:
     chains = (probe_result or {}).get("chains", {})
     files = gate_result["files"]
@@ -862,6 +1111,7 @@ def render(probe_result: dict | None, gate_result: dict, slugs: Sequence[str]) -
         ]
         lines.append("| " + " | ".join(md_escape(x) for x in cells) + " |")
     lines += _promo_section(files, slugs)
+    lines += _shelf_section(files, slugs)
     lines += [
         "",
         "Gate result is the `file_tracking` status after the real Scheduler path (adapter, quality "
