@@ -242,6 +242,57 @@ def test_authenticated_cannot_forge_the_item_version(
     assert after_tick < version() < db.execute("SELECT now() + interval '1 hour'").fetchone()[0]
 
 
+def test_an_editor_through_the_data_api_moves_the_lists_updated_at(
+    db: psycopg.Connection, data_api_roles
+) -> None:
+    """The editor may change items but not the list row (no privilege on ``lists``), so the trigger that
+    moves ``lists.updated_at`` is SECURITY DEFINER; without that the editor's insert, update or
+    delete would fail or leave the list's "updated" label behind. A viewer still writes nothing
+    (migration 20261023090000_list_items_client_id_touch.sql)."""
+    owner, editor = uuid.uuid4(), uuid.uuid4()
+    db.execute("INSERT INTO auth.users (id) SELECT unnest(%s::uuid[])", ([owner, editor],))
+    lid = db.execute(
+        "INSERT INTO lists (user_id, name) VALUES (%s, 'x') RETURNING id", (owner,)
+    ).fetchone()[0]
+    db.execute(
+        "INSERT INTO list_shares (list_id, owner_id, member_id, accepted_at, role, invite_token)"
+        " VALUES (%s, %s, %s, now(), 'editor', %s)",
+        (lid, owner, editor, uuid.uuid4().hex),
+    )
+
+    def backdate() -> None:
+        db.execute("RESET ROLE")
+        db.execute("ALTER TABLE lists DISABLE TRIGGER lists_set_updated_at")
+        db.execute("UPDATE lists SET updated_at = now() - interval '1 hour' WHERE id = %s", (lid,))
+        db.execute("ALTER TABLE lists ENABLE TRIGGER lists_set_updated_at")
+
+    def moved() -> bool:
+        db.execute("RESET ROLE")
+        return db.execute("SELECT updated_at >= now() FROM lists WHERE id = %s", (lid,)).fetchone()[
+            0
+        ]
+
+    backdate()
+    _as(db, "authenticated", editor)
+    iid = db.execute(
+        "INSERT INTO list_items (list_id, user_id, input_text) VALUES (%s, %s, 'חלב') RETURNING id",
+        (lid, editor),
+    ).fetchone()[0]
+    assert moved()
+    backdate()
+    _as(db, "authenticated", editor)
+    db.execute("UPDATE list_items SET checked = true WHERE id = %s", (iid,))
+    assert moved()
+    backdate()
+    _as(db, "authenticated", editor)
+    db.execute("DELETE FROM list_items WHERE id = %s", (iid,))
+    assert moved()
+    _as(db, "authenticated", editor)  # the data API role has no privilege on `lists` at all
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        with db.transaction():
+            db.execute("UPDATE lists SET name = 'y' WHERE id = %s", (lid,))
+
+
 # --- the API role and the closed-beta / photo tables (S9) ---------------------------------------
 
 API_ROLE = "zz_api_probe"

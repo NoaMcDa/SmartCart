@@ -597,6 +597,15 @@ class ListItemIn(_Model):
     flex_level: FlexLevel = "any_brand"
     confirmed: bool = True
     checked: bool = Field(default=False, description="Ticked off in the store (shared lists, #101)")
+    client_id: UUID | None = Field(
+        default=None,
+        description="POST /me/lists/{id}/items only, an idempotency key: a random id the client "
+        "makes for this add and sends again on every retry (a lost response, an offline queue "
+        "replayed twice). The first POST inserts the item and answers 201; a POST carrying the "
+        "same id for the same list answers 200 with the stored item and inserts nothing. Without "
+        "one, every POST inserts. Read back as the key the item was added with; ignored by PUT "
+        "(a kept item keeps its key) and when creating a list.",
+    )
 
 
 class ListItem(ListItemIn):

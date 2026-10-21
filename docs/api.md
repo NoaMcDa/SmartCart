@@ -375,7 +375,9 @@ New environment variables (never commit real values):
 
 ### Club filtering (#19)
 
-The rule lives in `basket.club_member` and `basket.gate_club`, used by /compare, /optimize (and
+The rule lives in `club_member` (module `smartcart_ingest.adapters.membership`, next to the rule
+grammar and the per-chain table; `basket.club_member` is the same function) and `basket.gate_club`,
+used by /compare, /optimize (and
 so the MILP, through `price_baskets`), the barcode lookup, the promo-cycles route and the alerts
 job. A club-only promo (`promos.club_only`) has a `club_name` that is a **rule over club labels**
 written by the ingest from the real `ClubID` text (docs/adapters.md, "Club promotions"): one
@@ -534,10 +536,31 @@ item must belong to the list in the path (an item id of another list is a 404).
   (`sort` = last + 1; `user_id` = the caller) and answers 201 with the `ListItem`. At most 200
   items per list (403 beyond; the count and the position are taken under a per-list advisory
   lock).
+  - **Idempotent per `client_id`.** The body may carry `client_id` (a uuid the browser makes once
+    per add and keeps with the queued add, so every retry sends the same one). The first POST
+    inserts and answers 201; a POST with the same `client_id` for the same list answers **200**
+    with the item as it is stored now and inserts nothing (the body of the replay is not
+    compared; the stored item wins, as for `POST /me/spend`). The check runs under the same
+    per-list lock, before the size cap, so a replay on a full list is still a 200. Unique per
+    list (`list_items_list_client_uidx`, partial: where `client_id` is not null); a replay after
+    the item was deleted is a new add. Without a `client_id` every POST inserts, as before.
+    `PUT /me/lists/{id}` and creating a list ignore a `client_id` in an item (a kept item keeps
+    its own); `ListItem.client_id` reads it back. Realtime mode (the Supabase insert) sends the
+    same key; a replay violates the unique index (`23505`) and the client reads the stored row.
 - `PATCH /me/lists/{id}/items/{item_id}`: body `ListItemPatch`, any of `canonical_id`,
   `input_text` (both may be null), `quantity`, `flex_level`, `confirmed`, `checked` (not null),
   with the same limits as `ListItemIn`; only the named fields change. Answers the `ListItem`.
 - `DELETE /me/lists/{id}/items/{item_id}`: 204; 404 when it is already gone.
+- The list's own `updated_at` follows its items: inserting, changing or deleting an item sets
+  `lists.updated_at` to `now()` (trigger `list_items_touch_list`, `AFTER INSERT OR UPDATE OR
+  DELETE ... FOR EACH ROW`; an UPDATE that changes nothing does not move it, and it never moves
+  a value that is already later than `now()`). It is `SECURITY DEFINER` (an editor may write items
+  but has no privilege on `lists`; `search_path` is the migration's schema, not `public`), so it
+  needs an owner that bypasses row-level security, as `owns_list()` already does (the `postgres`
+  role on Supabase). `GET /me/lists` orders by it, so the list somebody just worked on comes first.
+  A first touch takes the list row lock, so an item write waits for a concurrent `PUT` of the
+  same list (the other way round a deadlock is possible but rare: `PUT` is the owner's create
+  and import only; Postgres aborts one of the two).
 - Version: `ListItem.updated_at` (new column `list_items.updated_at`, migration
   `20261022090000_list_items_updated_at.sql`). A `BEFORE INSERT OR UPDATE` trigger is its only
   writer: the time of the insert, the old value for an UPDATE that changes nothing, otherwise the
@@ -598,6 +621,7 @@ item must belong to the list in the path (an item id of another list is a 404).
 | `20261008100100_shared_lists_rls.sql` | `owns_list()`, list item policies by list (owner, editor, viewer), `list_shares.expires_at` |
 | `20261009100000_mvp_followups.sql` | `list_shares.id` (identity, unique), `list_items.checked`, `substitution_feedback.source`, `gap_report_pressure()` and the `quality_gap_reports_7d` view, `quality_warnings` |
 | `20261022090000_list_items_updated_at.sql` | `list_items.updated_at` and its trigger (the item version of the per-item routes); no grant changes |
+| `20261023090000_list_items_client_id_touch.sql` | `list_items.client_id` with its partial unique index (idempotent add), and the `SECURITY DEFINER` trigger that moves `lists.updated_at` when an item changes; no grant changes |
 
 ## Events: phase 2 surfaces (#101, #102)
 
@@ -753,7 +777,8 @@ history for the canonical, by chain id; 404 for an unknown canonical. Dates are 
 [promo-cycles.md](promo-cycles.md). In short: below 3 cycles or a confidence of 0.6 the window is
 null and `advice = "unknown"`; `wait` means the next window opens within 14 days; `buy_now`
 means a promo is running or none is expected soon. Club-only promos count only for clubs passed
-in `clubs` (repeatable), with the /compare club rule (`basket.club_member`). It reads `promos` per
+in `clubs` (repeatable), with the /compare club rule (`basket.club_member`; the same callback,
+`club_filter`, serves `smartcart-catalog promo-cycles --club`). It reads `promos` per
 request and is not on the compare or optimize path.
 
 ### Events: voice list

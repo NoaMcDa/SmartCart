@@ -78,6 +78,8 @@ export async function writeItem(listId: number, edit: QueuedEdit): Promise<Write
       canonical_id: edit.canonicalId,
       input_text: edit.name,
       quantity: edit.quantity,
+      // A repeat of an add the server already saved answers with that row (200), not a second one.
+      ...(edit.clientId ? { client_id: edit.clientId } : {}),
     });
     return { item: itemFromRow(row), saved: true, superseded: false };
   }

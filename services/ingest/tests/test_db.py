@@ -156,3 +156,42 @@ def test_migrate_refuses_a_connection_inside_a_transaction(database) -> None:
         conn.execute("SELECT 1")  # opens an implicit transaction
         with pytest.raises(RuntimeError, match="idle connection"):
             dbmod.migrate(conn)
+
+
+@pytest.mark.db
+def test_list_item_trigger_follows_the_schema_the_migrations_ran_in(fresh_schema, database) -> None:
+    """The SECURITY DEFINER trigger that moves ``lists.updated_at`` (migration
+    20261023090000_list_items_client_id_touch.sql) must act on the tables of the schema it was
+    created in, not on a hard-coded ``public`` (which has no such list here)."""
+    conn = fresh_schema
+    missing = _missing(database)
+    dbmod.migrate(conn, skip_requires=missing)
+    schema = conn.execute("SELECT current_schema()").fetchone()[0]
+    assert schema.startswith("migtest_")
+    uid = uuid.uuid4()
+    with pytest.raises(psycopg.errors.RaiseException, match="rolled back"):
+        with conn.transaction():
+            conn.execute("INSERT INTO auth.users (id) VALUES (%s)", (uid,))
+            lid = conn.execute(
+                "INSERT INTO lists (user_id, name) VALUES (%s, 'x') RETURNING id", (uid,)
+            ).fetchone()[0]
+            conn.execute("ALTER TABLE lists DISABLE TRIGGER lists_set_updated_at")
+            conn.execute(
+                "UPDATE lists SET updated_at = now() - interval '1 hour' WHERE id = %s", (lid,)
+            )
+            conn.execute("ALTER TABLE lists ENABLE TRIGGER lists_set_updated_at")
+            conn.execute(
+                "INSERT INTO list_items (list_id, user_id, input_text) VALUES (%s, %s, 'חלב')",
+                (lid, uid),
+            )
+            moved = conn.execute("SELECT updated_at >= now() FROM lists WHERE id = %s", (lid,))
+            assert moved.fetchone()[0]
+            fn = conn.execute(
+                "SELECT pronamespace::regnamespace::text, prosecdef, proconfig::text"
+                " FROM pg_proc WHERE proname = 'list_items_touch_list'"
+                "   AND pronamespace = current_schema()::regnamespace"
+            ).fetchone()
+            assert fn[0] == schema
+            assert fn[1] is True
+            assert schema in fn[2]
+            conn.execute("DO $$ BEGIN RAISE EXCEPTION 'rolled back'; END $$")

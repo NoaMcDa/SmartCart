@@ -109,10 +109,9 @@ answer token that the cancel, close, navigation or unmount invalidates.
   card says "נוסף" but stays tappable.
 - `aria-label`s on map pins and store rows read the price without a currency word; not a visual issue.
 - `adoptNearestHomeStore` (`features/profile/profileState.ts`) reads the shopper's location before
-  `GET /stores/nearest` and does not compare it with the location after the answer, so a location
-  changed in between can keep the home store of the old location. It does guard the chain it asked
-  for. Left alone in the round-3 follow-up because the profile screens were being changed by another
-  branch; the fix is the same token the chain guard uses, on the rounded coordinates.
+  `GET /stores/nearest` and did not compare it with the location after the answer, so a location
+  changed in between could keep the home store of the old location. **Fixed** in the "Follow-up of
+  the follow-ups" section below (#39).
 - The polling fallback of the shared list is last-write-wins for the whole list. It needs an API
   change, so it is a proposal, not a fix: see "Proposal: per-item writes for the shared list in
   polling mode" below.
@@ -233,9 +232,21 @@ PUT), `test_api_security_data_api.py` (a version cannot be forged through PostgR
 offline replay), `offlineQueue.test.ts`, `mocks/handlers.lists.test.ts`, and the e2e spec
 `phase2-share-swaps` ("two devices editing within one poll interval").
 
-Not covered: an add whose response is lost is sent again after the reconnect and can create the
-item twice (the same as realtime mode's insert); an idempotency key on `POST` would close it. The
-list's own `updated_at` does not move when an item changes.
+Both gaps that stood here ("an add whose response is lost is sent again and can create the item
+twice", "the list's own `updated_at` does not move when an item changes") are closed: see
+"Follow-up of the follow-ups" below (#39, #40).
+
+## Follow-up of the follow-ups: idempotent add, the list's own `updated_at`, the home store
+
+| # | Where | What happened | Fix | Test |
+|---|---|---|---|---|
+| 39 | `features/profile/profileState.ts` `adoptNearestHomeStore`, `useResolveHomeStore` | The location was read before `GET /stores/nearest` and not compared with the location after the answer. A location changed while the request was in flight (a new city typed, the device fix arriving, "clear location") gave the profile the home store of the old place, and the baseline of the net saving was a store the shopper is not near. | After the answer the location is read again and compared with the one the request was made for (it is stored rounded to the neighborhood, so equal coordinates are the same question); a different one drops the answer, like the chain guard next to it. The hook that resolves the store once per chain now does so once per chain and location, so a dropped answer is asked again for the new place. | `profile/homeStore.test.tsx` (3 tests fail without the guard: the location changed meanwhile, cleared meanwhile, and the hook asking again; the controls: the same neighborhood set again still adopts) |
+| 40 | `POST /me/lists/{id}/items`, `features/share/offlineQueue.ts`, `itemWrites.ts`, `useSharedList.ts` | An add whose response was lost (the server saved the item, the browser saw a network error) stayed in the offline queue and was sent again: the list had the item twice. Realtime mode's insert had the same hole. | `list_items.client_id` (migration `20261023090000_list_items_client_id_touch.sql`), unique per list; the queue makes a uuid per add (`state/clientId.ts`), keeps it with the queued add across reloads and sends it with every attempt; the API answers a repeat with the stored row (200, not 201). Realtime mode sends the key and, on the unique violation (`23505`), reads the stored row instead of treating it as a refusal. | `share/sharedList.addReplay.test.tsx` (the first answer is lost, the queue sends again, one item; fails without the key), `sharedList.addReplay.realtime.test.tsx`, `itemWrites.test.ts`, `offlineQueue.clientId.test.ts`, `mocks/handlers.listIdempotency.test.ts`, and on the API `test_api_list_item_idempotency.py` (11) |
+| 41 | `lists.updated_at` | An item change did not move the parent list's `updated_at`, so the list somebody just edited kept its old place in `GET /me/lists` (ordered by it) and any "updated" label. | An `AFTER INSERT OR UPDATE OR DELETE` trigger on `list_items` sets `lists.updated_at = now()` (`SECURITY DEFINER`: an editor may write items and has no privilege on `lists`; its `search_path` is the migration's schema). An UPDATE that changes nothing leaves it. The web app reads no list-level `updated_at` (it orders by what the API returns and labels items, not lists), so nothing there needed to change; the mock now moves it the same way. | `test_api_list_updated_at.py` (9: owner and editor, no-op, ordering, move between lists, cascade delete), `test_api_security_data_api.py` (an editor through PostgREST), `services/ingest/tests/test_db.py` (the trigger follows the migration's schema, not `public`), `mocks/handlers.listIdempotency.test.ts` |
+
+Not done: a replay after the item was deleted is a new add (the key identifies a live item). The
+web app removes a queued add together with its key when the item is removed before it was sent, so
+that case does not arise from the queue.
 
 ## Verification
 
@@ -256,3 +267,12 @@ Follow-up round (#33 to #38): `npm run lint`, `typecheck` and `prettier --check`
 `CI=true npx vitest run` 122 files, 1313 tests, all pass; `npm run build` passes; Playwright e2e on
 the production build for the share, swaps, alerts, beta, handoff and follow-up specs (49 passed) and
 `aria-flows` (9 passed).
+
+Follow-up of the follow-ups (#39 to #41): `npm run lint`, `typecheck`, `prettier --check` clean;
+`CI=true npx vitest run` 130 files, 1378 tests, all pass; `npm run build` passes; Playwright e2e on
+the production build for `phase2-share-swaps`, `followups`, `secondary-onboarding-profile` and
+`secondary-split-map-store` (47 passed). Python: `pytest services/api services/catalog
+services/ingest/tests/test_db.py` 2708 passed, 8 skipped (the API role tests that need a grant on
+the `auth` schema, and the SEO regeneration). For #39 and #40 the fix was reverted and the new
+tests were seen to fail (#39: 3 of the 4 new tests; the fourth is the control that the same
+neighborhood still adopts).
