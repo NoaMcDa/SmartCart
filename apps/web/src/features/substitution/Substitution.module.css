@@ -92,6 +92,11 @@
   font-size: 13px;
 }
 
+.savingBasis {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+
 .noSaving {
   padding: 10px 14px;
   border-radius: var(--sc-radius-control);

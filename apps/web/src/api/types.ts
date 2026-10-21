@@ -1102,6 +1102,62 @@ export interface components {
             /** Subsets Evaluated */
             subsets_evaluated: number;
         };
+        /**
+         * OriginalOffer
+         * @description What the requested original (the non-substitute item) costs at the store a substitute is
+         *     sold in. Display only: it never enters a total, a ranking or a saving.
+         */
+        OriginalOffer: {
+            /**
+             * Canonical Name Ar
+             * @description The canonical's first Arabic name, as on the line
+             */
+            canonical_name_ar?: string | null;
+            /** Club Name */
+            club_name?: string | null;
+            /**
+             * Club Required
+             * @default false
+             */
+            club_required: boolean;
+            /** Display Name He */
+            display_name_he: string;
+            /** Effective Unit Price */
+            effective_unit_price: string;
+            /**
+             * Is Estimated
+             * @description Weighed goods
+             * @default false
+             */
+            is_estimated: boolean;
+            /** Item Id */
+            item_id: number;
+            /**
+             * Line Total
+             * @description The original at the line's quantity, promo folded
+             */
+            line_total: string;
+            /**
+             * Price Valid From
+             * Format: date-time
+             */
+            price_valid_from: string;
+            /**
+             * Promo Applied
+             * @default false
+             */
+            promo_applied: boolean;
+            /** Promo Confidence */
+            promo_confidence?: number | null;
+            /** Promo Description */
+            promo_description?: string | null;
+            /** Promo Min Qty */
+            promo_min_qty?: string | null;
+            /** Shelf Price */
+            shelf_price: string;
+            /** Uom */
+            uom: string;
+        };
         /** ParseImageResponse */
         ParseImageResponse: {
             /**
@@ -1429,6 +1485,8 @@ export interface components {
             item_id: number;
             /** Line Total */
             line_total: string;
+            /** @description Substitutes only: the original's offer at this same store (the one original_item_id names), for an apples-to-apples comparison. null when the line is not a substitute or this store does not sell the original. Display only. */
+            original_here?: components["schemas"]["OriginalOffer"] | null;
             /** Original Item Id */
             original_item_id?: number | null;
             /**

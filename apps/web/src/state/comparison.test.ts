@@ -9,6 +9,7 @@ import {
   planSubstitutions,
   planUpdatedAt,
   substitutionSaving,
+  substitutionSavingHere,
 } from "./comparison";
 import { shopperFromStored } from "./shopper";
 
@@ -73,6 +74,16 @@ describe("plans and substitutions", () => {
     // (6.90 - 4.50) x 2, the artboard's ₪4.80.
     expect(substitutionSaving(ctx)).toEqual({ perUnit: 2.4, quantity: 2, total: 4.8 });
     expect(findSubstitution(res, 42)).toBeNull();
+  });
+
+  it("saves against the original at the substitute's own store when the API sends it", () => {
+    const here = findSubstitution(res, 10101, "single")!;
+    // (6.50 - 5.90) x 2, not the home store's (6.90 - 5.90) x 2.
+    expect(substitutionSavingHere(here.item)).toEqual({ perUnit: 0.6, quantity: 2, total: 1.2 });
+    expect(substitutionSaving(here)).toEqual({ perUnit: 1, quantity: 2, total: 2 });
+    // The store that does not sell the original: null, and the home comparison stays.
+    expect(findSubstitution(res, 10104, "single")!.item.original_here).toBeNull();
+    expect(substitutionSavingHere(findSubstitution(res, 10104, "single")!.item)).toBeNull();
   });
 
   it("without a home store there is no original to compare with", () => {

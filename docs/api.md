@@ -148,7 +148,16 @@ treat it like any other unreviewed copy. Where it appears:
     `confidence`, `tags` comparing the item's extracted attributes with the canonical's critical
     and soft attributes (`matched`, `differs`, `unverified`; kosher and diet flags stay
     unverified unless a human verified them), and `original_item_id`, the store's non-substitute
-    item when it has one;
+    item when it has one, with that item's offer at the same store as `original_here`
+    (`OriginalOffer`: `item_id`, `display_name_he`, `canonical_name_ar`, `shelf_price`,
+    `effective_unit_price`, `uom`, `line_total`, `is_estimated`, the promo and club fields of the
+    line, and `price_valid_from`, its own update time). It is the store's `any_brand` row for the
+    canonical (the one `original_item_id` names), already club-gated, priced at the line's
+    quantity; `null` when the line is not a substitute or the store does not sell the original.
+    It comes from the rows `price_baskets` already reads, so it adds no query per line. It is
+    display only: it never enters a total, a ranking or a saving (a test compares the whole
+    response with and without it). Present on `/compare` and on the lines of every `/optimize`
+    plan;
   - `price_valid_from` on every line; `prices_updated_at` per store is the newest of its lines.
 - `missing` lists the canonical ids a store cannot supply; `found_count` the others. Never
   dropped, never priced as zero.

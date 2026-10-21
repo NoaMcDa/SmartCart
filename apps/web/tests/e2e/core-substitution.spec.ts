@@ -23,11 +23,21 @@ for (const viewport of [
       await expect(card.getByRole("heading", { level: 2 })).toHaveText(
         "החלפנו את חלב טרי 3% תנובה, 1 ליטר ב-חלב טרי 3% יטבתה, 1 ליטר",
       );
-      await expect(page.getByTestId("sub-original")).toContainText(/₪\s6.90/);
-      await expect(page.getByTestId("sub-original")).toContainText(/₪\s0.69 ל-100 מ"ל/);
+      // The original at THIS store (₪6.50, its own update time), not the home store's ₪6.90.
+      const original = page.getByTestId("sub-original");
+      await expect(original).toContainText(/₪\s6.50/);
+      await expect(original).not.toContainText(/₪\s6.90/);
+      await expect(original).toContainText(/₪\s0.65 ל-100 מ"ל/);
+      await expect(page.getByTestId("sub-original-where")).toContainText("בסניף הזה");
+      await expect(page.getByTestId("sub-not-sold-here")).toHaveCount(0);
+      await expect(original.locator("time[datetime]")).toHaveAttribute(
+        "datetime",
+        "2026-10-06T19:15:00Z",
+      );
       await expect(page.getByTestId("sub-substitute")).toContainText(/₪\s5.90/);
-      await expect(page.getByTestId("sub-saving")).toContainText(/₪\s1.00 × 2 יחידות/);
-      await expect(page.getByTestId("sub-saving")).toContainText(/₪\s2.00/);
+      await expect(page.getByTestId("sub-saving")).toContainText(/₪\s0.60 × 2 יחידות/);
+      await expect(page.getByTestId("sub-saving")).toContainText(/₪\s1.20/);
+      await expect(page.getByTestId("sub-saving-basis")).toContainText("באותו סניף");
       await expect(page.getByTestId("sub-source")).toContainText("ביטחון 98%");
       await expect(page.getByTestId("sub-source").locator("time[datetime]")).toHaveCount(1);
       await expect(page.getByTestId("sub-disclaimer")).toHaveText("המחיר הקובע הוא בקופה.");
@@ -83,6 +93,12 @@ for (const viewport of [
       const card = page.getByTestId("sub-card");
       await expect(card).toContainText("החלפה 3 מתוך 3");
       await expect(page.getByTestId("sub-saving")).toContainText(/₪\s4.80/);
+      // This store does not sell the original: said plainly, compared with the home store.
+      await expect(page.getByTestId("sub-not-sold-here")).toContainText(
+        "המוצר המקורי לא נמכר בסניף הזה",
+      );
+      await expect(page.getByTestId("sub-original")).toContainText(/₪\s6.90/);
+      await expect(page.getByTestId("sub-disclaimer")).toHaveText("המחיר הקובע הוא בקופה.");
       const reject = card.getByRole("button", { name: "לא תחליף טוב" });
       expect(await reject.evaluate((el) => getComputedStyle(el).color)).toBe("rgb(163, 45, 45)");
       await reject.click();
