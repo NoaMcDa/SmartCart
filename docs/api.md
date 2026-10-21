@@ -23,7 +23,11 @@ uv run smartcart-api serve --reload        # http://localhost:8000/docs
 |---|---|---|
 | `DATABASE_URL` | none | Postgres (Supabase) connection string, the service connection |
 | `API_CORS_ORIGINS` | `http://localhost:3000` | comma-separated allowed origins |
-| `SUPABASE_JWT_SECRET` | none | the project's JWT secret (HS256); `/me/*` return 503 without it |
+| `SUPABASE_JWT_SECRET` | none | the project's HS256 JWT secret (the fallback for projects not yet on an asymmetric key); `/me/*` return 503 when neither it nor a JWKS URL is configured |
+| `SUPABASE_URL` / `SUPABASE_JWKS_URL` | none | where the project's public signing keys are: `$SUPABASE_URL/auth/v1/.well-known/jwks.json` unless the second is set |
+| `SUPABASE_JWT_ISSUER` | none | expected `iss` (`https://<project>.supabase.co/auth/v1`) |
+| `SUPABASE_JWKS_TTL_S` / `SUPABASE_JWKS_MIN_REFRESH_S` | 600 / 30 | key cache lifetime; least time between two fetches |
+| `API_RATE_LIMIT_BACKEND` | `memory` | `postgres` shares the request limits across workers and replicas (table `api_rate_limits`) |
 | `SUPABASE_JWT_AUDIENCE` | `authenticated` | expected `aud`; empty disables the check |
 | `API_DB_USER_ROLE` | `smartcart_app` | role switched to for signed-in requests (RLS) |
 | `API_POOL_MIN` / `API_POOL_MAX` | 1 / 10 | psycopg pool size |
@@ -273,8 +277,24 @@ one row per (canonical, store, flexibility level):
 ## Auth and row-level security (#64)
 
 - The web app signs in with Supabase Auth and sends `Authorization: Bearer <access token>`.
-  The API verifies HS256 with `SUPABASE_JWT_SECRET`, requires `exp` and `sub`, checks
-  `aud = authenticated`, and rejects `role = anon` tokens (401).
+  The API verifies the signature, requires `exp` and `sub`, checks `aud = authenticated` (and `iss`
+  when `SUPABASE_JWT_ISSUER` is set) with 30 s of clock skew, and rejects any role but
+  `authenticated` (401). Two kinds of signature are accepted:
+  - **ES256 or RS256**, against the project's published key set (JWKS: `SUPABASE_JWKS_URL`, else
+    `$SUPABASE_URL/auth/v1/.well-known/jwks.json`). The key is chosen by the token's `kid` and the
+    algorithm is the one the key declares, never the one the token asks for. Keys are cached for
+    `SUPABASE_JWKS_TTL_S` and refreshed on an unknown `kid`, at most once per
+    `SUPABASE_JWKS_MIN_REFRESH_S`. If the key set cannot be had the answer is 503 (`Retry-After: 5`),
+    not 401. Nothing is fetched until the first asymmetric token arrives.
+  - **HS256** with `SUPABASE_JWT_SECRET`, while it is configured: the fallback for a project not yet
+    on an asymmetric key. Unset it to switch it off (HS256 tokens are then 401). An HS256 token is
+    never checked against a published key, and `alg: none` and every other algorithm are refused.
+  Details and tests: docs/security-review.md, S9 and R5.
+- Request limits (docs/security-review.md S7): per verified user, else per address.
+  `API_RATE_LIMIT_BACKEND=memory` (default) counts per process; `postgres` counts in the table
+  `api_rate_limits` (migration `20261022120000`), shared by every worker and replica, one statement per
+  limited request, windows of 60 s and 3600 s. 429 carries `Retry-After`. When the database cannot count,
+  requests are counted in memory instead (logged), except beta-code and share-link guessing (503).
 - For `/me/*` the request transaction runs `SET LOCAL ROLE smartcart_app` and sets
   `request.jwt.claim.sub` and `request.jwt.claims`, which `auth.uid()` reads. `smartcart_app`
   (migration `20261007110100_app_role.sql`) is NOLOGIN, not a superuser and has no BYPASSRLS, so
