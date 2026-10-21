@@ -350,6 +350,9 @@ def promo_profile(parsed, data: bytes) -> dict:  # noqa: ANN001
         "stores": sorted({p.store_code for p in promos})[:20],
         "reward_types": dict(Counter(p.reward_type for p in promos)),
         "club_only": sum(1 for p in promos if p.club_only),
+        "club_names": dict(Counter(p.club_name for p in promos if p.club_only).most_common(6)),
+        "layouts": dict(Counter(p.raw.get("layout", "nested/flat") for p in promos)),
+        "unapplied": dict(Counter(p.raw["unapplied"] for p in promos if p.raw.get("unapplied"))),
         "confidence": dict(Counter(p.raw.get("confidence") for p in promos)),
         "confidence_reasons": dict(Counter(r for p in promos
                                            for r in p.raw.get("confidence_reasons", []))),
@@ -387,6 +390,8 @@ def parse_summary(adapter, path: Path) -> dict:  # noqa: ANN001
         out["promo_item_codes"] = sum(len(p.item_codes) for p in parsed.promos)
         out["reward_types"] = dict(Counter(p.reward_type for p in parsed.promos))
         out["club_only"] = sum(1 for p in parsed.promos if p.club_only)
+        out["unapplied"] = dict(Counter(p.raw["unapplied"] for p in parsed.promos
+                                        if p.raw.get("unapplied")))  # fmt: skip
         if parsed.promos:
             try:
                 out["profile"] = promo_profile(parsed, data)
@@ -412,6 +417,7 @@ def result_line(slug: str, kind: str, entry: dict) -> str:
         "promos": p.get("promos"),
         "promo_item_codes": p.get("promo_item_codes"),
         "reward_types": p.get("reward_types") or None,
+        "unapplied": p.get("unapplied") or None,
         "club_only": p.get("club_only"),
         "promos_loaded": entry.get("db", {}).get("promos"),
         "promo_items_linked": entry.get("db", {}).get("promo_items"),
@@ -604,10 +610,12 @@ def _promo_section(files: dict, slugs: Sequence[str]) -> list[str]:
         unknown = p.get("promo_item_codes", 0) - (entry.get("db") or {}).get("promo_items", 0)
         loaded = entry.get("db") or {}
         reward = ", ".join(f"{k} {v}" for k, v in sorted((p.get("reward_types") or {}).items()))
+        unapplied = ", ".join(f"{k} {v}" for k, v in sorted((p.get("unapplied") or {}).items()))
         cells = [
             BY_SLUG[slug].name if slug in BY_SLUG else slug,
             str(p.get("promos", 0)),
             reward or "-",
+            unapplied or "-",
             str(p.get("club_only", 0)),
             f"{prof.get('expired_at_publication', '-')} / {prof.get('not_started_at_publication', '-')}",
             f"{low} of {prof.get('promos', 0)}",
@@ -625,9 +633,9 @@ def _promo_section(files: dict, slugs: Sequence[str]) -> list[str]:
         "",
         "### PromoFull files as the adapter read them",
         "",
-        "| chain | promos | reward type (adapter) | club-only | expired / not started at publication"
-        " | confidence below 1.0 | loaded |",
-        "|---|---|---|---|---|---|---|",
+        "| chain | promos | reward type (adapter) | read but not applied (reason) | club-only"
+        " | expired / not started at publication | confidence below 1.0 | loaded |",
+        "|---|---|---|---|---|---|---|---|",
         *rows,
     ]
 

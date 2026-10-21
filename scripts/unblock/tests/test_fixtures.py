@@ -155,7 +155,8 @@ def test_trim_promo_keeps_whole_nested_promotions() -> None:
     out, before, after = trim_promo_file(data, 2)
     assert (before, after) == (len(full.promos), 2)
     trimmed = _parse_any(ShufersalAdapter, SHUFERSAL_PROMO.name, out)
-    assert trimmed.promos == full.promos[:2]  # the first promotions, with all their items
+    # Evenly spaced over the file (indexes 0 and 2 of 4), each with all its items.
+    assert trimmed.promos == [full.promos[0], full.promos[2]]
     assert out[:2] == b"\x1f\x8b"
     assert trim_promo_file(data, 50) == (data, before, before)  # nothing to trim: untouched
 
@@ -253,3 +254,49 @@ def test_result_line_and_report_carry_promo_rows() -> None:
     assert "PromoFull file" in md and "40 promos (7 club-only)" in md
     assert "### PromoFull files as the adapter read them" in md
     assert "bundle 20, other 20" in md and "20 of 40" in md and "10 unknown items skipped" in md
+
+
+def test_fetch_asks_for_ten_files_when_the_first_one_is_unusable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Yohananof's portal lists a stale ``PromoFull0000000000000-...`` first (chain id all zeros):
+    ``fetch`` then asks for ten files and takes the newest one the adapter accepts."""
+    from smartcart_ingest.adapters import fetch_fixtures
+
+    junk = "PromoFull0000000000000-00-1-202411010501.gz"
+    older = "PromoFull7290803800003-000-001-20261020-004031.gz"
+    newer = "PromoFull7290803800003-000-001-20261021-004031.gz"
+    asked: list[int] = []
+
+    async def fake_download(scraper_name: str, kind: str, workdir: Path, limit: int = 1):
+        asked.append(limit)
+        names = [junk] if limit == 1 else [junk, older, newer]
+        workdir.mkdir(parents=True, exist_ok=True)
+        out = []
+        for name in names:
+            (workdir / name).write_bytes(b"not parsed here")
+            out.append(workdir / name)
+        return out
+
+    monkeypatch.setattr(fetch_fixtures, "_download", fake_download)
+    entry = fetch_fixtures.fetch("yohananof", "YOHANANOF", "promo_full", tmp_path / "out")
+    assert asked == [1, 10]
+    assert entry["file"] == newer  # not the stale junk file, not the older real one
+    assert (tmp_path / "out" / "yohananof" / newer).exists()
+
+
+def test_fetch_keeps_one_file_when_the_first_is_usable(tmp_path: Path, monkeypatch) -> None:
+    from smartcart_ingest.adapters import fetch_fixtures
+
+    good = "PromoFull7290803800003-000-001-20261021-004031.gz"
+    asked: list[int] = []
+
+    async def fake_download(scraper_name: str, kind: str, workdir: Path, limit: int = 1):
+        asked.append(limit)
+        workdir.mkdir(parents=True, exist_ok=True)
+        (workdir / good).write_bytes(b"x")
+        return [workdir / good]
+
+    monkeypatch.setattr(fetch_fixtures, "_download", fake_download)
+    assert fetch_fixtures.fetch("yohananof", "YOHANANOF", "promo_full", tmp_path)["file"] == good
+    assert asked == [1]

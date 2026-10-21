@@ -107,15 +107,22 @@ def _rewrap(payload: bytes, container: str, original: bytes) -> bytes:
     return payload
 
 
-def _trim(data: bytes, group: str, max_units: int, unit_key=None) -> tuple[bytes, int, int]:  # noqa: ANN001
+def _trim(
+    data: bytes,
+    group: str,
+    max_units: int,
+    unit_key=None,
+    spread: bool = False,  # noqa: ANN001
+) -> tuple[bytes, int, int]:
     """The shared trimmer behind ``trim_price_file`` and ``trim_promo_file``.
 
     The file is decoded and parsed exactly as the adapters do (``xmlutil``: containers by magic
     bytes, encoding detection, a parser that resolves no entities and fetches nothing). The rows
     are the elements of the containers of ``group`` ("price" or "promo", ``CONTAINERS``). A row's
     unit is ``unit_key(row)`` (rows with equal keys are one unit, kept or dropped together); with
-    no ``unit_key`` every row is its own unit. The first ``max_units`` units are kept, in
-    document order. The header, the XML declaration as published, the source encoding (with its
+    no ``unit_key`` every row is its own unit. ``max_units`` units are kept, in document order: the
+    first ones, or with ``spread`` evenly spaced ones across the whole file (the first, then every
+    ``units / max_units``-th), so a file sorted by id is sampled over its full range. The header, the XML declaration as published, the source encoding (with its
     BOM) and the outer container are kept, and a numeric ``Count`` attribute on a container is
     set to the new row count. Returns ``(trimmed bytes, units before, units after)``; an
     untrimmed file is returned as is. Raises ``ValueError`` when the bytes hold no such rows.
@@ -147,7 +154,11 @@ def _trim(data: bytes, group: str, max_units: int, unit_key=None) -> tuple[bytes
     before = len(units)
     if before <= max_units:
         return data, before, before
-    kept = set(units[:max_units])
+    kept = (
+        {units[i * before // max_units] for i in range(max_units)}
+        if spread
+        else set(units[:max_units])
+    )
     for row, key in zip(rows, keys, strict=True):
         if key not in kept:
             row.getparent().remove(row)
@@ -175,7 +186,9 @@ def trim_price_file(data: bytes, max_items: int) -> tuple[bytes, int, int]:
 
 
 def trim_promo_file(data: bytes, max_promos: int) -> tuple[bytes, int, int]:
-    """Keep the first ``max_promos`` promotions of a promo file, each whole with all its items.
+    """Keep ``max_promos`` promotions of a promo file, each whole with all its items, evenly spaced
+    across the file (a real PromoFull is sorted by promotion id, so its first hundred are the
+    oldest, mostly coupons, and say little about the rest).
 
     The promotion records are the elements of ``Promotions/Promotion`` (items nested inside, so
     they stay with their promotion) and the legacy flat ``Sales/Sale`` rows, which carry one item
@@ -188,7 +201,7 @@ def trim_promo_file(data: bytes, max_promos: int) -> tuple[bytes, int, int]:
     def promotion_id(row) -> str | None:  # noqa: ANN001
         return xmlutil.scalar_children(row).get("promotionid") or None
 
-    return _trim(data, "promo", max_promos, promotion_id)
+    return _trim(data, "promo", max_promos, promotion_id, spread=True)
 
 
 def promo_layout(data: bytes, sample: int = 3) -> dict:
@@ -245,7 +258,7 @@ def promo_layout(data: bytes, sample: int = 3) -> dict:
             "nested": dict(nested), "samples": samples}  # fmt: skip
 
 
-async def _download(scraper_name: str, kind: str, workdir: Path) -> list[Path]:
+async def _download(scraper_name: str, kind: str, workdir: Path, limit: int = 1) -> list[Path]:
     from smartcart_ingest.download import quiet_upstream_loggers
 
     quiet_upstream_loggers()
@@ -255,9 +268,18 @@ async def _download(scraper_name: str, kind: str, workdir: Path) -> list[Path]:
     scraper_cls = ScraperFactory[scraper_name].value
     scraper = scraper_cls(file_output=DiskFileOutput(str(workdir / "files"), extract_gz=False))
     file_type = FileTypesFilters[KIND_FILTERS[kind]].name
-    async for _result in scraper.scrape(limit=1, files_types=[file_type]):
+    async for _result in scraper.scrape(limit=limit, files_types=[file_type]):
         pass
     return sorted(p for p in (workdir / "files").rglob("*") if p.is_file())
+
+
+def _usable(adapter: RegulationAdapter, filename: str, kind: str) -> bool:
+    """The file name parses, is of ``kind`` and names a chain id the adapter accepts."""
+    try:
+        info = parse_filename(filename)
+    except ValueError:
+        return False
+    return info.kind == kind and info.chain_id in adapter.accepted_chain_ids()
 
 
 def fetch(
@@ -270,8 +292,24 @@ def fetch(
     target = out_dir / slug
     target.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
-        files = asyncio.run(asyncio.wait_for(_download(scraper_name, kind, Path(tmp)), timeout))
-        for path in files:
+        # The first listed file is normally the one wanted. Yohananof's portal lists a stale
+        # "PromoFull0000000000000-00-1-202411010501.gz" (chain id all zeros, 2024) first, which no
+        # adapter accepts: when the first file is not one the adapter can use, ask for ten and take
+        # the newest usable one.
+        files: list[Path] = []
+        usable: list[Path] = []
+        for limit in (1, 10):
+            work = Path(tmp) / f"limit{limit}"
+            files = asyncio.run(
+                asyncio.wait_for(_download(scraper_name, kind, work, limit), timeout)
+            )
+            usable = [p for p in files if _usable(adapter, p.name, kind)]
+            if usable:
+                break
+        usable.sort(
+            key=lambda p: parse_filename(p.name).published_at or datetime.min.replace(tzinfo=UTC)
+        )
+        for path in [*usable[-1:], *files]:
             try:
                 info = parse_filename(path.name)
             except ValueError:
