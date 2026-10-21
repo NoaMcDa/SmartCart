@@ -57,6 +57,7 @@ describe("delete my data", () => {
       window.localStorage.setItem(key, "{}");
     }
     expect(LOCAL_DATA_KEYS).toContain(SHARED_QUEUE_KEY);
+    expect(LOCAL_DATA_KEYS).toContain("sc-session");
     clearLocalData();
     for (const key of LOCAL_DATA_KEYS) expect(window.localStorage.getItem(key), key).toBeNull();
     // A queued edit that stayed in this tab's memory would be written back by the next edit.

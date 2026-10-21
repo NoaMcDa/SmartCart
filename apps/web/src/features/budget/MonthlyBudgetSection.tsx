@@ -92,11 +92,9 @@ export function MonthlyBudgetSection({ className }: { className?: string }) {
           <input
             id={fieldId}
             className={controls.input}
-            type="number"
+            type="text"
             inputMode="numeric"
-            min={1}
-            max={MAX_BUDGET}
-            step={1}
+            autoComplete="off"
             dir="ltr"
             placeholder="2500"
             value={shown}

@@ -98,6 +98,18 @@ describe("trackEvent", () => {
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer jwt-abc");
   });
 
+  it("sends nothing queued before the answer was withdrawn in another tab", async () => {
+    trackEvent("app_opened");
+    // Another tab declined: the shared storage now says "0", this tab's memory still says "1".
+    localStorage.setItem("sc-events-consent", "0");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchMock).not.toHaveBeenCalled();
+    // And the queue is gone, so accepting again later does not release the old events.
+    setTrackingConsent(true);
+    await flushEvents();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("never throws when the network fails", async () => {
     fetchMock.mockRejectedValueOnce(new Error("offline"));
     trackEvent("app_opened");

@@ -198,7 +198,24 @@ describe("the Profile section", () => {
     await user.click(screen.getByRole("button", { name: "ניקוי התקציב" }));
     expect(window.localStorage.getItem(STORAGE_KEYS.budget)).toBeNull();
     expect(screen.getByTestId("budget-facts")).toHaveTextContent("לא הוגדר תקציב");
-    expect(field).toHaveValue(null);
+    expect(field).toHaveValue("");
+  });
+
+  it("reads a budget typed with a thousands separator or on an Arabic keyboard", async () => {
+    const user = userEvent.setup();
+    render(<MonthlyBudgetSection />);
+    const field = screen.getByLabelText(/כמה את רוצה להוציא/);
+    await user.type(field, "2,500");
+    await user.click(screen.getByRole("button", { name: "שמירת תקציב" }));
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEYS.budget)!)).toEqual({
+      monthly: 2500,
+    });
+    await user.clear(field);
+    await user.type(field, "٣١٠٠");
+    await user.click(screen.getByRole("button", { name: "שמירת תקציב" }));
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEYS.budget)!)).toEqual({
+      monthly: 3100,
+    });
   });
 
   it("refuses an amount that is not a positive number of shekels", async () => {

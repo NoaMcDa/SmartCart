@@ -227,6 +227,14 @@ export function isNetworkFailure(err: unknown): boolean {
   if (err instanceof ApiError) return false;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
   if (err instanceof TypeError) return true;
+  // The client gives up on a request that gets no answer (`REQUEST_TIMEOUT_MS`): a dead link.
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: unknown }).name === "TimeoutError"
+  ) {
+    return true;
+  }
   const message =
     typeof err === "object" && err !== null && "message" in err
       ? String((err as { message: unknown }).message)

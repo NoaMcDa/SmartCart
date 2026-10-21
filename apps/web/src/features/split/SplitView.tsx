@@ -23,7 +23,13 @@ import { formatRich } from "@/i18n/format";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { sharedMessages } from "@/i18n/messages/shared";
 import { splitMessages } from "@/i18n/messages/split";
-import { formatStoreDistance, formatTime, itemProductName, listNameLabel } from "@/lib/format";
+import {
+  formatPrice,
+  formatStoreDistance,
+  formatTime,
+  itemProductName,
+  listNameLabel,
+} from "@/lib/format";
 import { chainLabel, storeLabel } from "@/lib/storeName";
 import { useComparison, type LastResult } from "./lastResult";
 import {
@@ -157,7 +163,7 @@ function SplitBoard({ result, model }: { result: LastResult; model: SplitModel }
       t("moved", {
         name: name ?? t("itemFallback"),
         store: target ? chainLabel(target.chain_name, locale) : t("otherStoreFallback"),
-      }) + (after.waterfall ? t("movedNet", { net: after.waterfall.net.toFixed(2) }) : ""),
+      }) + (after.waterfall ? t("movedNet", { net: formatPrice(after.waterfall.net, 2) }) : ""),
     );
   }
 

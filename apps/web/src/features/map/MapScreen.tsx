@@ -23,7 +23,7 @@ import { useRich } from "@/i18n/format-2";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { StoreText } from "@/i18n/StoreText";
 import { mapMessages } from "@/i18n/messages/map";
-import { approxLocationHint, formatStoreDistance, formatTime } from "@/lib/format";
+import { approxLocationHint, formatPrice, formatStoreDistance, formatTime } from "@/lib/format";
 import { chainLabel, storeLabel } from "@/lib/storeName";
 import { useRouter } from "next/navigation";
 import { FallbackMap } from "./FallbackMap";
@@ -241,7 +241,7 @@ export function MapScreen() {
                     aria-label={t("storeRowAria", {
                       store: storeLabel(store.store_name, locale),
                       distance: formatStoreDistance(store, locale),
-                      total: pin.total,
+                      total: formatPrice(pin.total),
                     })}
                   >
                     <span className={styles.storeMain}>
