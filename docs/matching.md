@@ -221,8 +221,10 @@ five). Matching is per canonical, so `allow` does not loosen the judge: nothing 
   typical pack differs); the `close` level already covers a different pack size of the same
   canonical. `packaging` is not an extracted attribute at all. They are accepted so the sheet's
   keys never produce a 422. `flavor` opens siblings only for the product types where it is
-  critical (yogurt, cream cheese, ...). Swap suggestions (`/swaps`) price their alternatives
-  without `allow`.
+  critical (yogurt, cream cheese, ...). Swap suggestions (`/optimize/swaps`) honor each row's `allow` the same
+  way: the alternatives of an `any_brand` or `close` row are priced with it, a sibling suggestion is
+  labeled with its `differs` tags and a critical difference that is not allowed still drops the
+  candidate; an `exact` row ignores `allow` and an empty `allow` changes nothing.
 - **Evaluation.** The gold set measures the judge, which this does not touch: precision per level
   is unchanged (1.00 at any brand, Hebrew and Arabic). The behavior is covered by
   `services/api/tests/test_api_allow.py`.

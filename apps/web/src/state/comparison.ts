@@ -273,3 +273,19 @@ export function substitutionSaving(ctx: Pick<SubstitutionContext, "item" | "orig
   if (!ctx.original) return null;
   return shelfSaving(ctx.original.item.shelf_price, ctx.item);
 }
+
+export type SubstitutionSavingBasis = "here" | "home";
+
+/**
+ * The saving every substitute shows, on the card and in the results screen's list alike: against
+ * the original at the substitute's own store when the API sends it (`here`), otherwise against the
+ * home store's original (`home`, D7). Null when neither is known.
+ */
+export function substitutionSavingWithBasis(
+  ctx: Pick<SubstitutionContext, "item" | "original">,
+): { perUnit: number; quantity: number; total: number; basis: SubstitutionSavingBasis } | null {
+  const here = substitutionSavingHere(ctx.item);
+  if (here) return { ...here, basis: "here" };
+  const home = substitutionSaving(ctx);
+  return home ? { ...home, basis: "home" } : null;
+}
