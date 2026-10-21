@@ -431,9 +431,111 @@ class Ingest:
             ).fetchall()]  # fmt: skip
             entry["file_id"] = row[0]
             entry["gate"] = {"status": row[1], "reason": row[2], "gates": gates, "schema": row[3]}
+        if info.kind == "promo_full" and entry["gate"].get("status") == "loaded":
+            try:
+                entry["promo_diag"] = promo_diagnostics(
+                    self.conn, adapter, path, entry["file_id"], real_now
+                )
+            except Exception as exc:  # noqa: BLE001 - a diagnostic never stops the run
+                entry["promo_diag"] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
         print(self.probe.result_line(slug, info.kind, entry), file=sys.stderr, flush=True)
         self.records.append(entry)
         return entry
+
+
+def promo_diagnostics(conn, adapter, path: Path, file_id: int, now: datetime) -> dict:
+    """What a loaded PromoFull holds and how much of it reached ``promo_items``: promos, how many
+    list item codes, how many of those codes the chain's ``items`` know, and the rows linked."""
+    from collections import Counter
+
+    data = path.read_bytes()
+    parsed = adapter.parse(adapter.raw_file_for(path.name, data), data)
+    promos = parsed.promos
+    codes = sorted({c for p in promos for c in p.item_codes})
+    chain = parsed.raw.chain_id
+    known = (
+        conn.execute(
+            "SELECT count(DISTINCT item_code) FROM items WHERE chain_id = %s AND item_code = ANY(%s)",
+            (chain, codes),
+        ).fetchone()[0]
+        if codes
+        else 0
+    )
+    linked = conn.execute(
+        "SELECT count(*) FROM promo_items pi JOIN promos p ON p.id = pi.promo_id WHERE p.file_id = %s",
+        (file_id,),
+    ).fetchone()[0]
+    item_sample = [
+        r[0]
+        for r in conn.execute(
+            "SELECT item_code FROM items WHERE chain_id = %s ORDER BY id LIMIT 3", (chain,)
+        ).fetchall()
+    ]
+    return {
+        "promos": len(promos),
+        "promos_with_codes": sum(1 for p in promos if p.item_codes),
+        "distinct_codes": len(codes),
+        "codes_known_to_items": known,
+        "promo_items_linked": linked,
+        "active_now": sum(
+            1
+            for p in promos
+            if (p.starts_at is None or p.starts_at <= now)
+            and (p.ends_at is None or now < p.ends_at)
+        ),
+        "club_only": sum(1 for p in promos if p.club_only),
+        "reward_types": dict(Counter(p.reward_type for p in promos)),
+        "sample_promo_codes": codes[:3],
+        "sample_item_codes": item_sample,
+    }
+
+
+def _short_plan(line: str) -> str:
+    """An EXPLAIN line without the query vector's 1024 numbers."""
+    return re.sub(r"'\[[^']*\]'::vector", "<query vector>", line)
+
+
+def search_diagnostics(db_url: str) -> dict:
+    """Why /parse-list took seconds: time one vector query the way ``search._vector`` runs it and
+    record its plan (sequential scan or the HNSW index), plus the index definitions."""
+    import psycopg
+
+    from smartcart_api.embedding import query_embedder, to_pgvector
+
+    embedder = query_embedder()
+    vec = to_pgvector(embedder.embed_one("חלב טרי 3%"))
+    out: dict = {"model": embedder.model_name}
+    sql = (
+        "WITH qv AS (SELECT %(v)s::vector AS v) SELECT e.item_id, 1 - (e.embedding <=> qv.v) AS s"
+        " FROM item_embeddings AS e, qv WHERE e.model = %(model)s"
+        " ORDER BY e.embedding <=> qv.v LIMIT 40"
+    )
+    params = {"v": vec, "model": embedder.model_name}
+    with psycopg.connect(db_url) as conn:
+        out["item_embeddings"] = conn.execute("SELECT count(*) FROM item_embeddings").fetchone()[0]
+        out["indexes"] = [
+            r[0]
+            for r in conn.execute(
+                "SELECT indexdef FROM pg_indexes WHERE tablename = 'item_embeddings'"
+            ).fetchall()
+        ]
+        out["plan"] = [
+            _short_plan(r[0]) for r in conn.execute("EXPLAIN " + sql, params).fetchall()
+        ][:8]
+        times = []
+        for _ in range(3):
+            t0 = time.perf_counter()
+            conn.execute(sql, params).fetchall()
+            times.append((time.perf_counter() - t0) * 1000)
+        out["vector_query_ms"] = [round(t, 1) for t in times]
+        conn.execute("SET enable_seqscan = off")
+        out["plan_without_seqscan"] = [
+            _short_plan(r[0]) for r in conn.execute("EXPLAIN " + sql, params).fetchall()
+        ][:8]
+        t0 = time.perf_counter()
+        conn.execute(sql, params).fetchall()
+        out["vector_query_ms_index_forced"] = round((time.perf_counter() - t0) * 1000, 1)
+    return out
 
 
 def list_files(files: Path, slug: str, adapter_cls) -> list[tuple[str, Path]]:
@@ -923,7 +1025,8 @@ def run_all(args: argparse.Namespace) -> dict:
                     for kind in kinds:
                         names, err = scrape_subprocess(
                             extra_dir, slug, kind, store_file_regex(kind, codes),
-                            limit=len(codes) * 3, timeout=args.timeout)  # fmt: skip
+                            limit=len(codes) * 3,
+                            timeout=args.timeout * (2 if kind == "promo_full" else 1))  # fmt: skip
                         newest = newest_per_store(names, cls().parse_filename)
                         keep = set(newest.values())
                         for name in names:  # one file per store: the newest
@@ -966,6 +1069,27 @@ def run_all(args: argparse.Namespace) -> dict:
             if r.get("gate", {}).get("status") in ("failed", "not tracked", "unrecognized"):
                 run.fail("ingest", f"{r['chain']} {r.get('kind')} {r['file']}: "
                          f"{r['gate'].get('status')} {r['gate'].get('reason') or r['gate'].get('error') or ''}"[:300])  # fmt: skip
+        stale_stores = [
+            r for r in ingest.records if r.get("kind") == "stores" and r.get("stale_on_real_clock")
+        ]
+        if stale_stores:
+            ages = ", ".join(f"{r['chain']} {r.get('age_hours')} h" for r in stale_stores)
+            run.fail(
+                "ingest",
+                f"{len(stale_stores)} Stores files are older than the stale-date gate's "
+                f"{STALE_HOURS:g} h ({ages}); on the real clock the gate would quarantine them and "
+                "no store of those chains would load (this run replayed the clock for them)",
+            )
+        promo_files = [
+            r for r in ingest.records if r.get("promo_diag") and "error" not in r["promo_diag"]
+        ]
+        if promo_files and sum(r["promo_diag"]["promo_items_linked"] for r in promo_files) == 0:
+            run.fail(
+                "ingest",
+                f"{sum(r['promo_diag']['promos'] for r in promo_files)} promos loaded from "
+                f"{len(promo_files)} PromoFull files but 0 promo_items rows: no promo can reach a "
+                "price (see the PromoFull table)",
+            )
     finally:
         conn.close()
 
@@ -1009,6 +1133,9 @@ def run_all(args: argparse.Namespace) -> dict:
         with run.stage(f"API: parse-list, compare, optimize ({tag})") as st:
             api = api_stage(db_url, locs, args.repeats, args.seed, run, tag)
             api["locations"] = locs
+            slow = {n: p["ms"] for n, p in api["parse"].items() if p["ms"] > 2000}
+            if slow:
+                run.fail("api", f"/parse-list took over 2 s ({tag}): {slow} ms")
             st["note"] = f"{len(api['runs'])} basket runs at {len(locs)} locations"
             for p in api["problems"]:
                 run.fail("api", p)
@@ -1016,6 +1143,9 @@ def run_all(args: argparse.Namespace) -> dict:
 
     result["precompute"] = precompute("production semantics: reviewed mappings only")
     result["api"] = api_run("production")
+    with run.stage("diagnostic: the vector query behind /parse-list and /search") as st:
+        result["search_diag"] = search_diagnostics(db_url)
+        st["note"] = f"{result['search_diag']['vector_query_ms']} ms per query"
     with run.stage("basket index dry run (production semantics)") as st:
         result["basket_index"] = basket_index_dry_run(work, env, "production")
         st["note"] = f"status {result['basket_index'].get('status')}"
@@ -1127,6 +1257,35 @@ def render_report(res: dict) -> str:
             f"{_n(f.get('seconds'))} |"
         )
     a("")
+    promo_rows = [f for f in files if f.get("promo_diag")]
+    if promo_rows:
+        a("PromoFull files: what they hold and how much reached `promo_items`:")
+        a("")
+        a(
+            "| chain | file | promos | with item codes | distinct codes | codes the chain's items know"
+            " | promo_items linked | active now | club | rewards |"
+        )
+        a("|---|---|---|---|---|---|---|---|---|---|")
+        for f in promo_rows:
+            d = f["promo_diag"]
+            if "error" in d:
+                a(
+                    f"| {f['chain']} | `{md_escape(f['file'])}` | error: {md_escape(d['error'])} |||||||"
+                )
+                continue
+            a(
+                f"| {f['chain']} | `{md_escape(f['file'])}` | {_n(d['promos'])} | {_n(d['promos_with_codes'])} | "
+                f"{_n(d['distinct_codes'])} | {_n(d['codes_known_to_items'])} | {_n(d['promo_items_linked'])} | "
+                f"{_n(d['active_now'])} | {_n(d['club_only'])} | {md_escape(d['reward_types'])} |"
+            )
+        a("")
+        samples = [
+            f"{f['chain']} {f['promo_diag']['sample_promo_codes']} / {f['promo_diag']['sample_item_codes']}"
+            for f in promo_rows
+            if "error" not in f["promo_diag"]
+        ]
+        a("Sample codes (promo / item): " + "; ".join(samples[:6]))
+        a("")
     a(
         f"`file_tracking` after the run: {res.get('file_tracking')}. Alerts raised: {len(res.get('alerts', []))}."
     )
@@ -1208,6 +1367,23 @@ def render_report(res: dict) -> str:
         a("|---|---|---|---|")
         for lv, d in sorted(t.get("by_flex", {}).items()):
             a(f"| {lv} | {_n(d['rows'])} | {_n(d['canonicals'])} | {_n(d['stores'])} |")
+        a("")
+
+    sd = res.get("search_diag")
+    if sd:
+        a("### The vector query behind /parse-list and /search")
+        a("")
+        a(
+            f"`item_embeddings` holds {_n(sd['item_embeddings'])} rows (model `{sd['model']}`); one "
+            f"`ORDER BY embedding <=> q LIMIT 40` query took {sd['vector_query_ms']} ms; with "
+            f"sequential scans disabled {sd['vector_query_ms_index_forced']} ms."
+        )
+        a("")
+        a("```")
+        a("\n".join(sd["plan"]))
+        a("--- enable_seqscan = off")
+        a("\n".join(sd["plan_without_seqscan"]))
+        a("```")
         a("")
 
     for key, title in (
