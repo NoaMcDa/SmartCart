@@ -156,11 +156,36 @@ Fifteen parallel workstreams on `finish-round`, merged in one PR to `main`. Besi
 | Soft attributes (#31) and the original at the substitute's store (#48) | done with synthetic data | Rows above. Gold-set precision unchanged at 1.00 at every level, Hebrew and Arabic. |
 | Status rows | done | #32, #39, #50, #55, #59, #63, #70 and #80 described gaps that earlier rounds had closed; the rows now say what exists. |
 
+## Review and real-data round (2026-10-21 to 2026-10-22)
+
+Parallel workstreams in three PRs (#110, #111 and the one after). Besides the rows above:
+
+| Area | Status | What landed |
+|---|---|---|
+| Real promotion files (#47, #32) | done with real data | The Portal probe fetches a PromoFull per chain. All seven reachable chains publish a grouped layout the adapters did not read: every real promotion parsed as `other` with no items, and every Shufersal and Tiv Taam promo was wrongly club-only. Now read and verified against the same stores' shelf prices; 81 to 100% of each file's promotions apply, plus two-group "1+1", "2+1" and "second at P%" pairs (82 more; Tiv Taam 708 of 708, Rami Levy 157 of 157, Mega 37 of 37 reward prices equal the shelf arithmetic). Coupons, basket thresholds and weekday limits are read but not applied, with a reason. Still provisional: `docs/adapters.md`, "Promotions in real files". Victory, Machsanei Hashuk and Hazi Hinam are unreachable from a runner. |
+| Club promotions (#19) | done with real data | Real ClubID texts map to a per-chain club table (`chain_clubs.json`); `A | B` needs either, `A & B` both, anything unknown matches nobody. `GET /chains/clubs` feeds the picker, which stores club ids. Shufersal's club texts were not in the fixtures, so it stays unmapped until `smartcart-ingest clubs-report --unmapped` shows them. Some labels are inferred (`docs/adapters.md`). |
+| Ingestion core (#60) | done by tests | 12 bugs fixed before the real window (a run lock, per-chain crash isolation, retry of interrupted fulls, full-before-delta order, DST in the stale gate, empty full files quarantined, future-dated prices, partitions outside the load transaction, among others), then the open risks: Stores files get their own 240-hour stale limit (four real Stores files were 60 to 68 hours old), late passes at 11:30 and 15:30 with a conditional precompute, withdrawn promos are ended, a price-drop gate (factor 8, an estimate), and portal time budgets. Thresholds are estimates to re-tune on the first nights. |
+| Normalization on real items (#20) | done with real data | 91 table cases verbatim from the seven chains' real fixtures (sizes read from glued digits, items sold by the piece read as per kg, Carrefour sizes 1000x too large, cut units, tea bags, pack words); sizes are correct or explicitly unknown. Gold-set precision unchanged at 1.00 at every level, Hebrew and Arabic; the real-item machine audit still serves 92 matches with 0 wrong (not an independent measurement). The audit reads the dated snapshot `data/audit/real-2026-10-08/`. |
+| Optimizer and basket pricing (#13) | done by tests | 5 money bugs fixed (per-store saving in a split, HTTP 500 on odd quantities, a canonical asked at two levels, quantity-blind offer choice, order-dependent MILP lines); randomized tests against an exhaustive reference. Open decision: a split that completes a list no single store completes is hidden when it costs more than single (D9). |
+| Security review (#5, #30) | done by tests | `docs/security-review.md`. High: forged list shares, and the data API open on most tables (locked down to `list_items`). Medium: SSRF, 500s on bad input, size limits, rate limits, the API role's missing grants, security headers. Open decision: one anonymous "not good" report pulls a match. |
+| Shared lists (#34) | done by tests | Per-item routes with a version check (409 and a field-by-field merge), id-stable `PUT`, `list_items.updated_at`: two editors in polling mode no longer overwrite each other. |
+| Web review | done by tests | 32 defects, then the follow-ups (`docs/web-review-2026-10.md`): storage fallbacks, cancel and unmount races, double submits, Arabic-keyboard digits, money formatting, focus and announcements, delete-my-data leftovers, request timeouts. |
+| Swaps and the results list (#31, #45, #48) | done with synthetic data | `/optimize/swaps` honors `allow`; the substitutions list uses the card's same-store rule. |
+| CI | done by tests | Actions on their Node 24 majors; Playwright 1.64.1, proven on an `ubuntu-26.04` runner; weekly `deps-upgrade.yml`; the script tests (`scripts/*/tests`) now run in CI. |
+
 ## Owner runbook
 
 Do these in order. Each step says where the detail lives. Cost and time figures are estimates from the
 research and the docs; none was measured. The whole MVP is 40 to 100 USD per month (estimate,
 `architecture.md` section 9).
+
+New since 2026-10-21, folded into the steps below: `infra/vps/setup.sh` installs two more timers
+(the 11:30 and 15:30 late full passes and their conditional precompute); the API reads
+`SUPABASE_JWT_ISSUER`, `API_RATE_LIMIT`, `API_MAX_BODY_BYTES`, `API_PUSH_ENDPOINT_HOSTS` and needs
+`FORWARDED_ALLOW_IPS` when the proxy is not on the same host (`deploy.md`, `security-review.md`);
+the ingest reads the per-kind stale limits and the price-drop gate settings (`ingestion.md`). Two
+product decisions are open: the hidden completing split (D9, `optimizer.md`) and how many
+"not good" reports pull a match (`security-review.md`, R1).
 
 ### 1. Provision (about 1 to 2 days of work, estimate)
 
