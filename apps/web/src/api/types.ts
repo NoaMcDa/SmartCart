@@ -737,7 +737,10 @@ export interface components {
              * @enum {string}
              */
             flex_level: "exact" | "any_brand" | "close";
-            /** Quantity */
+            /**
+             * Quantity
+             * @description Packs, or kg for a canonical sold by weight. At least 0.01 (a smaller quantity prices to 0.00) and at most 1000 (an absurd one overflows the money type).
+             */
             quantity: number | string;
         };
         /** BetaFeedbackIn */

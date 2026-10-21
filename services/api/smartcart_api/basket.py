@@ -119,19 +119,22 @@ class StoreBasket:
             substituted_count=sum(1 for li in lines if li.is_substitute),
             items=lines,
             prices_updated_at=updated or datetime.now(UTC),
-            saving_vs_home=saving_vs(home, self) if home is not None else None,
+            saving_vs_home=saving_vs(home, self, only) if home is not None else None,
             lat=self.info.lat,
             lon=self.info.lon,
         )
 
 
-def saving_vs(home: StoreBasket, other: StoreBasket) -> Decimal:
-    """Home total minus ``other``'s total over the canonicals both stores supply.
+def saving_vs(home: StoreBasket, other: StoreBasket, only: set[int] | None = None) -> Decimal:
+    """Home total minus ``other``'s total over the canonicals both stores supply (and, with
+    ``only``, that are among those canonicals: the lines a plan buys at ``other``).
 
     Missing items are listed separately and never counted as a saving, so a store cannot look
     cheaper than the home store by not stocking part of the list.
     """
     common = home.lines.keys() & other.lines.keys()
+    if only is not None:
+        common &= only
     return money(sum((home.lines[c].line_total - other.lines[c].line_total for c in common), ZERO))
 
 
@@ -303,6 +306,29 @@ def gate_club(
     return pick, c
 
 
+def club_alternatives(
+    c: _Choice,
+    noclub: dict[str, Any] | str | None,
+    clubs: list[str],
+    chain: tuple[str, list[str]] | None,
+) -> list[_Choice]:
+    """The other offers of a club row that are open to this user: the best price without a club
+    deal and the deal of every club they marked (``gate_club`` returns the one with the lowest
+    unit price; the cheapest for a given quantity can be another, for example when the club deal
+    needs three packs and the list has two). Empty for a row without a club deal."""
+    if not c.club_required or noclub is None:
+        return []
+    chain_name, chain_club_names = chain or (None, [])
+    js = noclub if isinstance(noclub, dict) else json.loads(noclub)
+    out = [_from_json(js)]
+    for name, alt in (js.get("clubs") or {}).items():
+        if club_member(name, clubs, chain_name, chain_club_names):
+            out.append(_from_json(alt, club_name=name))
+    if club_member(c.club_name, clubs, chain_name, chain_club_names):
+        out.append(c)
+    return out
+
+
 def _from_option(o: Option) -> _Choice:
     return _Choice(
         o.item_id,
@@ -337,7 +363,8 @@ def line_total(c: _Choice, quantity: Decimal, by_weight: bool) -> tuple[Decimal,
 def _unit_paid(c: _Choice, total: Decimal, qty: Decimal, by_weight: bool) -> Decimal:
     """The unit price actually paid on a line: the effective one, scaled by what the quantity
     pays against the shelf price (a half-filled bundle pays more than the promo unit price)."""
-    paid_ratio = total / money(qty * c.shelf_price) if not by_weight and c.shelf_price else None
+    shelf_total = money(qty * c.shelf_price) if not by_weight else ZERO
+    paid_ratio = total / shelf_total if shelf_total else None  # a quantity too small to cost 0.01
     if paid_ratio is not None and c.effective_price:
         return (c.effective_unit_price * c.shelf_price / c.effective_price * paid_ratio).quantize(
             _Q4
@@ -491,11 +518,19 @@ def price_baskets(
         return baskets
     store_ids = list(baskets)
     # Merge duplicate canonicals with the same flex level, exact item and allowed attributes.
-    merged: dict[tuple[int, str, int | None, tuple[str, ...]], Decimal] = defaultdict(Decimal)
+    # The entries of one canonical are visited strictest first (exact, any brand, close; fewer
+    # allowed attributes first), so the line below never depends on the order of the list.
+    asked: dict[tuple[int, str, int | None, tuple[str, ...]], Decimal] = defaultdict(Decimal)
     for it in items:
         exact = it.exact_item_id if it.flex_level == "exact" else None
         allow = () if it.flex_level == "exact" else tuple(sorted(set(it.allow)))
-        merged[(it.canonical_id, it.flex_level, exact, allow)] += it.quantity
+        asked[(it.canonical_id, it.flex_level, exact, allow)] += it.quantity
+    merged = dict(
+        sorted(
+            asked.items(),
+            key=lambda kv: (kv[0][0], FLEX_ORDER[kv[0][1]], len(kv[0][3]), kv[0][3], kv[0][2] or 0),
+        )
+    )
     canon_ids = sorted({k[0] for k in merged})
     canon = {
         r[0]: r
@@ -521,6 +556,7 @@ def price_baskets(
     store_chain = {s.store_id: chains.get(s.chain_id) for s in stores}
     eff: dict[tuple[int, int, str], _Choice] = {}
     offers: dict[tuple[int, int, str], _Choice] = {}
+    alternatives: dict[tuple[int, int, str], list[_Choice]] = {}
     for r in rows:
         cid, sid, flex = r[0], r[1], r[2]
         c = _Choice(
@@ -540,6 +576,13 @@ def price_baskets(
         if pick is None:
             continue
         eff[(cid, sid, flex)] = pick
+        others = [
+            o
+            for o in club_alternatives(c, r[14], clubs, store_chain.get(sid))
+            if o.key() != pick.key()
+        ]
+        if others:
+            alternatives[(cid, sid, flex)] = others
         if offer is not None:
             offers[(cid, sid, flex)] = offer
 
@@ -559,46 +602,90 @@ def price_baskets(
         tuple[int, int], tuple[_Choice, Decimal, str, int | None, int, dict[str, Any]]
     ] = {}
     chosen_offer: dict[tuple[int, int], _Choice] = {}
+    # (store, canonical) -> the candidates for the line, the canonical's own offer first and then
+    # the allowed siblings' by unit price: (choice, canonical it is mapped to, differing attributes)
+    options: dict[tuple[int, int], list[tuple[_Choice, int, dict[str, Any]]]] = {}
+    unmet: set[tuple[int, int]] = set()  # (store, canonical) whose strictest request has no offer
     for (cid, flex, ex, allow), qty in merged.items():
         for s in stores:
+            if (s.store_id, cid) in unmet:
+                continue
             src, differs = cid, {}
+            cands: list[tuple[_Choice, int, dict[str, Any]]] = []
             if ex is not None:
                 c = exact_choices.get((cid, ex, s.store_id))
                 offer = exact_offers.get((cid, ex, s.store_id))
             else:
                 c = eff.get((cid, s.store_id, flex))
-                best_sib = min(
+                sibs = sorted(
                     (
                         (sc.key(), sib, diff)
                         for sib, diff in siblings.get((cid, flex, allow), ())
                         if (sc := eff.get((sib, s.store_id, flex))) is not None
                     ),
-                    default=None,
+                    key=lambda t: t[:2],
                 )
+                cands = ([(c, cid, {})] if c is not None else []) + [
+                    (eff[(sib, s.store_id, flex)], sib, diff) for _k, sib, diff in sibs
+                ]
                 # The canonical's own offer keeps a tie; a sibling must be cheaper per unit.
-                if best_sib is not None and (c is None or best_sib[0][:2] < c.key()[:2]):
-                    src, differs = best_sib[1], best_sib[2]
+                if sibs and (c is None or sibs[0][0][:2] < c.key()[:2]):
+                    src, differs = sibs[0][1], sibs[0][2]
                     c = eff[(src, s.store_id, flex)]
                 offer = offers.get((src, s.store_id, flex))
-            if c is None:
-                continue
             prev = chosen.get((s.store_id, cid))
+            if c is None:
+                if prev is None:
+                    # The strictest request for this canonical cannot be met here: the canonical
+                    # is missing, not priced for the looser request's share of the quantity.
+                    unmet.add((s.store_id, cid))
+                continue
             if prev is None:
                 chosen[(s.store_id, cid)] = (c, qty, flex, ex, src, differs)
+                options[(s.store_id, cid)] = cands
                 if offer is not None:
                     chosen_offer[(s.store_id, cid)] = offer
-            else:  # the same canonical asked twice at different levels: keep both quantities
+            else:  # the same canonical asked twice at different levels: one line, both quantities
                 chosen[(s.store_id, cid)] = (prev[0], prev[1] + qty, *prev[2:])
 
+    # The offers were ranked by unit price (what the precompute keeps), but the line pays for the
+    # quantity asked: a deal that needs 4 packs does not help a list with 3. Take the cheapest line
+    # among the canonical's own offer, its allowed siblings' and the other offers of a club row
+    # open to this user; the own offer first, so it keeps every tie. Marking a club never raises
+    # a line, and an allowed sibling is chosen only when it is cheaper for the quantity.
+    for key, (c, qty, flex, ex, src, differs) in list(chosen.items()):
+        sid, cid = key
+        if ex is not None or canon[cid][1] == "kg":
+            continue
+        full: list[tuple[_Choice, int, dict[str, Any]]] = []
+        for oc, osrc, odiff in options.get(key) or [(c, src, differs)]:
+            full.append((oc, osrc, odiff))
+            full += [(a, osrc, odiff) for a in alternatives.get((osrc, sid, flex), ())]
+        best = min(full, key=lambda t: line_total(t[0], qty, False)[0])
+        if best[0] is not c:
+            chosen[key] = (best[0], qty, flex, ex, best[1], best[2])
+            offer = offers.get((best[1], sid, flex))
+            if offer is not None:
+                chosen_offer[key] = offer
+            else:
+                chosen_offer.pop(key, None)
+
     # The original at a substitute's own store (display only): the store's any_brand row of the
-    # requested canonical. A close-level pick or a sibling canonical's offer can be a substitute.
+    # requested canonical, the cheapest for the quantity of the offers open to this user. A
+    # close-level pick or a sibling canonical's offer can be a substitute.
     originals: dict[tuple[int, int], _Choice] = {}
-    for (sid, cid), (c, _q, flex, ex, _src, differs) in chosen.items():
+    for (sid, cid), (c, q, flex, ex, _src, differs) in chosen.items():
         if ex is not None or (flex != "close" and not differs):
             continue
         alt = eff.get((cid, sid, "any_brand"))
-        if alt is not None and alt.item_id != c.item_id:
-            originals[(sid, cid)] = alt
+        if alt is not None:
+            if canon[cid][1] != "kg":
+                alt = min(
+                    [alt, *alternatives.get((cid, sid, "any_brand"), ())],
+                    key=lambda o: line_total(o, q, False)[0],
+                )
+            if alt.item_id != c.item_id:
+                originals[(sid, cid)] = alt
 
     item_ids = sorted(
         {c.item_id for c, *_ in chosen.values()} | {o.item_id for o in originals.values()}

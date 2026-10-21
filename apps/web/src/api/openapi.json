@@ -190,13 +190,15 @@
           "quantity": {
             "anyOf": [
               {
-                "exclusiveMinimum": 0.0,
+                "maximum": 1000.0,
+                "minimum": 0.01,
                 "type": "number"
               },
               {
                 "type": "string"
               }
             ],
+            "description": "Packs, or kg for a canonical sold by weight. At least 0.01 (a smaller quantity prices to 0.00) and at most 1000 (an absurd one overflows the money type).",
             "title": "Quantity"
           }
         },

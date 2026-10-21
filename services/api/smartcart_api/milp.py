@@ -545,6 +545,7 @@ def solve(
             g = problem.groups[li.group]
             _cost, n = group_cost(g, {cid: li.quantity or 0}, {cid: li.shelf_price})
             units[cid], counts[li.group] = n * g.size, n
+    _spread_units(problem.groups, chosen, units, counts, modelled)
     line_totals, bundles = _report(problem.groups, chosen, units, counts)
     used = sorted(set(assignment.values()))
     return Solution(
@@ -562,6 +563,33 @@ def solve(
         objective=int(solver.objective_value),
         store_set=chosen_set,
     )
+
+
+def _spread_units(
+    groups: dict[str, Group],
+    chosen: dict[int, Line],
+    units: dict[int, int],
+    counts: dict[str, int],
+    modelled: set[str],
+) -> None:
+    """Put the units of each shared promo's bundles on the lines by a fixed rule.
+
+    Which of several equally good unit allocations the solver returns depends on the order its
+    variables were created in, so the same basket in another order would show other line totals
+    (the group's cost is the same). Here the ``size x bundles`` units with the largest discount go
+    in, ties to the lower canonical id; the group's cost is unchanged because the solver's choice
+    already maximizes the discount of the units in the bundles."""
+    for key in modelled:
+        g = groups[key]
+        members = [li for li in chosen.values() if li.group == key]
+        pool: list[tuple[int, int]] = []
+        for li in members:
+            gain = agorot(li.shelf_price) - agorot(g.unit[li.canonical_id])
+            pool += [(-gain, li.canonical_id)] * (li.quantity or 0)
+        pool.sort()
+        take = pool[: counts.get(key, 0) * g.size]
+        for li in members:
+            units[li.canonical_id] = sum(1 for _g, c in take if c == li.canonical_id)
 
 
 def _argmin_store(t: tuple[int, ...], col: dict[int, list[int]], j: int) -> int:
