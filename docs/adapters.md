@@ -142,12 +142,117 @@ layout and the new-source `SubChains` layout. Confirm this against a real legacy
 | `ItemRecord.barcode` | `ItemCode` when `ItemType` is not 0 and the code is 8–14 digits; otherwise `None` (internal code) |
 | `ItemRecord.quantity` / `unit` / `is_weighed` | `Quantity` (0 becomes `None`), `UnitQty`, `bIsWeighted`/`BisWeighted` = 1 |
 | `PriceRecord.price` / `unit_price` / `unit_of_measure` / `observed_at` | `ItemPrice`, `UnitOfMeasurePrice`, `UnitOfMeasure` or `UnitMeasure`, `PriceUpdateDate` (falls back to the file's publish time) |
-| `PromoRecord` | `PromotionId`, `PromotionDescription`, `PromotionItems/Item/ItemCode` (or one `ItemCode` per flat `Sale` row), start and end date plus hour, `MinQty`, `MaxQty` (0 becomes `None`), `Clubs/ClubId` or `ClubID` |
+| `PromoRecord` | `PromotionId`/`PromotionID`, `PromotionDescription`, the item codes (see "Promotions in real files"), start and end (`PromotionStartDateTime`/`PromotionEndDateTime`, or the older start/end date plus hour), `MinQty`, `MaxQty` (0 becomes `None`), `ClubID`/`Clubs/ClubId` |
 
-Promo reward mapping is **provisional** (unverified against real files). The full promo row is
-always kept in `PromoRecord.raw`.
+The full promo row is always kept in `PromoRecord.raw` (its scalar fields, `club_ids`, `layout`,
+`groups`, `unapplied`, `min_purchase_amount`, `club_expression`, `confidence`).
 
-| Condition | `reward_type` | `reward_value` |
+### Promotions in real files (#47, verified 2026-10-21)
+
+The first real PromoFull files were fetched by the Portal probe from a GitHub runner on
+2026-10-21 (runs 39642633971 and 39647593706): Shufersal, Rami Levy, Mega (Yeinot Bitan and
+Carrefour), Tiv Taam, Osher Ad, Yohananof and King Store. Victory, Machsanei Hashuk and Hazi Hinam
+did not answer from the runner (laibcatalog timed out, Hazi Hinam returned 403), so nothing about
+their promo layout is verified. **Verified** below means: shown on those files, by a test in
+`services/ingest/tests/test_real_promos.py` or by the probe's full-file profile (seven files of 301
+to 2660 promotions each); the files are committed trimmed to 100 promotions, evenly spaced, each
+whole.
+
+What the real files showed against the rules this repository started with:
+
+- **Every real file used a different layout from the one the adapters assumed**, and before this
+  change the adapters read **100 % of the real promotions as reward `other` with no item code**
+  (the probe's first full-file profile: 1358, 2660, 1550, 2246, 658 and 301 promotions, all
+  `reward_unparsed`, confidence 0.1, `items_per_promo` 0). The reward is not on the promotion; it is
+  on the items, inside groups:
+
+  ```
+  Root > ChainID, SubChainID, StoreID, BikoretNo
+       > Promotions > Promotion: PromotionID, PromotionDescription, PromotionUpdateTime,
+           PromotionStartDateTime, PromotionEndDateTime, PromotionStartHour, PromotionEndHour,
+           PromotionDays, RedemptionLimit, MinNoOfItemOffered, ClubID, IsGiftItem,
+           AdditionalIsCoupon, AdditionalRestrictions, Remarks, AllowMultipleDiscounts
+         > Groups > Group: GroupID, MinPurchaseAmount, DiscountType
+           > PromotionItems > PromotionItem: ItemCode, ItemType, RewardType, MinQty, MaxQty,
+               DiscountRate, DiscountedPrice, DiscountedPricePerMida, bIsWeighted
+  ```
+
+  The file is per store (`StoreID` in the header), so promotions are per store here. Only one store
+  per chain was sampled, so whether other stores of a chain carry the same promotions is not known.
+  Shufersal's file starts with a UTF-8 BOM and a `Root` element, all seven are gzip.
+- **`DiscountedPrice` is the total price for `MinQty` units, and `DiscountRate` is the percentage off
+  the shelf price** (verified): for the items whose shelf price is in the same store's PriceFull
+  fixture, `DiscountedPrice / MinQty = shelf price x (1 - DiscountRate / 100)` within rounding (21
+  items checked in the test, King Store, Osher Ad, Rami Levy and Tiv Taam; in a first, wider check
+  over all seven chains every row matched to four decimals but one Mega wine row, 22.43 against
+  22.99 percent), and the descriptions that quote a price
+  ("3ב11.90", "2 ב 24") quote exactly `MinQty` and `DiscountedPrice`. For weighed items
+  (`bIsWeighted` 1) `DiscountedPricePerMida` is the price per kg (King Store "2 kg for 89.90":
+  `MinQty` 2, `DiscountedPrice` 89.90, per kg 44.95; "1 kg for 49.90": `MinQty` 0.1, per kg 49.90),
+  so `MinQty` of a weighed item is a step, not a pack size.
+- **`RewardType`** on an item: `3` is one unit at a price (seen with `MinQty` 1 and with weighed
+  items), `10` and `1` are N units for a total (`MinQty` 2 to 8), all three read alike; `2` is a
+  percentage (`DiscountRate` is in percent units: 5, 60, 100 is free); `0` is a condition item (a
+  trigger, or the all-zeros item code that stands for "any item" in a basket condition); `6` appeared
+  once, in a Tiv Taam coupon. What separates `1` from `10` is **not determined** (a guess: `10` is a
+  mix-and-match over the group's items, `1` a single item); the adapter does not branch on it.
+- **`IsGiftItem` on the promotion is not a 0/1 flag** (provisional rule was `IsGiftItem` = 1 means a
+  gift): it holds the quantity (`1`, `2.0000`, `3`) or is empty. The grouped reading ignores it.
+- **`PromotionStartHour`/`PromotionEndHour` repeat the time of day of the date-times** in every
+  promotion that has them (verified on all seven files); they are not a daily window. `hours` is
+  therefore `None` for these files (it used to hold e.g. "00:00-02:59", which would have been read
+  as a daily window). Shufersal ends most promotions at `2031-01-01T02:59`, Rami Levy, Mega, Osher Ad
+  and Tiv Taam at 23:59, King Store at 00:00 of the end day. King Store's 00:00 is read literally
+  (the promotion ends at that instant), which is the safe side: 38 of its 301 promotions end before
+  the file's publication time, so the file carries promotions that are over, or its end date is
+  inclusive; **not determined**. No promotion started after the file was written.
+- **`ClubID` is text, not a code** (the old rule treated any value other than `0` as a club, so
+  every Shufersal and Tiv Taam promotion was club-only): `0`, `0 - כלל הלקוחות` (everyone),
+  `1 - המועדון החדש` (Tiv Taam's club: code, dash, name), and expressions: Mega
+  `(2=מועדון קרפור אשראי|2=מועדון אפליקציה)`, King Store `("לקוחות הקפה=3" | "מועדון לקוחות=3" | ...)`
+  (18 groups), Rami Levy `((2=...))&(3=...|3=...)`, Shufersal `3 - <dozens of card clubs joined by &>`.
+  `parse_club` reads these (see its docstring): code 0 is everyone; otherwise the label after
+  the dash is the club name; an expression lists its distinct club names joined by ` | `, cut at 120
+  characters, the full text kept in `raw`. Names with ` | ` or a cut never equal a name a user marked,
+  so such a promotion stays restricted (safe). Club promotions are 22 % of King Store's, 62 % of Tiv Taam's
+  ("המועדון החדש") and 2 % or fewer of the others'.
+- **Promotions that are read but not applied** (new: `raw.unapplied`, reward `other`, confidence 0.1,
+  the reason also in `confidence_reasons`), because applying them as a shelf discount would show a
+  price nobody gets: `coupon_required` (`AdditionalIsCoupon` 1: 12 % of Rami Levy's promotions, 9 % of
+  Shufersal's, 5 % of Mega's, under 2 % elsewhere), `basket_condition` (a group with `MinPurchaseAmount`,
+  "מעל 75", or the all-zeros item: 148 of Rami Levy's 2660, 25 of Mega's 1550, 25 of Yohananof's
+  1199), `multi_group` (two groups, a condition group of `RewardType` 0 and a reward group: "1+1"
+  and "second at 50 %" shapes; 42 of Tiv Taam's 2246), `weekday_restricted` (`PromotionDays` other
+  than all seven days; the numbering of the days is **not known**, none in the samples),
+  `packaging_credit` (a description of the form "זיכוי אריזה"/"קיזוז אריזה": a weight adjustment at
+  the till with a 1 to 4 percent reward, Tiv Taam and Yohananof), `reward_type_unhandled`,
+  `reward_value_unusable` (no price, or a percentage that is not between 0 and 100) and
+  `reward_values_differ` (items of one promotion with different prices). Across the seven full
+  files 81 % (Rami Levy) to 100 % (King Store) of the promotions are applied.
+- **Reading of an applied promotion** (one group, real item codes, no coupon, no basket condition):
+
+| Items | `reward_type` | `reward_value` | `min_qty` |
+|---|---|---|---|
+| `RewardType` 1, 3 or 10, `MinQty` above 1 | `bundle` | `DiscountedPrice` (the total) | `MinQty` |
+| the same, `MinQty` 1 or less, not weighed | `price` | `DiscountedPrice` | `MinQty` |
+| the same, weighed, `MinQty` above 1 (kg) | `bundle` | `DiscountedPrice` | `MinQty` |
+| the same, weighed, `MinQty` 1 or less | `price` | `DiscountedPricePerMida` (per kg) | 1 |
+| `RewardType` 2 | `percent` | `DiscountRate` in percent units | `MinQty` (below 1: 1) |
+
+  Item codes are those of the group items (all-zeros removed); promotions with a coupon or condition
+  still link their items. `RedemptionLimit`, `MinNoOfItemOffered` (10, 1 or empty: meaning **not
+  known**), `AllowMultipleDiscounts` and `max_qty` are stored in `raw` and not applied anywhere.
+
+**Still provisional** (no real file has shown it): the **older layouts**, the one the synthetic
+fixtures use (`PromotionItems/Item` with `MinQty`, `DiscountedPrice`, `DiscountRate`,
+`DiscountType`, `AdditionalGiftCount` and `IsGiftItem` on the promotion) and the legacy flat
+`Sales/Sale` rows, which the three unreachable chains may still publish; their mapping below is
+unchanged and unverified. `buy_x_get_y` is produced only by that older layout (`IsGiftItem` 1 or
+`AdditionalGiftCount` above 0): **no real promotion maps to it**, and the grouped layout's "1+1"
+promotions are `multi_group`, not applied. Whether `v2` is this grouped layout is not known: none of
+the real promo files carries a `SchemaVersion`, so they are all `v1` by the container rule.
+
+| Condition (older layout only, provisional) | `reward_type` | `reward_value` |
 |---|---|---|
 | any `IsGiftItem` = 1, or `AdditionalGiftCount` > 0 | `buy_x_get_y` | gift count (default 1) |
 | `DiscountedPrice` present and `MinQty` > 1 | `bundle` | `DiscountedPrice` as published |
@@ -155,9 +260,15 @@ always kept in `PromoRecord.raw`.
 | `DiscountType` = 2 with a `DiscountRate` | `percent` | `DiscountRate` as published |
 | otherwise | `other` | `None` |
 
-Whether `DiscountedPrice` is per unit or per bundle, and the scale of `DiscountRate`, are not
-yet verified. Club codes map 0 to all customers and 1/2/3 to מועדון לקוחות / כרטיס אשראי / אחר
-(regulation codes, unverified against real files). Any non-zero club id sets `club_only`.
+The effective-price precompute (`services/api/smartcart_api/precompute.py`, `fold_promo`) agrees with
+the verified reading for `price`, `bundle` (value is the total, divided by `min_qty`) and `percent`
+(a percentage). It keeps two guards for the unverified older layout that the real files do not need:
+a bundle value below one shelf price is read as a per-unit price, and a percentage of 1 or less as a
+fraction; both can only understate a saving on a real file. `max_qty`, redemption limits and
+`PromotionDays` are not applied. Club matching (`basket.club_member`) compares the promo's club name
+with the names the user marked or the chain's `club_names`: the real names are free text
+("המועדון החדש", ` | `-joined alternatives), so only a chain whose club name is listed in
+`chains.club_names` ever matches; for Tiv Taam that would be "המועדון החדש" (not changed here).
 
 ### Promo parse confidence (#12, #102)
 
@@ -170,19 +281,26 @@ it as `PricedItem.promo_confidence` on /compare and /optimize (`basket.promo_con
 
 | Situation | Confidence | Reason recorded |
 |---|---|---|
-| reward type, quantity (`MinQty`) and value (`DiscountedPrice`, `DiscountRate` with `DiscountType` 2, or `AdditionalGiftCount`) all explicit, description consistent | 1.0 | none |
+| reward type, quantity (`MinQty`) and value (`DiscountedPrice`, `DiscountRate`; older layout: `DiscountRate` with `DiscountType` 2, or `AdditionalGiftCount`) all explicit, description consistent | 1.0 | none |
 | `MinQty` missing: the quantity (buy X) defaults to 1 | minus 0.2 | `min_qty_missing` |
 | `buy_x_get_y` known only from `IsGiftItem`: "get Y" defaults to 1 | minus 0.2 | `gift_count_inferred` |
 | no end date | minus 0.1 | `end_date_missing` |
-| the description contradicts the reward type: an `N+M` pattern on a promo that is not `buy_x_get_y`, or a percentage on one that is not `percent` | minus 0.3 | `description_disagrees` |
+| the description contradicts the reward: an `N+M` pattern on a promo that is not `buy_x_get_y`, a percentage written as a discount ("20% הנחה", "50% על השני", "ב-60%") on one that is not `percent`, or an `N ב P` ("3ב11.90") on a `bundle` whose price is neither `P` nor `P` per `N` units | minus 0.3 | `description_disagrees` |
+| read but not applied (coupon, basket condition, two groups, weekday restriction, packaging credit, unusable or differing values; see "Promotions in real files") | 0.1 | the reason (`coupon_required`, `basket_condition`, `multi_group`, ...) |
 | no explicit reward field at all (`reward_type = other`, never applied to a price) | 0.1 | `reward_unparsed` |
 
 Deductions add up (at most 0.8), so a parsed promo always scores above an unparsed one (lowest
 0.2). The reward is **never** inferred from the description text; the description only lowers the
-confidence when it disagrees with the explicit fields. The rubric, like the reward mapping above,
-is provisional until real files are checked: whether `MinQty` counts the gift item (does `MinQty`
-2 with one gift mean 1+1 or 2+1?) is one of the open questions, and the description cross-check
-does not compare numbers for that reason. The synthetic fixtures' four standard promos all score
+confidence when it disagrees with the explicit fields (and a "packaging credit" description blocks
+a reward). Checked on the real files: a bare `%` in a description is nearly always a product
+attribute (3.6 % milk fat, 100 % juice, 25 % cream cheese: 6 of the 12 descriptions with a
+percent sign in the committed samples), so only a percentage written as a discount counts; the `N ב P` cross-check agrees with
+the fields on 99 % of the descriptions that quote a price (Rami Levy, Osher Ad, Tiv Taam, King
+Store; Mega's descriptions name the product only) and flags the rest, mostly deposit-inclusive
+prices ("3ב24.10 פקדון בירה" with `DiscountedPrice` 25.00, Shufersal) and a few real mismatches
+("3 ב 25.9" with 25.00). The rubric is still provisional for the older layout: whether `MinQty`
+counts the gift item (does `MinQty` 2 with one gift mean 1+1 or 2+1?) is open, and no real
+promotion is a `buy_x_get_y`. The synthetic fixtures' four standard promos all score
 1.0 (`services/ingest/tests/test_promo_confidence.py`; end to end through the loader, the
 precompute and /compare in `services/api/tests/test_adapter_promo_confidence.py`).
 
@@ -214,7 +332,7 @@ the authority announced them; the file-level details are **not yet known**):
 
 | Announced change | Expected effect on adapters |
 |---|---|
-| Uniform promo definitions | Promo reward types should map directly instead of through the provisional heuristic above. Revisit `_promo_record` when real files exist. |
+| Uniform promo definitions | The real files (2026-10-21) already carry an explicit `RewardType` per item, but not on a `SchemaVersion` marker; see "Promotions in real files". Whether that is the announced model is not known. |
 | Item-and-store accuracy | Possibly per-store item identity or stricter store codes. Store-code normalization stays. |
 | AI for substitutes | Possibly new substitute or category fields. Out of scope until phase 3 ("Adaptation to the authority's new reporting schema"). Extra fields are ignored today. |
 
@@ -310,7 +428,10 @@ uv run python -m smartcart_ingest.adapters.fetch_fixtures shufersal ramilevy
 uv run python -m smartcart_ingest.adapters.fetch_fixtures machsanei_hashuk king_store
 ```
 
-The plan covers every registered chain, Machsanei Hashuk and King Store included. Run the
+The plan covers every registered chain, Machsanei Hashuk and King Store included. A listing that
+puts an unusable file first (Yohananof's portal lists `PromoFull0000000000000-00-1-202411010501.gz`,
+chain id all zeros, 2024, before its real files) is handled: when the first file is not one the
+adapter accepts, `fetch` asks the scraper for ten and takes the newest usable one. Run the
 laibcatalog chains (victory, machsanei_hashuk) after about 08:00 Israel time, and Machsanei
 Hashuk not on a Saturday: their listings are empty outside those hours (upstream stability notes).
 

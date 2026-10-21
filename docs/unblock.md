@@ -108,8 +108,8 @@ For the lead to copy into the blocker column (this file does not edit that one):
   stay 7 days in `portal-probe-files`. The table and one `RESULT {...}` line per file are also in
   the job log, for readers who cannot download artifacts. With `commit_fixtures` the accepted
   files are pushed to a new branch `probe/fixtures-<YYYYMMDD>` (Stores whole, PriceFull trimmed to
-  200 rows, `MANIFEST.json` per chain) by a separate job with `contents: write`; open the pull
-  request by hand, and CI runs then (a push with the workflow token starts no workflow). Downloads
+  200 rows, PromoFull trimmed to 100 promotions, `MANIFEST.json` per chain) by a separate job with
+  `contents: write`; open the pull request by hand, and CI runs then (a push with the workflow token starts no workflow). Downloads
   are parsed only by the adapters, in the real Scheduler path. A Cerberus login line reading
   `ok (certificate not verified, as upstream ...)` is a pass: the scraper does not verify that
   portal's certificate, which does not match its host name.

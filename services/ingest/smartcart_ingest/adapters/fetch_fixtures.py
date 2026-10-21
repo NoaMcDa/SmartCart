@@ -107,19 +107,25 @@ def _rewrap(payload: bytes, container: str, original: bytes) -> bytes:
     return payload
 
 
-def trim_price_file(data: bytes, max_items: int) -> tuple[bytes, int, int]:
-    """Keep the first ``max_items`` rows of a price file and everything around them.
+def _trim(
+    data: bytes,
+    group: str,
+    max_units: int,
+    unit_key=None,
+    spread: bool = False,  # noqa: ANN001
+) -> tuple[bytes, int, int]:
+    """The shared trimmer behind ``trim_price_file`` and ``trim_promo_file``.
 
     The file is decoded and parsed exactly as the adapters do (``xmlutil``: containers by magic
-    bytes, encoding detection, a parser that resolves no entities and fetches nothing), the
-    rows are the elements of the price containers the adapters read (``Items/Item``,
-    ``Products/Product``, ``NewDataSet/item``), and rows after the first ``max_items`` are
-    removed. The header, the XML declaration as published, the source encoding (with its BOM)
-    and the outer container are kept, and a numeric ``Count`` attribute on a container is set
-    to the new row count, so the adapter reads the trimmed file the way it reads the original.
-    Returns ``(trimmed bytes, rows before, rows after)``; an untrimmed file is returned as is.
-    Raises ``ValueError`` when the bytes are not a price file. Only call it on a file the
-    adapter has already parsed: downloaded files are untrusted data.
+    bytes, encoding detection, a parser that resolves no entities and fetches nothing). The rows
+    are the elements of the containers of ``group`` ("price" or "promo", ``CONTAINERS``). A row's
+    unit is ``unit_key(row)`` (rows with equal keys are one unit, kept or dropped together); with
+    no ``unit_key`` every row is its own unit. ``max_units`` units are kept, in document order: the
+    first ones, or with ``spread`` evenly spaced ones across the whole file (the first, then every
+    ``units / max_units``-th), so a file sorted by id is sampled over its full range. The header, the XML declaration as published, the source encoding (with its
+    BOM) and the outer container are kept, and a numeric ``Count`` attribute on a container is
+    set to the new row count. Returns ``(trimmed bytes, units before, units after)``; an
+    untrimmed file is returned as is. Raises ``ValueError`` when the bytes hold no such rows.
     """
     from lxml import etree
 
@@ -134,21 +140,30 @@ def trim_price_file(data: bytes, max_items: int) -> tuple[bytes, int, int]:
         root = etree.fromstring(utf8, parser=parser)
     except (xmlutil.XmlDecodeError, etree.XMLSyntaxError) as exc:
         raise ValueError(f"not a readable XML file: {exc}") from exc
-    price_containers = {c: row for c, (group, row) in CONTAINERS.items() if group == "price"}
+    containers = {c: row for c, (g, row) in CONTAINERS.items() if g == group}
     rows: list = []
     for el in root.iter():
         name = xmlutil.localname(el)
-        if name in price_containers:
-            rows.extend(c for c in el if xmlutil.localname(c) == price_containers[name])
+        if name in containers:
+            rows.extend(c for c in el if xmlutil.localname(c) == containers[name])
     if not rows:
-        raise ValueError("no price rows (Items/Item, Products/Product, NewDataSet/item)")
-    before = len(rows)
-    if before <= max_items:
+        shapes = ", ".join(f"{c}/{r}" for c, r in containers.items())
+        raise ValueError(f"no {'price' if group == 'price' else 'promotion'} rows ({shapes})")
+    keys = [(unit_key(r) if unit_key else None) or ("row", i) for i, r in enumerate(rows)]
+    units = list(dict.fromkeys(keys))
+    before = len(units)
+    if before <= max_units:
         return data, before, before
-    for row in rows[max_items:]:
-        row.getparent().remove(row)
+    kept = (
+        {units[i * before // max_units] for i in range(max_units)}
+        if spread
+        else set(units[:max_units])
+    )
+    for row, key in zip(rows, keys, strict=True):
+        if key not in kept:
+            row.getparent().remove(row)
     for el in root.iter():
-        if xmlutil.localname(el) in price_containers:
+        if xmlutil.localname(el) in containers:
             for key in el.attrib:
                 if etree.QName(key).localname.lower() == "count" and el.attrib[key].isdigit():
                     el.attrib[key] = str(sum(1 for c in el if isinstance(c.tag, str)))
@@ -159,10 +174,91 @@ def trim_price_file(data: bytes, max_items: int) -> tuple[bytes, int, int]:
     head = payload[len(bom) : len(bom) + 400].decode(codec, errors="ignore").lstrip()
     decl = head[: head.index("?>") + 2] if head.startswith("<?xml") and "?>" in head else ""
     text = (decl + "\n" if decl else "") + etree.tostring(root, encoding="unicode")
-    return _rewrap(bom + text.encode(codec), container, data), before, max_items
+    return _rewrap(bom + text.encode(codec), container, data), before, max_units
 
 
-async def _download(scraper_name: str, kind: str, workdir: Path) -> list[Path]:
+def trim_price_file(data: bytes, max_items: int) -> tuple[bytes, int, int]:
+    """Keep the first ``max_items`` rows of a price file and everything around them (the rows
+    are the elements of ``Items/Item``, ``Products/Product`` and ``NewDataSet/item``). See
+    ``_trim``. Returns ``(trimmed bytes, rows before, rows after)``. Only call it on a file the
+    adapter has already parsed: downloaded files are untrusted data."""
+    return _trim(data, "price", max_items)
+
+
+def trim_promo_file(data: bytes, max_promos: int) -> tuple[bytes, int, int]:
+    """Keep ``max_promos`` promotions of a promo file, each whole with all its items, evenly spaced
+    across the file (a real PromoFull is sorted by promotion id, so its first hundred are the
+    oldest, mostly coupons, and say little about the rest).
+
+    The promotion records are the elements of ``Promotions/Promotion`` (items nested inside, so
+    they stay with their promotion) and the legacy flat ``Sales/Sale`` rows, which carry one item
+    each: those are grouped by their ``PromotionId`` (case-insensitive, as the adapter reads it)
+    and a promotion's rows are all kept or all dropped. See ``_trim``. Returns ``(trimmed bytes,
+    promotions before, promotions after)``. Only call it on a file the adapter has already
+    parsed."""
+    from smartcart_ingest import xmlutil
+
+    def promotion_id(row) -> str | None:  # noqa: ANN001
+        return xmlutil.scalar_children(row).get("promotionid") or None
+
+    return _trim(data, "promo", max_promos, promotion_id, spread=True)
+
+
+def promo_layout(data: bytes, sample: int = 3) -> dict:
+    """The element layout of a promo file as published, read through ``xmlutil`` like the
+    adapters: how often each child element of a promotion row occurs, the same for the elements
+    nested one and two levels below it (``PromotionItems/Item``, ``Clubs/ClubId``,
+    ``AdditionalRestrictions``...), and the first ``sample`` promotion rows as plain nested
+    dicts. It exists so the probe can show which fields a real file carries beyond the ones the
+    adapter reads. Raises ``ValueError`` when the bytes are not XML. The file is untrusted data:
+    this only counts element names and copies text."""
+    from collections import Counter
+
+    from smartcart_ingest import xmlutil
+    from smartcart_ingest.adapters._common import ALL_ROW_TAGS, CONTAINERS, containers_in
+
+    try:
+        decoded = xmlutil.decode(data)
+        root = xmlutil.read_header(decoded.data, ALL_ROW_TAGS)
+        row_tags = {
+            r for c, (g, r) in CONTAINERS.items() if g == "promo" and c in containers_in(root)
+        }
+        children: Counter[str] = Counter()
+        nested: Counter[str] = Counter()
+        rows = 0
+        samples: list[dict] = []
+
+        def as_dict(el, depth: int = 0) -> object:  # noqa: ANN001
+            if not len(el):
+                return (el.text or "").strip()
+            if depth >= 3:
+                return f"<{len(el)} children>"
+            out: dict = {}
+            for i, child in enumerate(el):
+                if i >= 40:
+                    out["..."] = f"{len(el) - 40} more"
+                    break
+                out.setdefault(xmlutil.localname(child), as_dict(child, depth + 1))
+            return out
+
+        for row in xmlutil.iter_rows(decoded.data, row_tags):
+            rows += 1
+            for child in row:
+                name = xmlutil.localname(child)
+                children[name] += 1
+                for grand in child:
+                    nested[f"{name}/{xmlutil.localname(grand)}"] += 1
+                    for great in grand:
+                        nested[f"{name}/{xmlutil.localname(grand)}/{xmlutil.localname(great)}"] += 1
+            if len(samples) < sample:
+                samples.append(as_dict(row))  # type: ignore[arg-type]
+    except xmlutil.XmlDecodeError as exc:
+        raise ValueError(f"not a readable XML file: {exc}") from exc
+    return {"row_tags": sorted(row_tags), "rows": rows, "children": dict(children),
+            "nested": dict(nested), "samples": samples}  # fmt: skip
+
+
+async def _download(scraper_name: str, kind: str, workdir: Path, limit: int = 1) -> list[Path]:
     from smartcart_ingest.download import quiet_upstream_loggers
 
     quiet_upstream_loggers()
@@ -172,9 +268,18 @@ async def _download(scraper_name: str, kind: str, workdir: Path) -> list[Path]:
     scraper_cls = ScraperFactory[scraper_name].value
     scraper = scraper_cls(file_output=DiskFileOutput(str(workdir / "files"), extract_gz=False))
     file_type = FileTypesFilters[KIND_FILTERS[kind]].name
-    async for _result in scraper.scrape(limit=1, files_types=[file_type]):
+    async for _result in scraper.scrape(limit=limit, files_types=[file_type]):
         pass
     return sorted(p for p in (workdir / "files").rglob("*") if p.is_file())
+
+
+def _usable(adapter: RegulationAdapter, filename: str, kind: str) -> bool:
+    """The file name parses, is of ``kind`` and names a chain id the adapter accepts."""
+    try:
+        info = parse_filename(filename)
+    except ValueError:
+        return False
+    return info.kind == kind and info.chain_id in adapter.accepted_chain_ids()
 
 
 def fetch(
@@ -187,8 +292,24 @@ def fetch(
     target = out_dir / slug
     target.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
-        files = asyncio.run(asyncio.wait_for(_download(scraper_name, kind, Path(tmp)), timeout))
-        for path in files:
+        # The first listed file is normally the one wanted. Yohananof's portal lists a stale
+        # "PromoFull0000000000000-00-1-202411010501.gz" (chain id all zeros, 2024) first, which no
+        # adapter accepts: when the first file is not one the adapter can use, ask for ten and take
+        # the newest usable one.
+        files: list[Path] = []
+        usable: list[Path] = []
+        for limit in (1, 10):
+            work = Path(tmp) / f"limit{limit}"
+            files = asyncio.run(
+                asyncio.wait_for(_download(scraper_name, kind, work, limit), timeout)
+            )
+            usable = [p for p in files if _usable(adapter, p.name, kind)]
+            if usable:
+                break
+        usable.sort(
+            key=lambda p: parse_filename(p.name).published_at or datetime.min.replace(tzinfo=UTC)
+        )
+        for path in [*usable[-1:], *files]:
             try:
                 info = parse_filename(path.name)
             except ValueError:
