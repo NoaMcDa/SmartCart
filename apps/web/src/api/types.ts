@@ -38,6 +38,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chains/clubs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chains Clubs
+         * @description The clubs a person can be a member of, per chain: what the profile's club picker lists and
+         *     what `clubs` of /compare, /optimize and the barcode lookup take (the ids). The data is
+         *     `adapters/chain_clubs.json`: only clubs seen in real transparency files; a chain missing here
+         *     has no club promotion we can attribute. Nothing about the person is read.
+         */
+        get: operations["chains_clubs_chains_clubs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chains/online": {
         parameters: {
             query?: never;
@@ -861,6 +884,15 @@ export interface components {
             /** Taxonomy Id */
             taxonomy_id: string;
         };
+        /** ChainClubs */
+        ChainClubs: {
+            /** Chain Id */
+            chain_id: string;
+            /** Chain Name */
+            chain_name: string;
+            /** Clubs */
+            clubs: components["schemas"]["ClubChoice"][];
+        };
         /** ChainOnline */
         ChainOnline: {
             /** Chain Id */
@@ -888,6 +920,25 @@ export interface components {
              * @description The chain's public site-search URL with {q} for the query; a link only, nothing is fetched
              */
             search_url_template?: string | null;
+        };
+        /** ClubChoice */
+        ClubChoice: {
+            /**
+             * Id
+             * @description Stable club id the profile stores and /compare takes in `clubs`
+             */
+            id: string;
+            /**
+             * Kind
+             * @description club (loyalty club), card (credit or payment card), staff, other
+             * @enum {string}
+             */
+            kind: "club" | "card" | "staff" | "other";
+            /**
+             * Label
+             * @description The club's name (Hebrew), also the `club_name` of its promos
+             */
+            label: string;
         };
         /** CompareRequest */
         CompareRequest: {
@@ -2462,6 +2513,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chains_clubs_chains_clubs_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChainClubs"][];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -21,6 +21,7 @@ import type {
   ParsedRow,
   SpendEntry,
   SpendMonth,
+  ChainClubs,
   ChainOnline,
   ParseImageResponse,
 } from "@/api/client";
@@ -277,7 +278,62 @@ const MOCK_CHAINS_ONLINE: ChainOnline[] = [
   },
 ];
 
+/**
+ * The mock for `GET /chains/clubs` (club promotions), which serves what services/api reads from
+ * `adapters/chain_clubs.json`: per chain with a club in its real files, the clubs a person can
+ * pick (id, Hebrew name, kind). The chain ids are the ones the API stores (the GS1 company
+ * prefixes), as in the real answer. Shufersal, Osher Ad, Victory, Machsanei Hashuk and Hazi Hinam
+ * have no club in any real file yet, so they are absent, as in the real answer.
+ */
+export const MOCK_CHAIN_CLUBS: ChainClubs[] = [
+  {
+    chain_id: "7290058108879",
+    chain_name: "קינג סטור",
+    clubs: [
+      { id: "king_store:club", label: "מועדון לקוחות", kind: "club" },
+      { id: "king_store:wholesale", label: "לקוחות סיטונאים", kind: "other" },
+      { id: "king_store:staff", label: "עובדי קינגסטור", kind: "staff" },
+    ],
+  },
+  {
+    chain_id: "7290058140886",
+    chain_name: "רמי לוי",
+    clubs: [
+      { id: "ramilevy:club", label: "מועדון רמי לוי", kind: "club" },
+      { id: "ramilevy:social", label: "מועדון חברתי", kind: "club" },
+      { id: "ramilevy:credit", label: "מועדון לקוחות אשראי", kind: "card" },
+      { id: "ramilevy:topup", label: "מועדון נטען", kind: "card" },
+      { id: "ramilevy:wallet", label: "לקוחות ארנק", kind: "card" },
+      { id: "ramilevy:isracard", label: "ישראכרט מגנטי", kind: "card" },
+      { id: "ramilevy:vouchers", label: "תווי זיכוי מימוש", kind: "card" },
+    ],
+  },
+  {
+    chain_id: "7290055700007",
+    chain_name: "קרפור (מגה)",
+    clubs: [
+      { id: "mega:app", label: "מועדון אפליקציה", kind: "club" },
+      { id: "mega:credit", label: "מועדון קרפור אשראי", kind: "card" },
+    ],
+  },
+  {
+    chain_id: "7290873255550",
+    chain_name: "טיב טעם",
+    clubs: [{ id: "tivtaam:new", label: "המועדון החדש", kind: "club" }],
+  },
+  {
+    chain_id: "7290803800003",
+    chain_name: "יוחננוף",
+    clubs: [{ id: "yohananof:staff", label: "מועדון עובדים", kind: "staff" }],
+  },
+];
+
 export const phase3Handlers = [
+  http.get(url("/chains/clubs"), async () => {
+    await latency();
+    return HttpResponse.json(MOCK_CHAIN_CLUBS);
+  }),
+
   http.post(url("/parse-image"), async ({ request }) => {
     const form = await request.formData();
     const image = form.get("image");

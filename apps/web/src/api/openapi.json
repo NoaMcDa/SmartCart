@@ -361,6 +361,33 @@
         "title": "CanonicalRef",
         "type": "object"
       },
+      "ChainClubs": {
+        "additionalProperties": false,
+        "properties": {
+          "chain_id": {
+            "title": "Chain Id",
+            "type": "string"
+          },
+          "chain_name": {
+            "title": "Chain Name",
+            "type": "string"
+          },
+          "clubs": {
+            "items": {
+              "$ref": "#/components/schemas/ClubChoice"
+            },
+            "title": "Clubs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "chain_id",
+          "chain_name",
+          "clubs"
+        ],
+        "title": "ChainClubs",
+        "type": "object"
+      },
       "ChainOnline": {
         "additionalProperties": false,
         "properties": {
@@ -414,6 +441,39 @@
           "enabled"
         ],
         "title": "ChainOnline",
+        "type": "object"
+      },
+      "ClubChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Stable club id the profile stores and /compare takes in `clubs`",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "club (loyalty club), card (credit or payment card), staff, other",
+            "enum": [
+              "club",
+              "card",
+              "staff",
+              "other"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "The club's name (Hebrew), also the `club_name` of its promos",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "title": "ClubChoice",
         "type": "object"
       },
       "CompareRequest": {
@@ -4221,6 +4281,60 @@
         "summary": "Join the closed beta with an invite code",
         "tags": [
           "beta"
+        ]
+      }
+    },
+    "/chains/clubs": {
+      "get": {
+        "description": "The clubs a person can be a member of, per chain: what the profile's club picker lists and\nwhat `clubs` of /compare, /optimize and the barcode lookup take (the ids). The data is\n`adapters/chain_clubs.json`: only clubs seen in real transparency files; a chain missing here\nhas no club promotion we can attribute. Nothing about the person is read.",
+        "operationId": "chains_clubs_chains_clubs_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChainClubs"
+                  },
+                  "title": "Response Chains Clubs Chains Clubs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Chains Clubs",
+        "tags": [
+          "stores"
         ]
       }
     },

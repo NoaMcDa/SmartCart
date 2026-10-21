@@ -445,6 +445,8 @@ export async function parseRecipe(body: ParseRecipeRequest): Promise<ParseRecipe
 export type ParseImageResponse = Schemas["ParseImageResponse"];
 export type ReceiptSummary = Schemas["ReceiptSummary"];
 export type ChainOnline = Schemas["ChainOnline"];
+export type ChainClubs = Schemas["ChainClubs"];
+export type ClubChoice = Schemas["ClubChoice"];
 
 /**
  * `POST /parse-image` (multipart): a receipt or a handwritten list photo to `/parse-list` rows.

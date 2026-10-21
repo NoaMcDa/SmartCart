@@ -6,7 +6,8 @@ import { defineMessages } from "../messages";
  * names those controls list. Budget and consent text live in their own features.
  *
  * Chain names are brand names: Latin in Arabic, like the other brands. The `he` chain names match
- * `CHAINS[].name` in `features/profile/chains.ts` (they are also the club names the API matches).
+ * `CHAINS[].name` in `features/profile/chains.ts`. Club names are the clubs' own Hebrew names
+ * from the API (`GET /chains/clubs`) and are shown as they are in both languages.
  * Arabic machine-drafted, needs native-speaker review (#73).
  */
 export const profileMessages = defineMessages({
@@ -64,8 +65,19 @@ export const profileMessages = defineMessages({
     clearChoice: "ניקוי הבחירה",
     baselineHint: "בלי חנות בסיס לא נוכל להראות חיסכון נטו. אפשר לבחור אותה בכל שלב בפרופיל.",
     clubsLegend: "מועדונים שאני חברה בהם",
-    clubsHint: "מבצעי מועדון יוצגו רק לחברי המועדון. אפשר לבחור כמה.",
-    clubName: "מועדון {name}",
+    clubsHint:
+      "מבצעי מועדון יוצגו רק לחברי המועדון. מופיעים כאן רק מועדונים שנראו בקבצי המחירים הציבוריים של הרשתות. אפשר לבחור כמה.",
+    clubsLoading: "טוענים את רשימת המועדונים…",
+    clubsError: "לא הצלחנו לטעון את רשימת המועדונים.",
+    clubsRetry: "ניסיון חוזר",
+    clubsNoneFor: "עדיין אין מועדון מוכר ב{chains}.",
+    clubGroupAria: "מועדוני {chain}",
+    clubKind_club: "מועדון",
+    clubKind_card: "כרטיס אשראי או תשלום",
+    clubKind_staff: "עובדים",
+    clubKind_other: "קבוצת לקוחות",
+    clubRuleOr: " או ",
+    clubRuleAnd: " וגם ",
 
     chain_shufersal: "שופרסל",
     chain_rami_levy: "רמי לוי",
@@ -260,8 +272,19 @@ export const profileMessages = defineMessages({
     baselineHint:
       "بدون متجر أساسي لا يمكننا عرض التوفير الصافي. يمكنك اختياره في أي وقت من الملف الشخصي.",
     clubsLegend: "النوادي التي أنا عضو فيها",
-    clubsHint: "تظهر عروض النوادي لأعضاء النادي فقط. يمكنك اختيار أكثر من نادٍ.",
-    clubName: "نادي {name}",
+    clubsHint:
+      "تظهر عروض النوادي لأعضاء النادي فقط. نعرض هنا فقط النوادي التي ظهرت في ملفات الأسعار العامة للسلاسل. يمكنك اختيار أكثر من نادٍ.",
+    clubsLoading: "جارٍ تحميل قائمة النوادي…",
+    clubsError: "تعذّر تحميل قائمة النوادي.",
+    clubsRetry: "إعادة المحاولة",
+    clubsNoneFor: "لا يوجد بعد نادٍ معروف في {chains}.",
+    clubGroupAria: "نوادي {chain}",
+    clubKind_club: "نادٍ",
+    clubKind_card: "بطاقة ائتمان أو دفع",
+    clubKind_staff: "عاملون",
+    clubKind_other: "مجموعة زبائن",
+    clubRuleOr: " أو ",
+    clubRuleAnd: " و ",
 
     chain_shufersal: "Shufersal",
     chain_rami_levy: "Rami Levy",

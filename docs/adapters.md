@@ -213,9 +213,10 @@ What the real files showed against the rules this repository started with:
   (18 groups), Rami Levy `((2=...))&(3=...|3=...)`, Shufersal `3 - <dozens of card clubs joined by &>`.
   `parse_club` reads these (see its docstring): code 0 is everyone; otherwise the label after
   the dash is the club name; an expression lists its distinct club names joined by ` | `, cut at 120
-  characters, the full text kept in `raw`. Names with ` | ` or a cut never equal a name a user marked,
-  so such a promotion stays restricted (safe). Club promotions are 22 % of King Store's, 62 % of Tiv Taam's
-  ("המועדון החדש") and 2 % or fewer of the others'.
+  characters, the full text kept in `raw`. That is the text-level reading; which club a person has to
+  be in is decided by the per-chain table (see "Club promotions": `resolve_clubs(values, chain_id)`
+  stores a rule over club labels, `&` kept, no cut). Club promotions are 22 % of King Store's, 62 % of
+  Tiv Taam's ("המועדון החדש") and 2 % or fewer of the others'.
 - **Promotions that are read but not applied** (new: `raw.unapplied`, reward `other`, confidence 0.1,
   the reason also in `confidence_reasons`), because applying them as a shelf discount would show a
   price nobody gets: `coupon_required` (`AdditionalIsCoupon` 1: 12 % of Rami Levy's promotions, 9 % of
@@ -335,10 +336,93 @@ the verified reading for `price`, `bundle` (value is the total, divided by `min_
 (a percentage). It keeps two guards for the unverified older layout that the real files do not need:
 a bundle value below one shelf price is read as a per-unit price, and a percentage of 1 or less as a
 fraction; both can only understate a saving on a real file. `max_qty`, redemption limits and
-`PromotionDays` are not applied. Club matching (`basket.club_member`) compares the promo's club name
-with the names the user marked or the chain's `club_names`: the real names are free text
-("המועדון החדש", ` | `-joined alternatives), so only a chain whose club name is listed in
-`chains.club_names` ever matches; for Tiv Taam that would be "המועדון החדש" (not changed here).
+`PromotionDays` are not applied. Club matching is described in "Club promotions" below.
+
+### Club promotions
+
+`ClubID` is free text in the real files, so a promo's club cannot be matched by a code. The
+ingest turns the text into a **rule over club labels** with a per-chain table, and the API
+evaluates the rule against the club ids the person marked in their profile. Everything below is
+**verified** on the seven committed real PromoFull files (`services/ingest/tests/fixtures/<chain>/real/`,
+trimmed to 100 promotions each) unless it says otherwise.
+
+**The distinct `ClubID` values, per chain** (promotions of the 100 kept per file):
+
+| Chain | `ClubID` value | Promos | What it is |
+|---|---|---|---|
+| all seven | `0`, `0 - כלל הלקוחות` | 41 to 100 | everyone: not a club promo |
+| Tiv Taam | `1 - המועדון החדש` | 59 | the chain's club (code, dash, name) |
+| Yohananof | `1 - מועדון עובדים` | 2 | staff club |
+| King Store | `("לקוחות הקפה=3" \| "מועדון לקוחות=3" \| "HEBREW=3" \| "ARABIC=3" \| "לקוחות אתר קניות=3" \| "מיתר=3" \| "לקוחות סיטונאים=3" \| "עובדי קינגסטור -ARABIC=3" \| "עובדי קינגסטור -HEBREW=3" \| "טסט הנחות=3" \| "לקוח גדול=3" \| "עובדי סוא=3" \| "בעלים=3" \| "לקוחות רכבים=3" \| "ואדי אלג'וז CASHBACK=3" \| "לקוחות פרידיס=3" \| "לקוחות הקפה שוברים=3" \| "עמותת אפדל אלעולום=3")` (353 characters; 15 promos), the same with `\| "לקוחות סיטונאים סניפים=3"` added (382 characters; 3 promos) | 15 + 3 | any of 18 customer groups, `<name>=<type 3>`; only "מועדון לקוחות" is the consumer club, the rest are internal groups (wholesale, staff, a test group, owners, ...) |
+| King Store | `("לקוחות סיטונאים=3" \| "לקוחות סיטונאים סניפים=3")` | 3 | wholesale customers |
+| Rami Levy | `(1=מועדון חברתי\|1=מועדון שיווק   השקמה\|1=מועדון לקוחות אשראי\|1=מועדון נטען\|1=לקוחות ארנק)` | 1 | any of five clubs (note the three spaces inside the second name) |
+| Rami Levy | `((1=מועדון שיווק   השקמה\|1=מועדון לקוחות אשראי))&(3=ישראכרט מגנטי\|3=תווי זיכוי מימוש\|3=עיגול אגורות)` | 1 | one of two clubs **and** one of three payment options |
+| Mega | only `0` in the committed file; the probe's full-file profile also listed `(2=מועדון קרפור אשראי\|2=מועדון אפליקציה)` (**not** in a committed fixture) | | any of a credit-card club and the app club |
+| Shufersal | only `0 - כלל הלקוחות` in the committed file; the full-file profile described `3 - <dozens of card clubs joined by &>` (exact text **not** committed, so none of it is mapped) | | |
+| Osher Ad | only `0` | | |
+| Victory, Machsanei Hashuk, Hazi Hinam | no real file (their portals did not answer from the runner) | | |
+
+The number in `<type>=<name>` is a club type. Which type goes with what is **not determined**
+(Rami Levy puts its clubs under 1 and its payment options under 3, Mega its clubs under 2, King
+Store its groups under 3), so the mapping ignores the type and matches on the name.
+
+**The mapping** is `services/ingest/smartcart_ingest/adapters/chain_clubs.json`, read by
+`adapters/clubs.py`. Per chain it lists the clubs a person can pick, each with a stable id
+(`<adapter slug>:<name>`), a Hebrew label, a kind (`club`, `card` for credit and payment cards,
+`staff`, `other`) and the exact `ClubID` names it covers (compared after trimming, collapsing spaces
+and case-folding; the label counts as a name too):
+
+| Chain | Club id | Label | Kind | `ClubID` names |
+|---|---|---|---|---|
+| King Store | `king_store:club` | מועדון לקוחות | club | מועדון לקוחות |
+| | `king_store:wholesale` | לקוחות סיטונאים | other | לקוחות סיטונאים, לקוחות סיטונאים סניפים |
+| | `king_store:staff` | עובדי קינגסטור | staff | עובדי קינגסטור -ARABIC, עובדי קינגסטור -HEBREW |
+| Rami Levy | `ramilevy:club` | מועדון רמי לוי | club | מועדון שיווק השקמה |
+| | `ramilevy:social` | מועדון חברתי | club | מועדון חברתי |
+| | `ramilevy:credit` | מועדון לקוחות אשראי | card | מועדון לקוחות אשראי |
+| | `ramilevy:topup` | מועדון נטען | card | מועדון נטען |
+| | `ramilevy:wallet` | לקוחות ארנק | card | לקוחות ארנק |
+| | `ramilevy:isracard` | ישראכרט מגנטי | card | ישראכרט מגנטי |
+| | `ramilevy:vouchers` | תווי זיכוי מימוש | card | תווי זיכוי מימוש |
+| Mega | `mega:app` | מועדון אפליקציה | club | מועדון אפליקציה |
+| | `mega:credit` | מועדון קרפור אשראי | card | מועדון קרפור אשראי |
+| Tiv Taam | `tivtaam:new` | המועדון החדש | club | המועדון החדש |
+| Yohananof | `yohananof:staff` | מועדון עובדים | staff | מועדון עובדים |
+
+What is **inferred, not verified**: that "מועדון שיווק השקמה" is Rami Levy's own club (it is the
+chain's legal name; the label says "מועדון רמי לוי"), what "מועדון נטען", "לקוחות ארנק" and
+"מועדון חברתי" are, and that Mega's two names are what the full-file profile showed. Not mapped on
+purpose: King Store's internal groups (HEBREW, ARABIC, test, owners, vehicles, an association, ...),
+"עיגול אגורות" (rounding to the agora is a payment option, not a membership) and everything in
+Shufersal's files. The owner's list of to-dos is `smartcart-ingest clubs-report [--unmapped]`: every
+`ClubID` text of the loaded club promotions, the rule it became, and the names the table does not
+know. Add a name to a club (or a new club) in `chain_clubs.json` and the next load of that
+chain's PromoFull file picks it up.
+
+**The rule** (`promos.club_name`, no schema change; migration `20261022100000_club_rules.sql`
+resets rows the older ingest flattened): the label of the club, `A | B` (any of), `A & B` (all of),
+with brackets, e.g. Rami Levy's AND text is stored as
+`(מועדון רמי לוי | מועדון לקוחות אשראי) & (ישראכרט מגנטי | תווי זיכוי מימוש)`. How a `ClubID`
+becomes a rule (`resolve_clubs(values, chain_id)`):
+
+- `0` and `0 - כלל הלקוחות` are everyone: `club_only` stays false.
+- `<n> - <name>` is one name, whatever characters it holds (Shufersal's label may contain `&`).
+- A boolean expression is parsed (`|` any of, `&` all of, brackets, double-quoted names; `&` binds
+  tighter than `|`), and each `type=name` or `"name=type"` is looked up in the chain's table.
+- **Unknown matches nobody.** An unknown alternative of an `|` is dropped (it could never be
+  true); an unknown part of an `&` makes the whole rule unknown; a rule with no known name is
+  stored as `אחר`, or as the name itself when it is one plain name (so the owner sees it); `אחר`
+  and a text that does not parse are never satisfied. A chain with no table (Shufersal) can never
+  match.
+- Several club values on one promotion must all hold (`A & B`): the safe reading, since the files
+  do not say whether they are alternatives. A bare numeric code (`1`) keeps the older fallback
+  name of `CLUB_NAMES`.
+
+The API side is in docs/api.md ("Club filtering"). Tests: `test_club_rules.py` (real strings of the
+fixtures: a member gets the promos, a non-member none, everyone, either side of an `|`, an AND needs
+one of each, unknown matches nobody, the report), `test_api_clubs_real.py` (real text, through
+the stored rule and the precompute, to /compare for a person holding club ids),
+`test_api_club_migration.py`.
 
 ### Promo parse confidence (#12, #102)
 

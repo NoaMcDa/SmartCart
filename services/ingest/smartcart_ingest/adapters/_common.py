@@ -28,6 +28,7 @@ from lxml import etree
 from smartcart_ingest import channel as _channel
 from smartcart_ingest import xmlutil
 from smartcart_ingest.adapters.base import AdapterError, ChainAdapter, UnknownSchemaError
+from smartcart_ingest.adapters.clubs import resolve_requirement
 from smartcart_ingest.models import (
     FileKind,
     ItemRecord,
@@ -155,14 +156,29 @@ def parse_club(value: str) -> Club:
     return Club(False, _shorten(text))
 
 
-def resolve_clubs(values: list[str]) -> tuple[bool, str | None, str | None]:
+def resolve_clubs(
+    values: list[str], chain_id: str | None = None
+) -> tuple[bool, str | None, str | None]:
     """``(club_only, club_name, expression text)`` for the ClubID values of one promotion: club
-    only when any value names a club other than 0; the first such club names it."""
-    for value in values:
-        club = parse_club(value)
-        if not club.all_customers:
-            return True, club.name, value.strip() if club.expression else None
-    return False, None, None
+    only when any value names a club other than 0.
+
+    Without ``chain_id`` the first such club names it (the older reading, see :func:`parse_club`).
+    With the chain, the ClubID text is resolved against the chain's club table
+    (``chain_clubs.json``, :mod:`smartcart_ingest.adapters.clubs`) into a rule over club labels:
+    ``club_name`` is then the display name of the promo and the input of the API's membership
+    test, an expression (``A | B``, ``(A | B) & C``) is satisfied as written, a text that is not
+    in the table matches nobody, and a bare numeric code keeps the fallback name of
+    :data:`CLUB_NAMES`."""
+    club_values = [v for v in values if not parse_club(v).all_customers]
+    if not club_values:
+        return False, None, None
+    expression = next((v.strip() for v in club_values if parse_club(v).expression), None)
+    if chain_id is not None:
+        rule = resolve_requirement(chain_id, club_values)
+        if rule is not None:
+            return True, rule, expression
+    club = parse_club(club_values[0])
+    return True, club.name, club_values[0].strip() if club.expression else None
 
 
 # --------------------------------------------------------------------------- filenames
@@ -1034,7 +1050,7 @@ class RegulationAdapter(ChainAdapter):
             elif rate is not None and f.get("discounttype") == "2":
                 reward_type = "percent"
                 reward_value = rate
-        club_only, club_name, club_expression = resolve_clubs(entry["clubs"])
+        club_only, club_name, club_expression = resolve_clubs(entry["clubs"], self.chain_id)
         start_dt, end_dt = f.get("promotionstartdatetime"), f.get("promotionenddatetime")
         start_hour, end_hour = f.get("promotionstarthour"), f.get("promotionendhour")
         if start_dt or end_dt:

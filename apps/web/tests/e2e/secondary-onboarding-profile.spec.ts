@@ -72,7 +72,7 @@ test.describe("onboarding, phone at 390 px", () => {
       onboardingDone: true,
       radiusKm: 9,
       homeChainId: "rami_levy",
-      clubs: ["רמי לוי"],
+      clubs: ["ramilevy:club"],
       travelMode: "walk_transit",
       extraStopValue: 30,
     });
@@ -158,7 +158,7 @@ test.describe("profile", () => {
     await expect(page.getByRole("radiogroup", { name: "ערכת צבעים" })).toBeVisible();
 
     await page.getByRole("button", { name: "הסופר שלי: ויקטורי" }).click();
-    await page.getByRole("button", { name: "מועדון ויקטורי" }).click();
+    await page.getByRole("button", { name: "המועדון החדש" }).click();
     await page.getByRole("slider", { name: "כמה שווה לך עצירה נוספת?" }).fill("40");
     await page.getByRole("radio", { name: 'בד"צ' }).click();
     await page.getByRole("switch", { name: "טבעוני" }).click();
@@ -173,7 +173,7 @@ test.describe("profile", () => {
       "aria-pressed",
       "true",
     );
-    await expect(page.getByRole("button", { name: "מועדון ויקטורי" })).toHaveAttribute(
+    await expect(page.getByRole("button", { name: "המועדון החדש" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -205,7 +205,7 @@ test.describe("profile", () => {
     expect(core.shopper).toMatchObject({
       radius_m: 12000,
       extra_stop_value: "40",
-      clubs: ["ויקטורי"],
+      clubs: ["tivtaam:new"],
       // Picking the chain resolved its nearest store through GET /stores/nearest (ויקטורי, 105).
       home_store_id: 105,
     });

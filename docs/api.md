@@ -43,6 +43,7 @@ uv run smartcart-api serve --reload        # http://localhost:8000/docs
 |---|---|---|
 | `GET /health` | none | liveness and API version |
 | `GET /search?q=&limit=` | none | hybrid search over canonical products |
+| `GET /chains/clubs` | none | the clubs and cards a person can be a member of, per chain (ids for `clubs`) |
 | `POST /parse-list` | none | free text to canonical items with quantities and confidence |
 | `POST /compare` | none | basket total at every store in the radius |
 | `POST /optimize` | none | single store, split, minimum effort, each with a net-saving breakdown |
@@ -355,20 +356,28 @@ New environment variables (never commit real values):
 ### Club filtering (#19)
 
 The rule lives in `basket.club_member` and `basket.gate_club`, used by /compare, /optimize (and
-so the MILP, through `price_baskets`), the barcode lookup and the alerts job. A club-only promo
-(`promos.club_only`) applies only when:
+so the MILP, through `price_baskets`), the barcode lookup, the promo-cycles route and the alerts
+job. A club-only promo (`promos.club_only`) has a `club_name` that is a **rule over club labels**
+written by the ingest from the real `ClubID` text (docs/adapters.md, "Club promotions"): one
+label, or labels joined by `|` (any of) and `&` (all of) with brackets. The rule is evaluated as
+written, where a name is satisfied when:
 
-1. one of the request's `clubs` equals the promo's `club_name`, compared trimmed, with inner
-   whitespace collapsed and case-folded. Credit-card deals follow the same rule (the user marks
-   the card's name); or
-2. the promo's club is the chain's own customer club (`מועדון לקוחות`, the adapters' name for
-   regulation club code 1, or a name in `chains.club_names`) and the user marked the chain
-   itself: its name (what the web app sends), `מועדון <chain name>`, or a prefix of the chain's
-   name followed by a space.
+1. it is the label of a club of the promo's chain whose **id** (`ramilevy:club`) is in the
+   request's `clubs`; or it equals one of the `clubs` as typed (trimmed, inner whitespace
+   collapsed, case-folded), which is how the first version of the picker worked; or
+2. it is the chain's own customer club of the older rule (`מועדון לקוחות`, or a name in
+   `chains.club_names`) and the user marked the chain itself (its name, `מועדון <chain name>`, or
+   a prefix of the chain's name followed by a space). The web app no longer sends chain names.
 
-A restriction that could not be parsed (no club name, `אחר`, `club <n>`) never applies, for
-anyone: the safe default. The club codes are the adapters' provisional mapping, not verified
-against real files.
+A restriction that could not be parsed or that nobody can be a member of (no club name, `אחר`,
+`club <n>`, an unknown text, a malformed rule) never applies, for anyone: the safe default. The
+profile stores club ids and the web app sends them in `clubs`; ids of another chain's table never
+unlock a promo of this chain.
+
+`GET /chains/clubs` (public, `Cache-Control: public, max-age=3600`, reads nothing about a person)
+lists what the picker offers: `[{chain_id, chain_name, clubs: [{id, label, kind}]}]`, from
+`adapters/chain_clubs.json`. Only chains with a club in a real file are listed; `kind` is `club`,
+`card` (credit or payment card), `staff` or `other`.
 
 The precompute keeps, next to the best row, `noclub` (the best price without any club deal)
 and `noclub.clubs` (each club's own best deal that beats `noclub`), so a member of club A gets
@@ -378,7 +387,8 @@ then describe that price (true only when the user's own club deal is applied), a
 `club_offer_name` / `club_offer_discount` report the deal they did not mark, as information. It
 never enters a total, a store ranking, an "add one more" suggestion or a saving (the D7 hero
 number). Tests: `test_clubs.py` (a basket whose cheapest store changes with membership, in
-/compare and /optimize, and the unparseable default).
+/compare and /optimize, and the unparseable default) and `test_api_clubs_real.py` (the real
+`ClubID` texts through the stored rule to /compare for a person holding club ids).
 
 `PricedItem.promo_confidence` is `promos.raw->>'confidence'` when the adapter recorded one
 (0 to 1, or a percentage), else null. `StoreResult.lat` / `lon` come from `stores.geog`; `geo_precision` and `distance_approximate` from `stores.geo_precision` (below).

@@ -88,6 +88,7 @@ test.describe("phone, 390 px", () => {
     await page.goto("/onboarding");
     await page.getByTestId("onboarding-skip").click();
     await expect(page.getByTestId("step-count")).toContainText("שלב 2 מתוך 3");
+    await expect(page.getByTestId("club-group-tiv_taam")).toBeVisible(); // the API's club list
     await expectAria(screen(page), "onboarding-2-store");
     await page.getByTestId("onboarding-skip").click();
     await expect(page.getByTestId("step-count")).toContainText("שלב 3 מתוך 3");

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatUpdatedAt } from "@/components/ui/UpdatedAt";
-import { CHAINS, chainName, clubLabel } from "@/features/profile/chains";
+import { CHAINS, chainName } from "@/features/profile/chains";
 import { CITIES, cityName, findCity } from "@/features/profile/cities";
 import { categoryLabel, departmentLabel } from "@/features/profile/dietOptions";
 import { attributeTagText, perUnitLabel, uomText } from "@/lib/attributes";
@@ -58,12 +58,11 @@ describe("AR-1 message modules", () => {
 });
 
 describe("Hebrew stays byte-identical", () => {
-  it("keeps the chain names the API matches clubs against", () => {
+  it("keeps the Hebrew chain names", () => {
     for (const chain of CHAINS) {
       expect(chainName(chain, "he")).toBe(chain.name);
       expect(translate(profileMessages, "he", `chain_${chain.id}` as never)).toBe(chain.name);
     }
-    expect(clubLabel("שופרסל")).toBe("מועדון שופרסל");
   });
 
   it("keeps the Hebrew city and department names", () => {

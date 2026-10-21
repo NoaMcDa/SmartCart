@@ -98,12 +98,12 @@ describe("profile state", () => {
       STORAGE_KEYS.profile,
       JSON.stringify({
         travelMode: "teleport",
-        clubs: [1, "x"],
+        clubs: [1, "x", "רמי לוי", "ramilevy:club", "bad id:x"],
       }),
     );
     const p = getProfile();
     expect(p.travelMode).toBe("car");
-    expect(p.clubs).toEqual(["x"]);
+    expect(p.clubs).toEqual(["ramilevy:club"]); // chain names of the old picker and junk are dropped
   });
 
   it("mirrors every change to the shopper context the comparison reads (sc-profile-v1)", () => {
@@ -111,7 +111,7 @@ describe("profile state", () => {
     setLocation({ lat: 31.8969, lon: 35.0104, city: "מודיעין-מכבים-רעות", source: "manual" });
     updateProfile({
       radiusKm: 8,
-      clubs: ["רמי לוי"],
+      clubs: ["ramilevy:club"],
       travelMode: "walk_transit",
       extraStopValue: 10,
       homeStoreId: 103,
@@ -123,7 +123,7 @@ describe("profile state", () => {
       city_label: "מודיעין-מכבים-רעות",
       radius_m: 8000,
       home_store_id: 103,
-      clubs: ["רמי לוי"],
+      clubs: ["ramilevy:club"],
       travel_mode: "walk_transit",
       extra_stop_value: "10",
     });

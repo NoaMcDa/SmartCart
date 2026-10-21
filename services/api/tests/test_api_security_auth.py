@@ -326,6 +326,7 @@ PUBLIC = {
     ("GET", "/items/barcode/{barcode}"),
     ("GET", "/promo-cycles/{canonical_id}"),
     ("GET", "/chains/online"),
+    ("GET", "/chains/clubs"),  # a static list of clubs per chain, nothing about a person
 }
 
 

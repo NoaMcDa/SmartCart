@@ -24,7 +24,7 @@ async function seedAccount() {
   setLocation({ lat: 31.8969, lon: 35.0104, city: "מודיעין-מכבים-רעות", source: "manual" });
   updateProfile({
     homeStoreId: 103,
-    clubs: ["רמי לוי"],
+    clubs: ["ramilevy:club"],
     diet: { vegan: true, glutenFree: false, kosherLevel: "mehadrin", allergens: ["sesame"] },
   });
   await pushServerProfile(toProfileUpdate(getProfile(), "system", { "dairy.milk": "exact" }));
@@ -61,7 +61,7 @@ describe("profile sync payload", () => {
       neighborhood_lon: 35.01,
       home_store_id: 103,
       kosher_level: "mehadrin",
-      clubs: ["רמי לוי"],
+      clubs: ["ramilevy:club"],
       flex_defaults: { "dairy.milk": "exact" },
     });
     expect(stored.diet_flags).toEqual(["vegan", "allergen:sesame"]);
