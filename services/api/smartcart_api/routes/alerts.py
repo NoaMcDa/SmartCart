@@ -29,6 +29,7 @@ from smartcart_api.db import get_conn
 from smartcart_api.routes.me_delete import as_user
 
 router = APIRouter(prefix="/me", tags=["alerts"])
+MAX_PUSH_SUBSCRIPTIONS = 20  # devices per account
 UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="function")]
 
 _COLS = (
@@ -157,6 +158,14 @@ def add_push_subscription(
     conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
 ) -> schemas.Ack:
     # Service connection: the endpoint may be registered to another account on this device.
+    held = conn.execute(
+        "SELECT count(*) FROM push_subscriptions WHERE user_id = %s AND endpoint <> %s",
+        (user.id, body.endpoint),
+    ).fetchone()[0]
+    if held >= MAX_PUSH_SUBSCRIPTIONS:
+        raise HTTPException(
+            status_code=403, detail=f"at most {MAX_PUSH_SUBSCRIPTIONS} devices; unsubscribe one"
+        )
     conn.execute(
         "DELETE FROM push_subscriptions WHERE endpoint = %s AND user_id <> %s",
         (body.endpoint, user.id),

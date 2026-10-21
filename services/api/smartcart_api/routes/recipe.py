@@ -31,6 +31,7 @@ from smartcart_api import schemas
 from smartcart_api.db import get_conn
 from smartcart_api.listparse import Fragment
 from smartcart_api.misses import record_miss
+from smartcart_api.ratelimit import limit
 from smartcart_api.recipe_fetch import Fetcher, FetchError, get_fetcher
 from smartcart_api.routes.search import AMBIGUOUS_CAP, _row, resolve
 from smartcart_api.search import ancestors
@@ -84,7 +85,13 @@ def resolve_ingredients(
     return rows, unresolved
 
 
-@router.post("/parse-recipe", response_model=schemas.ParseRecipeResponse, tags=["basket"])
+@router.post(
+    "/parse-recipe",
+    response_model=schemas.ParseRecipeResponse,
+    tags=["basket"],
+    # A url makes the server fetch a page for the caller: few per minute, and per hour.
+    dependencies=[Depends(limit("parse-recipe", 8, per_hour=100))],
+)
 def parse_recipe(
     body: schemas.ParseRecipeRequest,
     conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],

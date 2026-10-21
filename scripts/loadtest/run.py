@@ -336,8 +336,10 @@ def search_queries(dsn: str, n: int, rng: random.Random) -> list[str]:
 
 
 def start_api(dsn: str, port: int, workers: int, log_path: Path) -> subprocess.Popen:
+    # One client address hammering the API is the point of a load test, so the per-client request
+    # limits (smartcart_api/ratelimit.py) are off; the production default is on.
     env = {**os.environ, "DATABASE_URL": dsn, "WEB_CONCURRENCY": str(workers),
-           "API_POOL_MAX": "10"}  # fmt: skip
+           "API_POOL_MAX": "10", "API_RATE_LIMIT": "0"}  # fmt: skip
     exe = REPO / ".venv" / "bin" / "smartcart-api"
     http = Http(f"http://127.0.0.1:{port}")
     try:

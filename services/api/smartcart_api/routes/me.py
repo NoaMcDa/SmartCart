@@ -23,6 +23,7 @@ from smartcart_api.auth import User, user_conn
 from smartcart_api.lists import load_lists
 
 router = APIRouter(prefix="/me", tags=["me"])
+MAX_LISTS_PER_USER = 200
 UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="function")]
 
 _PROFILE_COLS = (
@@ -136,6 +137,11 @@ def list_lists(uc: UserConn) -> list[schemas.ShoppingList]:
 @router.post("/lists", response_model=schemas.ShoppingList, status_code=201)
 def create_list(body: schemas.ShoppingListIn, uc: UserConn) -> schemas.ShoppingList:
     user, conn = uc
+    owned = conn.execute("SELECT count(*) FROM lists WHERE user_id = %s", (user.id,)).fetchone()[0]
+    if owned >= MAX_LISTS_PER_USER:
+        raise HTTPException(
+            status_code=403, detail=f"at most {MAX_LISTS_PER_USER} lists; delete one first"
+        )
     list_id = conn.execute(
         "INSERT INTO lists (user_id, name, is_recurring) VALUES (%s, %s, %s) RETURNING id",
         (user.id, body.name, body.is_recurring),

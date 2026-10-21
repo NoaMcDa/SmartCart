@@ -33,6 +33,7 @@ from smartcart_api.auth import User, user_conn
 router = APIRouter(prefix="/me/spend", tags=["me"])
 UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="function")]
 
+MAX_SPEND_ENTRIES = 20_000  # per user: about 50 a day for a year
 _COLS = "id, date, store_id, store_name, total, item_count, plan, client_id"
 MONTH = r"^\d{4}-(0[1-9]|1[0-2])$"
 
@@ -82,6 +83,12 @@ def create_spend(
                 (user.id, body.client_id),
             ).fetchone()
         response.status_code = 200
+    else:
+        stored = conn.execute(
+            "SELECT count(*) FROM spend_entries WHERE user_id = %s", (user.id,)
+        ).fetchone()[0]
+        if stored > MAX_SPEND_ENTRIES:  # raising rolls the insert back with the request
+            raise HTTPException(status_code=403, detail="too many spend entries; delete old ones")
     assert row is not None
     return _entry(row)
 

@@ -26,6 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from smartcart_api import schemas
 from smartcart_api.auth import User, current_user, user_conn
 from smartcart_api.db import get_conn
+from smartcart_api.ratelimit import limit
 
 router = APIRouter(tags=["beta"])
 UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="function")]
@@ -34,6 +35,11 @@ UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="
 @router.post(
     "/beta/join",
     response_model=schemas.BetaMembership,
+    # Guessing codes: few tries per person, and across accounts per address.
+    dependencies=[
+        Depends(limit("beta-join", 6, per_hour=20)),
+        Depends(limit("beta-join", 20, per_hour=60, by="ip")),
+    ],
     summary="Join the closed beta with an invite code",
     responses={404: {"description": "unknown code"}, 410: {"description": "expired or used up"}},
 )
@@ -92,6 +98,7 @@ def leave_beta(uc: UserConn) -> schemas.Ack:
     "/beta/feedback",
     response_model=schemas.Ack,
     status_code=201,
+    dependencies=[Depends(limit("beta-feedback", 6, per_hour=30))],
     summary="Send feedback on the beta (members only)",
     responses={403: {"description": "not a beta member"}},
 )

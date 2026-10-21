@@ -55,6 +55,20 @@ API_TEST_DB = "smartcart_api_test"
 AS_API_ROLE_ENV = "SMARTCART_TEST_AS_API_ROLE"
 
 
+@pytest.fixture(autouse=True)
+def _rate_limits_off(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Every test talks to the app from one address, often many times: the per-client request
+    limits (smartcart_api/ratelimit.py) are off, except in test_api_security_ratelimit.py, which
+    switches them on for itself."""
+    from smartcart_api.ratelimit import limiter
+
+    monkeypatch.setenv("API_RATE_LIMIT", "0")
+    get_settings.cache_clear()
+    limiter.reset()
+    yield
+    get_settings.cache_clear()
+
+
 @pytest.fixture(scope="session")
 def api_dsn(pg_dsn: str) -> str:
     """The database the API tests use.

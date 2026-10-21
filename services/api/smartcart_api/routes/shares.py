@@ -46,10 +46,12 @@ from smartcart_api import schemas
 from smartcart_api.auth import User, current_user, user_conn
 from smartcart_api.db import get_conn
 from smartcart_api.lists import load_lists
+from smartcart_api.ratelimit import limit
 from smartcart_api.routes.me_delete import as_user
 from smartcart_api.settings import get_settings
 
-router = APIRouter(tags=["shares"])
+router = APIRouter(tags=["shares"], dependencies=[Depends(limit("me", 240))])
+MAX_SHARES_PER_LIST = 50  # invites (pending and accepted) per list
 UserConn = Annotated[tuple[User, psycopg.Connection], Depends(user_conn, scope="function")]
 
 
@@ -90,13 +92,26 @@ def _owned(conn: psycopg.Connection, user: User, list_id: int) -> bool:
     )
 
 
-@router.post("/me/lists/{list_id}/share", response_model=schemas.ShareInvite, status_code=201)
+@router.post(
+    "/me/lists/{list_id}/share",
+    response_model=schemas.ShareInvite,
+    status_code=201,
+    dependencies=[Depends(limit("share", 10, per_hour=60))],
+)
 def share_list(list_id: int, body: schemas.ShareRequest, uc: UserConn) -> schemas.ShareInvite:
     user, conn = uc
     if not _sharing_enabled():
         raise HTTPException(status_code=403, detail="family sharing is not enabled")
     if not _owned(conn, user, list_id):
         raise HTTPException(status_code=404, detail="list not found")
+    rows = conn.execute(
+        "SELECT count(*) FROM list_shares WHERE list_id = %s", (list_id,)
+    ).fetchone()
+    if rows[0] >= MAX_SHARES_PER_LIST:
+        raise HTTPException(
+            status_code=403,
+            detail=f"a list has at most {MAX_SHARES_PER_LIST} invites and members; revoke some",
+        )
     token = secrets.token_urlsafe(32)
     conn.execute(
         "INSERT INTO list_shares (list_id, owner_id, role, invite_token, expires_at)"
@@ -199,7 +214,11 @@ def shared_lists(uc: UserConn) -> list[schemas.ShoppingList]:
     return load_lists(conn, user, ids, owned=False)
 
 
-@router.post("/lists/accept/{token}", response_model=schemas.ShoppingList)
+@router.post(
+    "/lists/accept/{token}",
+    response_model=schemas.ShoppingList,
+    dependencies=[Depends(limit("accept-share", 10, per_hour=60))],
+)
 def accept_share(
     token: str,
     user: Annotated[User, Depends(current_user)],
