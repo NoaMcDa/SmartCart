@@ -44,7 +44,7 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-          cache-dependency-glob: "**/pyproject.toml"
+          cache-dependency-glob: "uv.lock"
 
       - name: Install (only for apply_migrations)
         if: inputs.apply_migrations

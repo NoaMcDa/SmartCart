@@ -70,7 +70,7 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-          cache-dependency-glob: "**/pyproject.toml"
+          cache-dependency-glob: "uv.lock"
 
       # The extra belongs to the smartcart-catalog member, so plain `uv sync --extra embed` fails
       # at the workspace root; --all-packages keeps every member installed. Later steps use

@@ -12,8 +12,12 @@ How to install, lint and test the SmartCart monorepo locally, and what CI runs.
 | pytest | from the dev group | Tests. Markers: `db`, `postgis`, `pgvector`. |
 | Postgres | 16 (local) / 17 (CI image) | Optional locally; see below. |
 
-`uv.lock` is not committed yet, so `uv sync` resolves the newest versions allowed by the
-`pyproject.toml` files.
+`uv.lock` is committed and pins every Python dependency, so CI, the API image and the VPS install
+the same versions (`uv sync` honors it; the image uses `uv sync --locked`, which fails when the
+lock is out of date). Before the lock was committed, CI resolved the newest versions on every run
+and broke twice on upstream releases (the pydantic OpenAPI drift, and FastAPI 0.145 dropping the
+`openapi_version` argument on 2026-10-18). To upgrade: `uv lock --upgrade` (or
+`uv lock --upgrade-package <name>`), run the suites, commit the new lock.
 
 ## Everyday commands
 
