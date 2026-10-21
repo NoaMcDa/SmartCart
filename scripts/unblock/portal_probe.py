@@ -294,6 +294,95 @@ def _fmt_value(value: object) -> str:
     return str(value)
 
 
+def promo_shapes(data: bytes, examples: int = 3, limit_items: int = 3) -> dict:
+    """The shapes of the real promotions that are not a plain single-group price, bundle or
+    percent (#47): more than one group, a weekday restriction. Per promotion a signature is
+    built from what the file says (days, coupon, per group the reward types, item counts, quantity
+    and rate, and how the groups' item sets relate); the result is a histogram of signatures, a
+    few promotions in full per signature, and the ``PromotionDays`` values against descriptions
+    so the day numbering can be read off. Pure; copies text and numbers, executes nothing."""
+    from smartcart_ingest import xmlutil
+    from smartcart_ingest.adapters._common import ALL_ROW_TAGS, CONTAINERS, containers_in
+
+    decoded = xmlutil.decode(data)
+    root = xmlutil.read_header(decoded.data, ALL_ROW_TAGS)
+    row_tags = {r for c, (g, r) in CONTAINERS.items() if g == "promo" and c in containers_in(root)}
+    full_week = set("1234567")
+    sigs: Counter[str] = Counter()
+    shown: dict[str, list] = {}
+    days_seen: Counter[str] = Counter()
+    day_examples: dict[str, list] = {}
+    for row in xmlutil.iter_rows(decoded.data, row_tags):
+        f = xmlutil.scalar_children(row)
+        days = f.get("promotiondays", "").replace(" ", "")
+        days_seen[days or "(empty)"] += 1
+        restricted = bool(days) and set(days.split(",")) != full_week
+        if restricted:
+            bucket = day_examples.setdefault(days, [])
+            if len(bucket) < 6:
+                bucket.append({
+                    "id": f.get("promotionid"), "description": f.get("promotiondescription", "")[:80],
+                    "start": f.get("promotionstartdatetime"), "end": f.get("promotionenddatetime"),
+                })  # fmt: skip
+        groups = []
+        for el in row.iter():
+            if xmlutil.localname(el) == "Group":
+                gf = xmlutil.scalar_children(el)
+                items = [xmlutil.scalar_children(i) for i in el.iter()
+                         if xmlutil.localname(i) == "PromotionItem"]  # fmt: skip
+                groups.append((gf, items))
+        if len(groups) == 1 and not restricted:
+            continue
+        sets = [{i.get("itemcode") for i in items} for _, items in groups]
+        if len(sets) < 2:
+            relation = "-"
+        elif all(s == sets[0] for s in sets):
+            relation = "same_items"
+        elif any(s <= t for s in sets for t in sets if s is not t):
+            relation = "nested_items"
+        else:
+            relation = "different_items"
+        parts = []
+        for gf, items in groups:
+            kinds = sorted({i.get("rewardtype", "?") for i in items})
+            qty = sorted({i.get("minqty", "?").rstrip("0").rstrip(".") for i in items})[:3]
+            rate = sorted({i.get("discountrate", "") for i in items} - {""})[:3]
+            wild = any(set(i.get("itemcode", "")) == {"0"} for i in items)
+            parts.append(
+                f"[rt={'/'.join(kinds)} q={'/'.join(qty)} r={'/'.join(rate) or '-'}"
+                f"{' WILD' if wild else ''}{' MINBUY' if gf.get('minpurchaseamount') else ''}"
+                f"{' W' if any(i.get('bisweighted') == '1' for i in items) else ''}]"
+            )
+        sig = (
+            f"groups={len(groups)} {relation} days={'restricted' if restricted else 'all'}"
+            f" coupon={f.get('additionaliscoupon', '')} " + "".join(parts)
+        )
+        sigs[sig] += 1
+        bucket = shown.setdefault(sig, [])
+        if len(bucket) < examples:
+            bucket.append({
+                "id": f.get("promotionid"), "description": f.get("promotiondescription", "")[:80],
+                "days": days, "min_offered": f.get("minnoofitemoffered"),
+                "redemption_limit": f.get("redemptionlimit"), "gift": f.get("isgiftitem"),
+                "allow_multiple": f.get("allowmultiplediscounts"),
+                "groups": [{
+                    "min_purchase": gf.get("minpurchaseamount"), "type": gf.get("discounttype"),
+                    "n": len(items),
+                    "items": [{k: v for k, v in i.items()
+                               if k in ("itemcode", "rewardtype", "minqty", "maxqty",
+                                        "discountrate", "discountedprice",
+                                        "discountedpricepermida") and v}
+                              for i in items[:limit_items]],
+                } for gf, items in groups],
+            })  # fmt: skip
+    return {
+        "signatures": dict(sigs.most_common()),
+        "examples": shown,
+        "days": dict(days_seen.most_common()),
+        "day_examples": day_examples,
+    }
+
+
 def promo_profile(parsed, data: bytes) -> dict:  # noqa: ANN001
     """What a real PromoFull holds, as the adapter read it: reward types, club ids, a value
     histogram of every raw field with few distinct values (``RewardType``, ``DiscountType``,
@@ -345,6 +434,10 @@ def promo_profile(parsed, data: bytes) -> dict:  # noqa: ANN001
         layout = promo_layout(data)
     except ValueError as exc:
         layout = {"error": str(exc)[:200]}
+    try:
+        shapes = promo_shapes(data)
+    except Exception as exc:  # noqa: BLE001 - extra; never fail the probe
+        shapes = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     return {
         "promos": len(promos),
         "stores": sorted({p.store_code for p in promos})[:20],
@@ -368,6 +461,7 @@ def promo_profile(parsed, data: bytes) -> dict:  # noqa: ANN001
         "layout": {k: v for k, v in layout.items() if k != "samples"},
         "layout_samples": layout.get("samples", []),
         "samples": samples,
+        "shapes": shapes,
     }  # fmt: skip
 
 
@@ -462,10 +556,22 @@ def _print_promo_profile(slug: str, entry: dict) -> None:
     if not profile:
         return
     head = {k: v for k, v in profile.items()
-            if k not in ("samples", "layout_samples", "layout")}  # fmt: skip
+            if k not in ("samples", "layout_samples", "layout", "shapes")}  # fmt: skip
     for tag, body in (("PROMO_PROFILE", head), ("PROMO_LAYOUT", profile["layout"])):
         print(f"{tag} " + json.dumps({"chain": slug, **body}, ensure_ascii=False),
               file=sys.stderr, flush=True)  # fmt: skip
+    shapes = profile.get("shapes") or {}
+    if shapes:
+        print("PROMO_SHAPES " + json.dumps({"chain": slug, "signatures": shapes.get("signatures"),
+                                            "days": shapes.get("days"), "error": shapes.get("error")},
+                                           ensure_ascii=False), file=sys.stderr, flush=True)  # fmt: skip
+        for sig, found in (shapes.get("examples") or {}).items():
+            print("PROMO_SHAPE_EXAMPLE " + json.dumps({"chain": slug, "signature": sig,
+                                                       "examples": found}, ensure_ascii=False),
+                  file=sys.stderr, flush=True)  # fmt: skip
+        if shapes.get("day_examples"):
+            print("PROMO_DAYS " + json.dumps({"chain": slug, "examples": shapes["day_examples"]},
+                                             ensure_ascii=False), file=sys.stderr, flush=True)  # fmt: skip
     for i, sample in enumerate(profile.get("layout_samples", [])):
         print("PROMO_RAW " + json.dumps({"chain": slug, "n": i, "promotion": sample},
                                         ensure_ascii=False), file=sys.stderr, flush=True)  # fmt: skip

@@ -300,3 +300,12 @@ def test_fetch_keeps_one_file_when_the_first_is_usable(tmp_path: Path, monkeypat
     monkeypatch.setattr(fetch_fixtures, "_download", fake_download)
     assert fetch_fixtures.fetch("yohananof", "YOHANANOF", "promo_full", tmp_path)["file"] == good
     assert asked == [1]
+
+
+def test_promo_shapes_describes_multi_group_promotions() -> None:
+    real = FIXTURES / "tivtaam" / "real" / "PromoFull7290873255550-000-002-20261021-004004.gz"
+    shapes = portal_probe.promo_shapes(real.read_bytes())
+    assert sum(shapes["signatures"].values()) == 3  # the three two-group promotions of the file
+    assert any("[rt=0 q=1 r=-][rt=1 q=1 r=100]" in sig for sig in shapes["signatures"])
+    assert shapes["days"] == {"(empty)": 100}
+    json.dumps(shapes, ensure_ascii=False)  # plain data, printable as a log line
