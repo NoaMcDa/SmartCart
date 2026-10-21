@@ -38,7 +38,9 @@ beforeEach(() => {
 
 const events = () => track.mock.calls.map(([name, props]) => [name, props]);
 
-function sheet(onAdd = vi.fn(async (_text: string) => 3 as number | null)) {
+function sheet(
+  onAdd = vi.fn(async (_text: string, _isCurrent: () => boolean) => 3 as number | null),
+) {
   const onClose = vi.fn();
   const user = userEvent.setup();
   render(<VoiceSheet open onClose={onClose} onAdd={onAdd} />);
@@ -93,7 +95,7 @@ describe("the voice sheet", () => {
     await user.click(screen.getByTestId("voice-add"));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(onAdd).toHaveBeenCalledWith("חלב\n2 רסק עגבניות");
+    expect(onAdd).toHaveBeenCalledWith("חלב\n2 רסק עגבניות", expect.any(Function));
   });
 
   it("keeps the text and says so when the list could not be read", async () => {
@@ -261,5 +263,39 @@ describe("the list builder", () => {
     expect(within(paste).getByRole("group")).toHaveTextContent("2");
     // A dictated list is not a paste.
     expect(track.mock.calls.some(([n]) => n === "list_pasted")).toBe(false);
+  });
+});
+
+describe("closing the sheet while the dictated list is being read", () => {
+  it("tells the list builder to drop the answer, and the sheet stays closed and reset", async () => {
+    let release: (n: number | null) => void = () => {};
+    let current: (() => boolean) | null = null;
+    const onAdd = vi.fn(
+      (_text: string, isCurrent: () => boolean) =>
+        new Promise<number | null>((resolve) => {
+          current = isCurrent;
+          release = resolve;
+        }),
+    );
+    const { user, onClose } = sheet(onAdd);
+    await user.click(screen.getByTestId("voice-start"));
+    act(() => {
+      FakeRecognizer.last().begin();
+      FakeRecognizer.last().hear({ text: "חלב" });
+      FakeRecognizer.last().finish();
+    });
+    await user.click(screen.getByTestId("voice-add"));
+    expect(current!()).toBe(true);
+    // The person closes the sheet (the X) while the request is on its way.
+    await user.click(screen.getByRole("button", { name: "סגירה" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(current!()).toBe(false);
+    // The answer arrives late: nothing reopens, nothing is reported as added or failed.
+    await act(async () => release(null));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(events().filter(([name]) => name === "voice_completed")).toEqual([
+      ["voice_completed", expect.objectContaining({ outcome: "cancelled" })],
+    ]);
   });
 });

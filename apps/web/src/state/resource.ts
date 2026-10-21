@@ -16,6 +16,9 @@ const IDLE = { status: "idle" } as const;
 export function createResourceCache<I, T>(fetcher: (input: I) => Promise<T>, maxEntries = 20) {
   const entries = new Map<string, Resource<T>>();
   const listeners = new Set<() => void>();
+  // The request that may still write each key. A reload, or `clear()`, starts a new one: the older
+  // response is then stale and must not overwrite the newer (or reappear after a clear).
+  const latest = new Map<string, symbol>();
   const emit = () => listeners.forEach((l) => l());
 
   function set(key: string, value: Resource<T>) {
@@ -33,9 +36,16 @@ export function createResourceCache<I, T>(fetcher: (input: I) => Promise<T>, max
     const current = entries.get(key);
     if (!force && current && current.status !== "error") return;
     set(key, { status: "loading", data: current && "data" in current ? current.data : undefined });
+    const token = Symbol(key);
+    latest.set(key, token);
+    const settle = (value: Resource<T>) => {
+      if (latest.get(key) !== token) return;
+      latest.delete(key);
+      set(key, value);
+    };
     fetcher(input).then(
-      (data) => set(key, { status: "success", data }),
-      (error: unknown) => set(key, { status: "error", error }),
+      (data) => settle({ status: "success", data }),
+      (error: unknown) => settle({ status: "error", error }),
     );
   }
 
@@ -76,6 +86,7 @@ export function createResourceCache<I, T>(fetcher: (input: I) => Promise<T>, max
     get,
     clear: () => {
       entries.clear();
+      latest.clear();
       emit();
     },
   };

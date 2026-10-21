@@ -64,15 +64,20 @@ export function ProfileSync() {
             lastBudget.current = serverBudget;
           } else if (local !== null) {
             await pushServerProfile({ ...base, monthly_budget: local });
+            if (cancelled) return;
             lastBudget.current = local;
           }
         } else {
           const base = toProfileUpdate(getProfile(), preference, getListState().flexDefaults);
           const local = loadBudget();
           await pushServerProfile(local === null ? base : { ...base, monthly_budget: local });
+          if (cancelled) return;
           lastSent.current = JSON.stringify(base);
           lastBudget.current = local;
         }
+        // Signed out (or another account) while this ran: it must not mark the next session as
+        // loaded, or that session's first local change would be pushed over its stored profile.
+        if (cancelled) return;
         hydrated.current = true;
       } catch {
         // Offline or API down: stay local, try again on the next sign-in or change.

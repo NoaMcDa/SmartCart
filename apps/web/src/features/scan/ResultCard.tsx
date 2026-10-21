@@ -10,6 +10,7 @@ import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { StoreText } from "@/i18n/StoreText";
 import { scanMessages } from "@/i18n/messages/scan";
 import { formatStoreDistance } from "@/lib/format";
+import { normalizeNumberInput } from "@/lib/numberInput";
 import controls from "@/features/profile/controls/controls.module.css";
 import { addCanonicalToList } from "./addToList";
 import styles from "./Scan.module.css";
@@ -25,7 +26,11 @@ export function unitSaving(here: StorePrice | null | undefined, other: StorePric
 
 /** The price the user typed from the shelf, as a number, or null when empty or invalid. */
 export function parseShelfPrice(text: string): number | null {
-  const n = Number.parseFloat(text.replace(/[^\d.,]/g, "").replace(",", "."));
+  const n = Number.parseFloat(
+    normalizeNumberInput(text)
+      .replace(/[^\d.,]/g, "")
+      .replace(",", "."),
+  );
   return Number.isFinite(n) && n > 0 ? cents(n) : null;
 }
 

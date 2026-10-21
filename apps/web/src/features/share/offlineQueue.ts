@@ -71,7 +71,25 @@ function sanitize(raw: unknown): Stored {
   return { version: 1, lists };
 }
 
+let watching = false;
+
+/**
+ * Another tab changed the queue (it replayed it, or added edits), or the data was deleted: read it
+ * again instead of writing this tab's older copy over it, which would replay edits twice or bring
+ * back what "delete my data" removed.
+ */
+function watchOtherTabs() {
+  if (watching || typeof window === "undefined") return;
+  watching = true;
+  window.addEventListener("storage", (e) => {
+    if (e.key !== null && e.key !== SHARED_QUEUE_KEY) return;
+    snapshot = null;
+    listeners.forEach((l) => l());
+  });
+}
+
 function load(): Stored {
+  watchOtherTabs();
   if (!snapshot) snapshot = sanitize(readJson(SHARED_QUEUE_KEY, null));
   return snapshot;
 }

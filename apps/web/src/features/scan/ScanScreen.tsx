@@ -99,7 +99,14 @@ function ScanScreenInner() {
     };
   });
 
+  // The camera request that may still turn the camera on, and the lookup that may still show a
+  // result. Stopping the camera, typing a code, "scan another" and leaving the screen start a new
+  // number, so an answer that arrives later (the permission prompt, a slow lookup) is dropped.
+  const cameraRun = useRef(0);
+  const lookupRun = useRef(0);
+
   const release = useCallback(() => {
+    cameraRun.current += 1;
     stopStream(streamRef.current);
     streamRef.current = null;
   }, []);
@@ -133,9 +140,11 @@ function ScanScreenInner() {
       // A retry after an error starts a new attempt; a camera read continues the open one.
       if (!attempt.current.open) openAttempt(via === "manual" ? "manual" : cameraEngine.current);
       setPhase({ kind: "loading", code });
+      const mine = (lookupRun.current += 1);
       const { lat, lon, radiusM, storeId } = latest.current;
       try {
         const result = await lookupBarcode(code, { lat, lon, radiusM, storeId });
+        if (mine !== lookupRun.current) return;
         recordScan(
           result.found ? "found" : "not_found",
           via,
@@ -144,6 +153,7 @@ function ScanScreenInner() {
         endAttempt(outcomeOf(result));
         setPhase({ kind: "result", result });
       } catch {
+        if (mine !== lookupRun.current) return;
         recordScan("failed", via, 0);
         endAttempt("error");
         setPhase({ kind: "lookup-error", code });
@@ -156,7 +166,13 @@ function ScanScreenInner() {
     setPhase({ kind: "starting" });
     startedAt.current = performance.now();
     attempt.current = { open: true, startedSent: false, engine: undefined };
+    const mine = (cameraRun.current += 1);
     const cam = await requestCamera();
+    if (mine !== cameraRun.current) {
+      // "Stop", a typed code or leaving the screen came first: the camera must not come on now.
+      if (cam.ok) stopStream(cam.stream);
+      return;
+    }
     if (!cam.ok) {
       recordScan("failed", "camera", 0);
       endAttempt("error");
@@ -228,6 +244,7 @@ function ScanScreenInner() {
   useEffect(
     () => () => {
       release();
+      lookupRun.current += 1;
       endAttempt("cancelled");
     },
     [release, endAttempt],
@@ -235,6 +252,7 @@ function ScanScreenInner() {
 
   function stopCamera() {
     release();
+    lookupRun.current += 1;
     endAttempt("cancelled");
     setPhase({ kind: "idle" });
   }
@@ -256,6 +274,7 @@ function ScanScreenInner() {
 
   function again() {
     release();
+    lookupRun.current += 1;
     endAttempt("cancelled");
     startedAt.current = 0;
     setManual("");

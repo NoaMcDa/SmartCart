@@ -9,6 +9,7 @@ import {
   STORAGE_KEYS,
   notifyStorageChange,
   readJson,
+  readRaw,
   subscribeStorage,
   writeJson,
 } from "./storage";
@@ -23,10 +24,23 @@ export type SavingsEntry = {
   net: number;
 };
 
+/** A stored entry the screens can sum and list; anything else (edited or damaged data) is dropped. */
+function isEntry(e: unknown): e is SavingsEntry {
+  if (!e || typeof e !== "object") return false;
+  const r = e as Partial<Record<keyof SavingsEntry, unknown>>;
+  return (
+    typeof r.id === "string" &&
+    typeof r.at === "string" &&
+    typeof r.storeName === "string" &&
+    typeof r.net === "number" &&
+    Number.isFinite(r.net)
+  );
+}
+
 export function loadSavings(): SavingsEntry[] {
   if (typeof window === "undefined") return [];
-  const raw = readJson<SavingsEntry[]>(STORAGE_KEYS.savings);
-  return Array.isArray(raw) ? raw : [];
+  const raw = readJson<unknown>(STORAGE_KEYS.savings);
+  return Array.isArray(raw) ? raw.filter(isEntry) : [];
 }
 
 const EMPTY: SavingsEntry[] = [];
@@ -35,12 +49,7 @@ let cached: SavingsEntry[] = EMPTY;
 
 function snapshot(): SavingsEntry[] {
   if (typeof window === "undefined") return cached;
-  let raw: string | null = null;
-  try {
-    raw = window.localStorage.getItem(STORAGE_KEYS.savings);
-  } catch {
-    raw = null;
-  }
+  const raw = readRaw(STORAGE_KEYS.savings);
   if (raw === cachedRaw) return cached;
   cachedRaw = raw;
   cached = loadSavings();

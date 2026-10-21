@@ -2,7 +2,7 @@
  * Monthly budget and spend on screen (issue #70): "נותר החודש" on the results and the split, the
  * Profile section with its six-month chart, and "סיימתי לקנות" in store mode.
  */
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -477,6 +477,22 @@ describe("סיימתי לקנות in store mode", () => {
     expect(screen.getByRole("dialog")).toHaveTextContent("כל 8 הפריטים בחנות הזו, כי לא סומן דבר");
     await user.click(screen.getByTestId("finish-confirm"));
     expect(loadSpend().entries[0]).toMatchObject({ item_count: 8 });
+  });
+
+  it("a double tap on the confirm button records the shop once", async () => {
+    start();
+    const user = userEvent.setup();
+    render(<StoreMode />);
+    await user.click((await screen.findAllByRole("checkbox"))[0]!);
+    await user.click(screen.getByTestId("finish"));
+    const confirm = screen.getByTestId("finish-confirm");
+    // Two taps before the page has had a chance to leave: both reach the same handler.
+    act(() => {
+      fireEvent.click(confirm);
+      fireEvent.click(confirm);
+    });
+    expect(loadSpend().entries).toHaveLength(1);
+    expect(push).toHaveBeenCalledTimes(1);
   });
 
   it("the switch off records nothing", async () => {

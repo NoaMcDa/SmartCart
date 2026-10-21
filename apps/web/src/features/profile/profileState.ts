@@ -11,7 +11,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { nearestStore } from "@/api/client";
 import { readShopper, saveShopperProfile } from "@/state/shopper";
 import { chainById, resolveHomeStoreId } from "./chains";
-import { STORAGE_KEYS, notifyStorageChange, subscribeStorage } from "./storage";
+import { STORAGE_KEYS, notifyStorageChange, readRaw, subscribeStorage, writeRaw } from "./storage";
 
 export type TravelMode = "car" | "walk_transit" | "delivery";
 export type KosherLevel = "regular" | "mehadrin" | "badatz";
@@ -149,12 +149,7 @@ let cachedProfile: LocalProfile = DEFAULT_PROFILE;
 
 export function getProfile(): LocalProfile {
   if (typeof window === "undefined") return DEFAULT_PROFILE;
-  let raw: string | null = null;
-  try {
-    raw = window.localStorage.getItem(STORAGE_KEYS.profile);
-  } catch {
-    raw = null;
-  }
+  const raw = readRaw(STORAGE_KEYS.profile);
   if (raw === cachedRaw) return cachedProfile;
   cachedRaw = raw;
   if (raw === null) {
@@ -176,13 +171,9 @@ export function updateProfile(
   const current = getProfile();
   const delta = typeof patch === "function" ? patch(current) : patch;
   const next = sanitizeProfile({ ...current, ...delta, updatedAt: new Date().toISOString() });
-  try {
-    window.localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(next));
-  } catch {
-    // Storage unavailable: keep the value in memory for this page view.
-    cachedRaw = undefined;
-    cachedProfile = next;
-  }
+  // Storage unavailable: `writeRaw` keeps the text in memory for this page view, and `getProfile`
+  // reads it back from there.
+  writeRaw(STORAGE_KEYS.profile, JSON.stringify(next));
   mirrorToShopper(next);
   notifyStorageChange();
   return next;

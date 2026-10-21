@@ -17,10 +17,12 @@ import {
   STORAGE_KEYS,
   notifyStorageChange,
   readJson,
+  readRaw,
   removeKey,
   subscribeStorage,
   writeJson,
 } from "@/features/profile/storage";
+import { normalizeNumberInput } from "@/lib/numberInput";
 import { israelDate, monthOf } from "./month";
 
 /** A stored entry: the API's fields with a local id, and `total` as a number of shekels. */
@@ -118,12 +120,7 @@ let cached: SpendStore = EMPTY;
 
 function snapshot(): SpendStore {
   if (typeof window === "undefined") return EMPTY;
-  let raw: string | null = null;
-  try {
-    raw = window.localStorage.getItem(STORAGE_KEYS.spend);
-  } catch {
-    raw = null;
-  }
+  const raw = readRaw(STORAGE_KEYS.spend);
   if (raw === cachedRaw) return cached;
   cachedRaw = raw;
   cached = loadSpend();
@@ -283,7 +280,7 @@ export function validSpendTotal(value: unknown): number | null {
     typeof value === "number"
       ? String(value)
       : typeof value === "string"
-        ? value.replace(/₪/g, "").trim().replace(",", ".")
+        ? normalizeNumberInput(value).replace(/₪/g, "").trim().replace(",", ".")
         : "";
   if (!/^\d+(\.\d{1,2})?$/.test(text)) return null;
   const n = Number(text);
@@ -315,6 +312,11 @@ export function replaceSpendRow(row: SpendRow): void {
  * (inside the undo window, or on its way). A pull must not bring them back meanwhile.
  */
 const removedServerIds = new Set<number>();
+
+/** An entry deleted on this device whose account copy came into being after the delete. */
+export function markRemovedOnAccount(serverId: number): void {
+  removedServerIds.add(serverId);
+}
 
 export type RemovedSpend = { row: SpendRow; index: number; wasPending: boolean };
 

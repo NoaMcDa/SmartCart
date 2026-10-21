@@ -75,19 +75,30 @@ export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHis
   const last = points[points.length - 1] ?? null;
   const axisName = metric === "unit" ? t("axisUnit") : t("axisShelf");
 
-  const describe = (p: SeriesPoint) => {
+  const promoText = (p: SeriesPoint) => {
     const range = p.promo ? promoAt(promos, p.t) : null;
-    const promo = p.promo
+    return p.promo
       ? t("promoDetail", { promo: p.promo }) +
-        (range
-          ? t("promoMeta", {
-              audience: promoAudience(range, locale),
-              confidence: promoConfidence(range, locale),
-            })
-          : "")
+          (range
+            ? t("promoMeta", {
+                audience: promoAudience(range, locale),
+                confidence: promoConfidence(range, locale),
+              })
+            : "")
       : "";
-    return `${day(p.t)}: ${formatPrice(p.value, 2)}${metric === "unit" ? ` ${unitLabel}` : ""}${promo}`;
   };
+  const unitText = metric === "unit" ? ` ${unitLabel}` : "";
+  /** Plain text, for the SVG `<title>` of a marker. */
+  const describe = (p: SeriesPoint) =>
+    `${day(p.t)}: ${formatPrice(p.value, 2)}${unitText}${promoText(p)}`;
+  /** The same sentence on the page: the price is an LTR island so the shekel sign stays in front. */
+  const describeRich = (p: SeriesPoint) => (
+    <>
+      {day(p.t)}: <Price amount={p.value} fractionDigits={2} />
+      {unitText}
+      {promoText(p)}
+    </>
+  );
 
   if (points.length === 0) {
     return (
@@ -218,7 +229,7 @@ export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHis
       </ul>
 
       <p className={styles.tooltip} role="status" data-testid="history-tooltip">
-        {active ? describe(active) : t("tooltipHint")}
+        {active ? describeRich(active) : t("tooltipHint")}
       </p>
 
       {summary ? (
@@ -269,7 +280,9 @@ export function PriceHistoryChart({ history, days, metric, unitLabel }: PriceHis
             {points.map((p) => (
               <tr key={p.t}>
                 <th scope="row">{day(p.t)}</th>
-                <td>{formatPrice(p.value, 2)}</td>
+                <td>
+                  <Price amount={p.value} fractionDigits={2} />
+                </td>
                 <td>{p.promo ?? t("none")}</td>
               </tr>
             ))}

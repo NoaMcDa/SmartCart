@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 import type { ReactNode } from "react";
 import { DEFAULT_LOCALE, INTL_LOCALE, LOCALE_KEY, isLocale, type Locale } from "./locales";
 import { translate, type MessageSet } from "./messages";
@@ -35,6 +42,10 @@ function store(locale: Locale): void {
     // Private mode: the cookie below still carries it.
   }
   document.cookie = `${LOCALE_KEY}=${locale}; path=/; max-age=31536000; samesite=lax`;
+  applyDocumentLocale(locale);
+}
+
+function applyDocumentLocale(locale: Locale): void {
   document.documentElement.lang = locale;
   document.documentElement.dataset.locale = locale;
 }
@@ -58,6 +69,14 @@ const serverSnapshot = (): Locale => DEFAULT_LOCALE;
  */
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const locale = useSyncExternalStore(subscribe, readStored, serverSnapshot);
+
+  // Another tab switched the language: this tab's copy follows through the `storage` event, and
+  // `<html lang>` (screen reader voice, font stack) must follow with it. The stored choice is read
+  // again here, not the render's value, so the Hebrew hydration pass never overwrites it.
+  useEffect(() => {
+    const stored = readStored();
+    if (document.documentElement.lang !== stored) applyDocumentLocale(stored);
+  }, [locale]);
 
   const setLocale = useCallback((next: Locale) => {
     store(next);

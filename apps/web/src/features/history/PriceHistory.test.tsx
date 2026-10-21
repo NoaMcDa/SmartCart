@@ -56,6 +56,13 @@ describe("price history chart", () => {
     expect(screen.getByTestId("history-tooltip")).toHaveTextContent("הצביעי על נקודת מבצע");
     fireEvent.pointerEnter(markers[0]!);
     expect(screen.getByTestId("history-tooltip")).toHaveTextContent(/₪ 5\.20 ל-100 מ"ל.*1\+1/);
+    // The price in the tooltip and in the table is an LTR island, or the shekel sign lands after the
+    // number in Hebrew text.
+    const island = screen.getByTestId("history-tooltip").querySelector('[dir="ltr"]');
+    expect(island?.textContent).toBe("\u20aa\u00a05.20");
+    for (const cell of within(screen.getByTestId("history-table")).getAllByText(/₪/)) {
+      expect(cell.closest('[dir="ltr"]')).not.toBeNull();
+    }
     // A legend with text, so meaning is not by color alone.
     const legend = screen.getByRole("list", { name: "מקרא" });
     expect(within(legend).getByText("תקופת מבצע")).toBeInTheDocument();

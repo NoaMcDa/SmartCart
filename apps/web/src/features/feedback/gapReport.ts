@@ -1,4 +1,5 @@
 import type { GapReportRequest } from "@/api/client";
+import { normalizeNumberInput } from "@/lib/numberInput";
 import type { FeedbackMessageKey } from "@/i18n/messages/feedback";
 
 /** What the screen knows about the price being reported. Everything except the store is optional. */
@@ -43,7 +44,11 @@ export function buildGapRequest(
     .join(" ");
   const text = input.note.trim().slice(0, Math.max(0, NOTE_MAX - tail.length - 1));
   const note = [text, tail].filter(Boolean).join(" ") || null;
-  const actual = Number.parseFloat(input.actualPrice.replace(/[^\d.,]/g, "").replace(",", "."));
+  const actual = Number.parseFloat(
+    normalizeNumberInput(input.actualPrice)
+      .replace(/[^\d.,]/g, "")
+      .replace(",", "."),
+  );
   const shown =
     context.shownPrice === undefined || context.shownPrice === null
       ? null

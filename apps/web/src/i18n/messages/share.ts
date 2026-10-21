@@ -59,6 +59,8 @@ export const shareMessages = defineMessages({
     addHit: "הוספי: {name}",
 
     // Items
+    itemNumbered: "מוצר מס' {id}",
+    itemUnnamed: "פריט",
     checkAria: "סימון {name} כנאסף",
     removeItemAria: "הסרת {name} מהרשימה המשותפת",
     removeItem: "הסרה",
@@ -150,6 +152,8 @@ export const shareMessages = defineMessages({
     hitsLabel: "نتائج البحث",
     addHit: "إضافة: {name}",
 
+    itemNumbered: "منتج رقم {id}",
+    itemUnnamed: "صنف",
     checkAria: "تحديد {name} كمجموع",
     removeItemAria: "إزالة {name} من القائمة المشتركة",
     removeItem: "إزالة",

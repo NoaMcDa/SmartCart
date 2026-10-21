@@ -57,24 +57,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthTokenProvider(getApiToken);
     let active = true;
     let unsubscribe = () => {};
-    void loadSupabase().then((supabase) => {
-      if (!active) return;
-      if (!supabase) {
-        setApiToken(null);
-        return;
-      }
-      const apply = (
-        session: { access_token: string; user?: { email?: string | null } } | null,
-      ) => {
+    void loadSupabase()
+      .catch(() => null)
+      .then((supabase) => {
         if (!active) return;
-        setApiToken(session?.access_token ?? null);
-        setEmail(session?.user?.email ?? null);
-        setStatus(session ? "signed-in" : "signed-out");
-      };
-      void supabase.auth.getSession().then(({ data }) => apply(data.session));
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => apply(session));
-      unsubscribe = () => data.subscription.unsubscribe();
-    });
+        if (!supabase) {
+          // Not configured, or the library could not be fetched: signed out, so nothing waits for a
+          // session that is not coming (the shared list, alerts and profile sync all wait on it).
+          setApiToken(null);
+          setStatus("signed-out");
+          return;
+        }
+        const apply = (
+          session: { access_token: string; user?: { email?: string | null } } | null,
+        ) => {
+          if (!active) return;
+          setApiToken(session?.access_token ?? null);
+          setEmail(session?.user?.email ?? null);
+          setStatus(session ? "signed-in" : "signed-out");
+        };
+        void supabase.auth.getSession().then(({ data }) => apply(data.session));
+        const { data } = supabase.auth.onAuthStateChange((_event, session) => apply(session));
+        unsubscribe = () => data.subscription.unsubscribe();
+      });
     return () => {
       active = false;
       unsubscribe();
@@ -83,9 +88,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const openSignIn = useCallback(() => setSheetOpen(true), []);
   const signOut = useCallback(async () => {
-    const supabase = await loadSupabase();
+    const supabase = await loadSupabase().catch(() => null);
     setApiToken(null);
-    if (supabase) await supabase.auth.signOut();
+    try {
+      if (supabase) await supabase.auth.signOut();
+    } catch {
+      // The token is already gone here; a failed call to the server must not leave the screens
+      // showing a signed-in person.
+    }
     setEmail(null);
     setStatus("signed-out");
   }, []);

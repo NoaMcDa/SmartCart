@@ -20,6 +20,7 @@ import { VoiceSheet } from "@/features/voice/VoiceSheet";
 import { useVoiceSupported } from "@/features/voice/useVoiceInput";
 import { Count } from "@/features/compare/Count";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
+import { rescueFocus } from "@/lib/focus";
 import { listMessages } from "@/i18n/messages/list";
 import { sharedMessages } from "@/i18n/messages/shared";
 import { buildCompareInput, useCompareEstimate } from "@/state/comparison";
@@ -75,9 +76,13 @@ export function ListBuilder() {
   const flexItem = state.items.find((i) => i.id === flexItemId) ?? null;
 
   /** The one path from text to list rows (typed, pasted, or dictated): `/parse-list`, then add. */
-  async function parseInto(value: string): Promise<number | null> {
+  async function parseInto(
+    value: string,
+    isCurrent: () => boolean = () => true,
+  ): Promise<number | null> {
     try {
       const res = await parseList({ text: value, flex_defaults: state.flexDefaults });
+      if (!isCurrent()) return 0; // the person gave up on this text while it was being read
       listActions.add(res.rows);
       return res.rows.length;
     } catch {
@@ -98,15 +103,20 @@ export function ListBuilder() {
       setError(t("parseFailed"));
     } else {
       if (wasPasted) reportListPasted(added);
-      setText("");
+      // Typing went on while the list was being read: what was sent leaves the box, and what was
+      // typed after it stays.
+      setText((now) => {
+        const head = now.trimStart();
+        return head.startsWith(value) ? head.slice(value.length).trim() : now;
+      });
     }
     setParsing(false);
   }
 
   /** Confirmed dictation: same call as a pasted list, and the same amber confirmation afterwards. */
-  async function addDictated(value: string): Promise<number | null> {
-    const added = await parseInto(value);
-    if (added !== null) {
+  async function addDictated(value: string, isCurrent: () => boolean): Promise<number | null> {
+    const added = await parseInto(value, isCurrent);
+    if (added !== null && isCurrent()) {
       setError(null);
       setHint(t("dictatedAdded", { count: added }));
     }
@@ -203,6 +213,7 @@ export function ListBuilder() {
               }}
               aria-describedby={error || hint ? `${inputId}-msg` : undefined}
               enterKeyHint="done"
+              data-focus-fallback
             />
             {voiceSupported ? (
               <button
@@ -329,7 +340,10 @@ export function ListBuilder() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => listActions.remove(item.id)}
+                        onClick={(e) => {
+                          rescueFocus(e.currentTarget, { row: '[data-testid="not-found-row"]' });
+                          listActions.remove(item.id);
+                        }}
                         aria-label={t("removeLabel", { text: item.inputText })}
                       >
                         {t("remove")}
@@ -343,7 +357,14 @@ export function ListBuilder() {
 
           {state.items.length ? (
             <div className={styles.listActions}>
-              <Button variant="ghost" size="sm" onClick={() => listActions.clear()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  rescueFocus(e.currentTarget);
+                  listActions.clear();
+                }}
+              >
                 {t("clear")}
               </Button>
             </div>
