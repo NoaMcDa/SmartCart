@@ -193,8 +193,8 @@ export type SubstitutionContext = Substitution & {
   siblings: Substitution[];
   /**
    * What the user would have bought: the same product's line at the home store, when the home
-   * store carries a non-substitute for it. The API does not return the original item's price at
-   * the substitute's store, so the home store line is the comparison the saving is about (D7).
+   * store carries a non-substitute for it. It is the comparison the saving falls back on when the
+   * substitute's own store does not sell the original (`item.original_here` is null), D7.
    */
   original: { item: PricedItem; store: StoreResult } | null;
 };
@@ -241,19 +241,35 @@ export function findSubstitution(
   return null;
 }
 
-/** Shelf-price saving of the substitute against the original, times the quantity. */
+function shelfSaving(
+  originalShelfPrice: string,
+  item: Pick<PricedItem, "shelf_price" | "quantity">,
+): { perUnit: number; quantity: number; total: number } {
+  const perUnitSaving = Number.parseFloat(originalShelfPrice) - Number.parseFloat(item.shelf_price);
+  const quantity = Number.parseFloat(item.quantity) || 1;
+  return {
+    perUnit: Math.round(perUnitSaving * 100) / 100,
+    quantity,
+    total: Math.round(perUnitSaving * quantity * 100) / 100,
+  };
+}
+
+/**
+ * Shelf-price saving of the substitute against the original at the substitute's own store, times
+ * the quantity. Null when the API says that store does not sell the original (or does not say).
+ */
+export function substitutionSavingHere(
+  item: PricedItem,
+): { perUnit: number; quantity: number; total: number } | null {
+  return item.original_here ? shelfSaving(item.original_here.shelf_price, item) : null;
+}
+
+/** Shelf-price saving of the substitute against the original (home store), times the quantity. */
 export function substitutionSaving(ctx: Pick<SubstitutionContext, "item" | "original">): {
   perUnit: number;
   quantity: number;
   total: number;
 } | null {
   if (!ctx.original) return null;
-  const perUnitSaving =
-    Number.parseFloat(ctx.original.item.shelf_price) - Number.parseFloat(ctx.item.shelf_price);
-  const quantity = Number.parseFloat(ctx.item.quantity) || 1;
-  return {
-    perUnit: Math.round(perUnitSaving * 100) / 100,
-    quantity,
-    total: Math.round(perUnitSaving * quantity * 100) / 100,
-  };
+  return shelfSaving(ctx.original.item.shelf_price, ctx.item);
 }

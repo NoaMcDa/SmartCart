@@ -184,6 +184,49 @@ judge is wired and tested but unmeasured; compare both on the real gold set befo
 record the result here. A cross-encoder was not built: the rule judge plus review covers the MVP
 catalog, and the LLM judge is the planned upgrade for the hard tail.
 
+## Allowed attributes: sibling canonicals (#31)
+
+The flexibility sheet lets a person check which soft attributes may differ for one list row
+(`pack_size`, `packaging`, `fat_pct`, `variety`, `flavor`). The web app sends them as
+`BasketItem.allow` to `/compare` and `/optimize` (the API answers 422 to any other key; at most
+five). Matching is per canonical, so `allow` does not loosen the judge: nothing changes in
+`item_canonical`, the gold set or the nightly precompute. It acts when a basket is priced
+(`smartcart_api.basket.sibling_candidates`):
+
+- **When.** Only with `flex_level` `any_brand` or `close`. `exact` ignores `allow`, and an empty
+  `allow` is the old behavior, response for response (tested byte for byte, `/compare` and
+  `/optimize`).
+- **Which canonicals.** A *sibling* of the requested canonical has the same product type, the same
+  taxonomy node and the same base unit. It qualifies only when every critical attribute that
+  differs from the requested canonical's is in `allow` (a critical key that only one of them
+  defines counts as differing), and at least one differs. A critical attribute the person did not
+  allow vetoes the sibling outright: with `allow = [fat_pct]`, a 1% cocoa milk is never offered for
+  a 3% milk because `flavor` differs too. At `any_brand` the sibling's typical soft attributes
+  (pack size, ...) must also equal the requested canonical's unless allowed; at `close` soft
+  differences are the level's own business.
+- **Which item.** The sibling's row of `effective_prices` at the same level (so the same
+  mappings: not `needs_review`, not human-rejected) and the same club gating as any line. At each
+  store the cheapest of the requested canonical's own offer and its siblings' wins by effective
+  unit price (per 100 g, 100 ml, unit or kg, so pack sizes compare by unit price); a tie keeps
+  the requested canonical. The quantity logic is the existing one (packs, promo bundles, weight).
+- **Always labeled.** A sibling's offer is `is_substitute = true`, carries the mapping confidence,
+  `original_item_id` (the store's own non-substitute item for the canonical when it has one), and a
+  `differs` tag for every critical attribute that made it a sibling (value from the item, or from
+  the sibling canonical when the item's value was never extracted). This is the mandatory
+  "every substitute is labeled" rule; `fat_pct` (the 3%-for-1% milk case) therefore only ever
+  happens as an explicit, labeled choice. `PricedItem.canonical_id` stays the requested canonical.
+- **What it does not do.** `pack_size`, `variety` and `packaging` are soft attributes, not critical
+  ones, so no pair of canonicals differs only in them and allowing them opens no sibling (a
+  `pack_size` allowance only matters together with another allowed attribute, when the sibling's
+  typical pack differs); the `close` level already covers a different pack size of the same
+  canonical. `packaging` is not an extracted attribute at all. They are accepted so the sheet's
+  keys never produce a 422. `flavor` opens siblings only for the product types where it is
+  critical (yogurt, cream cheese, ...). Swap suggestions (`/swaps`) price their alternatives
+  without `allow`.
+- **Evaluation.** The gold set measures the judge, which this does not touch: precision per level
+  is unchanged (1.00 at any brand, Hebrew and Arabic). The behavior is covered by
+  `services/api/tests/test_api_allow.py`.
+
 ## Attributes before extraction lands
 
 The judge needs item attributes. They come from `item_attributes` (the extraction pipeline, #25).

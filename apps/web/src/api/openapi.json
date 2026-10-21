@@ -145,6 +145,22 @@
       "BasketItem": {
         "additionalProperties": false,
         "properties": {
+          "allow": {
+            "description": "Attributes the person allows to differ (the flexibility sheet's checked soft attributes). With any_brand or close, a store may also offer an item of a sibling canonical (same product type and taxonomy node) that differs from the requested one only in these attributes; it is always a labeled substitute. Ignored when flex_level is exact. Unknown keys are rejected.",
+            "items": {
+              "enum": [
+                "pack_size",
+                "packaging",
+                "fat_pct",
+                "variety",
+                "flavor"
+              ],
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Allow",
+            "type": "array"
+          },
           "canonical_id": {
             "title": "Canonical Id",
             "type": "integer"
@@ -1080,6 +1096,127 @@
         "title": "OptimizeResponse",
         "type": "object"
       },
+      "OriginalOffer": {
+        "additionalProperties": false,
+        "description": "What the requested original (the non-substitute item) costs at the store a substitute is\nsold in. Display only: it never enters a total, a ranking or a saving.",
+        "properties": {
+          "canonical_name_ar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The canonical's first Arabic name, as on the line",
+            "title": "Canonical Name Ar"
+          },
+          "club_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Club Name"
+          },
+          "club_required": {
+            "default": false,
+            "title": "Club Required",
+            "type": "boolean"
+          },
+          "display_name_he": {
+            "title": "Display Name He",
+            "type": "string"
+          },
+          "effective_unit_price": {
+            "title": "Effective Unit Price",
+            "type": "string"
+          },
+          "is_estimated": {
+            "default": false,
+            "description": "Weighed goods",
+            "title": "Is Estimated",
+            "type": "boolean"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "line_total": {
+            "description": "The original at the line's quantity, promo folded",
+            "title": "Line Total",
+            "type": "string"
+          },
+          "price_valid_from": {
+            "format": "date-time",
+            "title": "Price Valid From",
+            "type": "string"
+          },
+          "promo_applied": {
+            "default": false,
+            "title": "Promo Applied",
+            "type": "boolean"
+          },
+          "promo_confidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo Confidence"
+          },
+          "promo_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo Description"
+          },
+          "promo_min_qty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo Min Qty"
+          },
+          "shelf_price": {
+            "title": "Shelf Price",
+            "type": "string"
+          },
+          "uom": {
+            "title": "Uom",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "display_name_he",
+          "shelf_price",
+          "effective_unit_price",
+          "uom",
+          "line_total",
+          "price_valid_from"
+        ],
+        "title": "OriginalOffer",
+        "type": "object"
+      },
       "ParseImageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1806,6 +1943,17 @@
           "line_total": {
             "title": "Line Total",
             "type": "string"
+          },
+          "original_here": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OriginalOffer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Substitutes only: the original's offer at this same store (the one original_item_id names), for an apples-to-apples comparison. null when the line is not a substitute or this store does not sell the original. Display only."
           },
           "original_item_id": {
             "anyOf": [

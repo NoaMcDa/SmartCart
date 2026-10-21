@@ -46,6 +46,27 @@ describe("listReducer", () => {
     expect(groupByDepartment(s.items).flatMap((g) => g.items)).toHaveLength(1);
   });
 
+  it("sends the allowed soft attributes with the basket, only for rows that are not exact", () => {
+    let s = add(EMPTY_LIST, "חלב, רסק עגבניות, סלמון");
+    const [milk, paste] = s.items;
+    s = listReducer(s, {
+      type: "setFlex",
+      id: milk!.id,
+      choice: { level: "any_brand", allow: ["fat_pct", "fat_pct", "color"], remember: false },
+    });
+    s = listReducer(s, {
+      type: "setFlex",
+      id: paste!.id,
+      choice: { level: "exact", allow: ["pack_size"], remember: false },
+    });
+    const [m, p, salmon] = basketItems(s);
+    // Repeats and keys the API does not know (it would answer 422) are dropped.
+    expect(m).toMatchObject({ canonical_id: 1001, allow: ["fat_pct"] });
+    // Exact ignores allow, and rows with nothing allowed send no field at all.
+    expect(p).not.toHaveProperty("allow");
+    expect(salmon).not.toHaveProperty("allow");
+  });
+
   it("flags low-confidence rows and resolves them on accept or pick", () => {
     let s = add(EMPTY_LIST, "שמן זית");
     const row = s.items[0]!;

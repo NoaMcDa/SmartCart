@@ -40,6 +40,49 @@ describe("mock API (typed client + MSW handlers)", () => {
     expect(res.disclaimer_he).toBe("המחיר הקובע הוא בקופה.");
   });
 
+  it("/compare and /optimize label the lines of a product whose request allowed an attribute", async () => {
+    const withAllow = items.map((i) =>
+      i.canonical_id === 1001 ? { ...i, allow: ["fat_pct" as const] } : i,
+    );
+    const plain = await compare({ items, location, home_store_id: 103 });
+    expect(
+      plain.stores.every(
+        (s) => s.substituted_count === s.items.filter((i) => i.is_substitute).length,
+      ),
+    ).toBe(true);
+    const res = await compare({ items: withAllow, location, home_store_id: 103 });
+    for (const s of res.stores) {
+      const milk = s.items.find((i) => i.canonical_id === 1001)!;
+      expect(milk.is_substitute).toBe(true);
+      expect((milk.tags ?? []).map((t) => t.status)).toContain("differs");
+      const before = plain.stores.find((p) => p.store_id === s.store_id)!;
+      const beforeMilk = before.items.find((i) => i.canonical_id === 1001)!;
+      // Only the allowed product is relabeled (a line that was a substitute already stays one)
+      // and no price moves.
+      expect(s.substituted_count).toBe(
+        before.substituted_count + (beforeMilk.is_substitute ? 0 : 1),
+      );
+      expect(s.total).toBe(before.total);
+    }
+    const opt = await optimize({ items: withAllow, location, home_store_id: 103 });
+    const line = opt.single.stores[0]!.store.items.find((i) => i.canonical_id === 1001)!;
+    expect(line.is_substitute).toBe(true);
+    expect(opt.single.substituted_count).toBe(
+      opt.single.stores.reduce((n, a) => n + a.store.substituted_count, 0),
+    );
+    // Exact ignores allow.
+    const exact = items.map((i) =>
+      i.canonical_id === 1001
+        ? { ...i, flex_level: "exact" as const, allow: ["fat_pct" as const] }
+        : i,
+    );
+    const ex = await compare({ items: exact, location, home_store_id: 103 });
+    expect(
+      ex.stores.find((s) => s.store_id === 103)!.items.find((i) => i.canonical_id === 1001)!
+        .is_substitute,
+    ).toBe(false);
+  });
+
   it("/optimize returns single ₪389, split ₪371 and the home store ₪446 as minimum effort", async () => {
     const res = await optimize({
       items,
