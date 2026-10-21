@@ -11,6 +11,11 @@
  * that item, and an edit to an item added while offline folds into its "add". Edits to an item
  * somebody else deleted meanwhile do nothing. The queue holds item ids, quantities and the names
  * of items the person added: no location, no profile, no prices.
+ *
+ * An edit of an existing item also remembers what the person saw when making it: `base`, the item's
+ * version (`updated_at`), and `from`, the value of the field they changed. The replay sends `base`
+ * as the precondition of the per-item write; when the item changed meanwhile the server answers 409
+ * with its current row and `itemWrites.ts` decides, from `from`, whether the edit still makes sense.
  */
 import { useSyncExternalStore } from "react";
 import { ApiError } from "@/api/client";
@@ -21,10 +26,13 @@ export const SHARED_QUEUE_KEY = "sc-shared-queue-v1";
 /** More than this many pending edits for one list drops the oldest, so a long outage cannot fill storage. */
 export const MAX_QUEUED_EDITS = 200;
 
+/** What the person saw when they made the edit; absent on edits queued before this existed. */
+type Seen = { base?: string | null };
+
 export type QueuedEdit =
-  | { kind: "quantity"; itemId: number; quantity: number }
-  | { kind: "checked"; itemId: number; checked: boolean }
-  | { kind: "remove"; itemId: number }
+  | ({ kind: "quantity"; itemId: number; quantity: number; from?: number } & Seen)
+  | ({ kind: "checked"; itemId: number; checked: boolean; from?: boolean } & Seen)
+  | ({ kind: "remove"; itemId: number } & Seen)
   /** `itemId` is a negative placeholder until the server gives the row its real id. */
   | { kind: "add"; itemId: number; canonicalId: number | null; name: string; quantity: number };
 
@@ -40,11 +48,18 @@ function isEdit(raw: unknown): raw is QueuedEdit {
   if (!raw || typeof raw !== "object") return false;
   const e = raw as Record<string, unknown>;
   if (typeof e.itemId !== "number" || !Number.isFinite(e.itemId)) return false;
+  if (e.base !== undefined && e.base !== null && typeof e.base !== "string") return false;
   switch (e.kind) {
     case "quantity":
-      return typeof e.quantity === "number" && e.quantity > 0;
+      return (
+        typeof e.quantity === "number" &&
+        e.quantity > 0 &&
+        (e.from === undefined || typeof e.from === "number")
+      );
     case "checked":
-      return typeof e.checked === "boolean";
+      return (
+        typeof e.checked === "boolean" && (e.from === undefined || typeof e.from === "boolean")
+      );
     case "remove":
       return true;
     case "add":
@@ -123,6 +138,18 @@ export function useQueuedCount(listId: number): number {
   );
 }
 
+/**
+ * A newer edit of the same field takes the place of an older one, but what the person saw is what
+ * they saw before the first of them: the version and the value the server had.
+ */
+function keepFirstSeen<T extends QueuedEdit>(edit: T, earlier: QueuedEdit | undefined): T {
+  if (!earlier || earlier.kind === "add") return edit;
+  const seen: { base?: string | null; from?: number | boolean } = {};
+  if (earlier.base !== undefined) seen.base = earlier.base;
+  if ("from" in earlier && earlier.from !== undefined) seen.from = earlier.from;
+  return { ...edit, ...seen };
+}
+
 /** Pure: the queue after `edit`, with the coalescing rules above. */
 export function coalesce(queue: ReadonlyArray<QueuedEdit>, edit: QueuedEdit): QueuedEdit[] {
   const mine = (e: QueuedEdit) => e.itemId === edit.itemId;
@@ -133,10 +160,19 @@ export function coalesce(queue: ReadonlyArray<QueuedEdit>, edit: QueuedEdit): Qu
           e.kind === "add" && mine(e) ? { ...e, quantity: edit.quantity } : e,
         );
       }
-      return [...queue.filter((e) => !(e.kind === "quantity" && mine(e))), edit];
+      const earlier = queue.find((e) => e.kind === "quantity" && mine(e));
+      return [
+        ...queue.filter((e) => !(e.kind === "quantity" && mine(e))),
+        keepFirstSeen(edit, earlier),
+      ];
     }
-    case "checked":
-      return [...queue.filter((e) => !(e.kind === "checked" && mine(e))), edit];
+    case "checked": {
+      const earlier = queue.find((e) => e.kind === "checked" && mine(e));
+      return [
+        ...queue.filter((e) => !(e.kind === "checked" && mine(e))),
+        keepFirstSeen(edit, earlier),
+      ];
+    }
     case "remove": {
       const addedOffline = queue.some((e) => e.kind === "add" && mine(e));
       const rest = queue.filter((e) => !mine(e));
@@ -180,19 +216,43 @@ export function dropFirstEdits(listId: number, count: number): void {
 /**
  * An item added offline reached the server and got its real id: removes the "add" (the first
  * edit, just sent) and gives the edits still waiting for that item (a tick, a quantity, a removal)
- * the real id, in one write. A flush that fails right after, or a reload, then retries those edits
+ * the real id (and, as what they were made on, the saved row's version), in one write. A flush that fails right after, or a reload, then retries those edits
  * against the real row instead of the placeholder, which no row has.
  */
-export function completeAdd(listId: number, placeholder: number, realId: number): void {
+export function completeAdd(
+  listId: number,
+  placeholder: number,
+  realId: number,
+  version: string | null = null,
+): void {
   const state = load();
   const key = String(listId);
   const rest = (state.lists[key] ?? [])
     .slice(1)
-    .map((e) => (e.itemId === placeholder ? { ...e, itemId: realId } : e));
+    .map((e) =>
+      e.itemId === placeholder
+        ? { ...e, itemId: realId, ...(version && e.kind !== "add" ? { base: version } : {}) }
+        : e,
+    );
   const lists = { ...state.lists };
   if (rest.length > 0) lists[key] = rest;
   else delete lists[key];
   save(lists);
+}
+
+/**
+ * An edit of an item was saved and the item has a new version: the edits still waiting for the same
+ * item were made on the version before, which was this person's own earlier change, so they move on
+ * to the new one (otherwise they would conflict with the edit that was just sent).
+ */
+export function rebaseEdits(listId: number, itemId: number, from: string | null, to: string): void {
+  if (!from) return;
+  const state = load();
+  const key = String(listId);
+  const queue = state.lists[key] ?? [];
+  const stale = (e: QueuedEdit) => e.kind !== "add" && e.itemId === itemId && e.base === from;
+  if (!queue.some(stale)) return;
+  save({ ...state.lists, [key]: queue.map((e) => (stale(e) ? { ...e, base: to } : e)) });
 }
 
 export function clearEdits(listId: number): void {
@@ -223,6 +283,7 @@ export function applyEdit(items: ReadonlyArray<SharedItem>, edit: QueuedEdit): S
           checked: false,
           sort,
           updatedAt: null,
+          version: null,
         },
       ];
     }

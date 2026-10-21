@@ -7,11 +7,15 @@
  * then kept current by a Supabase Realtime subscription on `list_items` filtered to this list;
  * edits go straight to `list_items` (row-level security lets only members through) and are applied
  * optimistically, then confirmed or rolled back. Otherwise ("polling" mode, mock and local
- * development): the list is read from `GET /me/lists/{id}` every few seconds and edits are sent as
- * a `PUT`, so two browsers still see each other. Merge rule: see `listSync.ts`.
+ * development): the list is read from `GET /me/lists/{id}` every few seconds and every edit is
+ * sent as one per-item write (`POST` / `PATCH` / `DELETE /me/lists/{id}/items`, owner and editors)
+ * carrying the item's version, so two browsers still see each other and two people editing within
+ * one poll interval no longer overwrite each other: on a stale version the API answers 409 with the
+ * current item and `itemWrites.ts` merges. Merge rule for incoming rows: see `listSync.ts`.
  *
  * Offline (issue #101): an edit that fails because there is no connection is kept on screen and
- * queued in localStorage (`offlineQueue.ts`); the queue is replayed when the browser reports it is
+ * queued in localStorage (`offlineQueue.ts`; in polling mode every edit goes through that queue, so
+ * online and offline edits take one path, in order); the queue is replayed when the browser reports it is
  * online again, when the next poll or reconnect succeeds, and on the next visit. A server refusal
  * still rolls the edit back. The owner's member list changes optimistically too: revoking an
  * invite or removing a member disappears at once and comes back if the call fails.
@@ -23,7 +27,6 @@ import {
   listMembers,
   removeMember,
   revokeShareById,
-  updateList,
   type ListMember,
   type CanonicalRef,
 } from "@/api/client";
@@ -31,14 +34,8 @@ import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { getSupabase } from "@/features/auth/supabaseClient";
 import type { ShareMessageKey } from "@/i18n/messages/share";
-import {
-  applyChange,
-  changeFromPayload,
-  itemFromRow,
-  itemsOf,
-  serverBody,
-  type SharedItem,
-} from "./listSync";
+import { writeItem, type WriteOutcome } from "./itemWrites";
+import { applyChange, changeFromPayload, itemFromRow, itemsOf, type SharedItem } from "./listSync";
 import {
   applyEdit,
   applyEdits,
@@ -49,6 +46,7 @@ import {
   isNetworkFailure,
   placeholderId,
   queuedEdits,
+  rebaseEdits,
   useQueuedCount,
   type QueuedEdit,
 } from "./offlineQueue";
@@ -68,6 +66,20 @@ function statusOf(err: unknown): LoadStatus {
 }
 
 type Supabase = NonNullable<ReturnType<typeof getSupabase>>;
+
+/**
+ * `change` with what the person sees right now: the item's version and the value of the field they
+ * are changing. The write sends the version as its precondition, and a conflict is merged by the
+ * value (`itemWrites.ts`).
+ */
+function withSeen(change: QueuedEdit, items: ReadonlyArray<SharedItem>): QueuedEdit {
+  if (change.kind === "add") return change;
+  const row = items.find((i) => i.id === change.itemId);
+  if (!row) return change;
+  if (change.kind === "quantity") return { ...change, from: row.quantity, base: row.version };
+  if (change.kind === "checked") return { ...change, from: row.checked, base: row.version };
+  return { ...change, base: row.version };
+}
 
 /** Which row a member or invite is, whatever refreshes replace the object. */
 const memberKey = (m: ListMember) =>
@@ -168,10 +180,12 @@ export function useSharedList(listId: number) {
   );
 
   /**
-   * Replays the queue, oldest first, once the connection is back. Polling mode reads the list,
-   * lays the edits on it and writes it whole; realtime mode writes each edit. A failure that is
-   * still "no connection" keeps the rest for the next try; anything the server refuses is dropped
-   * and the list is read again, with a note.
+   * Replays the queue, oldest first, once the connection is back (and, in polling mode, for every
+   * edit: it is the one path that writes). Polling mode writes each edit to its item with the
+   * version the person saw (`itemWrites.ts`); realtime mode writes each edit to Supabase. A failure
+   * that is still "no connection" keeps the rest for the next try; anything the server refuses is
+   * dropped with a note, the list is read again, and an edit that lost to somebody else's change
+   * to the same item says so quietly.
    */
   const flush = useCallback(async () => {
     if (flushing.current || inflight.current > 0) return;
@@ -179,67 +193,104 @@ export function useSharedList(listId: number) {
     if (typeof navigator !== "undefined" && navigator.onLine === false) return;
     flushing.current = true;
     inflight.current += 1;
-    let refused = false;
+    const refusedEdits: QueuedEdit[] = [];
+    let unexpected = false;
+    let superseded = false;
     try {
       ensureApiAuth();
       // Edits made while this runs are queued behind the ones being sent, so go round again.
       for (let round = 0; round < 5; round++) {
         const edits = queuedEdits(listId);
         if (edits.length === 0) break;
-        if (supabase) {
-          // An item added offline has a placeholder id; later edits of it use the real id. The
-          // queue itself is rewritten with the real id when the add is saved (`completeAdd`), so
-          // a flush that fails after the add retries the tick against the real row.
-          const realIds = new Map<number, number>();
-          for (const original of edits) {
-            const change = {
-              ...original,
-              itemId: realIds.get(original.itemId) ?? original.itemId,
-            };
-            let added: SharedItem | null = null;
-            try {
+        // An item added offline has a placeholder id; later edits of it use the real id. The
+        // queue itself is rewritten with the real id when the add is saved (`completeAdd`), so
+        // a flush that fails after the add retries the tick against the real row.
+        const realIds = new Map<number, number>();
+        for (const original of edits) {
+          const change = {
+            ...original,
+            itemId: realIds.get(original.itemId) ?? original.itemId,
+          };
+          let added: SharedItem | null = null;
+          let outcome: WriteOutcome | null = null;
+          try {
+            if (supabase) {
               const saved = await writeRealtime(supabase, change);
               if (saved && original.kind === "add") added = saved;
-            } catch (err) {
-              if (isNetworkFailure(err)) throw err;
-              refused = true;
+            } else {
+              outcome = await writeItem(listId, change);
+              if (original.kind === "add" && outcome.item) added = outcome.item;
             }
-            if (added) {
-              realIds.set(original.itemId, added.id);
-              completeAdd(listId, original.itemId, added.id);
-              // The draft row on screen becomes the saved one. A tick made meanwhile stays: it is
-              // in the queue under the real id now.
-              const row = added;
+          } catch (err) {
+            if (isNetworkFailure(err)) throw err;
+            refusedEdits.push(original);
+          }
+          if (added) {
+            realIds.set(original.itemId, added.id);
+            completeAdd(listId, original.itemId, added.id, added.version);
+            // The draft row on screen becomes the saved one. A tick made meanwhile stays: it is
+            // in the queue under the real id now.
+            const row = added;
+            commit(
+              withQueue(
+                applyChange(
+                  itemsRef.current.filter((i) => i.id !== original.itemId),
+                  { type: "upsert", item: row },
+                ),
+              ),
+            );
+          } else {
+            dropFirstEdits(listId, 1);
+            if (outcome) {
+              if (outcome.superseded) superseded = true;
+              const server = outcome.item;
+              // The edits waiting for this item were made on the version this one replaced.
+              if (outcome.saved && server?.version) {
+                rebaseEdits(
+                  listId,
+                  server.id,
+                  "base" in change ? (change.base ?? null) : null,
+                  server.version,
+                );
+              }
+              // The item as the server has it now (or gone): what the screen shows, with the
+              // edits still waiting on top.
               commit(
                 withQueue(
                   applyChange(
-                    itemsRef.current.filter((i) => i.id !== original.itemId),
-                    { type: "upsert", item: row },
+                    itemsRef.current,
+                    server
+                      ? { type: "upsert", item: server }
+                      : { type: "remove", id: change.itemId },
                   ),
                 ),
               );
-            } else {
-              dropFirstEdits(listId, 1);
             }
           }
-        } else {
-          const server = await getList(listId);
-          const merged = applyEdits(itemsOf(server), edits);
-          await updateList(listId, serverBody(server.name, merged));
-          dropFirstEdits(listId, edits.length);
         }
       }
     } catch (err) {
       if (!isNetworkFailure(err)) {
         clearEdits(listId);
-        refused = true;
+        unexpected = true;
       }
     } finally {
       inflight.current -= 1;
       flushing.current = false;
     }
-    if (refused) setMessage("msgPartial");
-    if (queuedEdits(listId).length === 0) await load();
+    // Read the list first: the person sees a refused edit undone together with its note. Polling
+    // mode has the saved rows already and the next poll is a few seconds away, so it reads only to
+    // undo a refusal.
+    const refused = refusedEdits.length > 0 || unexpected;
+    if ((supabase || refused) && queuedEdits(listId).length === 0) await load();
+    if (refused) {
+      const only = refusedEdits.length === 1 && !unexpected ? refusedEdits[0]! : null;
+      setMessage(
+        !supabase && only ? (only.kind === "add" ? "msgAddFailed" : REFUSED) : "msgPartial",
+      );
+    } else if (superseded) {
+      setMessage("msgSuperseded");
+    }
   }, [listId, supabase, writeRealtime, load, commit, withQueue]);
 
   // First read, and a new one whenever the sync mode changes (signing in mid-session).
@@ -330,6 +381,11 @@ export function useSharedList(listId: number) {
       editSeq.current += 1;
       commit(next);
       setMessage(null);
+      if (!supabase) {
+        // Polling mode: queue the edit with what the person saw, and let the flush write it.
+        enqueueEdit(listId, withSeen(change, previous), { append: flushing.current });
+        return flush();
+      }
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
       if (offline || queuedEdits(listId).length > 0 || flushing.current) {
         enqueueEdit(listId, change, { append: flushing.current });
@@ -337,21 +393,15 @@ export function useSharedList(listId: number) {
       }
       inflight.current += 1;
       try {
-        if (supabase) {
-          const saved = await writeRealtime(supabase, change);
-          // Swap the draft for the real row; the Realtime INSERT for the same id is then an update.
-          if (saved && change.kind === "add") {
-            commit(
-              applyChange(
-                itemsRef.current.filter((i) => i.id !== change.itemId),
-                { type: "upsert", item: saved },
-              ),
-            );
-          }
-        } else {
-          ensureApiAuth();
-          const saved = await updateList(listId, serverBody(nameRef.current, next));
-          commit(withQueue(itemsOf(saved)));
+        const saved = await writeRealtime(supabase, change);
+        // Swap the draft for the real row; the Realtime INSERT for the same id is then an update.
+        if (saved && change.kind === "add") {
+          commit(
+            applyChange(
+              itemsRef.current.filter((i) => i.id !== change.itemId),
+              { type: "upsert", item: saved },
+            ),
+          );
         }
       } catch (err) {
         if (isNetworkFailure(err)) {
@@ -364,7 +414,7 @@ export function useSharedList(listId: number) {
         inflight.current -= 1;
       }
     },
-    [supabase, listId, commit, writeRealtime, withQueue],
+    [supabase, listId, commit, writeRealtime, flush],
   );
 
   const setQuantity = useCallback(

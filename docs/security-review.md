@@ -291,7 +291,7 @@ fails for a new route that is neither protected nor in the explicit public list.
   `test_the_docs_keep_working_without_the_api_csp`, `test_hsts_only_over_https`).
 - CORS was reviewed and not changed: the origins come from `API_CORS_ORIGINS`, there is no wildcard
   and no credentials flag (the token is a header, not a cookie), headers are `Authorization`,
-  `Content-Type`, `X-Image-Consent`, methods GET, POST, PUT, DELETE, OPTIONS. Now pinned by
+  `Content-Type`, `X-Image-Consent`, methods GET, POST, PUT, PATCH, DELETE, OPTIONS (PATCH was added with the per-item list routes). Now pinned by
   `test_cors_allows_only_the_configured_origins`, `test_cors_never_allows_credentials_and_limits_headers_and_methods`.
   `API_CORS_ORIGINS` defaulting to `http://localhost:3000` is harmless (a local origin) but must be set in
   production (`docs/deploy.md` already says so).

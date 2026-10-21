@@ -14,6 +14,7 @@ import {
   placeholderId,
   queuedCount,
   queuedEdits,
+  rebaseEdits,
   resetQueueForTests,
   SHARED_QUEUE_KEY,
   type QueuedEdit,
@@ -28,6 +29,7 @@ const item = (over: Partial<SharedItem> & { id: number }): SharedItem => ({
   checked: false,
   sort: over.id,
   updatedAt: null,
+  version: null,
   ...over,
 });
 
@@ -247,5 +249,78 @@ describe("placeholder ids", () => {
     const ids = new Set([placeholderId(), placeholderId(), placeholderId()]);
     expect(ids.size).toBe(3);
     for (const id of ids) expect(id).toBeLessThan(0);
+  });
+});
+
+describe("what the person saw (version and value) travels with the edit", () => {
+  it("a newer edit of the same field keeps what was seen before the first one", () => {
+    let q: QueuedEdit[] = [];
+    q = coalesce(q, { kind: "quantity", itemId: 1, quantity: 3, from: 2, base: "v1" });
+    q = coalesce(q, { kind: "quantity", itemId: 1, quantity: 4, from: 3, base: "v1" });
+    expect(q).toEqual([{ kind: "quantity", itemId: 1, quantity: 4, from: 2, base: "v1" }]);
+    q = coalesce(q, { kind: "checked", itemId: 1, checked: true, from: false, base: "v1" });
+    q = coalesce(q, { kind: "checked", itemId: 1, checked: false, from: true, base: "v1" });
+    expect(q[1]).toEqual({ kind: "checked", itemId: 1, checked: false, from: false, base: "v1" });
+  });
+
+  it("an edit queued by an older version of the app (no version) still loads", () => {
+    window.localStorage.setItem(
+      SHARED_QUEUE_KEY,
+      JSON.stringify({
+        version: 1,
+        lists: { "1": [{ kind: "checked", itemId: 2, checked: true }] },
+      }),
+    );
+    resetQueueForTests();
+    expect(queuedEdits(1)).toEqual([{ kind: "checked", itemId: 2, checked: true }]);
+  });
+
+  it("drops an edit whose version or value has the wrong type", () => {
+    window.localStorage.setItem(
+      SHARED_QUEUE_KEY,
+      JSON.stringify({
+        version: 1,
+        lists: {
+          "1": [
+            { kind: "checked", itemId: 2, checked: true, base: 5 },
+            { kind: "quantity", itemId: 2, quantity: 2, from: "x" },
+            { kind: "remove", itemId: 2, base: "v1" },
+          ],
+        },
+      }),
+    );
+    resetQueueForTests();
+    expect(queuedEdits(1)).toEqual([{ kind: "remove", itemId: 2, base: "v1" }]);
+  });
+
+  it("rebaseEdits moves the waiting edits of one item to its new version, and only those", () => {
+    enqueueEdit(4, { kind: "quantity", itemId: 1, quantity: 3, from: 2, base: "v1" });
+    enqueueEdit(4, { kind: "checked", itemId: 1, checked: true, from: false, base: "v1" });
+    enqueueEdit(4, { kind: "checked", itemId: 2, checked: true, from: false, base: "v1" });
+    enqueueEdit(4, { kind: "quantity", itemId: 5, quantity: 3, from: 2, base: "other" });
+    rebaseEdits(4, 1, "v1", "v2");
+    expect(queuedEdits(4).map((e) => [e.itemId, "base" in e ? e.base : undefined])).toEqual([
+      [1, "v2"],
+      [1, "v2"],
+      [2, "v1"],
+      [5, "other"],
+    ]);
+    rebaseEdits(4, 1, null, "v9"); // no version to move from: nothing
+    expect(queuedEdits(4)[0]).toMatchObject({ base: "v2" });
+  });
+
+  it("completeAdd gives the waiting edits the saved row's version as what they were made on", () => {
+    enqueueEdit(3, { kind: "add", itemId: -5, canonicalId: 1, name: "x", quantity: 1 });
+    enqueueEdit(3, { kind: "checked", itemId: -5, checked: true, from: false, base: null });
+    completeAdd(3, -5, 900, "2026-10-21T10:00:00.123456Z");
+    expect(queuedEdits(3)).toEqual([
+      {
+        kind: "checked",
+        itemId: 900,
+        checked: true,
+        from: false,
+        base: "2026-10-21T10:00:00.123456Z",
+      },
+    ]);
   });
 });

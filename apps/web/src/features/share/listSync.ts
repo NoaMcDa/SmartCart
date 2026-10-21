@@ -2,13 +2,13 @@
  * The shared list's items and how changes merge into them (issue #34).
  *
  * Conflict rule, per item and never per list: a change to an item replaces what we know of it
- * unless it is older. "Older" is decided by the row's `updated_at` when the server sends one;
- * without it (the API's `ShoppingList` has none yet) the latest change we receive wins, which is
- * last-write-wins by arrival order. Two people editing different items never touch each other's
- * rows, so nothing is lost; a delete removes only that item; an insert whose id is already known is
- * an update, so a reconnect that replays events cannot duplicate an item.
+ * unless it is older. "Older" is decided by the row's `updated_at` (the API sends it for every
+ * item). Two people editing different items never touch each other's rows, so nothing is lost; a
+ * delete removes only that item; an insert whose id is already known is an update, so a reconnect
+ * that replays events cannot duplicate an item. Edits to the same item are written with the version
+ * they were made on (`SharedItem.version`); see `itemWrites.ts` for what happens when it is stale.
  */
-import type { FlexLevel, ListItemInput, ShoppingList, ShoppingListInput } from "@/api/client";
+import type { FlexLevel, ShoppingList } from "@/api/client";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import { translate } from "@/i18n/messages";
 import { shareMessages } from "@/i18n/messages/share";
@@ -30,6 +30,12 @@ export type SharedItem = {
   sort: number;
   /** Epoch ms of the row's `updated_at`, when the server sent one. */
   updatedAt: number | null;
+  /**
+   * The row's `updated_at` exactly as the server wrote it (microseconds): sent back as
+   * `expected_updated_at` so the server can tell whether the item changed since this was read.
+   * Null for a row that has not been saved yet.
+   */
+  version: string | null;
 };
 
 export type RawRow = {
@@ -63,6 +69,7 @@ export function itemFromRow(row: RawRow): SharedItem | null {
     checked: row.checked === true,
     sort: typeof row.sort === "number" ? row.sort : 0,
     updatedAt: Number.isFinite(updated) ? updated : null,
+    version: row.updated_at || null,
   };
 }
 
@@ -125,17 +132,4 @@ export function changeFromPayload(payload: {
   }
   const item = payload.new ? itemFromRow(payload.new) : null;
   return item ? { type: "upsert", item } : null;
-}
-
-/** The full list as a PUT body, for the polling fallback (the API replaces the item set). */
-export function serverBody(name: string, items: ReadonlyArray<SharedItem>): ShoppingListInput {
-  const rows: ListItemInput[] = items.map((i) => ({
-    canonical_id: i.canonicalId,
-    input_text: i.name || null,
-    quantity: i.quantity,
-    flex_level: i.flexLevel,
-    confirmed: i.confirmed,
-    checked: i.checked,
-  }));
-  return { name, is_recurring: false, items: rows };
 }

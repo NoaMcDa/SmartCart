@@ -177,7 +177,9 @@ describe("shared list screen, polling mode (not signed in, mock)", () => {
   it("puts the list back and says so when a save fails", async () => {
     await api("/me/lists", "POST", WEEK);
     server.use(
-      http.put(`${API_BASE_URL}/me/lists/:id`, () => HttpResponse.json({}, { status: 500 })),
+      http.delete(`${API_BASE_URL}/me/lists/:id/items/:itemId`, () =>
+        HttpResponse.json({}, { status: 500 }),
+      ),
     );
     const user = userEvent.setup();
     render(<SharedListScreen listId={1} />);

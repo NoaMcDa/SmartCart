@@ -14,6 +14,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import (
+    AwareDatetime,
     BaseModel,
     ConfigDict,
     Field,
@@ -570,6 +571,12 @@ class Profile(ProfileUpdate):
 
 
 class ListItemIn(_Model):
+    id: int | None = Field(
+        default=None,
+        description="PUT /me/lists/{id} only: an id of an item of this list keeps that row (its id "
+        "and its other members' view of it) and updates it; no id, or an id this list does not "
+        "have, adds an item. Ignored when creating a list and by POST /me/lists/{id}/items.",
+    )
     canonical_id: int | None = None
     input_text: str | None = Field(default=None, max_length=200)
     quantity: Quantity = Decimal(1)
@@ -583,6 +590,42 @@ class ListItem(ListItemIn):
     sort: int
     # A stored quantity is read back as stored; the input limits apply to what is written.
     quantity: Decimal = Field(default=Decimal(1), gt=0)
+    updated_at: datetime = Field(
+        description="The item's version: moves whenever the item changes, by any member and by any "
+        "path. Send it back as expected_updated_at to PATCH or DELETE the item only if nobody "
+        "changed it since you read it (a 409 answers with the current row otherwise)."
+    )
+
+
+class ListItemPatch(_Model):
+    """``PATCH /me/lists/{id}/items/{item_id}``: only the fields named are changed."""
+
+    canonical_id: int | None = None
+    input_text: str | None = Field(default=None, max_length=200)
+    quantity: Quantity | None = None
+    flex_level: FlexLevel | None = None
+    confirmed: bool | None = None
+    checked: bool | None = None
+    expected_updated_at: AwareDatetime | None = Field(
+        default=None,
+        description="The item's updated_at as you last read it. When it is not the item's current "
+        "version (compared to the millisecond) nothing is changed and the answer is a 409 "
+        "carrying the current row. Omitted: the change is applied whatever the version.",
+    )
+
+    @model_validator(mode="after")
+    def _only_nullable_fields_may_be_null(self) -> ListItemPatch:
+        for name in ("quantity", "flex_level", "confirmed", "checked"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be null")
+        return self
+
+
+class ListItemConflict(_Model):
+    """The 409 body of the per-item routes: the item as it is now."""
+
+    detail: str
+    current: ListItem
 
 
 class ShoppingListIn(_Model):

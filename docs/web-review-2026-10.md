@@ -153,7 +153,7 @@ function is new).
 
 ### Proposal: per-item writes for the shared list in polling mode
 
-Status: not implemented, because it needs an API change (the task was to leave the API alone).
+Status: **done** (see "Implemented" at the end of this section). The text below is the proposal as it was written, kept for the reasoning.
 
 What the polling fallback does today (`useSharedList`, mode "polling": no Supabase client, that is
 the mock and local development, never a signed-in production session): an edit sends the whole list
@@ -195,6 +195,47 @@ same optimistic update, queue and rollback; the poll merges with `applyChange` b
 `updatedAt` (it already skips an older row); `completeAdd` (above) covers placeholder ids the same
 way. Tests: two clients editing different items within one poll keep both; the same item keeps the
 later; an edit queued offline replays per item.
+
+#### Implemented
+
+API (`docs/api.md`, "Per-item writes"): `POST /me/lists/{id}/items`, `PATCH` and `DELETE
+/me/lists/{id}/items/{item_id}` for the owner and accepted editors (viewer 403, stranger 404, the
+item must belong to the list in the path), `list_items.updated_at` kept by a trigger (migration
+`20261022090000_list_items_updated_at.sql`), an `expected_updated_at` precondition (body field of
+PATCH, query parameter of DELETE) that answers 409 with the current row, an id-stable `PUT`, and
+`PATCH` in the CORS methods. Two departures from the proposal: the precondition is a field, not
+`If-Unmodified-Since` (one-second resolution), and `PUT` has no `base_updated_at` (the web app no
+longer uses it for edits, and a whole-list replace cannot merge anyway).
+
+Web (`features/share`): in polling mode every edit is applied on screen, queued with what the
+person saw (`base`, the item's version, and `from`, the value of the field), and written by the
+flush as one per-item call (`itemWrites.ts`); online and offline edits take the same path, in
+order, and an add that reached the server renames the waiting edits to the real id and the saved
+row's version (`completeAdd`). Realtime mode is unchanged.
+
+Merge rule on 409 (`mergeVerdict`), per item and per field, never for the list; the server row is
+always what the screen shows afterwards:
+
+| The person's edit | The item now | Result |
+|---|---|---|
+| tick / quantity | already has the value they wanted | nothing to do, no note |
+| tick / quantity | the field is still what they saw; another field changed | sent again on the current version, both changes stay, no note |
+| tick / quantity | the same field has another value | the other person's value stays; the edit is dropped with a quiet note (`msgSuperseded`, he and ar) |
+| remove | changed by somebody since | the item stays, same note |
+| remove | already gone (404) | done |
+| tick / quantity | gone (404) | the row leaves the screen, same note |
+| any | keeps changing for 3 rounds | dropped, same note |
+
+Tests: `services/api/tests/test_api_list_items.py` (29: every route for owner, editor, viewer and
+stranger, IDOR, 409 on PATCH and DELETE, millisecond matching, the trigger, size cap, id-stable
+PUT), `test_api_security_data_api.py` (a version cannot be forged through PostgREST),
+`itemWrites.test.ts`, `sharedList.concurrent.test.tsx` (two editors within one poll, 409 merge,
+offline replay), `offlineQueue.test.ts`, `mocks/handlers.lists.test.ts`, and the e2e spec
+`phase2-share-swaps` ("two devices editing within one poll interval").
+
+Not covered: an add whose response is lost is sent again after the reconnect and can create the
+item twice (the same as realtime mode's insert); an idempotency key on `POST` would close it. The
+list's own `updated_at` does not move when an item changes.
 
 ## Verification
 
