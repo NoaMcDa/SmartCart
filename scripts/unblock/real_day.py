@@ -487,12 +487,69 @@ def promo_diagnostics(conn, adapter, path: Path, file_id: int, now: datetime) ->
         "reward_types": dict(Counter(p.reward_type for p in promos)),
         "sample_promo_codes": codes[:3],
         "sample_item_codes": item_sample,
+        "sample_promo": (
+            {
+                "description": promos[0].description[:120],
+                "reward_type": promos[0].reward_type,
+                "reward_value": str(promos[0].reward_value),
+                "min_qty": str(promos[0].min_qty),
+                "raw_keys": sorted(promos[0].raw)[:30],
+                "raw": json.dumps(promos[0].raw, ensure_ascii=False, default=str)[:600],
+            }
+            if promos
+            else None
+        ),
     }
 
 
 def _short_plan(line: str) -> str:
     """An EXPLAIN line without the query vector's 1024 numbers."""
     return re.sub(r"'\[[^']*\]'::vector", "<query vector>", line)
+
+
+def parse_list_profile(db_url: str) -> dict:
+    """Time every SQL statement one /parse-list call runs (``psycopg.Cursor.execute`` wrapped for
+    the call) and report the statements that cost the most, by their first 110 characters."""
+    import psycopg
+    from fastapi.testclient import TestClient
+
+    os.environ["DATABASE_URL"] = db_url
+    from smartcart_api.main import app
+
+    spent: dict[str, list[float]] = defaultdict(list)
+    original = psycopg.Cursor.execute
+
+    def timed(self, query, *args, **kwargs):
+        t0 = time.perf_counter()
+        try:
+            return original(self, query, *args, **kwargs)
+        finally:
+            key = " ".join(
+                str(getattr(query, "as_string", lambda _c: query)(self.connection)).split()
+            )
+            spent[key[:110]].append((time.perf_counter() - t0) * 1000)
+
+    text = HAND_BASKETS["small (6 lines)"]
+    with TestClient(app) as client:
+        client.post("/parse-list", json={"text": text})  # warm up the pool and the embedder
+        spent.clear()
+        psycopg.Cursor.execute = timed
+        try:
+            t0 = time.perf_counter()
+            client.post("/parse-list", json={"text": text})
+            total = (time.perf_counter() - t0) * 1000
+        finally:
+            psycopg.Cursor.execute = original
+    rows = sorted(spent.items(), key=lambda kv: -sum(kv[1]))
+    return {
+        "total_ms": round(total, 1),
+        "sql_ms": round(sum(sum(v) for v in spent.values()), 1),
+        "statements": sum(len(v) for v in spent.values()),
+        "top": [
+            {"sql": k, "calls": len(v), "total_ms": round(sum(v), 1), "max_ms": round(max(v), 1)}
+            for k, v in rows[:6]
+        ],
+    }
 
 
 def search_diagnostics(db_url: str) -> dict:
@@ -535,6 +592,7 @@ def search_diagnostics(db_url: str) -> dict:
         t0 = time.perf_counter()
         conn.execute(sql, params).fetchall()
         out["vector_query_ms_index_forced"] = round((time.perf_counter() - t0) * 1000, 1)
+    out["parse_list_profile"] = parse_list_profile(db_url)
     return out
 
 
@@ -1026,7 +1084,7 @@ def run_all(args: argparse.Namespace) -> dict:
                         names, err = scrape_subprocess(
                             extra_dir, slug, kind, store_file_regex(kind, codes),
                             limit=len(codes) * 3,
-                            timeout=args.timeout * (2 if kind == "promo_full" else 1))  # fmt: skip
+                            timeout=args.extra_timeout)  # fmt: skip
                         newest = newest_per_store(names, cls().parse_filename)
                         keep = set(newest.values())
                         for name in names:  # one file per store: the newest
@@ -1279,6 +1337,16 @@ def render_report(res: dict) -> str:
                 f"{_n(d['active_now'])} | {_n(d['club_only'])} | {md_escape(d['reward_types'])} |"
             )
         a("")
+        for f in promo_rows:
+            sp = f["promo_diag"].get("sample_promo")
+            if sp and not f["promo_diag"]["promos_with_codes"]:
+                a(f"First promo of `{f['file']}` as the adapter returns it:")
+                a("")
+                a("```")
+                a(json.dumps(sp, ensure_ascii=False, indent=1))
+                a("```")
+                a("")
+                break
         samples = [
             f"{f['chain']} {f['promo_diag']['sample_promo_codes']} / {f['promo_diag']['sample_item_codes']}"
             for f in promo_rows
@@ -1385,6 +1453,18 @@ def render_report(res: dict) -> str:
         a("\n".join(sd["plan_without_seqscan"]))
         a("```")
         a("")
+        pp = sd.get("parse_list_profile")
+        if pp:
+            a(
+                f"One `/parse-list` call (6 lines): {pp['total_ms']} ms in total, {pp['sql_ms']} ms "
+                f"inside {pp['statements']} SQL statements. The statements that cost the most:"
+            )
+            a("")
+            a("| statement (first 110 characters) | calls | total ms | max ms |")
+            a("|---|---|---|---|")
+            for t in pp["top"]:
+                a(f"| `{md_escape(t['sql'])}` | {t['calls']} | {t['total_ms']} | {t['max_ms']} |")
+            a("")
 
     for key, title in (
         ("api", "production semantics"),
@@ -1519,6 +1599,8 @@ def main(argv: list[str] | None = None) -> int:
                      help="the committed real fixtures under tests/fixtures/<slug>/real, no network")  # fmt: skip
     r.add_argument("--chain", action="append", help="chain slug (repeatable; default: every chain)")
     r.add_argument("--timeout", type=float, default=240, help="seconds per portal download")
+    r.add_argument("--extra-timeout", type=float, default=600,
+                   help="seconds per filtered scrape of the extra files (Shufersal lists slowly)")  # fmt: skip
     r.add_argument("--anchors", type=int, default=3, help="city centres for the extra downloads")
     r.add_argument("--per-chain", type=int, default=2, help="stores per chain per city centre")
     r.add_argument("--radius-km", type=float, default=4.0, help="radius of a city centre")

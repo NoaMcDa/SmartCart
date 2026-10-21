@@ -72,7 +72,7 @@ jobs:
   real-day:
     name: download, load, match, precompute, optimize
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 180
 
     services:
       # Same image and tag as ci.yml (Postgres 17 with PostGIS, pgvector and pg_trgm).
