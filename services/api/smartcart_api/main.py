@@ -62,7 +62,6 @@ app = FastAPI(
     title="SmartCart API",
     version=VERSION,
     description="Semantic supermarket price comparison for Israel. Prices are from the chains' transparency files; המחיר הקובע הוא בקופה.",
-    openapi_version="3.1.0",
     lifespan=lifespan,
 )
 app.add_middleware(

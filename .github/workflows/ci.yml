@@ -50,10 +50,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-          cache-dependency-glob: "**/pyproject.toml"
+          cache-dependency-glob: "uv.lock"
 
       - name: Install
-        run: uv sync
+        run: uv sync --locked
 
       - name: Lint
         run: uv run ruff check .

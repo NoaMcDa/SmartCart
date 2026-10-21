@@ -38,15 +38,15 @@ WORKDIR /app
 
 # Dependencies first, from the manifests only, so a code change does not re-resolve them. The
 # workspace root lists every member, so each member's manifest must exist (the dashboard's too,
-# although it is not installed). uv.lock is not committed (docs/dev-setup.md): uv resolves the
-# newest versions the manifests allow, exactly as CI does.
-COPY pyproject.toml ./
+# although it is not installed). uv.lock pins every version (docs/dev-setup.md); --locked fails
+# the build when the lock does not match the manifests.
+COPY pyproject.toml uv.lock ./
 COPY services/ingest/pyproject.toml services/ingest/pyproject.toml
 COPY services/catalog/pyproject.toml services/catalog/pyproject.toml
 COPY services/api/pyproject.toml services/api/pyproject.toml
 COPY services/dashboard/pyproject.toml services/dashboard/pyproject.toml
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --package smartcart-api --no-dev --no-install-workspace
+    uv sync --locked --package smartcart-api --no-dev --no-install-workspace
 
 # The review UI (Streamlit with pyarrow, altair, pydeck) is the catalog's optional `review` extra and
 # is not installed here; the last check of the next step fails the build if it ever comes back.
@@ -60,7 +60,7 @@ COPY supabase/migrations supabase/migrations
 COPY supabase/queries supabase/queries
 COPY data/taxonomy.yaml data/canonicals.yaml data/product_type_rules.yaml data/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --package smartcart-api --no-dev \
+    uv sync --locked --package smartcart-api --no-dev \
  && /app/.venv/bin/python -c "import ortools.sat.python.cp_model, smartcart_api.main" \
  && /app/.venv/bin/smartcart-api --help >/dev/null \
  && ! /app/.venv/bin/python -c "import streamlit" 2>/dev/null
