@@ -18,7 +18,6 @@ from pathlib import Path
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 # Estimates, not measured values: see docs/ingestion.md, "Quality gates".
 DEFAULT_STALE_STORES_HOURS = 240.0
 DEFAULT_PRICE_DROP_FACTOR = 8.0

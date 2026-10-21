@@ -1,0 +1,16 @@
+[Unit]
+Description=SmartCart: effective-price precompute again after a late full file (Israel time)
+
+[Timer]
+# An hour after each late ingestion pass (smartcart-ingest-late.timer: 11:30 and 15:30). The
+# service does nothing unless that pass loaded a PriceFull or PromoFull, so a day on which every
+# chain published before 08:30 runs the precompute once, at 09:30.
+OnCalendar=*-*-* 12:30:00 Asia/Jerusalem
+OnCalendar=*-*-* 16:30:00 Asia/Jerusalem
+RandomizedDelaySec=120
+# A missed run is not replayed: the marker stays, and the next pass (or 09:30 tomorrow) takes it.
+Persistent=false
+Unit=smartcart-precompute-late.service
+
+[Install]
+WantedBy=timers.target

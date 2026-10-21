@@ -18,7 +18,8 @@ import re
 import shutil
 import sys
 import tempfile
-from collections.abc import Iterable, Sequence
+import threading
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -70,6 +71,43 @@ class PortalError(RuntimeError):
     def __init__(self, chain_id: str, message: str) -> None:
         self.chain_id = chain_id
         super().__init__(f"[{chain_id}] {message}")
+
+
+class PortalTimeout(PortalError):
+    """A portal call did not finish in time (:func:`call_with_timeout`). Unlike other portal
+    errors it is not retried within the same tick: a portal that hung once is likely to hang
+    again, and the retry would spend the chain's whole time budget on it."""
+
+
+def call_with_timeout[T](
+    fn: Callable[..., T], timeout: float, chain_id: str, what: str, *args: Any, **kwargs: Any
+) -> T:
+    """Run ``fn`` and return its result, or raise :class:`PortalTimeout` after ``timeout`` seconds.
+
+    The call runs in a daemon thread, because the upstream scraper blocks inside sockets and
+    event-loop code that a cooperative cancel cannot reach. A call that outlives its timeout
+    cannot be killed: the thread is abandoned (daemon, so it never keeps the process alive) and
+    whatever it finishes later is discarded. It touches nothing but the portal and its own
+    staging directory, never the database. An exception raised by ``fn`` is re-raised here."""
+    box: dict[str, Any] = {}
+
+    def target() -> None:
+        try:
+            box["value"] = fn(*args, **kwargs)
+        except BaseException as exc:  # handed to the caller's thread
+            box["error"] = exc
+
+    worker = threading.Thread(target=target, name=f"portal-{chain_id}-{what}", daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        log.error(
+            "portal call timed out, abandoning it", chain_id=chain_id, call=what, seconds=timeout
+        )
+        raise PortalTimeout(chain_id, f"{what} did not finish within {timeout:g} s")
+    if "error" in box:
+        raise box["error"]
+    return box["value"]
 
 
 # --- filename conventions -----------------------------------------------------------------------
@@ -220,7 +258,7 @@ def download(
             status=existing.status,
             file_id=existing.id,
         )
-        _note_republished(conn, existing, remote, adapter, sha, now)
+        _note_republished(conn, existing, remote, adapter, sha, now, data)
         return DownloadResult(existing, "skipped", data)
 
     raw = describe(remote, adapter, sha, now)
@@ -256,6 +294,7 @@ def _note_republished(
     adapter: ChainAdapter,
     sha: str,
     now: datetime,
+    data: bytes | None = None,
 ) -> None:
     """A loaded full file seen again on a later Israel day, byte for byte: record it, so the
     deltas of that day are not held for a "full file of the day" that was rightly skipped."""
@@ -279,6 +318,22 @@ def _note_republished(
             file=remote.name,
             source_file_id=existing.id,
         )
+        if raw.kind == "promo_full" and data is not None:
+            _end_promos_the_republished_full_lacks(conn, adapter, raw, data)
+
+
+def _end_promos_the_republished_full_lacks(
+    conn: psycopg.Connection, adapter: ChainAdapter, raw: RawFile, data: bytes
+) -> None:
+    """The same bytes are the store's list for the new day too, so a promotion a Promo delta added
+    since is withdrawn, as it would be by a PromoFull that loaded. A parse error is the normal
+    path's business (the file was loaded once already), never this one's."""
+    from smartcart_ingest.loader import end_withdrawn_promos
+
+    try:
+        end_withdrawn_promos(conn, adapter.parse(raw, data))
+    except Exception as exc:
+        log.warning("could not end promotions for a republished PromoFull", error=str(exc))
 
 
 # --- upstream scraper ---------------------------------------------------------------------------

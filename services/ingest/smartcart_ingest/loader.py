@@ -18,6 +18,9 @@
    already supersedes them). Upsert on the ``prices_event_key`` constraint.
 5. ``promos`` (upsert on ``promos_source_key``) and ``promo_items`` (replaced by the file's
    item list for that promo; item codes the chain has never priced are skipped and counted).
+   A PromoFull also ends the store's promotions it no longer lists (``ends_at`` = its
+   publication time): a promotion withdrawn from the chain's file would otherwise keep its old
+   ``ends_at`` and stay applied (``end_withdrawn_promos``).
 6. ``file_tracking``: the file goes to ``loaded`` with its record count.
 
 Any exception rolls the whole transaction back (no row of the file remains, the file is not
@@ -93,6 +96,9 @@ class LoadResult:
     promos: int = 0
     promo_items: int = 0
     promo_items_unknown: int = 0
+    promos_ended: int = 0
+    """Promotions of the file's store that this PromoFull no longer lists, ended at its
+    publication time (``end_withdrawn_promos``)."""
     stores_located: dict[str, int] = field(default_factory=dict)
     """Stores that got a location from this file, by precision (docs/geocoding.md)."""
     warnings: list[str] = field(default_factory=list)
@@ -599,6 +605,78 @@ def _upsert_promos(
     result.promo_items = len(links)
 
 
+def end_withdrawn_promos(
+    conn: psycopg.Connection,
+    parsed: ParsedFile,
+    store_ids: dict[tuple[str, str], int] | None = None,
+) -> int:
+    """End the promotions of this PromoFull's store that the file no longer lists.
+
+    A PromoFull is the store's complete list of promotions in force that day (a Promo delta only
+    adds or changes). A promotion that is missing from it was withdrawn, but its row keeps the
+    ``ends_at`` it had (often none, or a date days ahead), so the precompute would keep applying
+    it. Its ``ends_at`` becomes the file's publication time. Conditions, all of which must hold:
+
+    * the file is a PromoFull with a store code (this runs inside the load transaction, so a failed
+      load rolls it back and a quarantined file never reaches it);
+    * only rows keyed to that store (``promos_source_key``: chain, store, promotion id) are
+      touched. Chain-wide promotions (``store_id`` NULL) and other stores' are never ended by a
+      file that is not theirs;
+    * if the file lists promotions but none for its own store code (a header and record code that
+      disagree), nothing is ended: the file's scope is unknown;
+    * only promotions already in force at the publication time and written by a file published no
+      later than this one (``promos.file_id``), so a newer file's promotion survives an older full
+      loaded late.
+
+    Also called by ``download`` for a byte-identical PromoFull republished on a later day (skipped
+    by hash, so never loaded, but still that day's list). Returns the number of promotions ended.
+    """
+    raw = parsed.raw
+    if raw.kind != "promo_full" or raw.store_code is None:
+        return 0
+    store_id = (store_ids or {}).get((raw.chain_id, raw.store_code))
+    if store_id is None:
+        row = conn.execute(
+            "SELECT id FROM stores WHERE chain_id = %s AND store_code = %s",
+            (raw.chain_id, raw.store_code),
+        ).fetchone()
+        if row is None:
+            return 0
+        store_id = row[0]
+    listed = [p.promo_id for p in parsed.promos if p.store_code == raw.store_code]
+    if parsed.promos and not listed:
+        log.warning(
+            "promo file lists no promotion for its own store, nothing ended",
+            chain_id=raw.chain_id,
+            store_code=raw.store_code,
+            file=raw.path,
+        )
+        return 0
+    ended = conn.execute(
+        "UPDATE promos SET ends_at = %(at)s"
+        " WHERE chain_id = %(chain)s AND store_id = %(store)s"
+        "   AND promo_id <> ALL(%(listed)s::text[])"
+        "   AND (ends_at IS NULL OR ends_at > %(at)s)"
+        "   AND (file_id IS NULL OR file_id IN"
+        "        (SELECT id FROM file_tracking WHERE published_at <= %(at)s))"
+        " RETURNING id",
+        {
+            "at": aware(raw.published_at),
+            "chain": raw.chain_id,
+            "store": store_id,
+            "listed": listed,
+        },
+    ).fetchall()
+    if ended:
+        log.info(
+            "ended promotions the PromoFull no longer lists",
+            chain_id=raw.chain_id,
+            store_code=raw.store_code,
+            ended=len(ended),
+        )
+    return len(ended)
+
+
 # --- entry point -------------------------------------------------------------------------------
 
 
@@ -628,6 +706,7 @@ def load(
             _upsert_items(conn, parsed, result)
             _insert_prices(conn, parsed, row.id, store_ids, result)
             _upsert_promos(conn, parsed, row.id, store_ids, result)
+            result.promos_ended = end_withdrawn_promos(conn, parsed, store_ids)
             tracking.mark_loaded(conn, row.id, result.record_count, parsed.raw.schema_version)
     except Exception as exc:
         reason = exc.reason if isinstance(exc, LoadError) else f"{type(exc).__name__}: {exc}"
@@ -647,5 +726,6 @@ def load(
         prices_clamped=result.prices_clamped,
         promos=result.promos,
         promo_items_unknown=result.promo_items_unknown,
+        promos_ended=result.promos_ended,
     )
     return result

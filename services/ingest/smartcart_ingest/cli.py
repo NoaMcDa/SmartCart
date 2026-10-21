@@ -4,6 +4,8 @@ Commands match the systemd units in ``infra/vps``:
 
 * ``smartcart-ingest migrate``                          apply pending SQL migrations
 * ``smartcart-ingest run --mode full [--chain ID ...]``  daily full sync (06:00 and 08:30)
+* ``smartcart-ingest run --mode late [--chain ID ...]``  late full files (11:30 and 15:30), only
+                                                        the chains still missing some today
 * ``smartcart-ingest run --mode delta [--chain ID ...]`` hourly deltas for the main chains
 * ``smartcart-ingest status``                           file_tracking counts by chain and status
 
@@ -45,6 +47,7 @@ EXIT_LOCKED = 75
 
 class Mode(StrEnum):
     full = "full"
+    late = "late"
     delta = "delta"
 
 
@@ -125,18 +128,39 @@ def _print_report(report: RunReport) -> None:
         typer.echo(json.dumps({"mode": report.mode, **c.as_dict()}, ensure_ascii=False))
 
 
+def _mark_late_loads(settings: Settings, report: RunReport) -> None:
+    """Leave a marker file when a late pass loaded a PriceFull or PromoFull: the late precompute
+    unit (infra/vps/smartcart-precompute-late.service) runs only while it exists, so a day on
+    which nothing arrived late does not pay for a second precompute. The unit removes it after a
+    successful precompute. A marker that cannot be written is logged, never fatal: the
+    next 09:30 precompute still prices whatever is loaded."""
+    marker = settings.late_load_marker
+    loaded = sum(c.loaded_full for c in report.chains)
+    if marker is None or not loaded:
+        return
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(f"{loaded} full files loaded late\n", encoding="utf-8")
+    except OSError as exc:
+        log.error("could not write the late-load marker", path=str(marker), error=str(exc))
+
+
 @app.command()
 def run(
     mode: Annotated[
         Mode,
-        typer.Option("--mode", help="full: Stores, PriceFull, PromoFull. delta: Price, Promo."),
+        typer.Option(
+            "--mode",
+            help="full: Stores, PriceFull, PromoFull. late: PriceFull and PromoFull of the chains"
+            " that have not loaded all of today's. delta: Price, Promo.",
+        ),
     ],
     chain: Annotated[
         list[str] | None,
         typer.Option(
             "--chain",
-            help="Chain id, repeatable. Default: the D13 chains (full) or the due main chains"
-            " (delta).",
+            help="Chain id, repeatable. Default: the D13 chains (full), those still missing"
+            " full files today (late) or the due main chains (delta).",
         ),
     ] = None,
 ) -> None:
@@ -154,15 +178,23 @@ def run(
             sched = Scheduler(conn, fetcher, rawstore, alerter, settings)
             if chains is None:
                 wanted = (
-                    [c.chain_id for c in D13_CHAINS]
-                    if mode is Mode.full
-                    else sched.due_delta_chains()
+                    sched.due_delta_chains()
+                    if mode is Mode.delta
+                    else [c.chain_id for c in D13_CHAINS]
                 )
                 chains = [c for c in wanted if c in REGISTRY]
                 missing = [c for c in wanted if c not in REGISTRY]
                 if missing:
                     log.warning("no adapter registered yet, skipping", chains=missing)
-            report = sched.run_full(chains) if mode is Mode.full else sched.run_delta(chains)
+                if mode is Mode.late:
+                    chains = sched.pending_full_chains(chains)
+                    log.info("late pass", chains=chains)
+            if mode is Mode.full:
+                report = sched.run_full(chains)
+            elif mode is Mode.late:
+                report = sched.run_late(chains)
+            else:
+                report = sched.run_delta(chains)
     except RunLocked as exc:
         # Not an error of this run, but not a success either: nothing was ingested. 75 is
         # EX_TEMPFAIL ("try again"), so a timer shows the skipped tick as failed.
@@ -173,6 +205,8 @@ def run(
         if callable(close):
             close()
     _print_report(report)
+    if mode is Mode.late:
+        _mark_late_loads(settings, report)
     if not report.ok:
         raise typer.Exit(code=1)
 

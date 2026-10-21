@@ -13,9 +13,11 @@ the repo root `.env.example`.
 |---|---|
 | `vps/setup.sh` | Idempotent VPS setup: Python 3.12, uv, the `smartcart` user, the ingest environment, systemd units, log rotation, baseline hardening. Run as root. |
 | `vps/smartcart-ingest-full.{service,timer}` | Daily full sync, 06:00 and 08:30 Israel time, calls `smartcart-ingest`. |
+| `vps/smartcart-ingest-late.{service,timer}` | Late full files, 11:30 and 15:30 Israel time: `smartcart-ingest run --mode late` lists PriceFull and PromoFull again for the chains still missing some of today's. |
 | `vps/smartcart-ingest-delta.{service,timer}` | Hourly delta poll at minute 20, calls `smartcart-ingest`. |
 | `vps/smartcart-api.service` | The FastAPI service on 127.0.0.1:8000 (Caddy in front when `SMARTCART_API_DOMAIN` is set). |
 | `vps/smartcart-precompute.{service,timer}` | Nightly effective-price precompute at 09:30 Israel time, after the full sync. |
+| `vps/smartcart-precompute-late.{service,timer}` | The precompute again at 12:30 and 16:30, only when a late ingestion pass loaded a full file (marker file). |
 | `vps/smartcart-alerts.{service,timer}` | Hourly price-drop alerts job at minute 45. |
 | `docker-compose.yml` | Local database by default; `--profile app` adds migrate, api and web; `--profile jobs` the timers' jobs. |
 | `smoke/check_israeli_ip.sh` | Geolocates the public IP with two services; exits non-zero unless both say IL. |

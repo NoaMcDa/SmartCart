@@ -145,6 +145,7 @@ fi
 log "installing systemd units"
 for unit in \
   smartcart-ingest-full.service smartcart-ingest-full.timer \
+  smartcart-ingest-late.service smartcart-ingest-late.timer \
   smartcart-ingest-delta.service smartcart-ingest-delta.timer; do
   install -m 0644 -o root -g root "${SCRIPT_DIR}/${unit}" "/etc/systemd/system/${unit}"
 done
@@ -172,13 +173,13 @@ EOF
 systemctl restart systemd-journald || warn "could not restart journald"
 
 systemctl daemon-reload
-systemctl enable smartcart-ingest-full.timer smartcart-ingest-delta.timer
+systemctl enable smartcart-ingest-full.timer smartcart-ingest-late.timer smartcart-ingest-delta.timer
 if grep -Eq '^DATABASE_URL=.+' "${ENV_FILE}"; then
-  systemctl restart smartcart-ingest-full.timer smartcart-ingest-delta.timer
+  systemctl restart smartcart-ingest-full.timer smartcart-ingest-late.timer smartcart-ingest-delta.timer
   log "timers started"
 else
   warn "${ENV_FILE} has no DATABASE_URL yet: timers are enabled but not started."
-  warn "fill the file, then: systemctl start smartcart-ingest-full.timer smartcart-ingest-delta.timer"
+  warn "fill the file, then: systemctl start smartcart-ingest-full.timer smartcart-ingest-late.timer smartcart-ingest-delta.timer"
 fi
 
 # 5b. API service, precompute and alerts timers, reverse proxy -----------------------------------
@@ -187,6 +188,7 @@ if [[ "${SKIP_API}" != "1" ]]; then
   for unit in \
     smartcart-api.service \
     smartcart-precompute.service smartcart-precompute.timer \
+    smartcart-precompute-late.service smartcart-precompute-late.timer \
     smartcart-alerts.service smartcart-alerts.timer; do
     install -m 0644 -o root -g root "${SCRIPT_DIR}/${unit}" "/etc/systemd/system/${unit}"
   done
@@ -225,11 +227,12 @@ EOF
   chmod 0640 "${API_ENV_FILE}" "${JOBS_ENV_FILE}"
 
   systemctl daemon-reload
-  systemctl enable smartcart-api.service smartcart-precompute.timer smartcart-alerts.timer
+  systemctl enable smartcart-api.service smartcart-precompute.timer smartcart-precompute-late.timer \
+    smartcart-alerts.timer
   if grep -Eq '^DATABASE_URL=.+' "${ENV_FILE}" "${API_ENV_FILE}"; then
     # A restart picks up the new code and environment after every deploy.
     systemctl restart smartcart-api.service
-    systemctl restart smartcart-precompute.timer smartcart-alerts.timer
+    systemctl restart smartcart-precompute.timer smartcart-precompute-late.timer smartcart-alerts.timer
     log "waiting for the API health check on 127.0.0.1:${API_PORT}"
     healthy=0
     for _ in $(seq 1 30); do

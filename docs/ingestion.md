@@ -2,7 +2,9 @@
 
 How transparency files get from a chain portal into Postgres: download, tracking, quality gates,
 the loader, the schedule and alerts. Covers issues #37 (idempotent downloads, full before delta),
-#42 (quality gates, quarantine, alerts) and #49 (hourly deltas for the main chains). Adapters (one
+#42 (quality gates, quarantine, alerts), #49 (hourly deltas for the main chains) and the risks
+found before the real nightly loads (#60: late full files, withdrawn promotions, the price-drop
+gate, a Stores stale limit, portal time budgets). Adapters (one
 per chain, issue #32) are documented with their code in `services/ingest/smartcart_ingest/adapters`.
 
 Code: `services/ingest/smartcart_ingest/` — `download.py`, `rawstore.py`, `tracking.py`,
@@ -37,6 +39,7 @@ The systemd units in `infra/vps` are the production trigger and call these exact
 |---|---|
 | `smartcart-ingest migrate` | Apply pending migrations from `supabase/migrations`. |
 | `smartcart-ingest run --mode full [--chain ID ...]` | Creates price partitions two months ahead, then for each chain today's Stores, PriceFull and PromoFull, then the chain's held deltas. Default chains: the ten D13 chains that have a registered adapter. |
+| `smartcart-ingest run --mode late [--chain ID ...]` | The full sync again, limited to PriceFull and PromoFull and to the chains that have not loaded all of today's yet (see Schedule). An explicit `--chain` runs regardless. Leaves the marker file when it loaded one (`LATE_LOAD_MARKER`). |
 | `smartcart-ingest run --mode delta [--chain ID ...]` | Held deltas first, then today's Price and Promo files. Default chains: the main chains whose interval is due. An explicit `--chain` runs regardless of interval. |
 | `smartcart-ingest status` | `file_tracking` counts by chain and status, and quarantined files per chain. |
 
@@ -44,7 +47,9 @@ The systemd units in `infra/vps` are the production trigger and call these exact
 failed, error) and exits 1 when a chain could not run (portal down after the backoff cap, no
 adapter, an unexpected crash, which also alerts and does not stop the other chains) or a file failed
 to parse or load. A quarantine is not an error exit; it alerts. It exits 75 (`EX_TEMPFAIL`) without
-touching anything when another run holds the database lock (next section).
+touching anything when another run holds the database lock (next section). A chain whose portal
+hung or whose time budget ran out is an error of that chain (exit 1, a `portal_failure` alert), see
+"Time budgets".
 
 ## Schedule (issue #49)
 
@@ -53,6 +58,22 @@ Timers (Israel time, from `infra/vps/*.timer`; do not change them here):
 - **Full sync** at 06:00 and 08:30. The second pass exists because the laibcatalog listing (Victory,
   Machsanei Hashuk) is empty between midnight and about 08:00 (D13, verified upstream source). It
   is cheap: files already loaded are skipped by hash.
+- **Late passes** at 11:30 and 15:30 (`smartcart-ingest-late.timer`, `run --mode late`). A chain that
+  publishes its PriceFull after 08:30 was never loaded that day: the hourly ticks list only deltas,
+  which were held for the missing full and then expired. A late pass lists only PriceFull and
+  PromoFull (never Stores), and only for the chains `Scheduler.pending_full_chains` finds
+  incomplete. A chain is complete when, for PriceFull and for PromoFull, the number of stores with
+  a loaded file today (a byte-identical republish counts) reaches `LATE_FULL_COMPLETE_RATIO`
+  (default 0.98, rounded up) of yesterday's, and PriceFull has at least one. Yesterday is the only
+  yardstick, so a store that stopped publishing keeps its chain "pending" for a day or two, which
+  costs a listing, not a wrong load; a chain that has never published promotions is complete with
+  its PriceFull. Files already loaded are skipped by hash, and the held deltas of the day load
+  behind the full in the same run. Persistent=false: a missed pass is not replayed.
+- **Late precompute.** When a late pass loads a PriceFull or PromoFull, the CLI writes the marker
+  file `LATE_LOAD_MARKER` (`/var/lib/smartcart/late-full-loaded` in the units). `smartcart-precompute-late.timer`
+  (12:30 and 16:30, an hour after each pass) runs `smartcart-api precompute` under the shared lock
+  only while the marker exists, and removes it after a successful run; a failed precompute leaves it
+  for the next timer. A day on which every chain published before 08:30 runs the precompute once.
 - **Delta poll** every hour at :20. Each tick polls the main chains whose interval is due.
 
 Main chains (D13 chains 1 to 6) and their default delta interval:
@@ -74,7 +95,8 @@ Main chains (D13 chains 1 to 6) and their default delta interval:
 - **Spreading the Cerberus chains.** Chains are polled one after another, never in parallel, and
   the order interleaves chains that share a portal engine, so Rami Levy and Tiv Taam (both on
   publishedprices.co.il) are never polled back to back.
-- **Concurrency.** The two units share one `flock`, so a delta tick never overlaps a full sync. The
+- **Concurrency.** The three units share one `flock`, so a delta tick never overlaps a full sync or a
+  late pass. The
   application adds its own guard for the runs the flock does not cover (a manual
   `smartcart-ingest run` while a timer runs): each run takes a session-level Postgres advisory lock
   (`scheduler.RUN_LOCK_KEY`) and a second run exits 75 at once. It is released when the connection
@@ -89,7 +111,8 @@ Main chains (D13 chains 1 to 6) and their default delta interval:
 - **Precompute order.** `smartcart-precompute.service` (09:30) first waits, up to two hours, while
   `smartcart-ingest-full.service` is running or queued, then takes the shared lock. The flock alone
   only serializes: with a long delta tick running, a queued 08:30 full and the 09:30 precompute
-  both wait on it and either may win.
+  both wait on it and either may win. The late precompute waits the same way for the full and the
+  late ingestion unit.
 
 ## Idempotency and ordering (issue #37)
 
@@ -117,7 +140,9 @@ Main chains (D13 chains 1 to 6) and their default delta interval:
   same bytes. The hash skip is right (nothing to load), but its deltas need a loaded full of their
   own Israel day, so a synthetic `loaded` row (`reason` `items=<n>; identical to file <id>,
   republished`) is recorded for that day, keyed by a hash derived from the content hash and the
-  day. It also carries the record count for the item-count gate.
+  day. It also carries the record count for the item-count gate. For a PromoFull the file is also
+  that day's list of promotions, so the promotions it no longer lists are ended (next section), by
+  parsing the bytes once more (`download._end_promos_the_republished_full_lacks`).
 - **Held deltas expire.** A delta still `held` when its day is more than a day old (its full never
   loaded) is set `failed` with `expired: waiting for ...`, so a chain whose full is quarantined
   every night does not make every hourly tick re-check an ever longer list. Today's full
@@ -183,6 +208,21 @@ price events runs just before, in its own transaction: creating a partition lock
 - **Promos** upsert on `promos_source_key`; rows with the same promotion id in one file are merged.
   The promo's item list is replaced by the file's list. Item codes the chain has never published a
   price for are skipped and counted (`promo_items_unknown` in the log).
+- **Withdrawn promotions end.** A PromoFull is the store's complete list of promotions in force; one
+  that is missing from it keeps its old `ends_at` (often none) and would stay applied.
+  `loader.end_withdrawn_promos` sets `ends_at` to the file's publication time for the rows of
+  (chain, the file's store) that the file does not list, inside the load transaction (so only a
+  successfully loaded file, never a failed or quarantined one; the item-count gate, which fails a
+  PromoFull with fewer than half of the previous one's promotions, also stops a truncated file from
+  ending everything). Scope: only `store_id` equal to the file's store (the key of
+  `promos_source_key`), so chain-wide promotions (`store_id` NULL) and other stores' are untouched,
+  and a Promo delta never ends anything; a file whose records name no promotion for its own store
+  code ends nothing; only promotions already in force at the publication time and written by a file
+  published no later than this one, so an older full loaded late cannot end what a newer file
+  introduced. A promotion listed again later is reopened by the upsert (`ends_at` from the file).
+  `LoadResult.promos_ended` counts them. The precompute (`smartcart_api.precompute`, promotions in
+  force at `as_of`: `starts_at <= as_of < ends_at`) already filters on `ends_at`, so nothing changed
+  there; promotions as of a time before the withdrawal still apply (history is kept).
 - A price for an item code that is neither in the file nor in the database fails the file.
 
 ## Store coordinates
@@ -212,16 +252,46 @@ raw file stays in the archive.
 |---|---|---|
 | `zero_price` | any price is zero or negative | |
 | `price_jump` | a price is more than the factor times the latest known price for the same item and store (the store's own event, else the chain base) | `PRICE_JUMP_FACTOR=3` |
+| `price_drop` | a price is at or below the previous price divided by the factor, when that previous price is at least the floor (shekels read as agorot, a lost decimal point); zero or negative prices are the `zero_price` gate's | `PRICE_DROP_FACTOR=8` (0 turns it off), `PRICE_DROP_MIN_PREVIOUS=1` (shekels) |
 | `item_count_drop` | a full file (PriceFull, PromoFull, Stores) has fewer records than the ratio times the previous loaded file of the same kind, chain and store | `ITEM_COUNT_DROP_RATIO=0.5` |
-| `stale_date` | the file was published longer ago than the limit, in elapsed time (UTC arithmetic: two Israel datetimes share a tzinfo, and Python then subtracts wall clocks, an hour off across the clock changes) | `STALE_FILE_MAX_AGE_HOURS=36` |
+| `stale_date` | the file was published longer ago than the limit, in elapsed time (UTC arithmetic: two Israel datetimes share a tzinfo, and Python then subtracts wall clocks, an hour off across the clock changes). A Stores file has its own limit | `STALE_FILE_MAX_AGE_HOURS=36` for every kind but Stores, `STALE_STORES_MAX_AGE_HOURS=240` for Stores |
 | `empty_file` | a Stores or PriceFull file has no records (a portal glitch; it would otherwise "load", count as the night's load and set the item-count baseline to zero). An empty PromoFull is legitimate | |
 
 Thresholds can be set per chain with `QUALITY_OVERRIDES`, e.g.
-`{"7290027600007": {"price_jump_factor": 4}}`. The stale default of 36 hours tolerates one missed
+`{"7290027600007": {"price_jump_factor": 4, "stale_stores_max_age_hours": 336}}` (names:
+`stale_file_max_age_hours`, `stale_stores_max_age_hours`, `price_jump_factor`, `price_drop_factor`,
+`price_drop_min_previous`, `item_count_drop_ratio`, `gap_report_pressure_min`). The stale default
+of 36 hours tolerates one missed
 daily full sync; the regulation requires updates within one hour of a change at the register
 (verified, research, `product-and-market.md`), so a tighter limit for deltas is an option once real
 publication delays are measured. The thresholds themselves are the issue's defaults, not measured
 values (estimate).
+
+**Stale limit per file kind (#60).** On the first real run (2026-10-21) the Stores files of Rami
+Levy, Tiv Taam, Osher Ad and Yohananof were quarantined `stale_date`: the newest Stores file on
+those portals was 60 to 68 hours old, because chains publish the store list much less often than
+prices. A Stores file now has `STALE_STORES_MAX_AGE_HOURS=240` (10 days: the measured 68 hours
+plus a weekly cadence and slack; an estimate until the nightly runs show the real cadence, per
+chain in `QUALITY_OVERRIDES`). Stale store data costs little (the list changes rarely, and the same
+bytes are skipped by hash anyway), while PriceFull, PromoFull and both deltas keep the 36-hour limit,
+which is unchanged. A Stores file quarantined by an earlier run is released by hand (risk 4 below).
+
+**Price-drop gate (#60).** The mirror of `price_jump`: a price at or below `previous / 8` fails the
+file with the same quarantine semantics (one `quarantine_events` row, no data written, an alert).
+The previous price is the same one `price_jump` uses (the store's own latest event, else the chain
+base) and is only compared when it is at least 1 shekel, because real files carry penny items (0.01
+and 0.10 in the King Store, Rami Levy and Yohananof fixtures) that move by large factors for real.
+*Why 8, measured on the seven real PromoFull fixtures of 2026-10-21* (a promotion is the deepest
+real price reduction the files show; one snapshot per chain holds no day-to-day shelf history, so
+this is a proxy, not the day-2 measurement): of 1550 items with a published `DiscountRate`, 90 are
+free gift items (100 %) and of the other 1460, 126 (8.6 %) are 50 % or more off (a divisor of 2),
+9 (0.6 %) are 67 % or more (3), 8 (0.5 %) are 83 % or more (5.9) and one (0.07 %) is 91 % off (10.9).
+A shekels-as-agorot error is a factor of 100 and a lost decimal point 10, so 8 catches both with
+room for rounding (12.90 read as 1.30 is 9.9) while every ordinary promotion, half price, 75 % off
+and the 83 % clearance level stay below it. The one 91 % item shows a legitimate drop can trip it
+once in about 1500 deep promotions, and a shelf price (not a promotion) falls that far even less
+often; if the nights show false quarantines, raise it per chain. Estimate, not a measured shelf
+distribution: re-measure on day 2 of the real window (`quarantine_events` where `gate = 'price_drop'`).
 
 The item-count gate needs the previous file's record count. Schema v1 has no column for it, so
 `mark_loaded` stores it in `file_tracking.reason` as `items=<n>` on loaded rows. If a migration adds
@@ -282,7 +352,7 @@ logged and never stops ingestion.
 | `unknown_schema` | the adapter raised `UnknownSchemaError`; the file is not loaded |
 | `quarantine` | a file failed a gate; names chain, store, file and gates |
 | `load_failure` | the load raised and was rolled back |
-| `portal_failure` | listing or fetching kept failing after the backoff cap |
+| `portal_failure` | listing or fetching kept failing after the backoff cap, a portal call timed out, or the chain's or the run's time budget ran out (the message says which) |
 | `quality_warning` | a soft warning (`gap_report_pressure`); the file was still loaded; once per store per 24 hours |
 
 A file that fails again with the same reason on a later run is not alerted again.
@@ -295,6 +365,33 @@ and full jitter: before retry *n* the worker waits a random time in
 `PORTAL_MAX_ATTEMPTS` calls the chain is skipped for this tick and a `portal_failure` alert fires;
 the next tick starts again.
 
+## Time budgets (#60)
+
+A hung portal used to hold the run lock until the unit's `TimeoutStartSec` (3 hours for the full
+sync, 50 minutes for deltas). Three limits now apply in the download path (`scheduler._RetryingFetcher`
+and `download.call_with_timeout`), none of them to the database work:
+
+| Limit | Default | Setting |
+|---|---|---|
+| One portal call (a listing, which is a whole scrape upstream, or a fetch) | 900 s | `PORTAL_REQUEST_TIMEOUT_SECONDS` |
+| One chain: listing, downloads and backoff sleeps | full and late 1500 s, delta 480 s | `CHAIN_BUDGET_SECONDS` (all modes) |
+| The run, so it ends and reports before systemd kills it | full 9000 s, late 5400 s, delta 2400 s | `RUN_BUDGET_SECONDS` (all modes) |
+
+All are estimates, set under the unit timeouts, to be tuned from the first nights' logs. How they
+behave:
+
+- The call runs in a daemon thread and the caller waits for it up to the limit, then raises
+  `PortalTimeout`. The upstream scraper blocks in sockets and event-loop code that a cooperative cancel
+  does not reach, so the thread cannot be killed: it is abandoned, never keeps the process alive and
+  never touches the database, and whatever it finishes later is discarded.
+- A timeout is final for the tick (no retry: a portal that hung once spends the whole budget on the
+  retry). Ordinary portal errors keep the backoff above, but a backoff sleep that does not fit in the
+  chain's remaining budget is not taken.
+- A chain that times out or runs out of budget is reported (`error` in its JSON line, exit 1) and
+  alerted (`portal_failure`), and the next chain starts. A chain starting after the run budget is gone
+  is reported as not started, with an alert. Held and open files are processed on a later run.
+- A chain's budget never exceeds what is left of the run's.
+
 ## Environment variables
 
 `DATABASE_URL` and `S3_*` are in `.env.example`. The others are new and should be added there.
@@ -305,8 +402,11 @@ the next tick starts again.
 | `RAW_STORE_PATH` | | Local raw archive directory, used when `S3_BUCKET` is empty. |
 | `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | | R2/S3 raw archive. |
 | `ALERT_WEBHOOK_URL` | | Optional webhook for alerts. |
-| `STALE_FILE_MAX_AGE_HOURS` | 36 | Stale-date gate. |
+| `STALE_FILE_MAX_AGE_HOURS` | 36 | Stale-date gate, every file kind but Stores. |
+| `STALE_STORES_MAX_AGE_HOURS` | 240 | Stale-date gate for Stores files. |
 | `PRICE_JUMP_FACTOR` | 3 | Price-jump gate. |
+| `PRICE_DROP_FACTOR` | 8 | Price-drop gate: a price at or below previous / factor fails the file; 0 turns it off. |
+| `PRICE_DROP_MIN_PREVIOUS` | 1 | Shekels: the drop gate ignores items whose previous price is lower. |
 | `ITEM_COUNT_DROP_RATIO` | 0.5 | Item-count gate. |
 | `GAP_REPORT_PRESSURE_MIN` | 3 | Confirmed price mismatches per store in 7 days before a `gap_report_pressure` warning; 0 disables. |
 | `QUALITY_OVERRIDES` | `{}` | Per-chain thresholds, JSON. |
@@ -314,6 +414,11 @@ the next tick starts again.
 | `PORTAL_MAX_ATTEMPTS` | 5 | Portal calls before giving up for this tick. |
 | `PORTAL_BACKOFF_BASE_SECONDS` | 2 | First backoff ceiling. |
 | `PORTAL_BACKOFF_CAP_SECONDS` | 120 | Largest backoff ceiling. |
+| `PORTAL_REQUEST_TIMEOUT_SECONDS` | 900 | Longest one portal call (listing or fetch); a timeout is final for the tick. |
+| `CHAIN_BUDGET_SECONDS` | per mode: 1500 (full, late), 480 (delta) | Longest one chain's run. |
+| `RUN_BUDGET_SECONDS` | per mode: 9000 (full), 5400 (late), 2400 (delta) | Longest whole run. |
+| `LATE_FULL_COMPLETE_RATIO` | 0.98 | Share of yesterday's stores with a loaded full file at which a chain needs no late pass. |
+| `LATE_LOAD_MARKER` | | File the late pass touches when it loaded a PriceFull or PromoFull; the late precompute unit runs only while it exists. Unset: no marker. |
 
 ## The upstream scraper
 
@@ -435,8 +540,6 @@ Run it locally without portal access on a migrated database:
   of the ten chains lists and downloads today's files, and that published times and store codes
   parse from the real filenames.
 - Deriving chain base prices from the per-store events (the loader side exists, see Loader).
-- Ending promos that disappear from the day's PromoFull (they keep their `ends_at`). King Store's
-  file carries promotions that are over (38 of 301), so `ends_at` matters there.
 - PromoFull from Victory, Machsanei Hashuk and Hazi Hinam (unreachable from the runner), and a
   second store per chain (whether chain-wide promotions repeat across store files).
 - Held deltas expire after a day (see Idempotency); until then a day whose full never loads keeps
@@ -472,47 +575,74 @@ each invariant below has a regression test in `services/ingest/tests/test_ingest
 | Events land in their UTC month's partition; a new month's partition exists before its first event, created outside the load transaction | `test_events_straddling_a_month_boundary_land_in_their_utc_month`, `test_a_new_months_partition_is_created_before_the_first_event_of_that_month`, `test_partitions_are_created_outside_the_load_transaction` |
 | Precompute waits for the full sync; the timers are 06:00, 08:30 and 09:30 Israel time | `test_precompute_waits_for_the_morning_full_sync` |
 
-## Design risks left open (not changed, for the owner)
+The risks closed for #60 (`test_ingest_risks_*.py`):
 
-Found in the same review; each needs a decision or real data, so none was "fixed" blind.
+| Invariant | Test |
+|---|---|
+| A Stores file has its own, longer stale limit (default 240 h, per chain overridable); PriceFull, PromoFull and both deltas keep 36 h | `test_a_stores_file_has_its_own_longer_stale_limit`, `test_the_price_and_promo_thresholds_were_not_loosened`, `test_stale_limits_are_settings_with_per_chain_overrides`, `test_a_stores_file_70_hours_old_loads_and_a_price_file_that_old_does_not` (`test_ingest_risks_gates.py`) |
+| A price falling to a tenth quarantines the file, writes nothing and is never loaded later; promotions, half price, 75 % and 85 % off, penny items, new items and zero prices (the other gate) do not trip it; the factor is per chain and can be switched off; it covers deltas | `test_a_price_falling_to_a_tenth_quarantines_the_file`, `test_a_quarantined_drop_file_writes_no_rows_and_is_never_loaded_later`, `test_real_promotions_and_clearance_do_not_trip_the_gate`, `test_the_boundary_is_the_factor_itself`, `test_penny_items_are_not_compared`, `test_a_zero_price_is_the_zero_price_gates_not_the_drop_gates`, `test_a_new_item_or_store_has_nothing_to_drop_from`, `test_the_gate_applies_to_deltas_too`, `test_the_factor_is_configurable_per_chain_and_can_be_switched_off` |
+| A PriceFull published after 08:30 is loaded by a late pass, with the day's held deltas behind it; the late pass lists only PriceFull and PromoFull of incomplete chains and loads nothing twice | `test_a_full_published_at_1100_is_loaded_by_the_1130_pass_with_its_held_delta`, `test_a_chain_with_no_price_full_today_is_pending`, `test_a_chain_that_loaded_what_it_loaded_yesterday_is_complete`, `test_a_chain_missing_a_store_it_had_yesterday_is_pending`, `test_a_missing_promo_full_makes_the_chain_pending_but_a_chain_without_promos_is_not`, `test_the_late_pass_lists_only_price_full_and_promo_full`, `test_a_late_pass_over_files_already_loaded_loads_nothing_twice` (`test_ingest_risks_late.py`) |
+| The late timers are 11:30 and 15:30 under the shared lock; the precompute re-runs at 12:30 and 16:30 only after a late full load (marker), removes the marker only after success | `test_the_late_ingestion_timer_runs_at_1130_and_1530_israel_time`, `test_the_late_ingestion_service_takes_the_shared_lock_and_runs_the_late_mode`, `test_the_late_precompute_follows_each_late_pass_and_needs_the_marker`, `test_setup_installs_and_enables_the_new_units`, `test_a_late_load_leaves_the_marker_and_a_quiet_pass_does_not`, `test_the_full_and_delta_modes_never_leave_the_marker` |
+| A PromoFull ends the store's promotions it no longer lists, at its publication time, only when it loaded; never another store's, chain-wide, newer-file or already-over promotions; a Promo delta never ends anything; a listed-again promotion reopens; the precompute query drops the ended one | `test_a_promotion_missing_from_the_days_promo_full_is_ended_at_its_publication_time`, `test_a_failed_load_ends_nothing`, `test_a_quarantined_promo_full_ends_nothing`, `test_another_stores_promotions_are_not_touched`, `test_chain_wide_promotions_are_not_touched`, `test_a_promotion_already_over_keeps_its_own_end`, `test_an_older_full_loaded_late_does_not_end_a_newer_files_promotions`, `test_a_file_whose_records_name_another_store_ends_nothing`, `test_a_promo_delta_never_ends_anything`, `test_a_promotion_from_a_delta_is_ended_by_the_next_full_that_lacks_it` (the byte-identical republish), `test_a_withdrawn_promotion_is_ended_by_a_full_with_different_bytes_too`, `test_a_promotion_listed_again_is_open_again`, `test_a_withdrawn_promotion_is_not_applied_by_the_precompute_query` (`test_ingest_risks_promos.py`) |
+| A hung portal is reported and the next chain runs; a timeout is not retried; a chain and a run have budgets, and a backoff sleep beyond the budget is not taken; the upstream scrape works in the timeout thread | `test_a_hung_portal_is_reported_and_the_next_chain_still_runs`, `test_a_timeout_is_not_retried_in_the_same_tick`, `test_a_file_that_hangs_in_fetch_stops_the_chain_not_the_run`, `test_a_chain_budget_ends_a_slow_chain_and_says_so`, `test_a_backoff_sleep_that_does_not_fit_in_the_budget_is_not_taken`, `test_the_run_budget_stops_the_run_and_reports_the_chains_not_started`, `test_the_upstream_scrape_runs_fine_in_the_timeout_thread`, `test_a_hung_upstream_scrape_times_out` (`test_ingest_risks_portal.py`) |
+| The documented hand release of a quarantined file works for a file the portal no longer lists | `test_the_documented_release_loads_a_file_that_the_portal_no_longer_lists` (`test_ingest_risks_release.py`) |
+
+## Design risks (open for the owner, and closed for #60)
+
+The review before the Phase 0 exit listed ten. Four are closed (invariants table above), one is a
+documentation fix, and the rest each need a decision or real data.
+
+**Closed (#60).**
+
+- *Stores files quarantined as stale* (found on the real run of 2026-10-21): a Stores file has its own
+  stale limit (Quality gates).
+- *No price-drop gate* (was 2): the `price_drop` gate (Quality gates).
+- *Full files published after 08:30 are never loaded* (was 3): the late passes and the late precompute
+  (Schedule). Still worth measuring on the first nights, now to tune the two times:
+
+  ```sql
+  SELECT chain_id, kind, count(*) AS files,
+         max((published_at AT TIME ZONE 'Asia/Jerusalem')::time) AS latest_publication
+  FROM file_tracking WHERE kind IN ('price_full', 'promo_full', 'stores')
+  GROUP BY 1, 2 ORDER BY 4 DESC;
+  ```
+
+  A chain that publishes after 15:30 still gets nothing until the next morning's full sync.
+- *No timeout on a portal call* (was 7): time budgets (Time budgets).
+- *Promotions that disappear* (listed under "Not done yet"): a PromoFull ends the promotions it no
+  longer lists (Loader).
+
+**Still open.**
 
 1. **Zero price quarantines the whole file.** The gate fails the file on any price of zero or less
-   (the issue's rule). If real PriceFull files carry a few zero-price rows (deposit items, "ask at
-   the counter" items), a store's ten thousand good prices are quarantined with it, and quarantine is
-   terminal. Watch the `zero_price` count in `quarantine_events` on the first nights before
-   deciding between a threshold and dropping only the bad rows (which would break "never load a
+   (the issue's rule). The seven real PriceFull fixtures (about 1400 rows, 2026-10-21) held no zero
+   price (all loaded) but do hold prices of 0.01 and 0.10, so penny items exist and a few zero rows
+   in a 10,000-row file are plausible. A store's good prices would be quarantined with them, and
+   quarantine is permanent. Watch the `zero_price` count in `quarantine_events` on the first nights
+   before choosing between a threshold and dropping only the bad rows (which breaks "never load a
    failed file" and so needs a decision).
-2. **No price-drop gate.** `price_jump` only catches rises above 3x. A price falling to a tenth
-   (shekels read as agorot, a decimal point lost) loads. A symmetric factor is a one-line change
-   once real day-to-day variation is known.
-3. **Full files published after 08:30 are never loaded.** Listings are per calendar day and only
-   the 06:00 and 08:30 passes list full files; the hourly ticks list deltas. A chain that publishes
-   its PriceFull at 11:00 gets that day's deltas held and expired, and nothing for the day until
-   tomorrow's full. Measure it on the first nights:
+4. **A quarantine is permanent.** The hash stays `quarantined`, so a file wrongly quarantined (a
+   threshold set too tight, such as the Stores limit before #60) is never re-evaluated after the
+   threshold is fixed. That is the design: a gate that could be argued with would not be a gate.
+   Releasing one by hand, which works whether or not the portal lists the file again (listings are
+   per day; an earlier version of this section set `failed` and relied on the next listing, which
+   never came for an old file):
 
    ```sql
-   SELECT chain_id, kind, count(*) AS files,
-          max((published_at AT TIME ZONE 'Asia/Jerusalem')::time) AS latest_publication
-   FROM file_tracking WHERE kind IN ('price_full', 'promo_full', 'stores')
-   GROUP BY 1, 2 ORDER BY 4 DESC;
+   UPDATE file_tracking SET status = 'downloaded', reason = 'released by hand'
+   WHERE id = ... AND status = 'quarantined';
    ```
 
-   If any chain publishes after 08:30, add an `OnCalendar` line to `smartcart-ingest-full.timer`
-   (more portal load: each pass lists and downloads every chain's full files again).
-4. **A quarantine is permanent.** The hash stays `quarantined`, so a file wrongly quarantined (a
-   threshold set too tight) is never re-evaluated after the threshold is fixed. Releasing one by
-   hand: `UPDATE file_tracking SET status = 'failed', reason = 'released by hand' WHERE id = ...`,
-   then `DELETE FROM quarantine_events WHERE file_id = ...`; the next listing retries it.
+   The next run of the chain processes it from the raw archive (`open_files`). The old
+   `quarantine_events` rows stay as history; a new quarantine adds new ones.
 5. **A delta needs the same day's full of its own kind.** A store that publishes no PromoFull on a
-   day (no promotions) has its Promo deltas held and expired for that day.
+   day (no promotions) has its Promo deltas held and expired for that day. Kept: a delta applied
+   without its full has no base to be a change of.
 6. **Every hourly tick downloads all of today's delta files again.** The upstream scraper couples
    listing and downloading, and hash dedupe happens after the download. Portal politeness and
    bandwidth grow with the number of deltas per day; a per-file listing filter would need a change
-   in the upstream wrapper (adapters, not covered here).
-7. **No timeout on a portal call.** `ScraperFetcher` can hang inside the upstream scrape; only the
-   unit's `TimeoutStartSec` (50 minutes for deltas, 3 hours for the full sync) ends it, and until
-   then it holds the lock (the other timers wait or skip, precompute waits up to two hours). A
-   killed worker is safe (the load is one transaction, recovery handles the tracking row).
+   in the upstream wrapper (adapters, not covered here). The chain budget (above) now bounds the
+   damage of a slow tick, not the volume.
 8. **Old `PriceUpdateDate`s create old partitions.** A price record keeps its own observation
    time, and real files carry items unchanged for years, so the first full creates one partition per
    month back to the oldest date (tens of partitions). Harmless for correctness; a query that does
@@ -522,4 +652,8 @@ Found in the same review; each needs a decision or real data, so none was "fixed
    files carry the chain id inside, so it should not occur; an empty or placeholder file could.
 10. **Daylight saving.** Israel leaves summer time on 2026-10-25 at 02:00. The `:20` delta timer then
     fires at 01:20 twice; the second run finds everything already loaded (hash skip), so it costs
-    only a listing. The 06:00, 08:30 and 09:30 timers are unaffected.
+    only a listing. The 06:00, 08:30, 09:30, 11:30, 12:30, 15:30 and 16:30 timers are unaffected.
+11. **An abandoned portal call keeps running.** After a timeout the daemon thread cannot be killed
+    (Time budgets); it lives until the process exits, which is the end of the run. A run with many
+    hung chains holds that many idle threads and sockets until then. The number is bounded by the
+    chains in the run (ten at most).
