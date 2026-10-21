@@ -72,7 +72,11 @@ jobs:
       FIXTURE_ITEMS: "200"
 
     steps:
+      # Scheduled runs use the default branch, which may hold only docs and workflow copies; the
+      # code lives on main, so a scheduled run checks main out. Manual runs use the chosen ref.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'main' || '' }}
 
       - name: Set up uv and Python 3.12
         uses: astral-sh/setup-uv@v6

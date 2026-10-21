@@ -77,7 +77,11 @@ For the lead to copy into the blocker column (this file does not edit that one):
 ## Things the lead should know when triggering
 
 - **Merge before triggering.** `workflow_dispatch` only appears in the Actions tab for workflows on
-  the default branch. Schedules also run from the default branch only.
+  the default branch. Schedules also run from the default branch only. While the default branch
+  is `docs/project-context` (docs and workflow copies, no code), a scheduled run checks out
+  `main` explicitly; before that fix the scheduled Portal probe and BGE-M3 runs failed at
+  Install from 2026-10-11 to 2026-10-21. Setting the default branch to `main` (repository
+  settings) removes the need for the copies.
 - **BGE-M3 evaluation.** The first run downloads torch with its CUDA wheels (the lock file pins
   the PyPI build) and the model; later runs reuse the model cache (`actions/cache`, key
   `huggingface-Linux-<model>-v1`). Start with `max_items: 100` for a quick check, then 0. The job
