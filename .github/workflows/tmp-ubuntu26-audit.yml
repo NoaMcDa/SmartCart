@@ -1,0 +1,83 @@
+name: TEMP Ubuntu 26 audit
+
+# Temporary, on branch more2/ci only; deleted before the work is finished.
+
+on:
+  push:
+    branches: [more2/ci]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Image
+        run: |
+          cat /etc/os-release | head -4
+          echo "ImageVersion=$ImageVersion"
+          python3 --version
+          docker version --format '{{.Client.Version}} / {{.Server.Version}}'
+          docker run --rm alpine:3.20 echo docker-run-ok
+          command -v psql && psql --version || echo "psql not preinstalled"
+          pg_isready -h localhost -U postgres
+
+      - name: apt packages of ocr-eval.yml
+        if: always()
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-heb fonts-noto-core
+          tesseract --version
+          tesseract --list-langs
+          fc-list | grep -i "NotoSansHebrew" | head -3
+
+      - name: apt package of provision-check.yml
+        if: always()
+        run: |
+          (command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client))
+          psql --version
+
+      - uses: astral-sh/setup-uv@v7
+        if: always()
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: uv sync --locked and the DB tests that matter
+        if: always()
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          SMARTCART_REQUIRE_EXTENSIONS: "1"
+        run: |
+          uv sync --locked
+          uv run pytest -q -x
+
+      - uses: actions/setup-node@v7
+        if: always()
+        with:
+          node-version: 22
+
+      - name: Playwright install --with-deps (version pinned in apps/web/package.json)
+        if: always()
+        working-directory: apps/web
+        run: |
+          npm ci
+          npx playwright --version
+          npx playwright install --with-deps chromium
