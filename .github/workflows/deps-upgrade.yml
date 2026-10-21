@@ -18,8 +18,6 @@ name: Dependency upgrade
 # dependencies; `npm outdated` in the web job lists the direct ones that are behind.
 
 on:
-  push:
-    branches: [more2/ci] # TEMP: verification run, removed in the next commit
   workflow_dispatch:
     inputs:
       dry_run:
@@ -293,10 +291,7 @@ jobs:
   push:
     name: push the lock files to deps/upgrade-<date>
     needs: [lock, python, web]
-    # TEMP, restored with the push trigger removal: exercise this job although web fails on the
-    # playwright-core duplicate. Permanent condition:
-    # if: needs.lock.outputs.changed == 'true' || needs.web.outputs.changed == 'true'
-    if: always() && needs.lock.result == 'success' && needs.python.result == 'success' && (needs.lock.outputs.changed == 'true' || needs.web.outputs.changed == 'true')
+    if: needs.lock.outputs.changed == 'true' || needs.web.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -304,7 +299,7 @@ jobs:
     env:
       LOCK_CHANGED: ${{ needs.lock.outputs.changed }}
       WEB_CHANGED: ${{ needs.web.outputs.changed }}
-      DRY_RUN: ${{ inputs.dry_run || github.event_name == 'push' }} # TEMP: push trigger never creates a branch
+      DRY_RUN: ${{ inputs.dry_run }}
     steps:
       # The commit the lock job upgraded (main on a scheduled run), not a branch tip that may
       # have moved while the suites ran.
