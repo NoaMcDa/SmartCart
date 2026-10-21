@@ -166,3 +166,27 @@ def test_report_renders_without_optional_sections() -> None:
     assert "12,000" in text
     assert "**api**: milp fell back" in text
     assert "not publishable" in text.lower()
+
+
+def test_unpriced_basket_lines_is_the_intersection_of_what_chains_miss() -> None:
+    info = {
+        "chains": [
+            {"chain": "a", "missing_slugs": ["eggs-l", "butter"]},
+            {"chain": "b", "missing_slugs": ["eggs-l", "cottage-5"]},
+        ]
+    }
+    assert real_day.unpriced_basket_lines(info) == ["eggs-l"]
+    assert real_day.unpriced_basket_lines({"chains": []}) == []
+    assert real_day.unpriced_basket_lines(None) == []
+
+
+def test_egg_features_read_size_and_pack_from_the_name() -> None:
+    f = real_day.egg_features("ביצים 2*30 יח' בינונ")
+    assert f["is_egg"] and f["sizes"] == ["M"] and f["packs"] == [60]
+    f = real_day.egg_features("ביצים L 12 יח' תנובה")
+    assert f["sizes"] == ["L"] and f["packs"] == [12]
+    f = real_day.egg_features("ביצים גדולות XL")
+    assert set(f["sizes"]) == {"L", "XL"}
+    # a chocolate egg and egg noodles are not eggs to eat
+    assert not real_day.egg_features("ביצת קינדר ג'וי 20 ג'")["is_egg"]
+    assert not real_day.egg_features("אטריות ביצים 500 גרם")["is_egg"]
