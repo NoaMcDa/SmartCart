@@ -96,17 +96,8 @@ describe("a checkbox per item, saved on the list item", () => {
       render(<SharedListScreen listId={1} />);
       await screen.findAllByTestId("shared-item");
       expect(box(1)).not.toBeChecked();
-      const list = (await saved()) as SavedList & { name: string };
-      await api("/me/lists/1", "PUT", {
-        name: list.name,
-        is_recurring: false,
-        items: list.items.map((i, n) => ({
-          canonical_id: n === 0 ? 1001 : 1004,
-          input_text: i.input_text,
-          quantity: Number(i.quantity),
-          checked: n === 1,
-        })),
-      });
+      // Another member ticks the second item (a write of their own, not ours).
+      await api("/me/lists/1/items/1002", "PATCH", { checked: true });
       await act(async () => {
         await vi.advanceTimersByTimeAsync(4500);
       });
@@ -119,7 +110,9 @@ describe("a checkbox per item, saved on the list item", () => {
   it("a refused save puts the checkbox back and says so", async () => {
     await api("/me/lists", "POST", WEEK);
     server.use(
-      http.put(`${API_BASE_URL}/me/lists/:id`, () => HttpResponse.json({}, { status: 500 })),
+      http.patch(`${API_BASE_URL}/me/lists/:id/items/:itemId`, () =>
+        HttpResponse.json({}, { status: 500 }),
+      ),
     );
     const user = userEvent.setup();
     render(<SharedListScreen listId={1} />);
@@ -139,8 +132,10 @@ describe("edits without a connection", () => {
     render(<SharedListScreen listId={1} />);
     await screen.findAllByTestId("shared-item");
 
-    // The connection drops: the PUT cannot reach the server.
-    server.use(http.put(`${API_BASE_URL}/me/lists/:id`, () => HttpResponse.error()));
+    // The connection drops: the write cannot reach the server.
+    server.use(
+      http.patch(`${API_BASE_URL}/me/lists/:id/items/:itemId`, () => HttpResponse.error()),
+    );
     await user.click(box(0));
     await user.click(
       within(screen.getAllByTestId("shared-item")[1]!).getByRole("button", { name: /הוסיפי כמות/ }),
@@ -176,16 +171,18 @@ describe("edits without a connection", () => {
     render(<SharedListScreen listId={1} />);
     await screen.findAllByTestId("shared-item");
 
-    let puts = 0;
+    const writes: Array<{ method: string; path: string }> = [];
     const count = ({ request }: { request: Request }) => {
-      if (request.method === "PUT") puts += 1;
+      if (request.method !== "GET") {
+        writes.push({ method: request.method, path: new URL(request.url).pathname });
+      }
     };
     server.events.on("request:start", count);
     setOnline(false);
     await user.click(box(1));
     await user.click(box(1)); // ticked and unticked again: the queue holds the last value only
     await user.click(box(0));
-    expect(puts).toBe(0);
+    expect(writes).toEqual([]);
     expect(screen.getByTestId("pending-sync")).toHaveTextContent("2");
 
     setOnline(true);
@@ -193,7 +190,11 @@ describe("edits without a connection", () => {
       window.dispatchEvent(new Event("online"));
     });
     await waitFor(() => expect(screen.queryByTestId("pending-sync")).toBeNull());
-    expect(puts).toBe(1); // one PUT for the whole queue
+    // One write per item, in the order the person first touched them, never the whole list.
+    expect(writes).toEqual([
+      { method: "PATCH", path: "/me/lists/1/items/1002" },
+      { method: "PATCH", path: "/me/lists/1/items/1001" },
+    ]);
     expect((await saved()).items.map((i) => i.checked)).toEqual([true, false]);
     server.events.removeListener("request:start", count);
   });
@@ -208,7 +209,7 @@ describe("edits without a connection", () => {
     await user.type(screen.getByLabelText("הוספת פריט לרשימה המשותפת"), "ביצים");
     await user.click(screen.getByRole("button", { name: "חיפוש" }));
     const hit = await screen.findByRole("button", { name: /הוספי: / });
-    server.use(http.put(`${API_BASE_URL}/me/lists/:id`, () => HttpResponse.error()));
+    server.use(http.post(`${API_BASE_URL}/me/lists/:id/items`, () => HttpResponse.error()));
     await user.click(hit);
     expect(await screen.findByTestId("pending-sync")).toBeInTheDocument();
     expect(screen.getAllByTestId("shared-item")).toHaveLength(3);

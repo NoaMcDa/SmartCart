@@ -50,7 +50,8 @@ uv run smartcart-api serve --reload        # http://localhost:8000/docs
 | `POST /feedback/gap` | optional | report-a-gap: shown versus actual price, or a missing item |
 | `GET /me/profile`, `PUT /me/profile` | required | the user's profile (home store, radius, clubs, travel, flex defaults) |
 | `GET /me/lists`, `POST /me/lists` | required | saved lists with their items; GET also returns the lists shared with the user (`shared`, `role`) |
-| `GET`, `PUT`, `DELETE /me/lists/{list_id}` | required | one list (GET: owned or shared); PUT (owner only) replaces name, recurrence and items |
+| `GET`, `PUT`, `DELETE /me/lists/{list_id}` | required | one list (GET: owned or shared); PUT (owner only) replaces name, recurrence and items, keeping the ids of the items it names |
+| `POST /me/lists/{list_id}/items`; `PATCH`, `DELETE /me/lists/{list_id}/items/{item_id}` | required, owner or editor | one item at a time (see "Per-item writes"); 403 for a viewer, 404 for anyone without access |
 
 Requests reject unknown fields (422). The basket routes take no user identity and store nothing.
 
@@ -491,6 +492,43 @@ distance. Tests: `tests/test_api_geo_precision.py`.
   migration adds `lists` and `list_items` to `supabase_realtime`); the conflict rule and offline
   merge are the web workstream's.
 
+#### Per-item writes (no last-write-wins)
+
+Where there is no Supabase client (local development, the mock) the web app writes one item at a
+time instead of replacing the list, so two people editing within one poll interval do not
+overwrite each other. Owner and accepted editors only; a viewer gets 403 (they can read the list),
+a stranger or a list that does not exist 404. Every statement runs under the caller's RLS, and the
+item must belong to the list in the path (an item id of another list is a 404).
+
+- `POST /me/lists/{id}/items`: body `ListItemIn` (an `id` in it is ignored); appends the item
+  (`sort` = last + 1; `user_id` = the caller) and answers 201 with the `ListItem`. At most 200
+  items per list (403 beyond; the count and the position are taken under a per-list advisory
+  lock).
+- `PATCH /me/lists/{id}/items/{item_id}`: body `ListItemPatch`, any of `canonical_id`,
+  `input_text` (both may be null), `quantity`, `flex_level`, `confirmed`, `checked` (not null),
+  with the same limits as `ListItemIn`; only the named fields change. Answers the `ListItem`.
+- `DELETE /me/lists/{id}/items/{item_id}`: 204; 404 when it is already gone.
+- Version: `ListItem.updated_at` (new column `list_items.updated_at`, migration
+  `20261022090000_list_items_updated_at.sql`). A `BEFORE INSERT OR UPDATE` trigger is its only
+  writer: the time of the insert, the old value for an UPDATE that changes nothing, otherwise the
+  current time and always later than the old value (`clock_timestamp()`, not `now()`, so a
+  transaction that started early and commits late cannot carry an older version). A value a
+  caller sends, also through PostgREST, is replaced (`test_authenticated_cannot_forge_the_item_version`).
+- Precondition: `PATCH` takes `expected_updated_at` in the body and `DELETE` takes it as a query
+  parameter (URL-encode the `+` of an offset), both the `updated_at` as it was read. The item is
+  locked (`SELECT ... FOR UPDATE`) and the versions are compared to the millisecond (a browser
+  `Date` keeps no more); when they differ nothing is written and the answer is **409** with
+  `{"detail": ..., "current": <the ListItem as it is now>}` (`ListItemConflict`). Omitted: the
+  write is unconditional. `If-Unmodified-Since` was not used: its resolution is one second.
+- `PUT /me/lists/{id}` is id-stable: an entry whose `id` is one of this list's items updates that
+  row, and only if something changed (an unchanged item keeps its `updated_at` and sends nothing
+  to Realtime); an entry with no id, or an id this list does not have (never another list's row),
+  is inserted; a row no entry names is deleted; the same id twice is 422. The author of a kept
+  row stays. It is still a whole-list replace, so it does not merge with concurrent item edits:
+  the web app uses it for nothing but creating and importing; PUT stays owner-only.
+- CORS now allows `PATCH` (`allow_methods` in `main.py`; without it a browser on another origin
+  fails the preflight).
+
 ### Alerts and web push (#23)
 
 - An alert takes the profile's neighborhood (consent required, else 422) and is stored rounded
@@ -529,6 +567,7 @@ distance. Tests: `tests/test_api_geo_precision.py`.
 |---|---|
 | `20261008100100_shared_lists_rls.sql` | `owns_list()`, list item policies by list (owner, editor, viewer), `list_shares.expires_at` |
 | `20261009100000_mvp_followups.sql` | `list_shares.id` (identity, unique), `list_items.checked`, `substitution_feedback.source`, `gap_report_pressure()` and the `quality_gap_reports_7d` view, `quality_warnings` |
+| `20261022090000_list_items_updated_at.sql` | `list_items.updated_at` and its trigger (the item version of the per-item routes); no grant changes |
 
 ## Events: phase 2 surfaces (#101, #102)
 

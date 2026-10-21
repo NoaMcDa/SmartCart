@@ -269,6 +269,48 @@ test.describe("checked items and offline edits on a shared list", () => {
     await other.close();
   });
 
+  test("two devices editing within one poll interval keep both edits, and each write is one item", async ({
+    page,
+    browser,
+  }) => {
+    const calls = await openSharedList(page);
+    const other = await browser.newContext({ locale: "he-IL", timezoneId: "Asia/Jerusalem" });
+    const page2 = await other.newPage();
+    const calls2 = await mockApi(page2);
+    await page2.goto("/lists/1/share");
+    const first = page.getByTestId("shared-item");
+    const second = page2.getByTestId("shared-item");
+    await expect(second).toHaveCount(2);
+
+    // Neither screen has polled since the other one's edit (4 s apart): a whole-list PUT from a
+    // stale view used to undo the other person's change.
+    await second.first().getByRole("checkbox").check();
+    await second
+      .nth(1)
+      .getByRole("button", { name: /הוסיפי כמות/ })
+      .click();
+    await expect(second.nth(1).getByRole("group")).toContainText("3");
+    await first
+      .first()
+      .getByRole("button", { name: /הוסיפי כמות/ })
+      .click(); // same item, other field
+    await expect(first.first().getByRole("group")).toContainText("2");
+
+    // Everything is there on both screens: the tick, and both quantity changes.
+    for (const view of [first, second]) {
+      await expect(view.first().getByRole("checkbox")).toBeChecked({ timeout: 15_000 });
+      await expect(view.first().getByRole("group")).toContainText("2");
+      await expect(view.nth(1).getByRole("group")).toContainText("3");
+    }
+    await expect(page.getByTestId("shared-message")).toHaveCount(0);
+    await expect(page2.getByTestId("shared-message")).toHaveCount(0);
+    // Only per-item writes went out: no PUT of the whole list from either device.
+    const writes = [...calls, ...calls2].filter((c) => c.path.startsWith("/me/lists/1/items"));
+    expect(writes.map((c) => c.method)).toEqual(expect.arrayContaining(["PATCH"]));
+    expect([...calls, ...calls2].filter((c) => c.method === "PUT")).toEqual([]);
+    await other.close();
+  });
+
   test("edits made offline wait with ממתין לסנכרון and are sent when the connection is back", async ({
     page,
   }) => {

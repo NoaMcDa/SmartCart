@@ -298,12 +298,17 @@ export interface paths {
         /**
          * Get List
          * @description An owned list, or one shared with the user (``shared``, ``role``). Only the owner may
-         *     PUT or DELETE it; editors change items through PostgREST (RLS).
+         *     PUT or DELETE it; owner and editors change single items with ``/me/lists/{id}/items``.
          */
         get: operations["get_list_me_lists__list_id__get"];
         /**
          * Update List
-         * @description Replace the list's name, recurrence and items.
+         * @description Replace the list's name, recurrence and items (owner only).
+         *
+         *     Id-stable: an item that carries the ``id`` of one of this list's items keeps its row and id and
+         *     is updated only if something changed; items without an id are added; items the body does not
+         *     name are deleted. The owner and the editors change single items, without touching the others,
+         *     with ``POST/PATCH/DELETE /me/lists/{id}/items``.
          */
         put: operations["update_list_me_lists__list_id__put"];
         post?: never;
@@ -312,6 +317,53 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/me/lists/{list_id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Item
+         * @description Appends an item to the end of the list (owner or editor). ``id`` in the body is ignored.
+         */
+        post: operations["add_item_me_lists__list_id__items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/lists/{list_id}/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Item
+         * @description Removes one item (owner or editor). With ``expected_updated_at``, only if nobody changed it
+         *     since: otherwise 409 with the current item. 404 when the item is already gone.
+         */
+        delete: operations["delete_item_me_lists__list_id__items__item_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Item
+         * @description Changes the named fields of one item (owner or editor), and answers the item. With
+         *     ``expected_updated_at`` the change is made only if nobody changed the item since: otherwise
+         *     409 with the current item. 404 when the item is gone.
+         */
+        patch: operations["patch_item_me_lists__list_id__items__item_id__patch"];
         trace?: never;
     };
     "/me/lists/{list_id}/members": {
@@ -974,6 +1026,21 @@ export interface components {
             quantity: string;
             /** Sort */
             sort: number;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description The item's version: moves whenever the item changes, by any member and by any path. Send it back as expected_updated_at to PATCH or DELETE the item only if nobody changed it since you read it (a 409 answers with the current row otherwise).
+             */
+            updated_at: string;
+        };
+        /**
+         * ListItemConflict
+         * @description The 409 body of the per-item routes: the item as it is now.
+         */
+        ListItemConflict: {
+            current: components["schemas"]["ListItem"];
+            /** Detail */
+            detail: string;
         };
         /** ListItemIn */
         ListItemIn: {
@@ -996,6 +1063,11 @@ export interface components {
              * @enum {string}
              */
             flex_level: "exact" | "any_brand" | "close";
+            /**
+             * Id
+             * @description PUT /me/lists/{id} only: an id of an item of this list keeps that row (its id and its other members' view of it) and updates it; no id, or an id this list does not have, adds an item. Ignored when creating a list and by POST /me/lists/{id}/items.
+             */
+            id?: number | null;
             /** Input Text */
             input_text?: string | null;
             /**
@@ -1003,6 +1075,29 @@ export interface components {
              * @default 1
              */
             quantity: number | string;
+        };
+        /**
+         * ListItemPatch
+         * @description ``PATCH /me/lists/{id}/items/{item_id}``: only the fields named are changed.
+         */
+        ListItemPatch: {
+            /** Canonical Id */
+            canonical_id?: number | null;
+            /** Checked */
+            checked?: boolean | null;
+            /** Confirmed */
+            confirmed?: boolean | null;
+            /**
+             * Expected Updated At
+             * @description The item's updated_at as you last read it. When it is not the item's current version (compared to the millisecond) nothing is changed and the answer is a 409 carrying the current row. Omitted: the change is applied whatever the version.
+             */
+            expected_updated_at?: string | null;
+            /** Flex Level */
+            flex_level?: ("exact" | "any_brand" | "close") | null;
+            /** Input Text */
+            input_text?: string | null;
+            /** Quantity */
+            quantity?: number | string | null;
         };
         /** ListMember */
         ListMember: {
@@ -3073,6 +3168,134 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_item_me_lists__list_id__items_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListItemIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_item_me_lists__list_id__items__item_id__delete: {
+        parameters: {
+            query?: {
+                /** @description Delete only if this is still the item's version */
+                expected_updated_at?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: number;
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The item changed since expected_updated_at; the body has its current state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListItemConflict"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_item_me_lists__list_id__items__item_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                list_id: number;
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListItemPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListItem"];
+                };
+            };
+            /** @description The item changed since expected_updated_at; the body has its current state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListItemConflict"];
+                };
             };
             /** @description Validation Error */
             422: {

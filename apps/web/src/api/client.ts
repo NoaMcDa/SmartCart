@@ -245,6 +245,62 @@ export async function updateList(listId: number, body: ShoppingListInput): Promi
   );
 }
 
+/**
+ * Per-item writes of a shared list (owner and editors): one item at a time, so two people editing
+ * the same list never overwrite each other's items. `expected_updated_at` is the item's
+ * `updated_at` as it was last read; when somebody changed the item since, the API answers 409 with
+ * the current row (`conflictItem`).
+ */
+export type ListItem = Schemas["ListItem"];
+export type ListItemPatch = Schemas["ListItemPatch"];
+
+/** `POST /me/lists/{id}/items`: appends one item and answers the saved row. */
+export async function addListItem(listId: number, body: ListItemInput): Promise<ListItem> {
+  return unwrap(
+    await api.POST("/me/lists/{list_id}/items", {
+      params: { path: { list_id: listId } },
+      body: { checked: false, ...body } as Schemas["ListItemIn"],
+    }),
+  );
+}
+
+/** `PATCH /me/lists/{id}/items/{item_id}`: the named fields only; 409 when `expected_updated_at` is stale. */
+export async function patchListItem(
+  listId: number,
+  itemId: number,
+  body: ListItemPatch,
+): Promise<ListItem> {
+  return unwrap(
+    await api.PATCH("/me/lists/{list_id}/items/{item_id}", {
+      params: { path: { list_id: listId, item_id: itemId } },
+      body,
+    }),
+  );
+}
+
+/** `DELETE /me/lists/{id}/items/{item_id}`; 409 when `expectedUpdatedAt` is stale, 404 when gone. */
+export async function deleteListItem(
+  listId: number,
+  itemId: number,
+  expectedUpdatedAt?: string | null,
+): Promise<void> {
+  expectOk(
+    await api.DELETE("/me/lists/{list_id}/items/{item_id}", {
+      params: {
+        path: { list_id: listId, item_id: itemId },
+        query: expectedUpdatedAt ? { expected_updated_at: expectedUpdatedAt } : {},
+      },
+    }),
+  );
+}
+
+/** The current row a 409 of the per-item routes carries, or null for any other error. */
+export function conflictItem(err: unknown): ListItem | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const current = (err.detail as { current?: unknown } | null | undefined)?.current;
+  return current && typeof current === "object" ? (current as ListItem) : null;
+}
+
 export async function shareList(listId: number, role: ShareRole = "editor"): Promise<ShareInvite> {
   return unwrap(
     await api.POST("/me/lists/{list_id}/share", {

@@ -5,7 +5,6 @@ import {
   changeFromPayload,
   itemFromRow,
   itemsOf,
-  serverBody,
   type SharedItem,
   sharedItemName,
 } from "./listSync";
@@ -20,6 +19,7 @@ const item = (over: Partial<SharedItem> & { id: number }): SharedItem => ({
   checked: false,
   sort: over.id,
   updatedAt: null,
+  version: null,
   ...over,
 });
 
@@ -110,7 +110,6 @@ describe("rows and Realtime payloads", () => {
     expect(unnamed.name).toBe("");
     expect(sharedItemName(unnamed)).toBe("מוצר מס' 1001");
     expect(sharedItemName(unnamed, "ar")).toBe("منتج رقم 1001");
-    expect(serverBody("x", [unnamed]).items[0]).toMatchObject({ input_text: null });
     expect(itemFromRow({ id: 7, flex_level: "weird", quantity: -1 })).toMatchObject({
       flexLevel: "any_brand",
       quantity: 1,
@@ -137,7 +136,7 @@ describe("rows and Realtime payloads", () => {
     expect(changeFromPayload({ eventType: "DELETE", old: {} })).toBeNull();
   });
 
-  it("reads a server list sorted, and writes it back whole", () => {
+  it("reads a server list sorted, keeping each item's version as the server wrote it", () => {
     const items = itemsOf({
       items: [
         {
@@ -149,6 +148,7 @@ describe("rows and Realtime payloads", () => {
           input_text: "קוטג'",
           quantity: "1",
           checked: false,
+          updated_at: "2026-10-21T10:00:00.123456Z",
         },
         {
           id: 1,
@@ -159,32 +159,18 @@ describe("rows and Realtime payloads", () => {
           input_text: "חלב",
           quantity: "2",
           checked: false,
+          updated_at: "2026-10-21T10:00:01.654321Z",
         },
       ],
     });
     expect(items.map((i) => i.id)).toEqual([1, 2]);
-    expect(serverBody("הקנייה", items)).toEqual({
-      name: "הקנייה",
-      is_recurring: false,
-      items: [
-        {
-          canonical_id: 1001,
-          input_text: "חלב",
-          quantity: 2,
-          flex_level: "any_brand",
-          confirmed: true,
-          checked: false,
-        },
-        {
-          canonical_id: 1002,
-          input_text: "קוטג'",
-          quantity: 1,
-          flex_level: "exact",
-          confirmed: true,
-          checked: false,
-        },
-      ],
-    });
+    // The string goes back untouched (microseconds included); the number is for ordering.
+    expect(items.map((i) => i.version)).toEqual([
+      "2026-10-21T10:00:01.654321Z",
+      "2026-10-21T10:00:00.123456Z",
+    ]);
+    expect(items[0]!.updatedAt).toBe(Date.parse("2026-10-21T10:00:01.654Z"));
+    expect(itemFromRow({ id: 9 })!.version).toBeNull();
   });
 });
 

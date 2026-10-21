@@ -201,6 +201,47 @@ def test_authenticated_still_edits_the_items_of_a_list_it_may_see(
             db.execute("SELECT count(*) FROM list_items")
 
 
+def test_authenticated_cannot_forge_the_item_version(
+    db: psycopg.Connection, data_api_roles
+) -> None:
+    """``list_items.updated_at`` is the version the per-item API routes check (409). The data API
+    can UPDATE the table, so the trigger must be the only writer of the column: an edit made
+    through PostgREST moves the version like one made through the API, and a value the caller
+    sends is replaced (migration 20261022090000_list_items_updated_at.sql). No grant changed."""
+    owner, editor = uuid.uuid4(), uuid.uuid4()
+    db.execute("INSERT INTO auth.users (id) SELECT unnest(%s::uuid[])", ([owner, editor],))
+    lid = db.execute(
+        "INSERT INTO lists (user_id, name) VALUES (%s, 'x') RETURNING id", (owner,)
+    ).fetchone()[0]
+    db.execute(
+        "INSERT INTO list_shares (list_id, owner_id, member_id, accepted_at, role, invite_token)"
+        " VALUES (%s, %s, %s, now(), 'editor', %s)",
+        (lid, owner, editor, uuid.uuid4().hex),
+    )
+    _as(db, "authenticated", editor)
+    iid, born = db.execute(
+        "INSERT INTO list_items (list_id, user_id, input_text, updated_at)"
+        " VALUES (%s, %s, 'חלב', '2001-01-01') RETURNING id, updated_at",
+        (lid, editor),
+    ).fetchone()
+    assert born.year >= 2026
+
+    def version() -> object:
+        return db.execute("SELECT updated_at FROM list_items WHERE id = %s", (iid,)).fetchone()[0]
+
+    db.execute("UPDATE list_items SET updated_at = '2001-01-01' WHERE id = %s", (iid,))
+    assert version() == born  # nothing else changed: the version stays
+    db.execute(
+        "UPDATE list_items SET checked = true, updated_at = '2001-01-01' WHERE id = %s", (iid,)
+    )
+    assert version() > born  # a real change moves it, whatever the caller wrote
+    after_tick = version()
+    db.execute(
+        "UPDATE list_items SET quantity = 2, updated_at = '2100-01-01' WHERE id = %s", (iid,)
+    )
+    assert after_tick < version() < db.execute("SELECT now() + interval '1 hour'").fetchone()[0]
+
+
 # --- the API role and the closed-beta / photo tables (S9) ---------------------------------------
 
 API_ROLE = "zz_api_probe"
