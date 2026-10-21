@@ -11,9 +11,12 @@ Rules, because the server fetches a URL a user typed:
   text only.
 
 The fetcher is a dependency (``get_fetcher``) so tests replace it and never use the network.
-Known limit: the address is checked before httpx connects, so a host that changes its DNS
-answer between the two (DNS rebinding) is not caught here; deploy the API with egress limited to
-the public internet as the second line.
+DNS rebinding: the name is resolved once, the answer is checked, and the request is then sent to
+that checked address (the URL's host is replaced by the address, ``Host`` keeps the name, and for
+https the TLS server name and the certificate check stay on the name through httpx's
+``sni_hostname`` extension). A host that changes its DNS answer between the check and the connect
+therefore gets nothing: there is no second lookup. Deploy the API with egress limited to the public
+internet as a second line anyway.
 """
 
 from __future__ import annotations
@@ -44,22 +47,30 @@ class FetchError(Exception):
         self.detail = detail
 
 
-def _public(addr: str) -> bool:
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
+
+
+def public_address(addr: str) -> bool:
     ip = ipaddress.ip_address(addr.split("%", 1)[0])
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
-        ip = ip.ipv4_mapped
-    return not (
-        ip.is_private
-        or ip.is_loopback
-        or ip.is_link_local
-        or ip.is_multicast
-        or ip.is_reserved
-        or ip.is_unspecified
-    )
+    if isinstance(ip, ipaddress.IPv6Address):
+        # An IPv4 address wrapped in an IPv6 one (mapped, 6to4, NAT64) is judged as the IPv4 one.
+        if ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        elif ip.sixtofour is not None:
+            ip = ip.sixtofour
+        elif ip in _NAT64:
+            ip = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+    # is_global is false for private, loopback, link-local, carrier-grade NAT (100.64/10),
+    # benchmarking, documentation and the other special-purpose ranges.
+    return ip.is_global and not (ip.is_multicast or ip.is_unspecified)
 
 
-def check_url(url: str, resolve: Callable[[str], list[str]] | None = None) -> None:
-    """Raise ``FetchError(422)`` unless ``url`` is an http(s) URL of a public host."""
+_public = public_address
+
+
+def check_url(url: str, resolve: Callable[[str], list[str]] | None = None) -> list[str]:
+    """The addresses of ``url``'s host; raises ``FetchError(422)`` unless ``url`` is an http(s)
+    URL of a public host."""
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise FetchError(422, "url must be an http or https link")
@@ -78,6 +89,32 @@ def check_url(url: str, resolve: Callable[[str], list[str]] | None = None) -> No
         raise FetchError(422, "the host could not be resolved") from exc
     if not addrs or not all(_public(a) for a in addrs):
         raise FetchError(422, "the host is not a public address")
+    return addrs
+
+
+def _pinned(url: str, addrs: list[str]) -> tuple[str, dict[str, str], dict[str, str]]:
+    """``url`` aimed at the checked address: (url to request, extra headers, extensions).
+
+    An IP-literal host needs nothing. For a name, the connection goes to ``addrs[0]`` (the whole
+    answer set was checked), ``Host`` carries the name, and the TLS handshake still uses the name
+    for SNI and for the certificate check."""
+    parts = urlsplit(url)
+    host = parts.hostname or ""
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        return url, {}, {}
+    addr = addrs[0].split("%", 1)[0]
+    literal = f"[{addr}]" if ":" in addr else addr
+    netloc = literal if parts.port is None else f"{literal}:{parts.port}"
+    host_header = host if parts.port is None else f"{host}:{parts.port}"
+    return (
+        parts._replace(netloc=netloc).geturl(),
+        {"Host": host_header},
+        {"sni_hostname": host} if parts.scheme == "https" else {},
+    )
 
 
 def _resolve(host: str) -> list[str]:
@@ -88,19 +125,34 @@ def _resolve(host: str) -> list[str]:
     return sorted({info[4][0] for info in socket.getaddrinfo(host, None)})
 
 
-def http_fetch(url: str, client: httpx.Client | None = None) -> str:
+def http_fetch(
+    url: str,
+    client: httpx.Client | None = None,
+    resolve: Callable[[str], list[str]] | None = None,
+) -> str:
     """The page at ``url`` as text, under the rules above."""
     own = client is None
     client = client or httpx.Client(timeout=TIMEOUT_S, follow_redirects=False)
     deadline = time.monotonic() + TIMEOUT_S
     try:
         for _ in range(MAX_REDIRECTS + 1):
-            check_url(url)
+            if time.monotonic() > deadline:  # the budget is for the whole fetch, redirects included
+                raise FetchError(502, "the recipe page took too long")
+            addrs = check_url(url, resolve)
+            target, extra, extensions = _pinned(url, addrs)
             try:
                 with client.stream(
                     "GET",
-                    url,
-                    headers={"User-Agent": USER_AGENT, "Accept": "text/html, text/plain"},
+                    target,
+                    headers={
+                        "User-Agent": USER_AGENT,
+                        "Accept": "text/html, text/plain",
+                        # A compressed body is decoded in one piece per network chunk: a small
+                        # download can inflate far past the cap before it is counted.
+                        "Accept-Encoding": "identity",
+                        **extra,
+                    },
+                    extensions=extensions,
                 ) as r:
                     if r.is_redirect and "location" in r.headers:
                         url = urljoin(url, r.headers["location"])
@@ -110,6 +162,16 @@ def http_fetch(url: str, client: httpx.Client | None = None) -> str:
                     ctype = r.headers.get("content-type", "text/html").split(";")[0].strip().lower()
                     if ctype not in _TYPES:
                         raise FetchError(422, f"not a web page ({ctype})")
+                    if r.headers.get("content-encoding", "identity").strip().lower() not in (
+                        "",
+                        "identity",
+                    ):
+                        raise FetchError(
+                            422, "the page is compressed although it was not asked to be"
+                        )
+                    declared = r.headers.get("content-length", "")
+                    if declared.isdigit() and int(declared) > MAX_BYTES:
+                        raise FetchError(422, "the page is larger than 2 MB")
                     body = bytearray()
                     for chunk in r.iter_bytes():
                         body.extend(chunk)

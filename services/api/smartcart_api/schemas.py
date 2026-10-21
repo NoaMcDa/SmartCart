@@ -6,13 +6,29 @@ The web app generates TypeScript types from the OpenAPI document this module pro
 
 from __future__ import annotations
 
+import re
 from datetime import date as Date
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
+
+from smartcart_api.push import validate_endpoint
+
+ShortText = Annotated[str, StringConstraints(max_length=60)]
+"""A club, diet flag or taxonomy id: a short label, never prose."""
+Quantity = Annotated[Decimal, Field(gt=0, le=1000, max_digits=20)]
+"""An amount of one item: positive, at most 1000 (packs or kg), at most 20 digits."""
+Clubs = Annotated[list[ShortText], Field(max_length=30)]
 
 FlexLevel = Literal["exact", "any_brand", "close"]
 TravelMode = Literal["car", "walk_transit", "delivery"]
@@ -21,8 +37,39 @@ SoftAttribute = Literal["pack_size", "packaging", "fat_pct", "variety", "flavor"
 the web app's ``softAttributes()`` keys."""
 
 
+FlexDefaults = Annotated[dict[ShortText, FlexLevel], Field(max_length=1000)]
+"""taxonomy_id -> flex level."""
+
+# Postgres text cannot hold a NUL, and a lone surrogate (JSON "\ud800") cannot be encoded as UTF-8;
+# either one reaching a query is a 500. Refused here, in every string of every request body.
+_UNSTORABLE = re.compile("[\x00\ud800-\udfff]")
+# What no honest text needs and a hostile one can use on whoever reads it later (the maintainer's
+# terminal when feedback is printed, a list member's screen): C0 and C1 control characters except
+# newline and tab (ESC sequences, carriage-return overwrites, BEL) and the bidirectional embedding
+# and override controls U+202A..U+202E and isolates U+2066..U+2069 (a name that displays
+# reversed). The marks Hebrew and Arabic text does use (U+200E, U+200F, U+061C) are kept.
+_CONTROLS = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f‪-‮⁦-⁩]")
+
+
+def _clean_text(value: Any) -> Any:
+    if isinstance(value, str):
+        if _UNSTORABLE.search(value):
+            raise ValueError("text may not contain NUL or unpaired surrogate characters")
+        return _CONTROLS.sub("", value) if _CONTROLS.search(value) else value
+    if isinstance(value, dict):
+        return {_clean_text(k): _clean_text(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_clean_text(v) for v in value]
+    return value
+
+
 class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _text_is_storable(cls, data: Any) -> Any:
+        return _clean_text(data) if isinstance(data, dict) else data
 
 
 # --- parse-list ------------------------------------------------------------------------------
@@ -32,7 +79,7 @@ class ParseListRequest(_Model):
     text: str = Field(
         min_length=1, max_length=4000, description="Free text, Hebrew, comma or newline separated"
     )
-    flex_defaults: dict[str, FlexLevel] = Field(
+    flex_defaults: FlexDefaults = Field(
         default_factory=dict, description="taxonomy_id -> flex level"
     )
 
@@ -200,7 +247,7 @@ class SearchResponse(_Model):
 
 class BasketItem(_Model):
     canonical_id: int
-    quantity: Decimal = Field(gt=0)
+    quantity: Quantity
     flex_level: FlexLevel = "any_brand"
     exact_item_id: int | None = Field(default=None, description="Required when flex_level is exact")
     allow: list[SoftAttribute] = Field(
@@ -223,7 +270,7 @@ class Location(_Model):
 class CompareRequest(_Model):
     items: list[BasketItem] = Field(min_length=1, max_length=200)
     location: Location
-    clubs: list[str] = Field(default_factory=list)
+    clubs: Clubs = Field(default_factory=list)
     home_store_id: int | None = Field(
         default=None, description="The user's usual store; savings are measured against it only"
     )
@@ -368,7 +415,7 @@ class CompareResponse(_Model):
 
 class TravelSettings(_Model):
     mode: TravelMode = "car"
-    cost_per_km: Decimal = Field(default=Decimal("1.2"), ge=0)
+    cost_per_km: Decimal = Field(default=Decimal("1.2"), ge=0, le=100)
     extra_stop_value: Decimal = Field(
         default=Decimal(25), ge=0, le=50, description="What one more stop is worth to the user, ILS"
     )
@@ -380,7 +427,10 @@ class OptimizeRequest(CompareRequest):
         default=10, ge=1, le=15, description="N nearest stores the subsets are drawn from"
     )
     min_split_saving: Decimal = Field(
-        default=Decimal(25), ge=0, description="A split is recommended only above this net saving"
+        default=Decimal(25),
+        ge=0,
+        le=100_000,
+        description="A split is recommended only above this net saving",
     )
     travel: TravelSettings = Field(default_factory=TravelSettings)
     solver: Literal["heuristic", "milp"] = Field(
@@ -467,8 +517,8 @@ class GapReportRequest(_Model):
     store_id: int
     item_id: int | None = None
     canonical_id: int | None = None
-    shown_price: Decimal | None = None
-    actual_price: Decimal | None = None
+    shown_price: Decimal | None = Field(default=None, ge=0, le=100_000, max_digits=20)
+    actual_price: Decimal | None = Field(default=None, ge=0, le=100_000, max_digits=20)
     note: str | None = Field(default=None, max_length=500)
 
 
@@ -488,13 +538,13 @@ class ProfileUpdate(_Model):
     )
     neighborhood_lon: float | None = Field(default=None, ge=-180, le=180)
     travel_mode: TravelMode = "car"
-    cost_per_km: Decimal = Field(default=Decimal("1.2"), ge=0)
+    cost_per_km: Decimal = Field(default=Decimal("1.2"), ge=0, le=100)
     extra_stop_value: Decimal = Field(default=Decimal(25), ge=0, le=50)
     max_stores: int = Field(default=2, ge=1, le=3)
-    clubs: list[str] = Field(default_factory=list)
-    diet_flags: list[str] = Field(default_factory=list)
-    kosher_level: str | None = None
-    flex_defaults: dict[str, FlexLevel] = Field(default_factory=dict)
+    clubs: Clubs = Field(default_factory=list)
+    diet_flags: Clubs = Field(default_factory=list)
+    kosher_level: ShortText | None = None
+    flex_defaults: FlexDefaults = Field(default_factory=dict)
     theme: Literal["system", "light", "dark"] = "system"
     consent_location: bool = Field(
         default=False, description="Required to store a neighborhood location"
@@ -516,7 +566,7 @@ class Profile(ProfileUpdate):
 class ListItemIn(_Model):
     canonical_id: int | None = None
     input_text: str | None = Field(default=None, max_length=200)
-    quantity: Decimal = Field(default=Decimal(1), gt=0)
+    quantity: Quantity = Decimal(1)
     flex_level: FlexLevel = "any_brand"
     confirmed: bool = True
     checked: bool = Field(default=False, description="Ticked off in the store (shared lists, #101)")
@@ -525,6 +575,8 @@ class ListItemIn(_Model):
 class ListItem(ListItemIn):
     id: int
     sort: int
+    # A stored quantity is read back as stored; the input limits apply to what is written.
+    quantity: Decimal = Field(default=Decimal(1), gt=0)
 
 
 class ShoppingListIn(_Model):
@@ -672,7 +724,7 @@ class PriceHistoryResponse(_Model):
 
 class PriceAlertIn(_Model):
     canonical_id: int
-    threshold_unit_price: Decimal = Field(gt=0)
+    threshold_unit_price: Decimal = Field(gt=0, le=100_000, max_digits=20)
     flex_level: FlexLevel = "any_brand"
     radius_m: int = Field(default=5000, ge=500, le=15000)
     active: bool = Field(default=True, description="false pauses the alert")
@@ -686,10 +738,18 @@ class PriceAlert(PriceAlertIn):
 
 
 class PushSubscriptionIn(_Model):
-    endpoint: str = Field(max_length=2000)
-    p256dh: str
-    auth: str
+    endpoint: str = Field(
+        max_length=2000,
+        description="The browser's push endpoint: an https URL of a public host name",
+    )
+    p256dh: str = Field(min_length=1, max_length=200)
+    auth: str = Field(min_length=1, max_length=100)
     user_agent: str | None = Field(default=None, max_length=300)
+
+    @field_validator("endpoint")
+    @classmethod
+    def _endpoint_is_pushable(cls, v: str) -> str:
+        return validate_endpoint(v)
 
 
 class ShareInvite(_Model):

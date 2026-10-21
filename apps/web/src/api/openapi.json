@@ -191,6 +191,7 @@
             "anyOf": [
               {
                 "exclusiveMinimum": 0.0,
+                "maximum": 1000.0,
                 "type": "number"
               },
               {
@@ -419,8 +420,10 @@
         "properties": {
           "clubs": {
             "items": {
+              "maxLength": 60,
               "type": "string"
             },
+            "maxItems": 30,
             "title": "Clubs",
             "type": "array"
           },
@@ -623,6 +626,8 @@
           "actual_price": {
             "anyOf": [
               {
+                "maximum": 100000.0,
+                "minimum": 0.0,
                 "type": "number"
               },
               {
@@ -671,6 +676,8 @@
           "shown_price": {
             "anyOf": [
               {
+                "maximum": 100000.0,
+                "minimum": 0.0,
                 "type": "number"
               },
               {
@@ -845,6 +852,7 @@
             "anyOf": [
               {
                 "exclusiveMinimum": 0.0,
+                "maximum": 1000.0,
                 "type": "number"
               },
               {
@@ -960,8 +968,10 @@
           },
           "clubs": {
             "items": {
+              "maxLength": 60,
               "type": "string"
             },
+            "maxItems": 30,
             "title": "Clubs",
             "type": "array"
           },
@@ -1004,6 +1014,7 @@
           "min_split_saving": {
             "anyOf": [
               {
+                "maximum": 100000.0,
                 "minimum": 0.0,
                 "type": "number"
               },
@@ -1290,6 +1301,10 @@
               "type": "string"
             },
             "description": "taxonomy_id -> flex level",
+            "maxProperties": 1000,
+            "propertyNames": {
+              "maxLength": 60
+            },
             "title": "Flex Defaults",
             "type": "object"
           },
@@ -1690,6 +1705,7 @@
             "anyOf": [
               {
                 "exclusiveMinimum": 0.0,
+                "maximum": 100000.0,
                 "type": "number"
               },
               {
@@ -2078,8 +2094,10 @@
         "properties": {
           "clubs": {
             "items": {
+              "maxLength": 60,
               "type": "string"
             },
+            "maxItems": 30,
             "title": "Clubs",
             "type": "array"
           },
@@ -2096,8 +2114,10 @@
           },
           "diet_flags": {
             "items": {
+              "maxLength": 60,
               "type": "string"
             },
+            "maxItems": 30,
             "title": "Diet Flags",
             "type": "array"
           },
@@ -2120,6 +2140,10 @@
               ],
               "type": "string"
             },
+            "maxProperties": 1000,
+            "propertyNames": {
+              "maxLength": 60
+            },
             "title": "Flex Defaults",
             "type": "object"
           },
@@ -2137,6 +2161,7 @@
           "kosher_level": {
             "anyOf": [
               {
+                "maxLength": 60,
                 "type": "string"
               },
               {
@@ -2235,8 +2260,10 @@
         "properties": {
           "clubs": {
             "items": {
+              "maxLength": 60,
               "type": "string"
             },
+            "maxItems": 30,
             "title": "Clubs",
             "type": "array"
           },
@@ -2249,6 +2276,7 @@
           "cost_per_km": {
             "anyOf": [
               {
+                "maximum": 100.0,
                 "minimum": 0.0,
                 "type": "number"
               },
@@ -2261,8 +2289,10 @@
           },
           "diet_flags": {
             "items": {
+              "maxLength": 60,
               "type": "string"
             },
+            "maxItems": 30,
             "title": "Diet Flags",
             "type": "array"
           },
@@ -2289,6 +2319,10 @@
               ],
               "type": "string"
             },
+            "maxProperties": 1000,
+            "propertyNames": {
+              "maxLength": 60
+            },
             "title": "Flex Defaults",
             "type": "object"
           },
@@ -2306,6 +2340,7 @@
           "kosher_level": {
             "anyOf": [
               {
+                "maxLength": 60,
                 "type": "string"
               },
               {
@@ -2644,15 +2679,20 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
+            "maxLength": 100,
+            "minLength": 1,
             "title": "Auth",
             "type": "string"
           },
           "endpoint": {
+            "description": "The browser's push endpoint: an https URL of a public host name",
             "maxLength": 2000,
             "title": "Endpoint",
             "type": "string"
           },
           "p256dh": {
+            "maxLength": 200,
+            "minLength": 1,
             "title": "P256Dh",
             "type": "string"
           },
@@ -3831,6 +3871,7 @@
           "cost_per_km": {
             "anyOf": [
               {
+                "maximum": 100.0,
                 "minimum": 0.0,
                 "type": "number"
               },
@@ -4049,6 +4090,24 @@
     "/chains/online": {
       "get": {
         "operationId": "chains_online_chains_online_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -4063,6 +4122,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Chains Online",
@@ -4074,6 +4143,24 @@
     "/compare": {
       "post": {
         "operationId": "compare_compare_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -4292,6 +4379,24 @@
     "/health": {
       "get": {
         "operationId": "health_health_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -4302,6 +4407,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Health",
@@ -4351,6 +4466,22 @@
               "minimum": 1,
               "title": "Days",
               "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -4464,6 +4595,22 @@
               ],
               "description": "The user's clubs, as in /compare",
               "title": "Clubs"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -6093,6 +6240,24 @@
     "/optimize": {
       "post": {
         "operationId": "optimize_optimize_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -6143,6 +6308,22 @@
               "title": "Store Id",
               "type": "integer"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "requestBody": {
@@ -6186,6 +6367,24 @@
     "/parse-image": {
       "post": {
         "operationId": "parse_image_parse_image_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -6227,6 +6426,24 @@
     "/parse-list": {
       "post": {
         "operationId": "parse_list_parse_list_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -6268,6 +6485,24 @@
     "/parse-recipe": {
       "post": {
         "operationId": "parse_recipe_parse_recipe_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -6340,6 +6575,22 @@
               "description": "Clubs the user marked; club-only promos count only for these",
               "title": "Clubs"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -6381,6 +6632,7 @@
             "schema": {
               "maxLength": 200,
               "minLength": 1,
+              "pattern": "^[^\\x00]*$",
               "title": "Q",
               "type": "string"
             }
@@ -6395,6 +6647,22 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -6459,6 +6727,22 @@
               "minimum": -90,
               "title": "Lat",
               "type": "number"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],

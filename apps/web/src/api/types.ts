@@ -1764,7 +1764,10 @@ export interface components {
         PushSubscriptionIn: {
             /** Auth */
             auth: string;
-            /** Endpoint */
+            /**
+             * Endpoint
+             * @description The browser's push endpoint: an https URL of a public host name
+             */
             endpoint: string;
             /** P256Dh */
             p256dh: string;
@@ -2376,7 +2379,9 @@ export interface operations {
     chains_online_chains_online_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2391,12 +2396,23 @@ export interface operations {
                     "application/json": components["schemas"]["ChainOnline"][];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     compare_compare_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2534,7 +2550,9 @@ export interface operations {
     health_health_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2549,6 +2567,15 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     price_history_history__canonical_id__get: {
@@ -2558,7 +2585,9 @@ export interface operations {
                 /** @description Days back from today, 90 by default */
                 days?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 canonical_id: number;
             };
@@ -2596,7 +2625,9 @@ export interface operations {
                 /** @description The user's clubs, as in /compare */
                 clubs?: string[] | null;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 barcode: string;
             };
@@ -3551,7 +3582,9 @@ export interface operations {
     optimize_optimize_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3586,7 +3619,9 @@ export interface operations {
             query: {
                 store_id: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3619,7 +3654,9 @@ export interface operations {
     parse_image_parse_image_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3652,7 +3689,9 @@ export interface operations {
     parse_list_parse_list_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3685,7 +3724,9 @@ export interface operations {
     parse_recipe_parse_recipe_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3721,7 +3762,9 @@ export interface operations {
                 /** @description Clubs the user marked; club-only promos count only for these */
                 clubs?: string[] | null;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 canonical_id: number;
             };
@@ -3755,7 +3798,9 @@ export interface operations {
                 q: string;
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3788,7 +3833,9 @@ export interface operations {
                 lon: number;
                 lat: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
