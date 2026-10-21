@@ -23,7 +23,7 @@ jobs:
     # ubuntu-latest moves to Ubuntu 26.04 in November 2026. Playwright 1.61 and newer ship Chromium for
     # it (1.56.1 did not: "Playwright does not support chromium on ubuntu26.04-x64"), so this runs on
     # the moving label and meets 26.04 when GitHub flips it.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
 
     services:
