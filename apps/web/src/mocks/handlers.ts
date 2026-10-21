@@ -15,6 +15,7 @@ import type {
   Schemas,
 } from "@/api/client";
 import { CATALOG, canonicalRef, compareFixture, HOME_STORE_ID, optimizeFixture } from "./fixtures";
+import { applyAllowToCompare, applyAllowToOptimize } from "./allow";
 import { betaHandlers } from "./handlers.beta";
 import { phase2Handlers } from "./handlers.phase2";
 import { phase3Handlers } from "./handlers.phase3";
@@ -66,7 +67,10 @@ export const handlers = [
       );
     }
     return HttpResponse.json(
-      compareFixture(body.home_store_id === undefined ? HOME_STORE_ID : body.home_store_id),
+      applyAllowToCompare(
+        compareFixture(body.home_store_id === undefined ? HOME_STORE_ID : body.home_store_id),
+        body.items,
+      ),
     );
   }),
 
@@ -84,15 +88,18 @@ export const handlers = [
       );
     }
     return HttpResponse.json(
-      optimizeFixture({
-        homeStoreId: body.home_store_id === undefined ? HOME_STORE_ID : body.home_store_id,
-        extraStopValue:
-          body.travel?.extra_stop_value === undefined
-            ? undefined
-            : Number(body.travel.extra_stop_value),
-        minSplitSaving:
-          body.min_split_saving === undefined ? undefined : Number(body.min_split_saving),
-      }),
+      applyAllowToOptimize(
+        optimizeFixture({
+          homeStoreId: body.home_store_id === undefined ? HOME_STORE_ID : body.home_store_id,
+          extraStopValue:
+            body.travel?.extra_stop_value === undefined
+              ? undefined
+              : Number(body.travel.extra_stop_value),
+          minSplitSaving:
+            body.min_split_saving === undefined ? undefined : Number(body.min_split_saving),
+        }),
+        body.items,
+      ),
     );
   }),
 
