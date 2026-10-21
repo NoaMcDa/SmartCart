@@ -1147,6 +1147,20 @@ def render(probe_result: dict | None, gate_result: dict, slugs: Sequence[str]) -
 # --- real fixtures ---------------------------------------------------------------------------------------
 
 
+def full_file_facts(parse: dict) -> dict:
+    """What the **whole** PromoFull held (the committed fixture keeps only the first promotions):
+    its promotion count, every distinct ClubID text with its count and the rule the club table made
+    of it, and the same-store shelf check. Copied from the gate step's profile."""
+    profile = parse.get("profile") or {}
+    shapes = profile.get("shapes") or {}
+    return {
+        "promos": parse.get("promos"),
+        "clubs": profile.get("clubs"),
+        "shelf": profile.get("shelf"),
+        "shelf_check": shapes.get("shelf_check"),
+    }
+
+
 def build_fixtures(
     files: Path, gate_json: dict, out: Path, max_items: int, max_promos: int = 100
 ) -> dict[str, list]:
@@ -1192,6 +1206,12 @@ def build_fixtures(
                 "schema": entry["parse"].get("schema"),
                 "gate": {k: entry.get("gate", {}).get(k) for k in ("status", "gates", "reason")},
             }
+            if kind == "promo_full":
+                record["full_file"] = full_file_facts(entry["parse"])
+            if kind == "price_full":
+                record["same_store_as_promo"] = (
+                    downloads.get(slug, {}).get(kind, {}).get("same_store")
+                )
             try:
                 if kind == "price_full":
                     body, before, after = trim_price_file(data, max_items)
@@ -1222,7 +1242,8 @@ def build_fixtures(
             dest.mkdir(parents=True, exist_ok=True)
             (dest / src.name).write_bytes(body)
             entries.append(record)
-            print("FIXTURE " + json.dumps({"chain": slug, **record}, ensure_ascii=False),
+            shown = {k: v for k, v in record.items() if k != "full_file"}
+            print("FIXTURE " + json.dumps({"chain": slug, **shown}, ensure_ascii=False),
                   file=sys.stderr)  # fmt: skip
         if entries:
             (out / slug / "real" / "MANIFEST.json").write_text(
