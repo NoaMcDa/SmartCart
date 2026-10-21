@@ -145,8 +145,26 @@ function capped(dismissed: Record<string, number>, applied: AppliedSwap[]) {
 
 let snapshot: SwapsState | null = null;
 const listeners = new Set<() => void>();
+let watching = false;
+
+/**
+ * Another tab changed the key, or "delete my data" removed it (it sends a `storage` event for the
+ * key, also in the tab that ran it, and a keyless one for `localStorage.clear()`): read it again.
+ * Keeping the older snapshot would write dismissals the person just deleted back on the next
+ * dismissal.
+ */
+function watchOtherTabs() {
+  if (watching || typeof window === "undefined") return;
+  watching = true;
+  window.addEventListener("storage", (e) => {
+    if (e.key !== null && e.key !== SWAPS_KEY) return;
+    snapshot = null;
+    listeners.forEach((l) => l());
+  });
+}
 
 function load(): SwapsState {
+  watchOtherTabs();
   if (!snapshot) snapshot = sanitize(readJson(SWAPS_KEY, null));
   return snapshot;
 }

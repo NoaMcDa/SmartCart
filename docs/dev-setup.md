@@ -39,9 +39,10 @@ installed with `npm ci`, because npm 11 resolves an optional peer (`msw`) differ
 rejects its lock. First run (2026-10-21): the Python side passed on 3.12 and 3.13 (fastapi
 0.157.0 to 0.158.0, pillow 12.3.0 to 13.0.0, streamlit 1.66.0 to 1.66.1) and the web typecheck
 failed, because the update installs a second `playwright-core` (1.64.1) next to the one
-`@playwright/test` 1.56.1 pins, so the two `Page` types differ. `apps/web/package.json` now pins
-`playwright-core` to 1.56.1 with an `overrides` entry; raise it together with `@playwright/test`
-(1.61 or later also runs on Ubuntu 26.04, see below).
+`@playwright/test` 1.56.1 pins, so the two `Page` types differ. `apps/web/package.json` pins
+`playwright-core` with an `overrides` entry that must equal the `@playwright/test` version, so the
+two `Page` types match: raise them together (both are 1.64.1 since 2026-10-21, which also runs on
+Ubuntu 26.04, see below).
 
 ## Everyday commands
 
@@ -153,13 +154,21 @@ images, not 16; the schema uses nothing that differs between 16 and 17.
 then `npm run e2e:fullstack`; the Playwright report and the demo logs are uploaded on failure.
 `.github/workflows/web.yml` runs the web app's lint, unit, mock e2e and accessibility suites.
 
-**Runners.** `ubuntu-latest` moves from Ubuntu 24.04 to 26.04 in November 2026. Checked on an
-`ubuntu-26.04` runner on 2026-10-21: `tesseract-ocr-heb` and `fonts-noto-core` install,
-`postgresql-client` is available (and `psql` is preinstalled), Docker 29 runs the Supabase
-Postgres service and `docker run`, and uv-managed Python 3.12 and 3.13 plus the whole Python
-suite pass. Playwright 1.56.1 does not: `playwright install --with-deps chromium` stops with
-"Playwright does not support chromium on ubuntu26.04-x64" (support starts in 1.61). So `web.yml`
-and `fullstack.yml` run on `ubuntu-24.04` until the pin in `apps/web/package.json` is raised.
+**Runners.** `ubuntu-latest` moves from Ubuntu 24.04 to 26.04 in November 2026, and every
+workflow runs on that label. Checked on an `ubuntu-26.04` runner on 2026-10-21: `tesseract-ocr-heb`
+and `fonts-noto-core` install, `postgresql-client` is available (and `psql` is preinstalled),
+Docker 29 runs the Supabase Postgres service and `docker run`, and uv-managed Python 3.12 and 3.13
+plus the whole Python suite pass. Playwright 1.56.1 did not (`playwright install --with-deps
+chromium` stopped with "Playwright does not support chromium on ubuntu26.04-x64"; support starts in
+1.61), so for a short time `web.yml` and `fullstack.yml` were pinned to `ubuntu-24.04`. With
+Playwright 1.64.1 they are back on `ubuntu-latest`, which still resolves to Ubuntu 24.04 today.
+Proof for 26.04: on 2026-10-21 both workflows were run once with `runs-on: ubuntu-26.04` (image
+`ubuntu-26.04`, OS 26.04.1) and passed in full: lint, typecheck, unit tests, build, the 315 mock e2e
+tests, the accessibility suite with its aria snapshots, both Lighthouse runs, and the full-stack
+demo with `npm run e2e:fullstack`. Playwright 1.64.1 needs no code or snapshot changes versus 1.56.1.
+In the Claude Code containers the preinstalled Chromium (`/opt/pw-browsers/chromium-1194`) is the
+1.56 revision, so 1.64 cannot launch it by itself: run `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npm run e2e`
+(the `aria-flows` snapshots were checked that way and match), or `npx playwright install chromium` elsewhere.
 The system `python3` there is 3.14, which only the stdlib-only inline scripts of `deploy.yml`
 and `seo-check.yml` use. All actions run on Node 24 (checkout v7, setup-node v7, cache v6,
 upload-artifact v7, download-artifact v8, setup-uv v7, docker build-push v7, login v4, setup-buildx

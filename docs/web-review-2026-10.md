@@ -105,17 +105,96 @@ answer token that the cancel, close, navigation or unmount invalidates.
 
 ## Found, not fixed
 
-- `sc-swaps-v1` is now deleted by "delete my data", but the swaps store (`features/swaps`, not touched
-  here) keeps its in-memory snapshot until reload and would write it back on the next dismissal. It
-  should listen for the `storage` event of its key as the list and the offline queue do.
-- A shared-list "checked" edit made offline on an item that was also added offline keeps its
-  placeholder id after a flush that fails between the two writes (realtime mode), so it is lost.
-  Needs a server-assigned id map that survives a reload; left as a known edge.
-- The polling fallback replays the whole list (`PUT`), so two people editing within one poll interval
-  are last-write-wins on the whole list. Realtime mode is per item.
 - Adding a scanned product twice adds up (by design, "adding the same product again adds up"); the
   card says "נוסף" but stays tappable.
 - `aria-label`s on map pins and store rows read the price without a currency word; not a visual issue.
+- `adoptNearestHomeStore` (`features/profile/profileState.ts`) reads the shopper's location before
+  `GET /stores/nearest` and does not compare it with the location after the answer, so a location
+  changed in between can keep the home store of the old location. It does guard the chain it asked
+  for. Left alone in the round-3 follow-up because the profile screens were being changed by another
+  branch; the fix is the same token the chain guard uses, on the rounded coordinates.
+- The polling fallback of the shared list is last-write-wins for the whole list. It needs an API
+  change, so it is a proposal, not a fix: see "Proposal: per-item writes for the shared list in
+  polling mode" below.
+
+## Follow-up round: the first three "found, not fixed" items and the other async flows
+
+### Fixed
+
+| # | Where | What happened | Fix | Test |
+|---|---|---|---|---|
+| 33 | `features/swaps/swapState.ts` | "Delete my data" (this tab, or another tab, or `localStorage.clear()`) left the in-memory snapshot of `sc-swaps-v1`; the next dismissal wrote the deleted dismissals back. A screen showing the dismissals did not update either. | The store rereads on a `storage` event for its key or without a key (the delete path already sends one for every `CORE_DATA_KEYS` key, also in the tab that ran it) and tells its subscribers. | `swaps/swaps.tabs.test.ts` (6 tests; 5 fail without the fix) |
+| 34 | `features/share/useSharedList.ts` `flush`, `offlineQueue.ts` | Realtime mode: an item added offline and ticked offline is two queued edits, the "add" under a negative placeholder id and a "checked" for that id. The real id was only kept in a local map of the running replay, so when the link dropped between the two writes the retry sent the tick for the placeholder id, matched no row and dropped it: the tick was lost. A tick made while the add was being sent had the same problem. | New `completeAdd(listId, placeholder, realId)` removes the sent "add" and renames the waiting edits of that item to the real id in one write (so it also survives a reload); the replay then puts the saved row in place of the draft on screen. | `share/sharedList.addedOffline.test.tsx` (fails without the fix), `share/offlineQueue.test.ts` ("an item added offline that reached the server", 2 tests) |
+| 35 | `features/alerts/AlertMe.tsx` | The first read of the list could end after a create or a delete: it dropped the alert just created from the screen, or brought a deleted one back. A double tap on "delete" sent two requests and showed the second one's 404 as a server error (the same bug `AlertsScreen` had, #23). | The form remembers what it created and deleted and applies it to a late answer; one delete per alert at a time; one create at a time. `ProductDetail` gives the form `key={canonicalId}`, and the product route keys the page the same way, so nothing of one product carries into the next. | `alerts/alerts.race.test.tsx` (3 tests) |
+| 36 | `features/alerts/AlertsScreen.tsx`, `EditAlertSheet.tsx` | A save in the edit sheet that ended after the person closed it and opened the sheet of another alert closed that second sheet. | `onSaved` closes only the sheet of the alert that was saved; the sheet ignores a second submit while one is on its way. | `alerts/alerts.race.test.tsx` ("a save that ends after the person opened another alert's sheet") |
+| 37 | `features/beta/BetaJoin.tsx`, `betaState.ts` | Joining or leaving the beta while signing out: the answer of the old session was written into the shared membership after `resetBetaState`, so the next sign-in read "ready, member" (or "left") without asking the API. | `setBetaMembership` takes the generation the step started in (`betaGeneration()`); a reset in between makes the answer stale and it is dropped. | `beta/beta.race.test.tsx` (2 tests fail without the fix) |
+| 38 | `features/handoff/HandoffAction.tsx` | Two taps on "copy" where the first (a permission prompt) ended last: "copied" turned into "failed". | The latest tap's result is the one shown. | `handoff/HandoffAction.test.tsx` ("shows the answer of the latest tap on copy when an earlier one ends last") |
+
+For #33 to #38 the fix was reverted and the new tests were seen to fail. The ones that still pass
+without the fix are the controls: "ignores the storage events of other keys" (swaps), "still
+records the answer when nothing changed meanwhile" (beta), and the `completeAdd` unit tests (the
+function is new).
+
+### Checked and found fine
+
+- Product detail: the `compare` and `search` request is cancelled when the product changes, and the
+  answer is tagged with its request key, so a late answer for the previous product is ignored. Now
+  pinned by a test (`product/ProductDetail.test.tsx`, "ignores the answer of the previous product's
+  request ..."). There is no promo-cycle fetch in the web app: `/promo-cycles/{canonical_id}` is in
+  the generated API types and nothing calls it.
+- The map screen has no fetch of its own. Its data is `useComparison`, which reads the keyed
+  resource cache (a request token per key, #4); the map library is a dynamic import whose
+  animation-frame callback is cancelled on unmount. The nearest-store lookup is the profile one
+  above (`adoptNearestHomeStore`).
+- Handoff share: `navigator.share` rejections (cancel, a second share while one is open) are caught.
+  Beta join: the button is disabled while joining and the consent sheet closes on the first answer,
+  so there is no second request. Push panel: its buttons are disabled while a request runs, and the
+  panel renders nothing until its first read has finished.
+
+### Proposal: per-item writes for the shared list in polling mode
+
+Status: not implemented, because it needs an API change (the task was to leave the API alone).
+
+What the polling fallback does today (`useSharedList`, mode "polling": no Supabase client, that is
+the mock and local development, never a signed-in production session): an edit sends the whole list
+with `PUT /me/lists/{id}`, built from the items on screen at the last poll (every 4 s). Two people
+who edit within one poll interval overwrite each other's change.
+
+Why the existing API cannot fix it from the client:
+
+1. `PUT /me/lists/{id}` replaces the item set (`services/api/smartcart_api/routes/me.py`,
+   `_write_items`: `DELETE FROM list_items WHERE list_id = ...`, then one `INSERT` per item). Every
+   PUT gives every item a new id, so after another person's PUT the ids this client holds name
+   nothing, and "merge by item id" matches nothing. Matching by `canonical_id` and name would merge
+   two rows of the same product wrongly.
+2. `ListItem` has no `updated_at` (the `list_items` table has no such column either; only `lists`
+   has one), so "newest edit wins per item" has nothing to compare.
+3. There is no precondition on the PUT (no `If-Match`, no revision).
+4. `PUT` is owner-only (`WHERE id = %s AND user_id = %s`). An editor gets 404, so in polling mode only
+   the owner can save at all; editors work through PostgREST, which is the realtime path.
+5. A client-side read, apply, write (`GET`, apply this person's edit, `PUT`) would shrink the window
+   from 4 s to one round trip, but not close it, and it would have to match items by content.
+   Rejected as a half fix that hides the bug.
+
+Proposal, in two steps:
+
+1. Per-item routes on the API, all editor-or-owner, one SQL statement each:
+   `POST /me/lists/{id}/items` (body `ListItemIn`, answers the `ListItem`),
+   `PATCH /me/lists/{id}/items/{item_id}` (any of `quantity`, `checked`, `flex_level`, `confirmed`;
+   answers the `ListItem`; 404 if the item is gone) and `DELETE /me/lists/{id}/items/{item_id}`.
+   Add `list_items.updated_at` (default `now()`, `set_updated_at` trigger like `lists`) and return it
+   as `ListItem.updated_at`. Two people changing different items then never conflict, and on the same
+   item the later write wins per field, which is what realtime mode does.
+2. Keep `PUT` for "replace the list" (the owner's save, import), but make it keep ids: items that
+   carry an `id` are updated, the others inserted, the missing ones deleted. Optionally accept
+   `base_updated_at` and answer 409 with the current list when the list moved on.
+
+Web follow-up once the routes exist (small, the pieces are there): polling-mode `edit` and `flush`
+call the same per-edit write as `writeRealtime` does against the routes instead of `PUT`, with the
+same optimistic update, queue and rollback; the poll merges with `applyChange` by id and
+`updatedAt` (it already skips an older row); `completeAdd` (above) covers placeholder ids the same
+way. Tests: two clients editing different items within one poll keep both; the same item keeps the
+later; an edit queued offline replays per item.
 
 ## Verification
 
@@ -131,3 +210,8 @@ Every fix above has a test. For the recipe, scan, shared-list poll, profile-sync
 tap and photo add fixes the change was reverted and the test was seen to fail; the others assert the
 old broken behavior directly (for example a read after a refused write) but were not reverted one by
 one.
+
+Follow-up round (#33 to #38): `npm run lint`, `typecheck` and `prettier --check` clean;
+`CI=true npx vitest run` 122 files, 1313 tests, all pass; `npm run build` passes; Playwright e2e on
+the production build for the share, swaps, alerts, beta, handoff and follow-up specs (49 passed) and
+`aria-flows` (9 passed).

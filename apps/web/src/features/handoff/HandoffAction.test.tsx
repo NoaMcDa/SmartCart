@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -143,6 +143,38 @@ describe("cart handoff on the results cards", () => {
     await user.click(within(dialog).getByTestId("handoff-copy"));
     expect(await within(dialog).findByTestId("handoff-copy-failed")).toBeInTheDocument();
     expect(within(dialog).queryByTestId("handoff-copied")).toBeNull();
+  });
+
+  it("shows the answer of the latest tap on copy when an earlier one ends last", async () => {
+    const user = userEvent.setup();
+    renderResults();
+    await user.click(
+      await within(screen.getByTestId("plan-single")).findByRole("button", {
+        name: /המשך באתר של רמי לוי/,
+      }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    let refuseFirst: (reason: Error) => void = () => {};
+    const first = new Promise<void>((_resolve, reject) => {
+      refuseFirst = reject;
+    });
+    const write = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockImplementationOnce(() => first) // a permission prompt that stays open
+      .mockResolvedValueOnce(undefined);
+    Object.defineProperty(document, "execCommand", { value: () => false, configurable: true });
+    await user.click(within(dialog).getByTestId("handoff-copy"));
+    await user.click(within(dialog).getByTestId("handoff-copy"));
+    await within(dialog).findByTestId("handoff-copied");
+
+    refuseFirst(new Error("denied")); // the first tap ends after the second
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(within(dialog).getByTestId("handoff-copied")).toBeInTheDocument();
+    expect(within(dialog).queryByTestId("handoff-copy-failed")).toBeNull();
+    write.mockRestore();
   });
 
   it("offers the phone's share sheet only when the browser has one", async () => {
