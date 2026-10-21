@@ -275,34 +275,57 @@ these fields are optional, so a bare `{"raw_name": ...}` still normalizes.
    | גר', ג' after a number | גרם | ג' elsewhere (ג'בטה) is left alone |
    | ליט', ל' after a number | ליטר | |
    | יח', יחי' | יחידות | |
+   | ללת"ס, לל"ס | ללא תוספת סוכר, ללא סוכר | real (Shufersal); a diet variant |
+   | חד"פ, ח"פ, חדפ | חד פעמי | real: כפות ח"פ, סכין גילוח חדפ |
+   | שוק., חט., תח., דאו., בוטנ., שוקו., סוכ., מ.כביסה, נ.כלים | the full word | dotted first words, real (Shufersal) |
+   | רב"ש, מס', חב', ט.xxx | רב שימושי, מספר, חבילות, טעם xxx | real; `ט.` only before two or more letters |
+   | `1 ק"`, `750 מ"`, `4 ליט`, `76י`, `20ש` as the last characters of the name | קילוגרם, מיליליטר, ליטר, יחידות, שקיקים | a unit **cut** by the chain's name width, only right after a number; a bare `מ` is not expanded (it is a metre as often as a millilitre) |
 
 2. **Size.** Units convert to grams, milliliters or units (kg x1000, liter x1000). Sources in order:
-   - the **name**, when it has a measure: `1 ליטר`, `250 גרם`, `1.5 ל'`, `1,5 ליטר`;
+   - the **name**, when it has a measure: `1 ליטר`, `250 גרם`, `1.5 ל'`, `1,5 ליטר`, and glued to
+     a letter as Shufersal prints it (`מנטה64ג`, `לושן 3 שכבות120יח`);
    - **multipacks** in the name: `6*1.5 ל'`, `4X250 מ"ל`, `4 x 330 מל`, `1.5 ליטר*6`, `250*4 מל`,
-     `מארז 8 ... 150 גרם`, `מארז שישייה`, `זוג`; the per-piece size times the count is the total
-     (`6*1.5 ל'` is 9000 ml);
+     `מארז 8 ... 150 גרם`, `מארז שישייה`, `זוג`, `2*30 יח'`, `20שקיק*3ג`; the per-piece size times
+     the count is the total (`6*1.5 ל'` is 9000 ml). `4*140` with no unit counts only when the
+     chain's field confirms the product (560 g);
    - the chain's **Quantity / UnitQty fields** when the name has no measure; then they are the pack
      total, and a count in the name (`4 יחידות`, `מארז 4`) splits it into pieces;
    - **counted goods**: `12 יח'`, `32 גלילים`, `72 מגבונים`, `100 שקיקים`.
 
    The fields win when the name is silent; the name wins when it has a measure. Fields of `1 יחידה`
    carry no size and are ignored next to a measure; `6 יחידות` next to `1.5 ליטר` makes a six-pack.
-   A disagreement (fields 250 g, name 500 g; or ml against g) uses the name **and is reported**.
+   A disagreement (fields 250 g, name 500 g; or ml against g) uses the name **and is reported**; a
+   field that is only the name's size rounded (187 for 187.5) is not a disagreement. When a pack
+   word and the size in the name are both there and the field equals the size (`זוג ... 226 גרם`,
+   field 226), the size is the pack total (113 g x 2), not the size of each piece (452 g). A pack
+   word that repeats the count (`מארז 5 יחידות`) is five pieces, not five packs of five.
+   **A size that cannot be a shelf item is not used**: 20 L or more, or 50 kg or more, in one piece
+   (`MAX_PIECE_ML`, `MAX_PIECE_G`). Carrefour prints the unit ליטר on grams (400 "liters" of canned
+   corn), and a cut `500מל` is printed `500ל`; the item then has no size from that source and the
+   issue says so.
 3. **Weighed goods.** `is_weighed` from the chain file, `במשקל` or `לק"ג` in the name, UnitQty in kg
    with quantity 1 (or none) and no size in the name, or a PLU-style item code (3 to 5 digits) with no
-   size in the name. Weighed items are normalized as 1 kg with base unit `kg` and `is_weighed`; the
+   size in the name **and no unit field of its own** (a PLU-style code with the field `1 יחידות` and
+   `bIsWeighted` 0 is a bakery item, a bag or a deposit sold by the piece: 24 real items were read
+   as 1 kg before). Weighed items are normalized as 1 kg with base unit `kg` and `is_weighed`; the
    chains publish their shelf price per kg.
 4. **Unparseable.** No size anywhere: `quantity`, `total_quantity` and `base_unit` stay empty and the
-   issue says "unparseable". Nothing is guessed.
+   issue says "unparseable" and why: a quantity with the unit `לא ידוע` (the commonest real case, see
+   [matching.md](matching.md) "Real items, normalization issues"), a unit that is not g, ml or
+   units (`מטרים`), an implausible field, or no quantity at all. Nothing is guessed.
 5. **Unit price.** `unit_price(price, normalized) -> (Decimal, uom)` divides by the pack total: per
    100 g, per 100 ml, per unit, or per kg for weighed goods, whose price is returned as is and must be
    labeled estimated (D6, CLAUDE.md). It raises for an unparsed item.
 
 Known limits: `מארז N ... S גרם` is read as N pieces of S (the common way chains write it, estimate);
-when the Quantity field equals S it agrees with that reading, and when it equals N x S too. The test
-names are realistic but not copied from loaded files (the ingest regression fixtures are synthetic
-too); re-run `smartcart-catalog normalize` on the first real loads and turn its issue list into test
-cases. Note that `prices.unit_price` is already filled by the ingest loader from the chains' own
+when the Quantity field equals S it is read as the pack total (see above), and when it equals N x S
+it agrees with the first reading. `test_normalize.py` has 50 realistic table names;
+`test_normalize_real_sizes.py` has the cases from the real files (names, quantities and units
+verbatim from the seven chains' fixtures), turned from the issue list of `smartcart-catalog
+normalize` on the real load. Where the name and the chain's own field disagree on a size (11 of
+1,400 real items, e.g. 60 g in the name and 160 g in the field) the name wins, as documented; which
+one is right needs the chain's published unit price (`UnitOfMeasurePrice`), which this function does
+not see. Note that `prices.unit_price` is already filled by the ingest loader from the chains' own
 published unit price; the name-based helper here is for the effective-price precompute and for items
 whose published unit price is missing or wrong.
 

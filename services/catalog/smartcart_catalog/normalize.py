@@ -16,6 +16,13 @@ Where the size comes from: the chain's quantity fields first; the name when the 
 or uninformative (``1 יחידה``) or disagree with the name. ``normalize_with_issues`` also returns
 what was ambiguous or unparseable, so the caller can report it instead of trusting a guess. When
 nothing can be parsed the item has no quantity and no base unit; it is never given a made-up size.
+
+Rules that come from the real chain files (docs/matching.md, "Real items, normalization issues"):
+a number may be glued to a Hebrew letter (``מנטה64ג``); a size above 20 L or 50 kg in one piece is
+a unit error of the chain and is not used; a PLU-style code does not make an item weighed when the
+chain gives it a unit of its own; ``N*M`` and ``20שק*3ג`` multiplications; a unit cut by the
+chain's name width is expanded only as the last characters of the name; a quantity with the unit
+``לא ידוע`` is left unknown and the issue says why.
 """
 
 from __future__ import annotations
@@ -68,13 +75,32 @@ ABBREVIATIONS: tuple[Abbreviation, ...] = (
     Abbreviation(_P + r'ללת"ס' + _NOT_WORD, r"\1ללא תוספת סוכר", "ללא תוספת סוכר"),
     Abbreviation(_P + r'לל"ס' + _NOT_WORD, r"\1ללא סוכר", "ללא סוכר"),
     Abbreviation(_P + r'חד"פ' + _NOT_WORD, r"\1חד פעמי", "disposable"),
+    Abbreviation(_P + r'ח"פ' + _NOT_WORD, r"\1חד פעמי", 'disposable; כפות ח"פ, היינקן ח"פ'),
+    Abbreviation(_P + r"חדפ" + _NOT_WORD, r"\1חד פעמי", "disposable; סכין גילוח חדפ"),
+    Abbreviation(_P + r'רב"ש' + _NOT_WORD, r"\1רב שימושי", 'multi-purpose (רב"ש)'),
+    Abbreviation(_P + r"מס'" + _NOT_WORD, r"\1מספר", "צלעות עגל טרי מס' 2"),
+    Abbreviation(_P + r"חב'" + _NOT_WORD, r"\1חבילות", "מארז 5 חב' טישו"),
     # dotted chain shorthand for the first word of a name: שוק.מריר, חט.דגנים, תח.גוף, נ.כלים
     Abbreviation(_P + r"שוק\.\s*", r"\1שוקולד ", "שוק. = שוקולד"),
     Abbreviation(_P + r"חט\.\s*", r"\1חטיף ", "חט. = חטיף"),
     Abbreviation(_P + r"תח\.\s*", r"\1תחליב ", "תח. = תחליב (body lotion)"),
     Abbreviation(_P + r"מ\.כביסה" + _NOT_WORD, r"\1מרכך כביסה", "מ.כביסה"),
     Abbreviation(_P + r"נ\.כלים" + _NOT_WORD, r"\1נוזל כלים", "נ.כלים"),
+    Abbreviation(_P + r"דאו\.\s*", r"\1דאודורנט ", "דאו.ניוואה, דאו.רול (deodorant)"),
+    Abbreviation(_P + r"בוטנ\.\s*", r"\1בוטנים ", "חמאת בוטנ.סקיפי"),
+    Abbreviation(_P + r"שוקו\.\s*", r"\1שוקולד ", "ח.דגנים שוקו.מריר"),
+    Abbreviation(_P + r"סוכ\.\s*", r"\1סוכריות ", 'סוכ.שוקולד לל"ס'),
+    Abbreviation(r"(?<![א-תA-Za-z])ט\.(?=[א-ת]{2})", "טעם ", "ט.מנגו = flavor (Shufersal sweets)"),
     Abbreviation(_P + r"יחי?'" + _NOT_WORD, r"\1יחידות"),
+    # a unit cut by the chain's name width, only as the last characters of the name, right after a
+    # number (real names: 'מארז צלחות  לבן 1 ק"', 'יין באזז מנגו 750 מ"', 'אקונומיקה פסגה 4 ליט',
+    # 'קרפרי אוורירי מגה פק 76י', 'פומפדור ניו יורק צאי20ש'); a bare מ is not here: it is a metre too
+    Abbreviation(r'(?<=\d)(\s*)ק"\s*$', r"\1קילוגרם", 'ק"ג cut after the quote'),
+    Abbreviation(r'(?<=\d)(\s*)מ"\s*$', r"\1מיליליטר", 'מ"ל cut after the quote'),
+    Abbreviation(r"(?<=\d)(\s*)ליט\s*$", r"\1ליטר", "ליטר cut"),
+    Abbreviation(r"(?<=\d)\s*י'?\s*$", r" יחידות", "יח' cut to its first letter"),
+    Abbreviation(r"(?<=\d)י(?=\s)", r" יחידות", "4י גילט: Shufersal's own יח'"),
+    Abbreviation(r"(?<=\d)\s*ש\s*$", r" שקיקים", "20ש: שקיקים cut"),
     # bare one-letter units: only right after a number, so ג'/ל' elsewhere is left alone
     Abbreviation(r"(?<=\d)(\s*)ג'" + _NOT_WORD, r"\1גרם"),
     Abbreviation(r"(?<=\d)(\s*)ל'" + _NOT_WORD, r"\1ליטר"),
@@ -152,6 +178,8 @@ _COUNT_NOUNS = (
     "יח",
     "גלילים",
     "שקיות",
+    "שקיק",
+    "שק",
     "ביצים",
     "טבליות",
     "קפסולות",
@@ -171,16 +199,26 @@ _MEASURE_ALT = "|".join(
     )
 )
 _COUNT_ALT = "|".join(sorted((re.escape(w) for w in _COUNT_NOUNS), key=len, reverse=True))
-_NUM = r"(\d+(?:[.,]\d+)?)"
 _X = r"\s*[*xX×]\s*"
 
+# A number may follow a Hebrew letter directly (Shufersal prints "מנטה64ג", "לושן 3 שכבות120יח"), so
+# the guard in front of a number is "not in the middle of another number", not "not after a letter":
+# with the letter guard "64ג" was read as "4 g" from its last digit.
+_NUM_BEFORE = r"(?<![\d.,])"
+_NUM = r"(\d+(?:[.,]\d+)?)"
 # 6*1.5 ליטר / 4X250 מיליליטר (count first) and 1.5 ליטר*6 (size first)
-_MULTI_COUNT_FIRST = re.compile(
-    rf"{_NOT_WORD_BEFORE}{_NUM}{_X}{_NUM}\s*({_MEASURE_ALT}){_NOT_WORD}"
+_MULTI_COUNT_FIRST = re.compile(rf"{_NUM_BEFORE}{_NUM}{_X}{_NUM}\s*({_MEASURE_ALT}){_NOT_WORD}")
+_MULTI_SIZE_FIRST = re.compile(rf"{_NUM_BEFORE}{_NUM}\s*({_MEASURE_ALT}){_X}(\d+){_NOT_WORD}")
+# 2*30 יח' (two trays of 30 eggs) and 20 שקיק*3 ג (20 tea bags of 3 g each), real Osher Ad and
+# Shufersal names
+_MULTI_UNITS = re.compile(rf"{_NUM_BEFORE}(\d+){_X}(\d+)\s*({_COUNT_ALT}){_NOT_WORD}")
+_COUNT_TIMES_MEASURE = re.compile(
+    rf"{_NUM_BEFORE}(\d+)\s*({_COUNT_ALT}){_X}{_NUM}\s*({_MEASURE_ALT}){_NOT_WORD}"
 )
-_MULTI_SIZE_FIRST = re.compile(rf"{_NUM}\s*({_MEASURE_ALT}){_X}(\d+){_NOT_WORD}")
-_MEASURE = re.compile(rf"{_NOT_WORD_BEFORE}{_NUM}\s*-?\s*({_MEASURE_ALT}){_NOT_WORD}")
-_COUNT = re.compile(rf"{_NOT_WORD_BEFORE}(\d+)\s*({_COUNT_ALT}){_NOT_WORD}")
+# 4*140 or 6*20 with no unit: only used when the chain's fields give the total (4*140 = 560 g)
+_BARE_MULTI = re.compile(rf"{_NUM_BEFORE}(\d+){_X}(\d+)(?![\d.,])")
+_MEASURE = re.compile(rf"{_NUM_BEFORE}{_NUM}\s*-?\s*({_MEASURE_ALT}){_NOT_WORD}")
+_COUNT = re.compile(rf"{_NUM_BEFORE}(\d+)\s*({_COUNT_ALT}){_NOT_WORD}")
 # "מארז 8" is a count; "מארז 500 גרם" is a size, so a number followed by a unit is not a count
 _PACK_WORD = re.compile(
     r"(?:מארז|מארזי|אריזת|חבילת|מגש)\s*(?:של\s*)?(\d+)"
@@ -267,12 +305,37 @@ def parse_fields(quantity: Any, unit: str | None) -> tuple[Decimal, Unit] | None
     return value * factor, u
 
 
+MAX_PIECE_ML = Decimal(20000)
+MAX_PIECE_G = Decimal(50000)
+"""The largest single piece taken at face value: 20 litres, 50 kilograms. Measured on the real
+files: Carrefour prints the unit ליטר on grams (400 "liters" of canned corn, 225 of a spread, 100
+of a spice) and Shufersal prints a cut "500מל" as "500ל"; a size read from those is 1000 times too
+large and every unit price built on it 1000 times too small. Above the limit the size is unknown
+and the item says so; it is never converted back to a guess."""
+
+
+def implausible_size(quantity: Decimal, unit: Unit) -> str | None:
+    """Why one piece of ``quantity`` ``unit`` (in g or ml) cannot be a shelf item, or None."""
+    if unit == "ml" and quantity >= MAX_PIECE_ML:
+        return f"{quantity / 1000:g} L in one piece"
+    if unit == "g" and quantity >= MAX_PIECE_G:
+        return f"{quantity / 1000:g} kg in one piece"
+    return None
+
+
 @dataclass(frozen=True)
 class NameSize:
     size: Size | None
     pack_word: int | None  # מארז N without a per-piece size next to it
     weighed_word: bool
     ambiguous: str | None = None
+    implicit_pack: bool = False
+    """The pack count came from a word (זוג, מארז 6, 4 יחידות), not from an N*size notation, so
+    the chain may have published the pack total as the size."""
+    bare_multi: tuple[int, int] | None = None
+    """N*M with no unit (4*140): meaningful only when the fields confirm N*M as the total."""
+    implausible: str | None = None
+    """A size in the name that was dropped as not credible (see ``implausible_size``)."""
 
 
 def parse_name(name: str) -> NameSize:
@@ -287,25 +350,46 @@ def parse_name(name: str) -> NameSize:
         if named:
             pack_word = _PACK_NAMED[named.group(1)]
 
+    dropped: list[str] = []
+
+    def credible(measure: tuple[Decimal, Unit]) -> bool:
+        why = implausible_size(*measure)
+        if why:
+            dropped.append(why)
+        return why is None
+
+    m = _COUNT_TIMES_MEASURE.search(name)
+    if m:
+        measure = _measure(m.group(3), m.group(4))
+        if measure is not None and int(m.group(1)) > 0 and credible(measure):
+            return NameSize(Size(measure[0], measure[1], int(m.group(1))), None, weighed_word)
+    m = _MULTI_UNITS.search(name)
+    if m and int(m.group(1)) > 0 and int(m.group(2)) > 0:
+        return NameSize(Size(Decimal(int(m.group(2))), "unit", int(m.group(1))), None, weighed_word)
     m = _MULTI_COUNT_FIRST.search(name)
     if m:
         a, b = _dec(m.group(1)), _dec(m.group(2))
         measure = _measure(m.group(2), m.group(3))
         if a is not None and b is not None and measure is not None:
             if a == a.to_integral_value() and (b != b.to_integral_value() or a <= b):
-                return NameSize(Size(measure[0], measure[1], int(a)), None, weighed_word)
-            # "250*4 גרם": the integer next to the unit is the count
-            other = _measure(m.group(1), m.group(3))
-            if b == b.to_integral_value() and other is not None:
-                return NameSize(Size(other[0], other[1], int(b)), None, weighed_word)
+                if credible(measure):
+                    return NameSize(Size(measure[0], measure[1], int(a)), None, weighed_word)
+            else:
+                # "250*4 גרם": the integer next to the unit is the count
+                other = _measure(m.group(1), m.group(3))
+                if b == b.to_integral_value() and other is not None and credible(other):
+                    return NameSize(Size(other[0], other[1], int(b)), None, weighed_word)
     m = _MULTI_SIZE_FIRST.search(name)
     if m:
         measure = _measure(m.group(1), m.group(2))
-        if measure is not None:
+        if measure is not None and credible(measure):
             return NameSize(Size(measure[0], measure[1], int(m.group(3))), None, weighed_word)
 
-    measures = [x for x in (_measure(g1, g2) for g1, g2 in _MEASURE.findall(name)) if x]
+    measures = [
+        x for x in (_measure(g1, g2) for g1, g2 in _MEASURE.findall(name)) if x and credible(x)
+    ]
     counts = [int(n) for n, _ in _COUNT.findall(name) if int(n) > 0]
+    implausible = "; ".join(dict.fromkeys(dropped)) or None
     ambiguous = None
     if len(set(measures)) > 1:
         ambiguous = f"several sizes in the name: {', '.join(f'{q:g} {u}' for q, u in measures)}"
@@ -313,11 +397,25 @@ def parse_name(name: str) -> NameSize:
         qty, unit = measures[0]
         pieces = pack_word or (counts[0] if counts else None)
         if pieces and pieces > 1:
-            return NameSize(Size(qty, unit, pieces), pack_word, weighed_word, ambiguous)
-        return NameSize(Size(qty, unit), pack_word, weighed_word, ambiguous)
+            return NameSize(
+                Size(qty, unit, pieces), pack_word, weighed_word, ambiguous, True, None, implausible
+            )
+        return NameSize(
+            Size(qty, unit), pack_word, weighed_word, ambiguous, False, None, implausible
+        )
     if counts:
-        return NameSize(Size(Decimal(counts[0]), "unit"), pack_word, weighed_word)
-    return NameSize(None, pack_word, weighed_word)
+        return NameSize(
+            Size(Decimal(counts[0]), "unit"),
+            pack_word,
+            weighed_word,
+            None,
+            False,
+            None,
+            implausible,
+        )
+    bare = _BARE_MULTI.search(name)
+    bare_multi = (int(bare.group(1)), int(bare.group(2))) if bare else None
+    return NameSize(None, pack_word, weighed_word, None, False, bare_multi, implausible)
 
 
 # --- normalize -----------------------------------------------------------------------------------
@@ -397,6 +495,29 @@ def normalize_with_issues(item: Any, *, item_id: int | None = None) -> Normaliza
     return NormalizationResult(result.item.model_copy(update=source), result.issues, result.source)
 
 
+def _fields_problem(quantity: Any, unit: Any) -> str | None:
+    """Why the chain's own quantity fields give no size, when they carry a number at all."""
+    if quantity is None:
+        return None
+    try:
+        value = Decimal(str(quantity))
+    except InvalidOperation:
+        return None
+    if value <= 0:
+        return None
+    text = _text(unit)
+    if text is None:
+        return f"the quantity {_plain(value)} has no unit"
+    if parse_fields(quantity, text) is None:
+        return f"the quantity {_plain(value)} comes with the unit {text!r}, which is not g, ml or units"
+    return None
+
+
+def _same(a: Decimal, b: Decimal) -> bool:
+    """Equal, or equal after the chain rounded one of them to a whole number (187 and 187.5)."""
+    return abs(a - b) < 1
+
+
 def _normalize(item: Any, *, item_id: int | None = None) -> NormalizationResult:
     if item_id is None:
         item_id = _get(item, "id") or _get(item, "item_id") or 0
@@ -408,6 +529,14 @@ def _normalize(item: Any, *, item_id: int | None = None) -> NormalizationResult:
     size = found.size
     if found.ambiguous:
         issues.append(found.ambiguous)
+    if found.implausible:
+        issues.append(f"size in the name not used: {found.implausible}")
+    pack_known = (size is not None and size.pack_count > 1) or (found.pack_word or 0) > 1
+    if fields is not None and not pack_known:
+        why = implausible_size(*fields) if fields[1] != "unit" else None
+        if why:
+            issues.append(f"size in the fields not used: {why}")
+            fields = None
 
     def done(s: Size, source: Literal["fields", "name"]) -> NormalizationResult:
         return NormalizationResult(_to_item(item_id, name, s), tuple(issues), source)
@@ -420,7 +549,9 @@ def _normalize(item: Any, *, item_id: int | None = None) -> NormalizationResult:
         if _field_is_kg(raw_unit) and (fields is None or fields[0] == WEIGHED_REFERENCE):
             weighed = True
             issues.append("treated as weighed: unit is kg and the name has no size")
-        elif _PLU.match(code):
+        elif _PLU.match(code) and not (fields is not None and fields[1] == "unit"):
+            # a PLU-style code without a stated unit is a scale item; one the chain sells as
+            # "1 יחידות" (bakery, bags, deposits, mineral water) is a counted item
             weighed = True
             issues.append(f"treated as weighed: PLU-style item code {code}")
     if weighed:
@@ -440,7 +571,19 @@ def _normalize(item: Any, *, item_id: int | None = None) -> NormalizationResult:
                     issues.append(f"{int(f_qty)} pieces from the fields, size from the name")
             elif f_unit != size.unit:
                 issues.append(f"fields say {f_unit}, name says {size.unit}; used the name")
-            elif f_qty not in (size.quantity, size.total):
+            elif (
+                found.implicit_pack
+                and size.pack_count > 1
+                and _same(f_qty, size.quantity)
+                and not _same(f_qty, size.total)
+            ):
+                # "זוג 226 גרם" with the field 226: the size is the pack total, not each piece
+                issues.append(
+                    f"fields equal the size in the name; read as the total of {size.pack_count}"
+                    " pieces"
+                )
+                size = Size(size.quantity / size.pack_count, size.unit, size.pack_count)
+            elif not (_same(f_qty, size.quantity) or _same(f_qty, size.total)):
                 issues.append(
                     f"fields say {f_qty:g} {f_unit}, name says {size.total:g} {size.unit};"
                     " used the name"
@@ -451,6 +594,10 @@ def _normalize(item: Any, *, item_id: int | None = None) -> NormalizationResult:
     pieces = found.pack_word or (int(size.quantity) if size is not None else 1)
     if fields is not None and fields[1] != "unit":
         f_qty, f_unit = fields
+        if pieces <= 1 and found.bare_multi:
+            count, each = found.bare_multi
+            if count > 1 and f_qty == count * each:
+                pieces = count  # "4*140" and the field 560 g: four pieces of 140 g
         if pieces > 1:
             issues.append(f"{pieces} pieces from the name; the fields are the pack total")
             return done(Size(f_qty / pieces, f_unit, pieces), "fields")
@@ -458,14 +605,19 @@ def _normalize(item: Any, *, item_id: int | None = None) -> NormalizationResult:
 
     # --- counted goods: 12 ביצים, 32 גלילים, 1 יחידה --------------------------------------------
     if size is not None:
+        # "מארז 5 יחידות" says the same five twice: the count is the pack, not 5 packs of 5
         packs = found.pack_word if found.pack_word and found.pack_word > 1 else 1
+        if packs == int(size.quantity):
+            packs = 1
+        packs = max(packs, size.pack_count)  # "2*30 יח'": two packs of 30
         return done(Size(size.quantity, "unit", packs), "name")
     if fields is not None:
         return done(Size(fields[0], "unit", found.pack_word or 1), "fields")
     if found.pack_word:
         issues.append("only a pack count was found; unit price is per piece")
         return done(Size(Decimal(1), "unit", found.pack_word), "name")
-    issues.append("unparseable: no quantity in the fields or the name")
+    reason = _fields_problem(raw_qty, raw_unit) or "no quantity in the fields or the name"
+    issues.append(f"unparseable: {reason}")
     return NormalizationResult(
         NormalizedItem(item_id=item_id, clean_name=name), tuple(issues), "none"
     )
