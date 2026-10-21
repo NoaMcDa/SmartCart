@@ -33,8 +33,20 @@ export function subscribeBeta(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/**
+ * Which answer an async step may still write. A step (join, leave) remembers it before its request
+ * and passes it back to `setBetaMembership`; a sign-out or another account in between
+ * (`resetBetaState`) makes the answer stale, and it is dropped.
+ */
+export const betaGeneration = (): number => generation;
+
 /** Record a membership the app just changed itself (joined or left), without another request. */
-export function setBetaMembership(member: boolean, segment: BetaSegment | null): void {
+export function setBetaMembership(
+  member: boolean,
+  segment: BetaSegment | null,
+  since?: number,
+): void {
+  if (since !== undefined && since !== generation) return;
   generation += 1;
   set({ status: "ready", member, segment: member ? segment : null });
 }

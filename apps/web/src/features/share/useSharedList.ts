@@ -43,6 +43,7 @@ import {
   applyEdit,
   applyEdits,
   clearEdits,
+  completeAdd,
   dropFirstEdits,
   enqueueEdit,
   isNetworkFailure,
@@ -186,21 +187,40 @@ export function useSharedList(listId: number) {
         const edits = queuedEdits(listId);
         if (edits.length === 0) break;
         if (supabase) {
-          // An item added offline has a placeholder id; later edits of it use the real id.
+          // An item added offline has a placeholder id; later edits of it use the real id. The
+          // queue itself is rewritten with the real id when the add is saved (`completeAdd`), so
+          // a flush that fails after the add retries the tick against the real row.
           const realIds = new Map<number, number>();
           for (const original of edits) {
             const change = {
               ...original,
               itemId: realIds.get(original.itemId) ?? original.itemId,
             };
+            let added: SharedItem | null = null;
             try {
               const saved = await writeRealtime(supabase, change);
-              if (saved && original.kind === "add") realIds.set(original.itemId, saved.id);
+              if (saved && original.kind === "add") added = saved;
             } catch (err) {
               if (isNetworkFailure(err)) throw err;
               refused = true;
             }
-            dropFirstEdits(listId, 1);
+            if (added) {
+              realIds.set(original.itemId, added.id);
+              completeAdd(listId, original.itemId, added.id);
+              // The draft row on screen becomes the saved one. A tick made meanwhile stays: it is
+              // in the queue under the real id now.
+              const row = added;
+              commit(
+                withQueue(
+                  applyChange(
+                    itemsRef.current.filter((i) => i.id !== original.itemId),
+                    { type: "upsert", item: row },
+                  ),
+                ),
+              );
+            } else {
+              dropFirstEdits(listId, 1);
+            }
           }
         } else {
           const server = await getList(listId);
@@ -220,7 +240,7 @@ export function useSharedList(listId: number) {
     }
     if (refused) setMessage("msgPartial");
     if (queuedEdits(listId).length === 0) await load();
-  }, [listId, supabase, writeRealtime, load]);
+  }, [listId, supabase, writeRealtime, load, commit, withQueue]);
 
   // First read, and a new one whenever the sync mode changes (signing in mid-session).
   useEffect(() => {

@@ -246,7 +246,8 @@ export function AlertsScreen() {
           onClose={() => setEditing(null)}
           onSaved={(saved) => {
             replace(saved);
-            setEditing(null);
+            // The save may end after the person closed this sheet and opened another one.
+            setEditing((open) => (open?.id === saved.id ? null : open));
             setNotice(t("noticeUpdated", { name: editingLabel.name }));
           }}
         />
