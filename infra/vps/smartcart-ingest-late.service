@@ -1,0 +1,37 @@
+[Unit]
+Description=SmartCart ingestion: late PriceFull and PromoFull files of the chains still missing some today
+Documentation=https://github.com/NoaMcDa/SmartCart/blob/main/docs/ingestion.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=smartcart
+Group=smartcart
+WorkingDirectory=/opt/smartcart
+
+# Override the arguments with SMARTCART_INGEST_LATE_ARGS in /etc/smartcart/ingest.env.
+Environment="SMARTCART_INGEST_LATE_ARGS=run --mode late"
+# When a late pass loads a PriceFull or PromoFull it leaves this file; the late precompute unit
+# (smartcart-precompute-late.service) prices the new data only while the file exists. The same
+# path is in that unit; /var/lib/smartcart is writable for both.
+Environment="LATE_LOAD_MARKER=/var/lib/smartcart/late-full-loaded"
+EnvironmentFile=/etc/smartcart/ingest.env
+
+# One ingest run at a time, shared with the other ingestion units through the same lock file. A
+# late pass waits up to an hour for a running job (a delta tick is minutes, the full sync can be
+# longer); the run budget (5400 s) and this wait stay under TimeoutStartSec.
+RuntimeDirectory=smartcart
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/flock --timeout 3600 /run/smartcart/ingest.lock /opt/smartcart/.venv/bin/smartcart-ingest $SMARTCART_INGEST_LATE_ARGS
+TimeoutStartSec=3h
+
+StandardOutput=append:/var/log/smartcart/ingest-late.log
+StandardError=append:/var/log/smartcart/ingest-late.log
+SyslogIdentifier=smartcart-ingest-late
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/smartcart /var/log/smartcart

@@ -1,0 +1,40 @@
+[Unit]
+Description=SmartCart: effective-price precompute after a late full file (smartcart-api precompute, only if one loaded)
+Documentation=https://github.com/NoaMcDa/SmartCart/blob/main/docs/ingestion.md
+Wants=network-online.target
+After=network-online.target smartcart-ingest-full.service smartcart-ingest-late.service
+
+[Service]
+Type=oneshot
+User=smartcart
+Group=smartcart
+WorkingDirectory=/var/lib/smartcart
+
+# As smartcart-precompute.service: the jobs' connection in jobs.env, extra arguments here.
+Environment="SMARTCART_PRECOMPUTE_ARGS="
+# Written by "smartcart-ingest run --mode late" (smartcart-ingest-late.service, same path) when it
+# loaded a PriceFull or PromoFull. Removed here only after a precompute that succeeded; a failed
+# one leaves it, so the next late timer tries again.
+Environment="LATE_LOAD_MARKER=/var/lib/smartcart/late-full-loaded"
+EnvironmentFile=/etc/smartcart/ingest.env
+EnvironmentFile=-/etc/smartcart/api.env
+EnvironmentFile=-/etc/smartcart/jobs.env
+
+# Wait while a full sync or a late pass is running or queued, then take the shared lock (the
+# flock serializes, it does not order; see smartcart-precompute.service). Under the lock, so no
+# ingestion run can load a file between the check and the removal of the marker.
+RuntimeDirectory=smartcart
+RuntimeDirectoryPreserve=yes
+ExecStartPre=/bin/sh -c 'i=0; while { [ "$$(systemctl is-active smartcart-ingest-full.service)" = activating ] || [ "$$(systemctl is-active smartcart-ingest-late.service)" = activating ]; } && [ "$$i" -lt 360 ]; do i=$$((i+1)); sleep 20; done; exit 0'
+ExecStart=/usr/bin/flock --timeout 7200 /run/smartcart/ingest.lock /bin/sh -c 'marker="$$1"; shift; if [ ! -e "$$marker" ]; then echo "no late full file loaded since the last precompute, nothing to do"; exit 0; fi; /opt/smartcart/.venv/bin/smartcart-api precompute "$$@" && rm -f "$$marker"' sh ${LATE_LOAD_MARKER} $SMARTCART_PRECOMPUTE_ARGS
+TimeoutStartSec=5h
+
+StandardOutput=append:/var/log/smartcart/precompute.log
+StandardError=append:/var/log/smartcart/precompute.log
+SyslogIdentifier=smartcart-precompute-late
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/smartcart /var/log/smartcart

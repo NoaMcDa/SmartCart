@@ -14,9 +14,9 @@ was run is listed in [How this was validated](#how-this-was-validated).
 
 | Where | What | Started by |
 |---|---|---|
-| **VPS** (Israeli IP, `infra/vps`) | Ingestion: `smartcart-ingest-full.timer` (06:00 and 08:30 Israel time), `smartcart-ingest-delta.timer` (hourly at :20) | `setup.sh` |
+| **VPS** (Israeli IP, `infra/vps`) | Ingestion: `smartcart-ingest-full.timer` (06:00 and 08:30 Israel time), `smartcart-ingest-late.timer` (11:30 and 15:30: the PriceFull and PromoFull files a chain published after 08:30), `smartcart-ingest-delta.timer` (hourly at :20) | `setup.sh` |
 | **VPS** | The API: `smartcart-api.service`, uvicorn on 127.0.0.1:8000 (`WEB_CONCURRENCY` workers, default 2), behind Caddy on 443 with automatic TLS when `SMARTCART_API_DOMAIN` is set | `setup.sh` |
-| **VPS** | `smartcart-precompute.timer`: nightly `smartcart-api precompute` at 09:30 Israel time, after the second full sync; it waits on the ingestion lock | `setup.sh` |
+| **VPS** | `smartcart-precompute.timer`: nightly `smartcart-api precompute` at 09:30 Israel time, after the second full sync; it waits on the ingestion lock. `smartcart-precompute-late.timer` (12:30 and 16:30) runs it again only when a late pass loaded a full file (marker file `/var/lib/smartcart/late-full-loaded`) | `setup.sh` |
 | **VPS** | `smartcart-alerts.timer`: hourly `smartcart-api alerts-run` at :45 | `setup.sh` |
 | **Vercel** (or the web image on any container host) | The PWA and the static SEO pages (`apps/web`) | `deploy.yml` |
 | **Supabase** | Postgres 17 with PostGIS, pgvector, pg_trgm; Auth; Realtime (shared lists) | the owner, once |
@@ -293,8 +293,8 @@ Every release is a tag and an image pair, so rolling back is deploying the previ
   the previous tag runs on a newer schema as long as migrations only add, which has held so far.
 
 Stop everything without uninstalling: `sudo systemctl disable --now smartcart-api
-smartcart-precompute.timer smartcart-alerts.timer smartcart-ingest-full.timer
-smartcart-ingest-delta.timer`.
+smartcart-precompute.timer smartcart-precompute-late.timer smartcart-alerts.timer
+smartcart-ingest-full.timer smartcart-ingest-late.timer smartcart-ingest-delta.timer`.
 
 ## Sizing from the load test
 

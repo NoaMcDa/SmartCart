@@ -1,11 +1,15 @@
 """Full and delta ingestion jobs (issues #37, #42, #49).
 
 The systemd timers in ``infra/vps`` are the production trigger: the full unit runs
-``smartcart-ingest run --mode full`` at 06:00 and 08:30 Israel time, the delta unit runs
+``smartcart-ingest run --mode full`` at 06:00 and 08:30 Israel time, the late unit runs
+``smartcart-ingest run --mode late`` at 11:30 and 15:30, the delta unit runs
 ``smartcart-ingest run --mode delta`` every hour at :20. This module decides what each tick does.
 
 * ``run_full``: for each chain, list today's Stores, PriceFull and PromoFull files, download and
   process them, then retry the chain's held deltas (their full file may just have loaded).
+* ``run_late``: the full sync again, for the chains that have not loaded all of today's PriceFull
+  and PromoFull files yet (:meth:`Scheduler.pending_full_chains`): a chain that publishes after
+  08:30 would otherwise get nothing for the day.
 * ``run_delta``: for each main chain (D13) whose interval is due, retry held deltas, then list
   today's Price and Promo files and process them. A delta whose store has no loaded full file of
   the same kind for that day (Israel time) is ``held``, never applied early.
@@ -14,12 +18,17 @@ Every file goes through the same path: download (hash idempotency), hold check, 
 gates, load. Portal calls are retried with exponential backoff and full jitter; after
 ``PORTAL_MAX_ATTEMPTS`` the chain is skipped for this tick and a ``portal_failure`` alert fires.
 
+Time budgets (issue #60): one portal call never runs longer than ``PORTAL_REQUEST_TIMEOUT_SECONDS``,
+a chain never longer than its budget, the whole run never longer than the run budget (all counted
+in the download path). A chain that runs out is reported and alerted and the next one starts.
+
 A run holds a database advisory lock (:meth:`Scheduler.exclusive`) so two runs never overlap, and
 one chain's unexpected crash is reported and alerted without stopping the other chains.
 """
 
 from __future__ import annotations
 
+import math
 import random
 import time
 from collections.abc import Callable, Iterable, Iterator, Sequence
@@ -39,7 +48,9 @@ from smartcart_ingest.alerts import Alerter
 from smartcart_ingest.download import (
     Fetcher,
     PortalError,
+    PortalTimeout,
     RemoteFile,
+    call_with_timeout,
     download,
     order_for_processing,
 )
@@ -53,6 +64,15 @@ T = TypeVar("T")
 
 FULL_KINDS: tuple[FileKind, ...] = ("stores", "price_full", "promo_full")
 DELTA_KINDS: tuple[FileKind, ...] = ("price", "promo")
+# The late passes only look for the files a chain may publish after 08:30: not Stores, which is
+# published rarely and is not a nightly load.
+LATE_KINDS: tuple[FileKind, ...] = ("price_full", "promo_full")
+
+# Time budgets in seconds per run mode, used when CHAIN_BUDGET_SECONDS / RUN_BUDGET_SECONDS are
+# not set. They sit under the systemd units' TimeoutStartSec (3 h, 3 h, 50 min), so a run ends
+# itself and reports before systemd kills it. Estimates, not measured values.
+DEFAULT_CHAIN_BUDGET_SECONDS = {"full": 1500.0, "late": 1500.0, "delta": 480.0}
+DEFAULT_RUN_BUDGET_SECONDS = {"full": 9000.0, "late": 5400.0, "delta": 2400.0}
 
 # One ingestion run at a time, per database. The systemd units already share a flock, but a manual
 # `smartcart-ingest run` (or a unit started by hand) bypasses it. Two overlapping runs would
@@ -149,6 +169,40 @@ class PortalUnavailable(RuntimeError):
         self.last = last
         super().__init__(f"[{chain_id}] portal failed {attempts} times; last error: {last}")
 
+    @property
+    def summary(self) -> str:
+        return f"portal still failing after {self.attempts} attempts: {self.last}"
+
+
+class ChainBudgetExceeded(PortalUnavailable):
+    """The chain's time budget ran out (or one call timed out against it). Not retried."""
+
+    def __init__(self, chain_id: str, budget: float, detail: str) -> None:
+        super().__init__(chain_id, 0, RuntimeError(detail))
+        self.budget = budget
+        self.detail = detail
+        self.args = (f"[{chain_id}] time budget of {budget:g} s exhausted: {detail}",)
+
+    @property
+    def summary(self) -> str:
+        return f"time budget of {self.budget:g} s exhausted: {self.detail}"
+
+
+class Deadline:
+    """A time budget on a monotonic clock (wall-clock changes do not move it)."""
+
+    def __init__(self, seconds: float, clock: Callable[[], float] = time.monotonic) -> None:
+        self.seconds = seconds
+        self.clock = clock
+        self.end = clock() + seconds
+
+    def remaining(self) -> float:
+        return self.end - self.clock()
+
+    @property
+    def expired(self) -> bool:
+        return self.remaining() <= 0
+
 
 @dataclass
 class Backoff:
@@ -165,16 +219,31 @@ class Backoff:
     def delay(self, retry: int) -> float:
         return self.rng() * min(self.cap, self.base * (2 ** (retry - 1)))
 
-    def call(self, chain_id: str, fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    def call(
+        self,
+        chain_id: str,
+        fn: Callable[..., T],
+        *args: Any,
+        _deadline: Deadline | None = None,
+        **kwargs: Any,
+    ) -> T:
+        """Call ``fn``, retrying portal errors. A timeout is final for this tick, and so is a
+        backoff sleep that would not fit in what is left of ``_deadline``."""
         last: BaseException | None = None
         for attempt in range(1, self.max_attempts + 1):
             try:
                 return fn(*args, **kwargs)
+            except PortalTimeout as exc:
+                raise PortalUnavailable(chain_id, attempt, exc) from exc
             except self.retry_on as exc:
                 last = exc
                 if attempt == self.max_attempts:
                     break
                 wait = self.delay(attempt)
+                if _deadline is not None and wait >= _deadline.remaining():
+                    raise ChainBudgetExceeded(
+                        chain_id, _deadline.seconds, f"no time left to retry after: {exc}"
+                    ) from exc
                 log.warning(
                     "portal error, backing off",
                     chain_id=chain_id,
@@ -194,16 +263,53 @@ class _RetryingFetcher:
     as a portal failure. Retrying the whole download would also fetch again a file the fetcher
     has already consumed."""
 
-    def __init__(self, inner: Fetcher, backoff: Backoff, chain_id: str) -> None:
+    def __init__(
+        self,
+        inner: Fetcher,
+        backoff: Backoff,
+        chain_id: str,
+        deadline: Deadline | None = None,
+        request_timeout: float | None = None,
+    ) -> None:
         self.inner = inner
         self.backoff = backoff
         self.chain_id = chain_id
+        self.deadline = deadline
+        self.request_timeout = request_timeout
+
+    def _call(self, what: str, fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+        """One portal call under the request timeout and what is left of the chain's budget."""
+        if self.deadline is None and self.request_timeout is None:
+            return self.backoff.call(self.chain_id, fn, *args, **kwargs)
+
+        def attempt() -> T:
+            limit = self.request_timeout
+            budget_binds = False
+            if self.deadline is not None:
+                remaining = self.deadline.remaining()
+                if remaining <= 0:
+                    raise ChainBudgetExceeded(
+                        self.chain_id, self.deadline.seconds, f"before {what}"
+                    )
+                if limit is None or remaining <= limit:
+                    limit, budget_binds = remaining, True
+            assert limit is not None
+            try:
+                return call_with_timeout(fn, limit, self.chain_id, what, *args, **kwargs)
+            except PortalTimeout as exc:
+                if budget_binds and self.deadline is not None:
+                    raise ChainBudgetExceeded(
+                        self.chain_id, self.deadline.seconds, str(exc)
+                    ) from exc
+                raise
+
+        return self.backoff.call(self.chain_id, attempt, _deadline=self.deadline)
 
     def list_files(self, *args: Any, **kwargs: Any) -> list[RemoteFile]:
-        return self.backoff.call(self.chain_id, self.inner.list_files, *args, **kwargs)
+        return self._call("list_files", self.inner.list_files, *args, **kwargs)
 
     def fetch(self, remote: RemoteFile) -> bytes:
-        return self.backoff.call(self.chain_id, self.inner.fetch, remote)
+        return self._call(f"fetch {remote.name}", self.inner.fetch, remote)
 
 
 # --- reports -----------------------------------------------------------------------------------
@@ -220,6 +326,8 @@ class ChainReport:
     quarantined: int = 0
     failed: int = 0
     unrecognized: int = 0
+    loaded_full: int = 0
+    """Of ``loaded``, the PriceFull and PromoFull files (what the late precompute waits for)."""
     error: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
@@ -256,6 +364,7 @@ class Scheduler:
         now: Callable[[], datetime] = _now_israel,
         sleep: Callable[[float], None] = time.sleep,
         rng: Callable[[], float] = random.random,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         from smartcart_ingest.adapters.base import get_adapter
 
@@ -266,6 +375,7 @@ class Scheduler:
         self.settings = settings
         self.adapter_for = adapter_for or get_adapter
         self.now = now
+        self.clock = clock
         self.backoff = Backoff(
             max_attempts=settings.portal_max_attempts,
             base=settings.portal_backoff_base_seconds,
@@ -297,9 +407,47 @@ class Scheduler:
         report = RunReport("full")
         with self.exclusive():
             self.ensure_partitions_ahead()
-            for chain_id in self._ordered(chains):
-                report.chains.append(self._run_chain_safely(chain_id, FULL_KINDS))
+            self._run_chains(report, self._ordered(chains), FULL_KINDS)
         return report
+
+    def run_late(self, chains: Iterable[str]) -> RunReport:
+        """A late pass: today's PriceFull and PromoFull for ``chains`` (the usual choice is
+        :meth:`pending_full_chains`). The files already loaded are skipped by hash, so only what
+        a chain published since the last pass is loaded."""
+        report = RunReport("late")
+        with self.exclusive():
+            self._run_chains(report, self._ordered(chains), LATE_KINDS)
+        return report
+
+    def pending_full_chains(self, chains: Iterable[str]) -> list[str]:
+        """The chains that have not loaded all of today's full files yet, so a late pass should
+        look at them. A chain is complete when, for PriceFull and for PromoFull, the number of
+        stores with a loaded file today reaches ``LATE_FULL_COMPLETE_RATIO`` (default 0.98) of
+        yesterday's, and, for PriceFull, is at least one. Yesterday is the only yardstick: a
+        store that stopped publishing keeps its chain "pending" a day or two, which costs two
+        extra listings, not a wrong load. Nothing is looked up at the portal."""
+        day = self.now().astimezone(ISRAEL).date()
+        out = []
+        for chain_id in dict.fromkeys(chains):
+            for kind in LATE_KINDS:
+                today = tracking.loaded_full_stores(self.conn, chain_id, kind, day)
+                before = tracking.loaded_full_stores(
+                    self.conn, chain_id, kind, day - timedelta(days=1)
+                )
+                needed = math.ceil(before * self.settings.late_full_complete_ratio - 1e-9)
+                if kind == "price_full":
+                    needed = max(needed, 1)
+                if today < needed:
+                    log.info(
+                        "full files still missing for today",
+                        chain_id=chain_id,
+                        kind=kind,
+                        loaded_today=today,
+                        loaded_yesterday=before,
+                    )
+                    out.append(chain_id)
+                    break
+        return out
 
     def run_delta(self, chains: Iterable[str] | None = None) -> RunReport:
         """Explicit ``chains`` run regardless of interval; by default the due main chains."""
@@ -313,8 +461,7 @@ class Scheduler:
                 if sched is None or not sched.has_deltas:
                     log.warning("delta run for a chain without a delta schedule", chain_id=chain_id)
         with self.exclusive():
-            for chain_id in self._ordered(chosen):
-                report.chains.append(self._run_chain_safely(chain_id, DELTA_KINDS))
+            self._run_chains(report, self._ordered(chosen), DELTA_KINDS)
         return report
 
     def ensure_partitions_ahead(self) -> None:
@@ -338,12 +485,38 @@ class Scheduler:
         ]
         return [s.chain_id for s in spread_order(scheds)]
 
-    def _run_chain_safely(self, chain_id: str, kinds: Sequence[FileKind]) -> ChainReport:
+    def _run_chains(self, report: RunReport, chains: list[str], kinds: Sequence[FileKind]) -> None:
+        """Each chain under its own time budget, all of them under the run budget. A chain that
+        runs out of time is reported and alerted; the next one still starts, until the run's own
+        budget is gone (the rest are then reported as not started)."""
+        mode = report.mode
+        chain_budget = self.settings.chain_budget_seconds or DEFAULT_CHAIN_BUDGET_SECONDS[mode]
+        run_deadline = Deadline(
+            self.settings.run_budget_seconds or DEFAULT_RUN_BUDGET_SECONDS[mode], self.clock
+        )
+        for chain_id in chains:
+            if run_deadline.expired:
+                message = (
+                    f"run time budget of {run_deadline.seconds:g} s exhausted before this chain"
+                )
+                log.error("run budget exhausted", chain_id=chain_id, mode=mode)
+                self.alert(chain_id, "portal_failure", message)
+                report.chains.append(ChainReport(chain_id, error=message))
+                continue
+            deadline = Deadline(min(chain_budget, run_deadline.remaining()), self.clock)
+            report.chains.append(self._run_chain_safely(chain_id, kinds, deadline))
+
+    def _run_chain_safely(
+        self,
+        chain_id: str,
+        kinds: Sequence[FileKind],
+        deadline: Deadline | None = None,
+    ) -> ChainReport:
         """One chain's unexpected failure (an adapter or database bug, a full disk) is reported
         and alerted, and the other chains still run. A dead database connection is not a
         per-chain problem and ends the run."""
         try:
-            return self._run_chain(chain_id, kinds)
+            return self._run_chain(chain_id, kinds, deadline)
         except Exception as exc:
             if self.conn.closed or self.conn.broken:
                 raise
@@ -352,7 +525,12 @@ class Scheduler:
             self.alert(chain_id, "load_failure", f"chain run crashed: {message}")
             return ChainReport(chain_id, error=message)
 
-    def _run_chain(self, chain_id: str, kinds: Sequence[FileKind]) -> ChainReport:
+    def _run_chain(
+        self,
+        chain_id: str,
+        kinds: Sequence[FileKind],
+        deadline: Deadline | None = None,
+    ) -> ChainReport:
         rep = ChainReport(chain_id)
         try:
             adapter = self.adapter_for(chain_id)
@@ -375,7 +553,13 @@ class Scheduler:
         if kinds == DELTA_KINDS and local.hour < LATE_DELTA_HOURS:
             day -= timedelta(days=1)
         since = datetime.combine(day, dtime(0), tzinfo=ISRAEL)
-        fetcher = _RetryingFetcher(self.fetcher, self.backoff, chain_id)
+        fetcher = _RetryingFetcher(
+            self.fetcher,
+            self.backoff,
+            chain_id,
+            deadline,
+            self.settings.portal_request_timeout_seconds,
+        )
         try:
             remote = fetcher.list_files(chain_id, kinds, since)
         except PortalUnavailable as exc:
@@ -430,7 +614,7 @@ class Scheduler:
         self.alert(
             rep.chain_id,
             "portal_failure",
-            f"portal still failing after {exc.attempts} attempts: {exc.last}",
+            exc.summary,
             attempts=exc.attempts,
         )
 
@@ -564,6 +748,8 @@ class Scheduler:
             return "failed"
         if not result.skipped:
             rep.loaded += 1
+            if raw.kind in tracking.FULL_KINDS:
+                rep.loaded_full += 1
         return "loaded"
 
 

@@ -286,7 +286,7 @@ default `main`, and re-syncs the environment). It:
 - installs system packages, `uv`, and Python 3.12 (system-wide under `/opt/uv-python`);
 - creates the `smartcart` user (no login shell), `/opt/smartcart` (the checkout and `.venv`), `/var/lib/smartcart`, `/var/log/smartcart`, and an empty `/etc/smartcart/ingest.env`;
 - runs `uv sync --package smartcart-ingest` so `smartcart-ingest` is at `/opt/smartcart/.venv/bin/smartcart-ingest`;
-- installs four systemd units: `smartcart-ingest-full.timer` (daily at 06:00 and 08:30 Israel time, the second pass because the laibcatalog listing is empty until about 08:00, D13) and `smartcart-ingest-delta.timer` (hourly at minute 20), both calling `smartcart-ingest` through a shared lock so a delta never runs while the full sync is running;
+- installs the ingestion units: `smartcart-ingest-full.timer` (daily at 06:00 and 08:30 Israel time, the second pass because the laibcatalog listing is empty until about 08:00, D13), `smartcart-ingest-late.timer` (11:30 and 15:30, full files a chain published late) and `smartcart-ingest-delta.timer` (hourly at minute 20), all calling `smartcart-ingest` through a shared lock so a delta never runs while the full sync is running;
 - rotates `/var/log/smartcart/*.log` daily for 14 days and caps the journal at 500 MB;
 - hardens: firewall with only SSH inbound, key-only SSH, root login off when an admin key exists, automatic security updates.
 
@@ -300,7 +300,7 @@ Fill the environment file, as root (copy the names from `.env.example`; values f
 
 ```bash
 sudoedit /etc/smartcart/ingest.env      # DATABASE_URL=..., S3_ENDPOINT_URL=..., S3_BUCKET=..., S3_ACCESS_KEY_ID=..., ...
-sudo systemctl start smartcart-ingest-full.timer smartcart-ingest-delta.timer
+sudo systemctl start smartcart-ingest-full.timer smartcart-ingest-late.timer smartcart-ingest-delta.timer
 ```
 
 ### 5.4 Run the two smoke scripts
@@ -370,7 +370,7 @@ sudo systemctl start smartcart-ingest-full.service   # run a full sync now (wait
 
 Deploy an update: `cd ~/SmartCart && sudo bash infra/vps/setup.sh` (use `SMARTCART_REPO_REF=<tag or
 branch>` to pin). Roll back: run it again with the previous tag. Stop all ingestion: `sudo systemctl
-disable --now smartcart-ingest-full.timer smartcart-ingest-delta.timer`.
+disable --now smartcart-ingest-full.timer smartcart-ingest-late.timer smartcart-ingest-delta.timer`.
 
 ## 6. Object storage for the raw archive
 
