@@ -7,7 +7,7 @@ import { ItemName } from "@/components/ui/ItemName";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { compareMessages } from "@/i18n/messages/compare";
 import { chainLabel } from "@/lib/storeName";
-import { findOriginal, planSubstitutions, substitutionSaving } from "@/state/comparison";
+import { findOriginal, planSubstitutions, substitutionSavingWithBasis } from "@/state/comparison";
 import { keepOriginal } from "@/features/substitution/actions";
 import { Count } from "./Count";
 import styles from "./Results.module.css";
@@ -36,19 +36,28 @@ export function SubstitutionsSection({ res, plan }: { res: OptimizeResponse; pla
       <ul className={styles.subsList}>
         {subs.map(({ item }) => {
           const original = findOriginal(res, item.canonical_id);
-          const saving = substitutionSaving({ item, original });
+          // The same rule as the substitution card: against the original at this store when the
+          // API sends it, else against the home store's, and the row says which.
+          const here = item.original_here ?? null;
+          const shownOriginal = here ?? original?.item ?? null;
+          const saving = substitutionSavingWithBasis({ item, original });
           return (
             <li key={item.item_id} className={styles.subRow} data-trust-scope="substitution">
               <div className={styles.subCol}>
                 <span className={styles.subLabel}>{t("inYourList")}</span>
                 <span className={styles.subName}>
-                  {original ? <ItemName item={original.item} /> : t("originalProduct")}
+                  {shownOriginal ? <ItemName item={shownOriginal} /> : t("originalProduct")}
                 </span>
-                {original ? (
-                  <span className={styles.unitPrice}>
-                    <Price amount={original.item.effective_unit_price} />{" "}
-                    {perUnitLabel(original.item.uom, locale)}
-                  </span>
+                {shownOriginal ? (
+                  <>
+                    <span className={styles.unitPrice}>
+                      <Price amount={shownOriginal.effective_unit_price} />{" "}
+                      {perUnitLabel(shownOriginal.uom, locale)}
+                    </span>
+                    <span className={styles.unitPrice} data-testid="sub-original-where">
+                      {t(here ? "subAtThisStore" : "subAtYourStore")}
+                    </span>
+                  </>
                 ) : null}
               </div>
               <div className={styles.subCol}>
@@ -66,6 +75,9 @@ export function SubstitutionsSection({ res, plan }: { res: OptimizeResponse; pla
                     <Price amount={saving.total} tone="good" size="md" />
                     <span className={styles.muted}>
                       × <Count n={saving.quantity} noun="unit" />
+                    </span>
+                    <span className={styles.muted} data-testid="sub-saving-basis">
+                      {t(saving.basis === "here" ? "subSavingBasisHere" : "subSavingBasisHome")}
                     </span>
                   </>
                 ) : null}

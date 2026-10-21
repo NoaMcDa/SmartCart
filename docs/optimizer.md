@@ -351,6 +351,12 @@ a time, wall time at the client.
 3. A candidate is dropped when one of the canonical's critical attributes is known on the item
    and differs (D4 fixes critical attributes at `any_brand` and `close`; D5). Its tags are the
    same `matched`/`differs`/`unverified` tags /compare shows for substitutes, plus `confidence`.
+   `BasketItem.allow` is honored like in /compare (#31): the alternatives of an `any_brand` or
+   `close` row are priced with that row's allowed attributes, so a sibling canonical that differs
+   only in allowed critical attributes (3% milk, `fat_pct` allowed, 1% milk) can be a swap. It is
+   labeled with a `differs` tag per attribute that made it a sibling, and a critical difference
+   that is not allowed still drops it. An `exact` row ignores `allow`; an empty `allow` is the old
+   behavior.
 4. `saving` = current line total minus the alternative's, for the requested quantity (promos and
    weight included); only positive savings. One swap per canonical, the largest (ties keep the
    stricter level).

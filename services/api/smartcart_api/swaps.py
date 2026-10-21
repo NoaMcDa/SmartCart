@@ -15,6 +15,13 @@ canonical's critical attributes is known on the item and differs (D5: precision 
 ``any_brand`` and ``close`` the critical attributes are fixed by D4). The saving is for the
 requested quantity, the difference of the two line totals (promos and weight included).
 
+``BasketItem.allow`` (#31) is honored as in /compare: the alternatives of an ``any_brand`` or
+``close`` row are priced with that row's allowed attributes, so a sibling canonical that differs
+only in allowed critical attributes can be suggested. It is still a labeled substitute: the
+suggestion's tags carry a ``differs`` tag for every attribute that made it a sibling, and a
+critical difference that is not in ``allow`` still drops the candidate. An ``exact`` row ignores
+``allow`` (its alternatives are priced without it), and an empty ``allow`` is the old behavior.
+
 At most one swap per canonical (its largest saving), so the swaps never overlap and the total
 is exactly the basket difference after applying all of them. Swaps are suggestions: nothing is
 applied, and the user's flexibility level is not changed. Dismissals, undo and the "not a good
@@ -40,17 +47,21 @@ LOOSER: dict[str, tuple[str, ...]] = {
 }
 
 
-def _requested(items: list[schemas.BasketItem]) -> dict[int, tuple[str, int | None, Decimal]]:
-    """canonical_id -> (level, exact item, total quantity). The first entry of a canonical sets
-    the level (basket.py merges repeated canonicals the same way); quantities add up."""
-    out: dict[int, tuple[str, int | None, Decimal]] = {}
+def _requested(
+    items: list[schemas.BasketItem],
+) -> dict[int, tuple[str, int | None, Decimal, tuple[str, ...]]]:
+    """canonical_id -> (level, exact item, total quantity, allowed attributes). The first entry
+    of a canonical sets the level and ``allow`` (basket.py merges repeated canonicals the same
+    way, ``exact`` ignoring ``allow``); quantities add up."""
+    out: dict[int, tuple[str, int | None, Decimal, tuple[str, ...]]] = {}
     for it in items:
         exact = it.exact_item_id if it.flex_level == "exact" else None
         if it.canonical_id in out:
-            lvl, ex, qty = out[it.canonical_id]
-            out[it.canonical_id] = (lvl, ex, qty + it.quantity)
+            lvl, ex, qty, allow = out[it.canonical_id]
+            out[it.canonical_id] = (lvl, ex, qty + it.quantity, allow)
         else:
-            out[it.canonical_id] = (it.flex_level, exact, it.quantity)
+            allow = () if it.flex_level == "exact" else tuple(sorted(set(it.allow)))
+            out[it.canonical_id] = (it.flex_level, exact, it.quantity, allow)
     return out
 
 
@@ -69,17 +80,25 @@ def suggest_swaps(
 
     # One pricing call per alternative level, every canonical that may move to it at once.
     by_level: dict[str, list[schemas.BasketItem]] = defaultdict(list)
-    for cid, (level, exact, qty) in wanted.items():
+    for cid, (level, exact, qty, allow) in wanted.items():
         if cid not in current.lines:
             continue  # not sold here at the chosen level: a gap, not a saving
         for alt in _candidate_levels(level, exact):
-            by_level[alt].append(schemas.BasketItem(canonical_id=cid, quantity=qty, flex_level=alt))
+            by_level[alt].append(
+                schemas.BasketItem(
+                    canonical_id=cid,
+                    quantity=qty,
+                    flex_level=alt,
+                    allow=list(allow) if alt != "exact" else [],
+                )
+            )
     alt_lines: dict[tuple[int, str], schemas.PricedItem] = {}
     for alt, items in by_level.items():
         for cid, li in price_baskets(conn, items, [store], req.clubs)[sid].lines.items():
             alt_lines[(cid, alt)] = li
 
     attrs = _attributes(conn, {li.item_id for li in alt_lines.values()}, set(wanted))
+    allowed = {cid: set(w[3]) for cid, w in wanted.items()}
     best: dict[int, schemas.SwapSuggestion] = {}
     for (cid, alt), li in sorted(
         alt_lines.items(), key=lambda kv: (kv[0][0], FLEX_ORDER[kv[0][1]])
@@ -90,10 +109,19 @@ def suggest_swaps(
         saving = money(cur.line_total - li.line_total)
         if saving <= 0:
             continue
-        item_attrs, verified, critical, soft, rule_keys, critical_keys = attrs(li.item_id, cid)
-        tags = _tags(item_attrs, verified, critical, soft, rule_keys)
-        if any(t.status == "differs" and t.key in critical_keys for t in tags):
-            continue  # never propose a critical-attribute mismatch
+        item_attrs, verified, critical, soft, rule_keys, critical_keys, is_own = attrs(
+            li.item_id, cid
+        )
+        if is_own:
+            tags = _tags(item_attrs, verified, critical, soft, rule_keys)
+            permitted: set[str] = set()
+        else:
+            # An item of a sibling canonical (only priced when ``allow`` opened it): basket.py
+            # already labeled it, with a ``differs`` tag for every attribute that made it one.
+            tags = li.tags
+            permitted = allowed[cid]
+        if any(t.status == "differs" and t.key in critical_keys - permitted for t in tags):
+            continue  # never propose a critical-attribute mismatch that was not allowed
         prev = best.get(cid)
         if prev is None or saving > prev.saving:  # ties keep the stricter level
             best[cid] = schemas.SwapSuggestion(
@@ -119,7 +147,8 @@ def suggest_swaps(
 
 def _attributes(conn: psycopg.Connection, item_ids: set[int], canonical_ids: set[int]):
     """A lookup (item_id, canonical_id) -> (item attrs, verified keys, canonical critical attrs,
-    soft attrs, rule keys, critical keys)."""
+    soft attrs, rule keys, critical keys, whether the item is mapped to the canonical itself, not
+    to one of its siblings)."""
     items = {
         r[0]: (r[1], list(r[2]))
         for r in conn.execute(
@@ -141,9 +170,26 @@ def _attributes(conn: psycopg.Connection, item_ids: set[int], canonical_ids: set
         )
     }
 
+    mapped = {
+        (r[0], r[1])
+        for r in conn.execute(
+            "SELECT item_id, canonical_id FROM item_canonical"
+            " WHERE item_id = ANY(%s) AND canonical_id = ANY(%s) AND NOT human_rejected",
+            (sorted(item_ids), sorted(canonical_ids)),
+        )
+    }
+
     def lookup(item_id: int, cid: int):
         item_attrs, verified = items.get(item_id, ({}, []))
         critical, soft, rule_keys, critical_keys = canon[cid]
-        return item_attrs, verified, critical, soft, rule_keys, critical_keys
+        return (
+            item_attrs,
+            verified,
+            critical,
+            soft,
+            rule_keys,
+            critical_keys,
+            (item_id, cid) in mapped,
+        )
 
     return lookup

@@ -78,6 +78,10 @@ export const compareMessages = defineMessages({
     undoSwap: "בטלי",
     undoSwapLabel: "ביטול ההחלפה של {name}",
     walkThrough: "לעבור על ההחלפות אחת אחת",
+    subAtThisStore: "באותו סניף",
+    subAtYourStore: "בסופר שלך",
+    subSavingBasisHere: "בהשוואה למוצר המקורי באותו סניף",
+    subSavingBasisHome: "בהשוואה למוצר המקורי בסופר שלך",
 
     // Smart cart
     reasonAnyBrand: "אותו סוג מוצר ואותה כמות, במותג אחר. מתאים לרמת ״כל מותג״.",
@@ -189,6 +193,10 @@ export const compareMessages = defineMessages({
     undoSwap: "تراجع",
     undoSwapLabel: "التراجع عن استبدال {name}",
     walkThrough: "مراجعة البدائل واحدًا واحدًا",
+    subAtThisStore: "في الفرع نفسه",
+    subAtYourStore: "في سوبرماركتك",
+    subSavingBasisHere: "مقارنةً بالمنتج الأصلي في الفرع نفسه",
+    subSavingBasisHome: "مقارنةً بالمنتج الأصلي في سوبرماركتك",
 
     reasonAnyBrand: "نفس نوع المنتج ونفس الكمية، بماركة مختلفة. مناسب لمستوى «أي ماركة».",
     reasonClose:

@@ -83,6 +83,17 @@ for (const viewport of [
       await expect(details.getByRole("link", { name: /^תחליף:/ })).toHaveCount(3);
       await expect(details.getByText("מבצע מועדון · רמי לוי")).toBeVisible();
       await expect(details.getByText("מחיר משוער · שקיל").first()).toBeVisible();
+      // The substitutions list says the same as the substitution card (₪1.20 for the milk, against
+      // the original at that store) and labels which comparison each row made.
+      const rows = page.getByTestId("subs-section").getByRole("listitem");
+      await expect(rows.nth(0)).toContainText(/₪\s1\.20\s*× 2 יחידות/);
+      await expect(rows.nth(0).getByTestId("sub-saving-basis")).toHaveText(
+        "בהשוואה למוצר המקורי באותו סניף",
+      );
+      await expect(rows.nth(2)).toContainText(/₪\s4\.80\s*× 2 יחידות/);
+      await expect(rows.nth(2).getByTestId("sub-saving-basis")).toHaveText(
+        "בהשוואה למוצר המקורי בסופר שלך",
+      );
       expect(await page.locator("main").textContent()).not.toMatch(NO_MAX_BASELINE);
 
       if (viewport.width === 1280) {
