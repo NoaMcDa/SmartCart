@@ -16,7 +16,7 @@ import { betaMessages } from "@/i18n/messages/beta";
 import { rescueFocus } from "@/lib/focus";
 import { BetaFeedbackSheet } from "./BetaFeedback";
 import styles from "./Beta.module.css";
-import { setBetaMembership } from "./betaState";
+import { betaGeneration, setBetaMembership } from "./betaState";
 import { useBetaMembership } from "./useBetaMembership";
 
 type Translate = ReturnType<typeof useT<keyof typeof betaMessages.he>>;
@@ -64,10 +64,12 @@ export function BetaJoin({ code }: { code?: string }) {
     if (!code) return;
     setPhase("joining");
     setError(null);
+    // Signing out while the request runs must not leave this answer behind for the next account.
+    const since = betaGeneration();
     try {
       ensureApiAuth();
       const res = await joinBeta(code);
-      setBetaMembership(res.member, res.segment ?? null);
+      setBetaMembership(res.member, res.segment ?? null, since);
       setPhase("idle");
     } catch (err) {
       setError(joinErrorMessage(err, t));
@@ -84,11 +86,12 @@ export function BetaJoin({ code }: { code?: string }) {
   async function leave() {
     setPhase("leaving");
     setError(null);
+    const since = betaGeneration();
     try {
       ensureApiAuth();
       await leaveBeta();
       setTrackingConsent(false);
-      setBetaMembership(false, null);
+      setBetaMembership(false, null, since);
       setConfirmLeave(false);
       setPhase("left");
       // The "leave" button is gone with the member view: focus goes to the new heading.
