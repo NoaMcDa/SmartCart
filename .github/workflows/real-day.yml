@@ -57,9 +57,6 @@ on:
         required: false
         default: false
         type: boolean
-  # Temporary, for testing on the branch (removed in the final commit).
-  push:
-    branches: [more2/realday]
 
 concurrency:
   group: real-day-${{ github.ref }}
@@ -92,13 +89,12 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       PYTHONUNBUFFERED: "1"
       CHAINS: ${{ inputs.chains || '' }}
-      ANCHORS: ${{ inputs.anchors || (github.event_name == 'workflow_dispatch' && '0' || '3') }}
-      PER_CHAIN: ${{ inputs.per_chain || '2' }}
-      MAX_FILES: ${{ inputs.max_files || '40' }}
-      TIMEOUT: ${{ inputs.timeout || '240' }}
-      # A push run has no inputs: format() turns the missing one into '' (never 'false').
-      WITH_PROMOS: ${{ format('{0}', inputs.with_promos) == 'false' && 'false' || 'true' }}
-      STRESS: ${{ format('{0}', inputs.stress) == 'false' && 'false' || 'true' }}
+      ANCHORS: ${{ inputs.anchors }}
+      PER_CHAIN: ${{ inputs.per_chain }}
+      MAX_FILES: ${{ inputs.max_files }}
+      TIMEOUT: ${{ inputs.timeout }}
+      WITH_PROMOS: ${{ inputs.with_promos }}
+      STRESS: ${{ inputs.stress }}
 
     steps:
       # The code lives on the chosen ref; no schedule, so no default-branch fallback is needed.
@@ -171,7 +167,7 @@ jobs:
   commit-report:
     name: commit the report to real-day/report-<run id>
     needs: real-day
-    if: always() && (inputs.commit_report || github.event_name == 'push')
+    if: always() && inputs.commit_report
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
