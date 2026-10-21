@@ -550,10 +550,15 @@ def parse_list_profile(db_url: str) -> dict:
     if slowest.get("query"):
         try:
             with psycopg.connect(db_url) as conn:
+                settings = {
+                    name: (conn.execute("SELECT current_setting(%s, true)", (name,)).fetchone()[0])
+                    for name in ("hnsw.ef_search", "hnsw.iterative_scan")
+                }
+                explain.append(f"-- settings of a pooled API connection: {settings}")
                 plan = conn.execute(
                     "EXPLAIN (ANALYZE, BUFFERS, TIMING OFF) " + slowest["query"], slowest["params"]
                 ).fetchall()
-            explain = [_short_plan(r[0])[:230] for r in plan][:40]
+            explain = [_short_plan(r[0])[:200] for r in plan][:110]
         except Exception as exc:  # noqa: BLE001 - a diagnostic never stops the run
             explain = [f"EXPLAIN failed: {type(exc).__name__}: {str(exc)[:200]}"]
     return {
