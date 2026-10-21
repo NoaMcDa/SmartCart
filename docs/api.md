@@ -233,14 +233,15 @@ one row per (canonical, store, flexibility level):
   size, converted to the canonical's base unit (kg and 100 g convert; other mismatches are left
   out). An item with no size under a per-unit canonical is compared per pack.
 - Promo folding, for promos active at `as_of` for the store or chain-wide, from loaded files.
-  The reward mapping follows the adapters' provisional mapping (docs/adapters.md), not yet
-  verified against real files:
+  The reward mapping follows the adapters' mapping (docs/adapters.md: verified on real files for
+  the one-group readings and the two-group "buy one, get one at P % off"; the older layouts stay
+  provisional):
 
   | `reward_type` | Reading | Effective price per pack | `promo_min_qty` |
   |---|---|---|---|
   | `price` | `reward_value` is the promo unit price | `reward_value` | `min_qty` or 1 |
   | `percent` | 20 = 20 %, 0.2 = 20 % | `shelf x (1 - rate)` | `min_qty` or 1 |
-  | `buy_x_get_y` | buy X = `min_qty` (default 1), get Y = `reward_value` | `shelf x X / (X + Y)` (1+1: half) | X + Y |
+  | `buy_x_get_y` | buy X = `min_qty` (default 1), get Y = `reward_value`; free, or `P` % off when `promos.raw.get_percent` is set ("the second at 50 %") | `shelf x (X + Y (1 - P/100)) / (X + Y)` (1+1: half; second at 50 %: 75 %) | X + Y |
   | `bundle` | N = `min_qty` for `reward_value` in total ("3 for 20" = 6.67 each); a value below one shelf price is read per unit | `reward_value / N` | N |
   | `other` | not applied | | |
 

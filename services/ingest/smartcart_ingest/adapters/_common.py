@@ -347,6 +347,7 @@ _DESC_PERCENT = re.compile(
 """A percentage the description presents as a discount ("20% הנחה", "50% על השני", "ב-60%"). A bare
 ``%`` is mostly a product attribute in the real files (3.6% milk fat, 100% juice, 25% cheese), so it
 no longer counts."""
+_DESC_PERCENT_NUMBER = re.compile(r"(\d+(?:[.,]\d+)?)\s*%")
 _DESC_N_FOR_P = re.compile(r"(\d+)\s*ב[-\s]*(\d+(?:[.,]\d+)?)")
 """``3ב11.90`` / ``2 ב 15``: N units for P, as Rami Levy, Osher Ad, Tiv Taam and King Store write it."""
 
@@ -360,6 +361,8 @@ def promo_parse_confidence(
     ends_at: datetime | None,
     reward_value: Decimal | None = None,
     unapplied: str | None = None,
+    get_percent: Decimal | None = None,
+    mixed_items: bool = False,
 ) -> tuple[float, list[str]]:
     """How sure the adapter is that it read the promo's terms right, in [0, 1], with the reasons
     for every deduction (docs/adapters.md, "Promo parse confidence").
@@ -388,6 +391,15 @@ def promo_parse_confidence(
     disagrees = (_DESC_X_PLUS_Y.search(text) and reward_type != "buy_x_get_y") or (
         _DESC_PERCENT.search(text) and reward_type != "percent"
     )
+    if reward_type == "buy_x_get_y" and get_percent is not None and reward_value is not None:
+        # A two-group "buy X, get Y at P % off": the pair is only read when the description agrees
+        # (_pair_terms), so this holds for every pair that reaches here.
+        disagrees = not _pair_description_agrees(
+            text, min_qty or Decimal(1), reward_value, get_percent
+        )
+    if mixed_items:
+        score -= 0.1  # whether a pair may mix the group's items is not shown by the file
+        reasons.append("mixed_items_unverified")
     n_for_p = _DESC_N_FOR_P.search(text)
     if n_for_p and reward_type == "bundle" and reward_value is not None and min_qty is not None:
         n, price = Decimal(n_for_p.group(1)), Decimal(n_for_p.group(2).replace(",", "."))
@@ -419,6 +431,9 @@ UNAPPLIED_REASONS = (
     "reward_type_unhandled",
     "reward_value_unusable",
     "reward_values_differ",
+    "redemption_limited",
+    "club_in_description",
+    "pair_description_disagrees",
 )
 """Why a grouped promotion was read but is not applied to a price (``reward_type`` ``other``, the
 reason in ``promos.raw->>'unapplied'`` and in ``confidence_reasons``, confidence 0.1)."""
@@ -430,6 +445,143 @@ def _safe_decimal(value: str | None) -> Decimal | None:
         return parse_decimal(value)
     except ValueError:
         return None
+
+
+_PRICE_TOLERANCE = Decimal("0.011")
+_CLUB_WORD = re.compile(r"מועדון")
+_MAX_PAIR_QUANTITY = 10
+
+
+def _common_quantity(items: list[dict[str, str]]) -> Decimal | None:
+    """The one ``MinQty`` all ``items`` share, when it is a whole number of at least 1."""
+    quantities = {_safe_decimal(i.get("minqty")) for i in items}
+    if len(quantities) != 1:
+        return None
+    (qty,) = quantities
+    return qty if qty is not None and qty >= 1 and qty == qty.to_integral_value() else None
+
+
+def _pair_description_agrees(description: str, x: Decimal, y: Decimal, rate: Decimal) -> bool:
+    """Whether the description does not contradict the pair the fields describe: an ``N+M`` must be
+    X+Y, and a presented percentage must be the rate. Tiv Taam writes "השני ב 40%" for a reward
+    whose ``DiscountRate`` is 60 (verified on 708 items against the store's shelf prices: the
+    price is 40 % of the shelf price), so a percentage without the word "הנחה" (discount) is
+    also read as the price fraction ``100 - rate``; with "הנחה" it must be the rate itself
+    ("ב35% הנחה" on a rate of 65, Yohananof, is a contradiction). Words that say "free" ("N+M")
+    cannot go with a rate below 100. A number inside a product name (a fat percentage) is not a
+    presented percentage."""
+    shown = {Decimal(n.replace(",", ".")) for n in _DESC_PERCENT_NUMBER.findall(description)}
+    says_discount = "הנחה" in description
+    percent_ok = rate in shown or (not says_discount and 100 - rate in shown)
+    if _DESC_PERCENT.search(description) and (rate >= 100 or not percent_ok):
+        return False
+    plus = _DESC_X_PLUS_Y.search(description)
+    if plus:
+        left, right = (Decimal(n) for n in re.findall(r"\d+", plus.group(0)))
+        if (left, right) != (x, y) or (rate < 100 and not percent_ok):
+            return False
+    return True
+
+
+def _pair_terms(groups: list[dict[str, Any]], fields: dict[str, str]) -> dict[str, Any] | str:
+    """Read a two-group promotion as "buy X, get Y at a percentage off" (1+1, 2+1, "the second at
+    50 %"), or return the reason it is left unapplied.
+
+    Seen in the real files of Shufersal, Rami Levy, Mega, Tiv Taam and Yohananof (2026-10-21): a
+    trigger group of ``RewardType`` 0 items (``MinQty`` X, sometimes ``DiscountedPrice`` = the shelf
+    price) and a reward group of ``RewardType`` 1 or 10 (``MinQty`` Y, ``DiscountRate`` the
+    percentage off, ``DiscountedPrice`` the price after it). "1+1" is rate 100 and price 0, "השני ב
+    50%" rate 50 and half the trigger price, "2+1 הזול מבניהם" X = 2, Y = 1, rate 100. The reading
+    is the narrowest one the file proves:
+
+    * exactly one trigger group and one reward group, nothing weighed, every ``MinQty`` a whole
+      number: X and Y are free (up to 10) only when the rate is 100 and the reward price 0 (nothing
+      to price); a percentage off needs X = Y = 1 (the only quantities seen with a price, so the
+      price semantics of larger ones are not verified);
+    * the rate is the same for every item and the reward price follows from it: with the trigger
+      price present, ``reward = trigger x (1 - rate / 100)`` (one agora of tolerance), always a
+      positive price below 100 % and exactly 0 at 100 %;
+    * only items in **both** groups are linked: such an item pairs with itself (buy it, get another
+      of it at the rate), which holds however the store lets a pair mix items. Items only in the
+      reward group (Tiv Taam: 2 of 35) need a trigger of another item and are not linked;
+    * the description does not contradict the fields (:func:`_pair_description_agrees`), no
+      redemption limit (a limit is not applied anywhere), and a description that names a club
+      while ``ClubID`` says everyone is left alone (one Tiv Taam "1+1 מועדון").
+
+    The result is ``buy_x_get_y`` with ``min_qty`` X, ``reward_value`` Y and ``get_percent`` the
+    rate: pay full for X units, get Y at the rate off, per pack of X + Y.
+    """
+    trigger = [g for g in groups if {i.get("rewardtype", "") for i in g["items"]} == {"0"}]
+    reward = [g for g in groups if g not in trigger]
+    if len(trigger) != 1 or len(reward) != 1:
+        return "multi_group"
+    t_items, r_items = trigger[0]["items"], reward[0]["items"]
+    if not t_items or not r_items:
+        return "multi_group"
+    if {i.get("rewardtype", "") for i in r_items} - {"1", "2", "3", "10"}:
+        return "multi_group"
+    if any(
+        i.get("bisweighted", "0").strip().lower() in ("1", "true") for i in (*t_items, *r_items)
+    ):
+        return "multi_group"
+    if any(_WILDCARD_ITEM.match(i.get("itemcode", "0")) for i in (*t_items, *r_items)):
+        return "basket_condition"
+    x, y = _common_quantity(t_items), _common_quantity(r_items)
+    if x is None or y is None or max(x, y) > _MAX_PAIR_QUANTITY:
+        return "multi_group"
+    if any(not (i.get("discountrate") or "").strip() for i in r_items):
+        return "multi_group"  # a reward by price only ("1+3" with no rate): not a rate we can read
+    limit = _safe_decimal(fields.get("redemptionlimit"))
+    if limit is not None and limit > 0:
+        return "redemption_limited"
+    clubid = fields.get("clubid", "").strip()
+    description = fields.get("promotiondescription", "")
+    if _CLUB_WORD.search(description) and (not clubid or clubid.startswith("0")):
+        return "club_in_description"
+    trigger_by_code = {i.get("itemcode", ""): i for i in t_items}
+    codes: list[str] = []
+    rates: set[Decimal] = set()
+    for item in r_items:
+        code = item.get("itemcode", "")
+        mate = trigger_by_code.get(code)
+        if mate is None or code in codes:
+            continue
+        shelf = _safe_decimal(mate.get("discountedprice"))
+        price = _safe_decimal(item.get("discountedprice"))
+        rate = _safe_decimal(item.get("discountrate"))
+        if rate is None or not 0 < rate <= 100 or price is None or price < 0:
+            return "reward_value_unusable"
+        if rate == 100:
+            if price != 0:
+                return "reward_values_differ"
+        else:
+            if (x, y) != (1, 1) or price == 0:
+                return "multi_group"
+            if (
+                shelf is not None
+                and shelf > 0
+                and abs(shelf * (1 - rate / 100) - price) > (_PRICE_TOLERANCE)
+            ):
+                return "reward_values_differ"
+        rates.add(rate)
+        codes.append(code)
+    if not codes:
+        return "multi_group"
+    if len(rates) != 1:
+        return "reward_values_differ"
+    (rate,) = rates
+    if not _pair_description_agrees(description, x, y, rate):
+        return "pair_description_disagrees"
+    return {
+        "item_codes": codes,
+        "min_qty": x,
+        "max_qty": None,
+        "reward_type": "buy_x_get_y",
+        "reward_value": y,
+        "get_percent": rate,
+        "shape": "pair",
+        "reward_only_items": len({i.get("itemcode", "") for i in r_items} - set(trigger_by_code)),
+    }
 
 
 def grouped_terms(groups_el: etree._Element, fields: dict[str, str]) -> dict[str, Any]:
@@ -493,6 +645,9 @@ def grouped_terms(groups_el: etree._Element, fields: dict[str, str]) -> dict[str
         "reward_type": "other",
         "reward_value": None,
         "unapplied": None,
+        "get_percent": None,
+        "shape": None,
+        "reward_only_items": 0,
         "groups": [g["summary"] for g in groups],
         "min_purchase": min_purchase,
     }
@@ -508,7 +663,13 @@ def grouped_terms(groups_el: etree._Element, fields: dict[str, str]) -> dict[str
     elif min_purchase is not None or wildcard:
         out["unapplied"] = "basket_condition"
     elif len(groups) != 1:
-        out["unapplied"] = "multi_group"
+        pair = _pair_terms(groups, fields) if len(groups) == 2 else "multi_group"
+        if isinstance(pair, str):
+            out["unapplied"] = pair
+        elif days and weekdays != _FULL_WEEK:
+            out["unapplied"] = "weekday_restricted"
+        else:
+            out.update(pair)
     elif days and weekdays != _FULL_WEEK:
         out["unapplied"] = "weekday_restricted"
     else:
@@ -854,6 +1015,8 @@ class RegulationAdapter(ChainAdapter):
             min_qty, max_qty = terms["min_qty"], terms["max_qty"]
             reward_type, reward_value = terms["reward_type"], terms["reward_value"]
             unapplied = terms["unapplied"]
+            if terms["shape"] == "pair":
+                gift_count = reward_value  # "get Y" is explicit in the reward group
         else:
             min_qty = parse_decimal(f.get("minqty"))
             max_qty = parse_decimal(f.get("maxqty"))
@@ -895,6 +1058,8 @@ class RegulationAdapter(ChainAdapter):
             ends_at=ends_at,
             reward_value=reward_value,
             unapplied=unapplied,
+            get_percent=terms["get_percent"] if terms is not None else None,
+            mixed_items=terms is not None and terms["shape"] == "pair" and len(entry["items"]) > 1,
         )
         # Flat <Sale> rows carry one item each; the grouped layout has IsGiftItem on the promotion.
         skipped = (
@@ -905,6 +1070,10 @@ class RegulationAdapter(ChainAdapter):
         extra: dict[str, Any] = {}
         if terms is not None:
             extra = {"layout": "grouped", "groups": terms["groups"], "unapplied": unapplied}
+            if terms["shape"] == "pair":
+                extra["shape"] = "pair"
+                extra["get_percent"] = str(terms["get_percent"])
+                extra["reward_only_items"] = terms["reward_only_items"]
             if terms["min_purchase"] is not None:
                 extra["min_purchase_amount"] = str(terms["min_purchase"])
         if club_expression:

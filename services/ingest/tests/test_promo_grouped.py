@@ -181,9 +181,12 @@ def test_a_minimum_purchase_in_the_reward_group_itself_is_a_basket_condition() -
     assert p.raw["unapplied"] == "basket_condition"
 
 
-def test_two_groups_are_not_applied() -> None:
+def test_two_groups_that_are_not_a_pair_are_not_applied() -> None:
+    """The trigger and the reward are different products: whatever the store does at the till, a
+    per-item price cannot show it (the same-item pairs are read, test_promo_pairs.py)."""
     p = only(promo("1", group(item(reward="0", qty="3", price="7.90")),
-                   group(item(reward="1", qty="1", rate="100", price="0.00"), gid="2")))  # fmt: skip
+                   group(item("7290000000002", reward="1", qty="1", rate="100", price="0.00"),
+                         gid="2")))  # fmt: skip
     assert p.raw["unapplied"] == "multi_group"
 
 

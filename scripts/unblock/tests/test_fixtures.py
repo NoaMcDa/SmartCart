@@ -300,3 +300,33 @@ def test_fetch_keeps_one_file_when_the_first_is_usable(tmp_path: Path, monkeypat
     monkeypatch.setattr(fetch_fixtures, "_download", fake_download)
     assert fetch_fixtures.fetch("yohananof", "YOHANANOF", "promo_full", tmp_path)["file"] == good
     assert asked == [1]
+
+
+def test_promo_shapes_describes_multi_group_promotions() -> None:
+    real = FIXTURES / "tivtaam" / "real" / "PromoFull7290873255550-000-002-20261021-004004.gz"
+    shapes = portal_probe.promo_shapes(real.read_bytes())
+    assert sum(shapes["signatures"].values()) == 3  # the three two-group promotions of the file
+    assert any("[rt=0 q=1 r=-][rt=1 q=1 r=100]" in sig for sig in shapes["signatures"])
+    assert shapes["days"] == {"(empty)": 100}
+    json.dumps(shapes, ensure_ascii=False)  # plain data, printable as a log line
+
+
+def test_promo_shapes_checks_pairs_against_shelf_prices() -> None:
+    """With the store's shelf prices the trigger price and the reward price of a pair are compared
+    with them: here the shelf of a "second at 50 %" Tiv Taam item taken from the file itself."""
+    from decimal import Decimal
+
+    real = FIXTURES / "tivtaam" / "real" / "PromoFull7290873255550-000-002-20261021-004004.gz"
+    data = real.read_bytes()
+    first = portal_probe.promo_shapes(data, examples=1)
+    item = next(
+        i for e in first["examples"].values() for ex in e for i in ex["groups"][0]["items"]
+        if i.get("discountedprice")
+    )  # fmt: skip
+    shelf = {item["itemcode"]: Decimal(item["discountedprice"])}
+    checked = portal_probe.promo_shapes(data, shelf=shelf)["shelf_check"]
+    assert checked["items_with_shelf"] >= 1
+    assert checked["trigger_equals_shelf"] == checked["trigger_priced"] >= 1
+    assert checked["reward_equals_shelf_x_rate"] == checked["items_with_shelf"]
+    assert checked["mismatches"] == []
+    assert portal_probe.promo_shapes(data)["shelf_check"] is None
