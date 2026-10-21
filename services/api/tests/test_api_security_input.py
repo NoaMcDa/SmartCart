@@ -181,6 +181,7 @@ def compare_body(world: World, **over) -> dict:
     "quantity",
     [
         0,
+        "0.001",
         -1,
         1000.5,
         10**6,
@@ -200,7 +201,8 @@ def test_basket_quantities_are_bounded(client, world: World, quantity) -> None:
 
 
 def test_basket_quantity_extremes_that_are_fine(client, world: World) -> None:
-    for quantity in (1000, "0.001", 0.30000000000000004, "2.5"):
+    # 0.01 is the floor: below it a quantity prices to 0.00 (test_api_optimizer_props_regress.py).
+    for quantity in (1000, "0.01", 0.30000000000000004, "2.5"):
         r = client.post("/compare", json=compare_body(world, item={"quantity": quantity}))
         assert r.status_code == 200, (quantity, r.text[:200])
 

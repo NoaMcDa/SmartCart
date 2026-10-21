@@ -2,7 +2,7 @@
 
 Issue #20 asked for the rule normalizer to be turned from "50 realistic names" into cases taken from
 real loads. ``smartcart-catalog normalize`` over the 1,400 real items (the committed fixtures
-``services/ingest/tests/fixtures/<chain>/real``, fetched 2026-10-08) reported 165 unparseable items
+``data/audit/real-2026-10-08/<chain>/real``, fetched 2026-10-08) reported 165 unparseable items
 and 77 other flagged items; reading every digit-bearing name next to the chain's own fields found
 more that were not reported at all (a size read from the last digits of a glued number). Each class
 below is one real failure, with the names and fields exactly as the chains publish them (some cut
@@ -27,7 +27,7 @@ from smartcart_catalog.normalize import (
     implausible_size,
     normalize_with_issues,
 )
-from smartcart_catalog.review_packet import load_real_items
+from smartcart_catalog.review_packet import AUDIT_SNAPSHOT_DIR, load_real_items
 from smartcart_ingest.models import ItemRecord
 
 KING = "7290058108879"
@@ -449,7 +449,7 @@ def test_the_table_is_real_items() -> None:
             i.unit,
             i.is_weighed,
         )
-        for i in load_real_items()
+        for i in load_real_items(AUDIT_SNAPSHOT_DIR)
     }
     if not real:
         pytest.skip("real fixtures not present")
@@ -514,7 +514,7 @@ def test_ambiguous_shorthand_is_left_as_printed(raw: str) -> None:
 
 @pytest.fixture(scope="module")
 def real_results():
-    items = load_real_items()
+    items = load_real_items(AUDIT_SNAPSHOT_DIR)
     if not items:
         pytest.skip("real fixtures not present")
     return [(i, normalize_with_issues(i)) for i in items]
