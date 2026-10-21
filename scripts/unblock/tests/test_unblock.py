@@ -135,14 +135,15 @@ def test_classify_matches_check_portals(code: int, label: str) -> None:
     assert portal_probe.classify(code) == label
 
 
-def test_pick_files_takes_the_newest_stores_and_price_full() -> None:
+def test_pick_files_takes_the_newest_stores_price_full_and_promo_full() -> None:
     from smartcart_ingest.adapters.victory import VictoryAdapter
 
     picked = portal_probe.pick_files(REPO / "services" / "ingest" / "tests" / "fixtures",
                                      "victory", VictoryAdapter())  # fmt: skip
-    assert set(picked) == {"stores", "price_full"}
+    assert set(picked) == {"stores", "price_full", "promo_full"}
     assert picked["stores"].name.startswith("Stores")
     assert picked["price_full"].name.startswith("PriceFull")
+    assert picked["promo_full"].name.startswith("PromoFull")
 
 
 def test_render_probe_table() -> None:

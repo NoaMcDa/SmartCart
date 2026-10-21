@@ -1,6 +1,6 @@
-"""Probe the ten D13 transparency portals, fetch one Stores and one PriceFull file per chain,
-and run every fetched file through the adapter, the quality gates and the loader (issues #32,
-#53, #57, #60). What ``.github/workflows/portal-probe.yml`` runs.
+"""Probe the ten D13 transparency portals, fetch one Stores, one PriceFull and one PromoFull
+file per chain, and run every fetched file through the adapter, the quality gates and the loader
+(issues #32, #47, #53, #57, #60). What ``.github/workflows/portal-probe.yml`` runs.
 
     # 1. network: reachability, Cerberus login, downloads (no database)
     uv run --no-sync python scripts/unblock/portal_probe.py probe --out probe/
@@ -33,6 +33,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -47,7 +48,7 @@ UA = (
     "Chrome/124.0 Safari/537.36"
 )
 CERBERUS_HOST = "url.retail.publishedprices.co.il"
-KINDS = ("stores", "price_full")
+KINDS = ("stores", "price_full", "promo_full")
 
 
 @dataclass(frozen=True)
@@ -258,8 +259,8 @@ class _Sink:
 
 
 def pick_files(files: Path, slug: str, adapter) -> dict[str, Path]:  # noqa: ANN001
-    """The newest Stores and PriceFull file under ``files/<slug>`` (by the adapter's filename
-    parser; names it does not recognise are ignored)."""
+    """The newest Stores, PriceFull and PromoFull file under ``files/<slug>`` (by the adapter's
+    filename parser; names it does not recognise are ignored)."""
     best: dict[str, tuple[datetime, Path]] = {}
     folder = files / slug
     if not folder.is_dir():
@@ -279,6 +280,94 @@ def pick_files(files: Path, slug: str, adapter) -> dict[str, Path]:  # noqa: ANN
     return {k: v[1] for k, v in best.items()}
 
 
+_PROFILE_SKIP = frozenset({
+    "promotionid", "promotiondescription", "promotionupdatedate", "confidence",
+    "confidence_reasons", "additional_restrictions",
+})  # fmt: skip
+"""Raw promo fields whose values are ids, free text or per-promo numbers: not histogrammed."""
+_PROFILE_MAX_DISTINCT = 12
+
+
+def _fmt_value(value: object) -> str:
+    if isinstance(value, list):
+        return ",".join(str(v) for v in value)
+    return str(value)
+
+
+def promo_profile(parsed, data: bytes) -> dict:  # noqa: ANN001
+    """What a real PromoFull holds, as the adapter read it: reward types, club ids, a value
+    histogram of every raw field with few distinct values (``RewardType``, ``DiscountType``,
+    ``MinQty``, ``AllowMultipleDiscounts`` ...), date windows against the file's publication
+    time, the stores promos name, items per promotion, the confidence rubric's reasons, the
+    element layout of the file (``promo_layout``) and a few sample promotions. Pure: no
+    database, no execution of anything from the file."""
+    from statistics import median
+
+    from smartcart_ingest.adapters.fetch_fixtures import promo_layout
+
+    promos = parsed.promos
+    published = parsed.raw.published_at
+    raw_values: dict[str, Counter] = {}
+    for promo in promos:
+        for key, value in promo.raw.items():
+            if key in _PROFILE_SKIP or isinstance(value, dict):
+                continue
+            raw_values.setdefault(key, Counter())[_fmt_value(value)] += 1
+    fields: dict[str, object] = {}
+    for key, counter in sorted(raw_values.items()):
+        if len(counter) <= _PROFILE_MAX_DISTINCT:
+            fields[key] = dict(counter.most_common())
+        else:
+            fields[key] = {"distinct": len(counter), "examples": list(counter)[:3]}
+    restrictions: dict[str, Counter] = {}
+    for promo in promos:
+        for key, value in (promo.raw.get("additional_restrictions") or {}).items():
+            restrictions.setdefault(key, Counter())[str(value)] += 1
+    per_item = [len(p.item_codes) for p in promos]
+    by_reward: dict[str, list] = {}
+    for promo in promos:
+        by_reward.setdefault(promo.reward_type, []).append(promo)
+    samples = []
+    for reward, group in sorted(by_reward.items()):
+        for promo in group[:2]:
+            samples.append({
+                "promo_id": promo.promo_id, "store": promo.store_code,
+                "description": promo.description[:90], "reward_type": reward,
+                "reward_value": str(promo.reward_value), "min_qty": str(promo.min_qty),
+                "max_qty": str(promo.max_qty), "club": promo.club_name, "items": len(promo.item_codes),
+                "starts_at": promo.starts_at.isoformat(timespec="minutes") if promo.starts_at else None,
+                "ends_at": promo.ends_at.isoformat(timespec="minutes") if promo.ends_at else None,
+                "hours": promo.hours, "confidence": promo.raw.get("confidence"),
+                "raw": {k: v for k, v in promo.raw.items()
+                        if k not in ("promotiondescription", "confidence_reasons")},
+            })  # fmt: skip
+    try:
+        layout = promo_layout(data)
+    except ValueError as exc:
+        layout = {"error": str(exc)[:200]}
+    return {
+        "promos": len(promos),
+        "stores": sorted({p.store_code for p in promos})[:20],
+        "reward_types": dict(Counter(p.reward_type for p in promos)),
+        "club_only": sum(1 for p in promos if p.club_only),
+        "confidence": dict(Counter(p.raw.get("confidence") for p in promos)),
+        "confidence_reasons": dict(Counter(r for p in promos
+                                           for r in p.raw.get("confidence_reasons", []))),
+        "with_end_date": sum(1 for p in promos if p.ends_at),
+        "expired_at_publication": sum(1 for p in promos if p.ends_at and p.ends_at < published),
+        "not_started_at_publication": sum(1 for p in promos
+                                          if p.starts_at and p.starts_at > published),
+        "with_hours": sum(1 for p in promos if p.hours),
+        "items_per_promo": {"min": min(per_item), "median": median(per_item),
+                            "max": max(per_item), "empty": per_item.count(0)} if per_item else {},
+        "fields": fields,
+        "additional_restrictions": {k: dict(v.most_common(8)) for k, v in restrictions.items()},
+        "layout": {k: v for k, v in layout.items() if k != "samples"},
+        "layout_samples": layout.get("samples", []),
+        "samples": samples,
+    }  # fmt: skip
+
+
 def parse_summary(adapter, path: Path) -> dict:  # noqa: ANN001
     """What the adapter reads from the file, outside any database. Errors are reported."""
     data = path.read_bytes()
@@ -286,13 +375,24 @@ def parse_summary(adapter, path: Path) -> dict:  # noqa: ANN001
         parsed = adapter.parse(adapter.raw_file_for(path.name, data), data)
     except Exception as exc:  # noqa: BLE001 - an adapter failure is a result here
         return {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
-    return {
+    out: dict = {
         "schema": parsed.raw.schema_version,
         "stores": len(parsed.stores),
         "online_stores": sum(1 for s in parsed.stores if s.channel == "online"),
         "items": len(parsed.items),
         "prices": len(parsed.prices),
     }
+    if parsed.raw.kind in ("promo_full", "promo"):
+        out["promos"] = len(parsed.promos)
+        out["promo_item_codes"] = sum(len(p.item_codes) for p in parsed.promos)
+        out["reward_types"] = dict(Counter(p.reward_type for p in parsed.promos))
+        out["club_only"] = sum(1 for p in parsed.promos if p.club_only)
+        if parsed.promos:
+            try:
+                out["profile"] = promo_profile(parsed, data)
+            except Exception as exc:  # noqa: BLE001 - the profile is extra; never fail the probe
+                out["profile_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+    return out
 
 
 def result_line(slug: str, kind: str, entry: dict) -> str:
@@ -309,6 +409,12 @@ def result_line(slug: str, kind: str, entry: dict) -> str:
         "online_stores": p.get("online_stores"),
         "items": p.get("items"),
         "prices": p.get("prices"),
+        "promos": p.get("promos"),
+        "promo_item_codes": p.get("promo_item_codes"),
+        "reward_types": p.get("reward_types") or None,
+        "club_only": p.get("club_only"),
+        "promos_loaded": entry.get("db", {}).get("promos"),
+        "promo_items_linked": entry.get("db", {}).get("promo_items"),
         "parse_error": p.get("error"),
         "status": g.get("status"),
         "gates": ",".join(g.get("gates") or []) or None,
@@ -329,6 +435,37 @@ def _logs_to_stderr() -> None:
         wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING),
         logger_factory=lambda *a: structlog.PrintLogger(file=sys.stderr),
     )
+
+
+def _promo_rows_loaded(conn, file_id: int) -> dict:  # noqa: ANN001
+    """What the loader wrote for one PromoFull: promotions, and the promotion-to-item links
+    (the file's item codes the chain's PriceFull rows know; the rest are skipped and counted)."""
+    promos = conn.execute("SELECT count(*) FROM promos WHERE file_id = %s", (file_id,)).fetchone()
+    links = conn.execute(
+        "SELECT count(*) FROM promo_items pi JOIN promos p ON p.id = pi.promo_id"
+        " WHERE p.file_id = %s",
+        (file_id,),
+    ).fetchone()
+    return {"promos": promos[0], "promo_items": links[0]}
+
+
+def _print_promo_profile(slug: str, entry: dict) -> None:
+    """The promo profile as separate untruncated log lines (histogram, layout, samples), so a
+    reader without the artifacts can see what the real file holds."""
+    profile = entry.get("parse", {}).get("profile")
+    if not profile:
+        return
+    head = {k: v for k, v in profile.items()
+            if k not in ("samples", "layout_samples", "layout")}  # fmt: skip
+    for tag, body in (("PROMO_PROFILE", head), ("PROMO_LAYOUT", profile["layout"])):
+        print(f"{tag} " + json.dumps({"chain": slug, **body}, ensure_ascii=False),
+              file=sys.stderr, flush=True)  # fmt: skip
+    for i, sample in enumerate(profile.get("layout_samples", [])):
+        print("PROMO_RAW " + json.dumps({"chain": slug, "n": i, "promotion": sample},
+                                        ensure_ascii=False), file=sys.stderr, flush=True)  # fmt: skip
+    for sample in profile.get("samples", []):
+        print("PROMO_SAMPLE " + json.dumps({"chain": slug, **sample}, ensure_ascii=False),
+              file=sys.stderr, flush=True)  # fmt: skip
 
 
 def gate(files: Path, slugs: Sequence[str], now: datetime | None) -> dict:
@@ -394,8 +531,11 @@ def gate(files: Path, slugs: Sequence[str], now: datetime | None) -> dict:
                         ).fetchall()]  # fmt: skip
                         entry["gate"] = {"status": row[1], "reason": row[2], "gates": gates,
                                          "schema": row[3]}  # fmt: skip
+                        if kind == "promo_full" and row[1] == "loaded":
+                            entry["db"] = _promo_rows_loaded(conn, row[0])
                     results[kind] = entry
                     print(result_line(slug, kind, entry), file=sys.stderr, flush=True)
+                    _print_promo_profile(slug, entry)
                 out[slug] = results
     finally:
         shutil.rmtree(raw_dir, ignore_errors=True)
@@ -414,6 +554,9 @@ def _size(n: int | None) -> str:
     return f"{n / 1_048_576:.1f} MB" if n >= 1_048_576 else f"{n / 1024:.0f} KB"
 
 
+_KIND_NAMES = {"stores": "Stores", "price_full": "PriceFull", "promo_full": "PromoFull"}
+
+
 def _download_cell(entry: dict | None, gated: dict | None) -> str:
     if gated:
         return f"`{gated['file']}` {_size(gated['bytes'])}, {gated.get('published_at') or '?'}"
@@ -427,9 +570,11 @@ def _parsed_cell(kind: str, gated: dict | None) -> str:
         return ""
     p = gated["parse"]
     if "error" in p:
-        return f"{'Stores' if kind == 'stores' else 'PriceFull'}: parse error"
+        return f"{_KIND_NAMES[kind]}: parse error"
     if kind == "stores":
         return f"{p['stores']} stores ({p['online_stores']} online)"
+    if kind == "promo_full":
+        return f"{p.get('promos', 0)} promos ({p.get('club_only', 0)} club-only)"
     return f"{p['items']} items, {p['prices']} prices"
 
 
@@ -443,6 +588,48 @@ def _gate_cell(gated: dict | None) -> str:
     if status == "failed":
         return f"failed ({str(g.get('reason') or '')[:60]})"
     return status
+
+
+def _promo_section(files: dict, slugs: Sequence[str]) -> list[str]:
+    """One row per chain whose PromoFull the adapter read: what the real promos look like."""
+    rows = []
+    for slug in slugs:
+        entry = files.get(slug, {}).get("promo_full") if isinstance(files.get(slug), dict) else None
+        if not entry or "error" in entry["parse"]:
+            continue
+        p = entry["parse"]
+        prof = p.get("profile") or {}
+        conf = prof.get("confidence") or {}
+        low = sum(n for score, n in conf.items() if score is not None and float(score) < 1.0)
+        unknown = p.get("promo_item_codes", 0) - (entry.get("db") or {}).get("promo_items", 0)
+        loaded = entry.get("db") or {}
+        reward = ", ".join(f"{k} {v}" for k, v in sorted((p.get("reward_types") or {}).items()))
+        cells = [
+            BY_SLUG[slug].name if slug in BY_SLUG else slug,
+            str(p.get("promos", 0)),
+            reward or "-",
+            str(p.get("club_only", 0)),
+            f"{prof.get('expired_at_publication', '-')} / {prof.get('not_started_at_publication', '-')}",
+            f"{low} of {prof.get('promos', 0)}",
+            (
+                f"{loaded['promos']} promos, {loaded['promo_items']} of {p.get('promo_item_codes')} item "
+                f"links ({unknown} unknown items skipped)"
+                if loaded
+                else "-"
+            ),
+        ]
+        rows.append("| " + " | ".join(md_escape(c) for c in cells) + " |")
+    if not rows:
+        return []
+    return [
+        "",
+        "### PromoFull files as the adapter read them",
+        "",
+        "| chain | promos | reward type (adapter) | club-only | expired / not started at publication"
+        " | confidence below 1.0 | loaded |",
+        "|---|---|---|---|---|---|---|",
+        *rows,
+    ]
 
 
 def render(probe_result: dict | None, gate_result: dict, slugs: Sequence[str]) -> str:
@@ -460,34 +647,39 @@ def render(probe_result: dict | None, gate_result: dict, slugs: Sequence[str]) -
             else "Offline run: files from a local directory, no portal contacted."
         ),
         "",
-        "| chain | portal reachable | login | Stores file | PriceFull file | parsed | gate result"
-        " (Stores; PriceFull) | schema |",
-        "|---|---|---|---|---|---|---|---|",
+        "| chain | portal reachable | login | Stores file | PriceFull file | PromoFull file | parsed"
+        " | gate result (Stores; PriceFull; PromoFull) | schema |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for slug in slugs:
         c = chains.get(slug, {})
         g = files.get(slug, {}) if isinstance(files.get(slug), dict) else {}
-        st, pf = g.get("stores"), g.get("price_full")
+        st, pf, pr = g.get("stores"), g.get("price_full"), g.get("promo_full")
         downloads = c.get("downloads", {})
         reach = f"{c['reachable']} ({c['http_status']})" if c else "not probed"
         # The adapter's own reading first: a quarantined Stores file keeps schema 'unknown'.
         schemas = sorted({x["parse"].get("schema") or x["gate"].get("schema") or "?"
-                          for x in (st, pf) if x})  # fmt: skip
+                          for x in (st, pf, pr) if x})  # fmt: skip
         parsed = "; ".join(
-            x for x in (_parsed_cell("stores", st), _parsed_cell("price_full", pf)) if x
-        )
-        gates = "; ".join(x for x in (_gate_cell(st), _gate_cell(pf)) if x)
+            x
+            for x in (_parsed_cell("stores", st), _parsed_cell("price_full", pf),
+                      _parsed_cell("promo_full", pr))
+            if x
+        )  # fmt: skip
+        gates = "; ".join(x for x in (_gate_cell(st), _gate_cell(pf), _gate_cell(pr)) if x)
         cells = [
             BY_SLUG[slug].name if slug in BY_SLUG else slug,
             reach,
             c.get("login", "n/a") if c else "-",
             _download_cell(downloads.get("stores"), st),
             _download_cell(downloads.get("price_full"), pf),
+            _download_cell(downloads.get("promo_full"), pr),
             parsed or "-",
             gates or "-",
             ", ".join(schemas) or "-",
         ]
         lines.append("| " + " | ".join(md_escape(x) for x in cells) + " |")
+    lines += _promo_section(files, slugs)
     lines += [
         "",
         "Gate result is the `file_tracking` status after the real Scheduler path (adapter, quality "
@@ -523,15 +715,22 @@ def render(probe_result: dict | None, gate_result: dict, slugs: Sequence[str]) -
 # --- real fixtures ---------------------------------------------------------------------------------------
 
 
-def build_fixtures(files: Path, gate_json: dict, out: Path, max_items: int) -> dict[str, list]:
+def build_fixtures(
+    files: Path, gate_json: dict, out: Path, max_items: int, max_promos: int = 100
+) -> dict[str, list]:
     """Write ``out/<slug>/real/`` for every file the adapter parsed in the gate step: Stores
     files whole, PriceFull files trimmed to their first ``max_items`` rows
-    (``fetch_fixtures.trim_price_file``), each re-parsed through the adapter, and a
-    ``MANIFEST.json`` per chain. Files the adapter rejected are not written. Returns the
-    manifests by slug."""
+    (``fetch_fixtures.trim_price_file``), PromoFull files trimmed to their first ``max_promos``
+    promotions, each kept whole with all its items (``trim_promo_file``), each re-parsed
+    through the adapter, and a ``MANIFEST.json`` per chain. Files the adapter rejected are not
+    written. Returns the manifests by slug."""
     import hashlib
 
-    from smartcart_ingest.adapters.fetch_fixtures import adapters_by_slug, trim_price_file
+    from smartcart_ingest.adapters.fetch_fixtures import (
+        adapters_by_slug,
+        trim_price_file,
+        trim_promo_file,
+    )
 
     adapters = adapters_by_slug()
     downloads = {
@@ -565,6 +764,9 @@ def build_fixtures(files: Path, gate_json: dict, out: Path, max_items: int) -> d
                 if kind == "price_full":
                     body, before, after = trim_price_file(data, max_items)
                     record["items_original"], record["items_trimmed"] = before, after
+                elif kind == "promo_full":
+                    body, before, after = trim_promo_file(data, max_promos)
+                    record["promos_original"], record["promos_trimmed"] = before, after
                 else:
                     body = data
                     record["stores"] = entry["parse"].get("stores")
@@ -576,10 +778,14 @@ def build_fixtures(files: Path, gate_json: dict, out: Path, max_items: int) -> d
             if kind == "price_full" and len(parsed.prices) != record["items_trimmed"]:
                 print(f"FIXTURE note {slug}/{src.name}: {len(parsed.prices)} prices parsed from "
                       f"{record['items_trimmed']} rows", file=sys.stderr)  # fmt: skip
+            if kind == "promo_full" and len(parsed.promos) != record["promos_trimmed"]:
+                print(f"FIXTURE note {slug}/{src.name}: {len(parsed.promos)} promos parsed from "
+                      f"{record['promos_trimmed']} promotions", file=sys.stderr)  # fmt: skip
             record["sha256"] = hashlib.sha256(body).hexdigest()
             record["bytes"] = len(body)
             record["parsed"] = {"stores": len(parsed.stores), "items": len(parsed.items),
-                                "prices": len(parsed.prices)}  # fmt: skip
+                                "prices": len(parsed.prices),
+                                "promos": len(parsed.promos)}  # fmt: skip
             dest = out / slug / "real"
             dest.mkdir(parents=True, exist_ok=True)
             (dest / src.name).write_bytes(body)
@@ -589,7 +795,7 @@ def build_fixtures(files: Path, gate_json: dict, out: Path, max_items: int) -> d
         if entries:
             (out / slug / "real" / "MANIFEST.json").write_text(
                 json.dumps({"chain_id": adapter.chain_id, "max_items": max_items,
-                            "files": entries}, ensure_ascii=False, indent=2) + "\n",
+                            "max_promos": max_promos, "files": entries}, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )  # fmt: skip
             manifests[slug] = entries
@@ -620,6 +826,7 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("--gate-json", type=Path, required=True, help="--json-out of the gate step")
     f.add_argument("--out", type=Path, required=True, help="e.g. a copy of tests/fixtures")
     f.add_argument("--max-items", type=int, default=200, help="rows kept per PriceFull")
+    f.add_argument("--max-promos", type=int, default=100, help="promotions kept per PromoFull")
     args = ap.parse_args(argv)
     slugs = args.chain if getattr(args, "chain", None) else [p.slug for p in PORTALS]
 
@@ -628,7 +835,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "fixtures":
         gate_json = json.loads(args.gate_json.read_text(encoding="utf-8"))
-        made = build_fixtures(args.files, gate_json, args.out, args.max_items)
+        made = build_fixtures(args.files, gate_json, args.out, args.max_items, args.max_promos)
         print(f"fixtures written for {len(made)} chain(s): {', '.join(made) or 'none'}")
         return 0
 
