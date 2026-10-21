@@ -280,7 +280,7 @@ def adapter_tables() -> tuple[dict[str, type], dict[str, str]]:
     return by_slug, {cls.chain_id: slug for slug, cls in by_slug.items()}
 
 
-def scrape_subprocess(slug: str, kind: str, regex: str, limit: int, out: Path, timeout: float):
+def scrape_subprocess(out: Path, slug: str, kind: str, regex: str, limit: int, timeout: float):
     """Fetch up to ``limit`` files of ``kind`` matching ``regex`` into ``out/<slug>/`` through the
     pinned upstream scraper, in a subprocess that is killed after ``timeout`` seconds. Returns
     ``(file names, error or None)``."""

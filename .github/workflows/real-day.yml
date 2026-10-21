@@ -52,6 +52,11 @@ on:
         required: false
         default: true
         type: boolean
+      commit_report:
+        description: "Push the report and its JSON to a new branch real-day/report-<run id> (no raw files)"
+        required: false
+        default: false
+        type: boolean
   # Temporary, for testing on the branch (removed in the final commit).
   push:
     branches: [more2/realday]
@@ -160,3 +165,38 @@ jobs:
             ${{ runner.temp }}/real-day/extra
           retention-days: 7
           if-no-files-found: ignore
+
+  # Only the report (Markdown and JSON: counts, timings, store and chain names), never the raw
+  # files. No pull request is opened. A push with the workflow token starts no workflow.
+  commit-report:
+    name: commit the report to real-day/report-<run id>
+    needs: real-day
+    if: always() && (inputs.commit_report || github.event_name == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Download the report
+        uses: actions/download-artifact@v4
+        with:
+          name: real-day-report
+          path: ${{ runner.temp }}/report
+
+      - name: Commit and push the branch
+        run: |
+          branch="real-day/report-$GITHUB_RUN_ID"
+          mkdir -p real-day-report
+          cp "$RUNNER_TEMP/report/real-day.md" "$RUNNER_TEMP/report/real-day.json" real-day-report/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -- real-day-report
+          git commit -q -m "Real day report of run $GITHUB_RUN_ID" \
+            -m "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git push origin "HEAD:refs/heads/$branch"
+          echo "Report pushed to branch \`$branch\` (no pull request opened)." >> "$GITHUB_STEP_SUMMARY"

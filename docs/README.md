@@ -24,6 +24,7 @@ discussions. Phases 0, 1 and 2 are built (see phase-2-status.md). Read in this o
 19. [review-packet.md](review-packet.md), [legal-review-packet.md](legal-review-packet.md), [screen-reader-test-plan.md](screen-reader-test-plan.md): what the owner's reviewers need for #15, #30 and #26, prepared so the human time is as short as possible.
 20. [phase-0-exit-dry-run.md](phase-0-exit-dry-run.md): the exit report generator run on one real day of transparency files (not the exit validation).
 21. [geocoding.md](geocoding.md): store coordinates: CBS locality centroids, OpenStreetMap address geocoding within its usage policy, precision labels, and what still lacks a location.
+22. [real-day-dry-run.md](real-day-dry-run.md): one real day through ingestion, matching, the precompute, `/compare` and `/optimize` and the basket index on a GitHub runner (`real-day.yml`), with timings next to the synthetic ones.
 
 ## Facts versus estimates
 
