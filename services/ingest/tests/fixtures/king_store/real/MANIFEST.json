@@ -10,7 +10,7 @@
       "sha256_original": "e974fe9915eca2e14c0a1a7ab8c43cf27d9e7cbdc9de2dcf5e364250f39dfec7",
       "bytes_original": 1775,
       "published_at": "2026-10-21T04:04+03:00",
-      "fetched_at": "2026-10-21T18:16:35+00:00",
+      "fetched_at": "2026-10-21T21:42:27+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
@@ -28,23 +28,23 @@
       }
     },
     {
-      "file": "PriceFull7290058108879-000-340-20261021-040448.gz",
+      "file": "PriceFull7290058108879-000-031-20261021-040448.gz",
       "kind": "price_full",
-      "source_file": "PriceFull7290058108879-000-340-20261021-040448.gz",
-      "sha256_original": "db635dd5904e9b41ad187371bf3b60a77ea5e59530ced6064fd0ea5e1824edf4",
-      "bytes_original": 105680,
+      "source_file": "PriceFull7290058108879-000-031-20261021-040448.gz",
+      "sha256_original": "02a8e0617a0ac396c8a4ebd95e3e8a96251a3da1f0c8ec3b4237a96dda41c141",
+      "bytes_original": 273095,
       "published_at": "2026-10-21T04:04+03:00",
-      "fetched_at": "2026-10-21T18:16:41+00:00",
+      "fetched_at": "2026-10-21T21:42:36+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
         "gates": [],
-        "reason": "items=2336"
+        "reason": "items=6019"
       },
-      "items_original": 2336,
+      "items_original": 6019,
       "items_trimmed": 200,
-      "sha256": "9399642b68721be52719b324f6eef38a6978a178b4e391346e04ea64ceafed88",
-      "bytes": 8403,
+      "sha256": "2ce1ca2822ae676e2f23f925accf1230101bfac3cfa545109e4c53bb30e4273e",
+      "bytes": 7421,
       "parsed": {
         "stores": 0,
         "items": 200,
@@ -53,23 +53,23 @@
       }
     },
     {
-      "file": "PromoFull7290058108879-000-340-20261021-040448.gz",
+      "file": "PromoFull7290058108879-000-031-20261021-040448.gz",
       "kind": "promo_full",
-      "source_file": "PromoFull7290058108879-000-340-20261021-040448.gz",
-      "sha256_original": "1f52cf12f974aa676463859cd5c2b79b643b508dc6759438e3deeef9abc823fa",
-      "bytes_original": 23438,
+      "source_file": "PromoFull7290058108879-000-031-20261021-040448.gz",
+      "sha256_original": "c549fb642f6aab31d1fe214cda56f2dcc6c9af00fcc8c5821224349bca7f5bec",
+      "bytes_original": 40406,
       "published_at": "2026-10-21T04:04+03:00",
-      "fetched_at": "2026-10-21T18:16:51+00:00",
+      "fetched_at": "2026-10-21T21:42:33+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
         "gates": [],
-        "reason": "items=301"
+        "reason": "items=516"
       },
-      "promos_original": 301,
+      "promos_original": 516,
       "promos_trimmed": 100,
-      "sha256": "30273bf3864159d38dff86360048b7b47a7f6dc2fd72eaafa516693f7c617dca",
-      "bytes": 8690,
+      "sha256": "7432cd32c84dca1d3f1b95444747082e51c691a02fd2cdcf1ccfc08be5eb42a8",
+      "bytes": 9273,
       "parsed": {
         "stores": 0,
         "items": 0,
