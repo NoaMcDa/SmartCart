@@ -206,9 +206,13 @@ five). Matching is per canonical, so `allow` does not loosen the judge: nothing 
   differences are the level's own business.
 - **Which item.** The sibling's row of `effective_prices` at the same level (so the same
   mappings: not `needs_review`, not human-rejected) and the same club gating as any line. At each
-  store the cheapest of the requested canonical's own offer and its siblings' wins by effective
-  unit price (per 100 g, 100 ml, unit or kg, so pack sizes compare by unit price); a tie keeps
-  the requested canonical. The quantity logic is the existing one (packs, promo bundles, weight).
+  store the cheapest line for the quantity asked wins among the requested canonical's own offer
+  and its siblings' (each priced as any line: packs, promo bundles, weight); a tie keeps the
+  requested canonical. The precompute ranks a store's offers by effective unit price (per 100 g,
+  100 ml, unit or kg), which does not know the quantity: a promo that needs 4 packs wins the
+  unit price for a list with 2. So the line is chosen after the quantity is known, never by unit
+  price alone (a sibling at 4.50 beats the own offer at 5.90 with "4 for 14" when 2 are asked, and
+  loses when 4 are).
 - **Always labeled.** A sibling's offer is `is_substitute = true`, carries the mapping confidence,
   `original_item_id` (the store's own non-substitute item for the canonical when it has one), and a
   `differs` tag for every critical attribute that made it a sibling (value from the item, or from

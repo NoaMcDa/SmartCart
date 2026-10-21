@@ -135,7 +135,10 @@ treat it like any other unreviewed copy. Where it appears:
 - Lines come from `effective_prices` for the requested flexibility level (see
   [Effective prices](#effective-prices-nightly)). Per line:
   - club deals apply only when the user listed that club (`clubs`); otherwise the row's
-    `noclub` option is used and no club deal is shown;
+    `noclub` option is used and no club deal is shown. The line pays the cheapest of the offers
+    open to the user for the quantity asked (`basket.club_alternatives`): the club deal, the best
+    deal without a club and the other marked clubs' deals, so marking a club never raises a line
+    (a club deal that needs 4 packs does not beat a plain "2 for 16" when 2 are asked);
   - `flex_level = exact` with `exact_item_id`: that barcode must be sold by the store's chain
     (mapped to the canonical at exact or any_brand) and is priced live with the same promo
     folding; otherwise the canonical counts as missing at that store;
@@ -162,9 +165,15 @@ treat it like any other unreviewed copy. Where it appears:
     `fat_pct`, `variety`, `flavor`; default empty, at most five, other keys are a 422, ignored for
     `exact`): a store may also offer an item of a sibling canonical that differs from the
     requested one only in these attributes. It is always a substitute with a `differs` tag, the
-    cheapest per unit price wins, and its `original_here` is the requested canonical's own offer
-    at that store. Semantics and limits: [matching.md](matching.md#allowed-attributes-sibling-canonicals-31);
+    cheapest line for the quantity asked wins (the requested canonical keeps a tie), and its
+    `original_here` is the requested canonical's own offer at that store. Semantics and limits: [matching.md](matching.md#allowed-attributes-sibling-canonicals-31);
   - `price_valid_from` on every line; `prices_updated_at` per store is the newest of its lines.
+- `BasketItem.quantity` is between 0.01 and 1000 (packs, or kg for weighed goods): a smaller one
+  prices to 0.00 and a huge one overflows the money type, so both are a 422. The same canonical
+  asked more than once is one line per store with the summed quantity, priced by the strictest
+  request (exact, then any brand, then close; fewer allowed attributes first): a store that
+  cannot meet the strictest request lists the canonical as missing, and the order of the list
+  never changes a price.
 - `missing` lists the canonical ids a store cannot supply; `found_count` the others. Never
   dropped, never priced as zero.
 - Sorting: fewer missing items first (complete baskets first), then total, then distance.
@@ -176,8 +185,11 @@ treat it like any other unreviewed copy. Where it appears:
 - `saving_vs_home` (compare) and `basket_saving` (optimize) are computed over the canonicals both
   baskets supply: a store does not look cheaper by not stocking part of the list. Missing items
   are listed separately.
-- `home_store_total` is the home store's total over what it supplies; the home store is priced
-  even when it is outside the radius.
+- `home_store_total` is the home store's total over what it supplies (0.00 when it supplies
+  nothing on the list; `found_count` says so); the home store is priced even when it is outside
+  the radius.
+- In `/optimize`, each assignment's `store.saving_vs_home` is over the lines bought at that store,
+  like its `total`, so the assignments' savings add up to the plan's `basket_saving`.
 - Without `home_store_id`, every saving field is null.
 
 ### POST /optimize

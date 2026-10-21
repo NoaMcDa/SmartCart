@@ -2,7 +2,8 @@
 
 Issues #13 (MILP with cross-item promos and quantity rounding) and #45 (smart cart). Code:
 `services/api/smartcart_api/milp.py`, `routes/optimize.py`, `swaps.py`, `routes/swaps.py`.
-Tests: `services/api/tests/test_milp.py`, `test_swaps.py`, and the phase 1 `test_optimize.py`.
+Tests: `services/api/tests/test_milp.py`, `test_swaps.py`, the phase 1 `test_optimize.py`, and the
+randomized `test_api_optimizer_props*.py` (invariants below).
 Background: `docs/architecture.md` sections 4 and 5, decisions D7 and D9.
 
 ## Which solver runs
@@ -187,6 +188,82 @@ integer bundle variables natively. It stays the fallback if a platform lacks the
 - Daily `hours` windows of promos are not applied (as in the precompute).
 - Store sets grow as N choose K; the schema caps them at 575.
 - The fallback to the heuristic is per request, not per plan.
+
+## Invariants covered by tests
+
+Randomized tests (`test_api_optimizer_props.py`, `test_api_optimizer_props_db.py`; seeded
+`random` loops, no `hypothesis` dependency; fixed seeds, so a failure names its seed) compare the
+code with references that share nothing with it. The pure half builds small problems (2 to 4
+stores, 2 to 4 needs, own and shared bundles, "buy X get Y" and per-unit groups, quantity limits,
+travel and extra-stop costs) and checks against an exhaustive search over every store set, every
+assignment and every way of putting units into a bundle. The DB half writes a random world to the
+tables (2 chains, 3 to 5 stores at distinct distances, 3 to 4 canonicals one of which may be
+weighed, store exceptions, products a chain or store does not stock, close-level substitutes, two
+sibling milks, unit price / percent / 1+1 / "N for X" promos with and without a minimum quantity,
+club-only promos, one promo shared by two products), runs the real precompute and calls the
+real routes. `expected()` in that file recomputes every line from the promo definitions.
+
+| Invariant | Where |
+|---|---|
+| The MILP equals the exhaustive optimum (fewest missing, then cost) for K = 1, 2, 3, with and without shared promos, quantity limits, travel and extra-stop costs; with `min_stores = 2` it equals the heuristic's split (or there is none) | props, 40 seeds |
+| The MILP's reported lines add up to its basket total, and that total is what the exhaustive reference charges the plan's own assignment | props |
+| The MILP does not depend on the order of the needs or lines, and is deterministic | props, regress |
+| The heuristic is never better than the pooled optimum, equals the optimum of pricing every line alone (the D9 claim), equals the pooled optimum when no promo is shared, and the MILP is never worse than the heuristic | props |
+| Every subset's plan: the total is the sum of its lines, at most K stores are visited, every need is bought once or listed missing | props, props_db |
+| Every line of `/compare` equals the independently recomputed price: bundles and remainders, unit/percent/1+1/"N for X" promos with a minimum quantity, weighed goods per kg, close substitutes, allowed siblings, club gating | props_db |
+| A store prices exactly what it stocks and lists the rest as `missing`; `found_count`; stores that supply nothing are not listed | props_db |
+| Money is whole agorot everywhere (`line_total`, `total`, travel, every `breakdown` field) and a store's total is the lines' sum rounded once | props_db |
+| A club deal is for members only; `club_offer_*` is information only; a member never pays more than a non-member | props_db, regress |
+| A substitute is labeled, carries `original_here` exactly when the store sells the original, and an allowed sibling carries a `differs` tag | props_db |
+| `/optimize` with the heuristic: `single` is the best one-store plan; with `min_split_saving = 0` the plan shown is the exhaustive optimum (unless the optimum completes a list no single store completes, see "Plans"); a split saves at least `min_split_saving` over `single` | props_db |
+| `/optimize` with the MILP equals the pooled exhaustive optimum, including promos two needs share (two products, or two needs that map to the same item) | props_db |
+| `breakdown`: `net_saving = basket_saving - travel_cost - extra_stop_cost` exactly; `travel_cost` is the plan's travel minus the home store's, floored at 0; `extra_stop_cost = extra_stop_value x (stores - 1)`; the basket saving is recomputed from the home and plan lines over the canonicals both supply, so a plan never shows a positive net saving the lines do not support; the assignments' `saving_vs_home` add up to `basket_saving`; `minimum_effort` saves exactly 0 | props_db |
+| `allow: []` equals omitting it; `flex_level` spelled out equals its default; the response does not depend on the order of the list (items and `missing` compared as sets), nor on one quantity split over two entries | props_db |
+
+### Bugs these tests found (each has a regression in `test_api_optimizer_props_regress.py`)
+
+1. A split's per-store `saving_vs_home` covered all the store's lines, not the ones bought there
+   (1.10 and -1.40 for a plan saving 3.10). Fixed in `StoreBasket.result` / `saving_vs`.
+2. A quantity of 0.0001 packs divided 0.00 by 0.00 (HTTP 500) and 1e30 overflowed `money()`
+   (HTTP 500). `BasketItem.quantity` is now 0.01 to 1000 (a 422 outside), and `_unit_paid` no
+   longer divides by a zero shelf total.
+3. The same canonical asked at two levels was priced by whichever entry came first, and when the
+   strictest request had no offer at a store the looser one was priced with only its own share of
+   the quantity. Entries are now visited strictest first; a store that cannot meet the strictest
+   request lists the canonical as missing.
+4. The precompute keeps the offer with the best unit price, which ignores the quantity. For a
+   club row a member could pay more than a non-member (a club "4 for 20" against everyone's
+   "2 for 16", 2 asked: 20.00 against 16.00), and an allowed sibling could lose to an own offer
+   that needed more packs than asked. `price_baskets` now takes the cheapest line for the
+   quantity among the offers open to the user (`club_alternatives`, the allowed siblings), the
+   own offer first on a tie.
+5. The MILP's per-line totals in a shared promo depended on the order of the list (the group's
+   total did not): which line paid the loose pack was whatever CP-SAT found first. The units now
+   go to the lines by a fixed rule (largest discount, then the lower canonical id,
+   `milp._spread_units`).
+
+### Decisions the tests left as they are
+
+- `max_qty` of a promo is applied by the MILP but not by `/compare` or the heuristic (the
+  precompute does not carry it: `precompute.py`, "not applied"). For a promo with a limit the
+  MILP's line can cost more than `/compare`'s; the heuristic is then not an upper bound of the
+  MILP. The randomized comparisons therefore draw no limits for the heuristic.
+- A split is shown only when it misses no more items than `single` and saves at least
+  `min_split_saving`. When no single store has everything and the cheapest single plan misses an
+  item, a split that completes the list costs more and is not shown (the item stays "missing" in
+  `single`). The ranking elsewhere is missing-first; this is the documented rule of D9, kept
+  because changing which plan is recommended is a product decision.
+- `home_store_total` is 0.00 when the home store supplies nothing on the list (documented as "over
+  what it supplies"); the web app does not read the field.
+- The heuristic prices every line alone. When two needs map to the same item (two siblings
+  allowed) a "3 for X" promo is not pooled across them there, only in the MILP: the heuristic is
+  never cheaper than the truth, only sometimes dearer.
+- Per-unit promo prices in a shared group are `bundle price / N`, rounded to an agora in the
+  solver's objective (the reported totals are exact and rounded once). When N does not divide the
+  bundle price the objective is off by under an agora per unit, so a plan within an agora of the
+  optimum can be preferred. The randomized tests draw whole-agora prices and do not exercise this.
+- A non-club row keeps the best deal by unit price: a second, quantity-friendlier non-club promo
+  on the same item is not in `effective_prices` and is not considered.
 
 ## Performance (measured)
 
