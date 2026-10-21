@@ -229,9 +229,15 @@ export const handlers = [
     if (list.items.length >= 200) {
       return HttpResponse.json({ detail: "a list has at most 200 items" }, { status: 403 });
     }
+    // Idempotent per (list, client_id) like the API: a repeat answers with the stored row.
+    const stored = body.client_id
+      ? list.items.find((i) => i.client_id === body.client_id)
+      : undefined;
+    if (stored) return HttpResponse.json(stored, { status: 200 });
     const sort = list.items.reduce((max, i) => Math.max(max, i.sort), -1) + 1;
     const row = itemRow(nextItemId(list), sort, body);
     list.items.push(row);
+    touchList(list);
     return HttpResponse.json(row, { status: 201 });
   }),
 
@@ -252,7 +258,10 @@ export const handlers = [
       ([k, v]) => String(found[k as keyof ListItem]) !== String(v),
     );
     Object.assign(found, changes);
-    if (changed) found.updated_at = stamp();
+    if (changed) {
+      found.updated_at = stamp();
+      touchList(meLists.find((l) => l.id === Number(params.id)));
+    }
     return HttpResponse.json(found);
   }),
 
@@ -264,6 +273,7 @@ export const handlers = [
     if (isStale(found, expected)) return itemConflict(found);
     const list = meLists.find((l) => l.id === Number(params.id))!;
     list.items = list.items.filter((i) => i.id !== found.id);
+    touchList(list);
     return new HttpResponse(null, { status: 204 });
   }),
 
@@ -338,8 +348,14 @@ function itemRow(id: number, sort: number, item: ListItemIn): ListItem {
     input_text: item.input_text ?? null,
     quantity: String(item.quantity ?? "1"),
     checked: item.checked ?? false,
+    client_id: item.client_id ?? null,
     updated_at: stamp(),
   };
+}
+
+/** An item was added, changed or removed: the list's own `updated_at` moves, like the API's trigger. */
+function touchList(list: ShoppingList | undefined): void {
+  if (list) list.updated_at = new Date().toISOString();
 }
 
 const SAME_FIELDS = [
@@ -360,7 +376,8 @@ function toShoppingList(id: number, body: ShoppingListIn, previous?: ShoppingLis
   const items = (body.items ?? []).map((item, i) => {
     const old = item.id != null && !used.has(item.id) ? before.get(item.id) : undefined;
     if (old) used.add(old.id);
-    const row = itemRow(old?.id ?? nextItemId(draft), i, item);
+    // PUT ignores the idempotency key: a kept item keeps its own, a new one has none.
+    const row = itemRow(old?.id ?? nextItemId(draft), i, { ...item, client_id: old?.client_id });
     if (!old) return row;
     // Unchanged: the same version, as the trigger keeps it.
     const same = SAME_FIELDS.every((k) => String(old[k]) === String(row[k]));

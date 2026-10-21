@@ -285,4 +285,39 @@ describe("writeItem against the per-item routes", () => {
       "ביצים",
     ]);
   });
+
+  it("sends the add's client id, so sending the same add again returns the saved row", async () => {
+    await seed();
+    const bodies: unknown[] = [];
+    server.events.on("request:start", async ({ request }) => {
+      if (request.method === "POST" && request.url.endsWith("/items")) {
+        bodies.push(await request.clone().json());
+      }
+    });
+    const add: QueuedEdit = {
+      kind: "add",
+      itemId: -5,
+      canonicalId: 1008,
+      name: "ביצים",
+      quantity: 2,
+      clientId: "0f6a6f0e-7c0b-4a39-a1a5-5d52e3a1b001",
+    };
+    const first = await writeItem(1, add);
+    const again = await writeItem(1, add);
+    server.events.removeAllListeners();
+    expect(bodies).toMatchObject([
+      { client_id: "0f6a6f0e-7c0b-4a39-a1a5-5d52e3a1b001" },
+      { client_id: "0f6a6f0e-7c0b-4a39-a1a5-5d52e3a1b001" },
+    ]);
+    expect(again.item).toEqual(first.item);
+    expect(((await api("/me/lists/1", "GET")) as { items: unknown[] }).items).toHaveLength(3);
+  });
+
+  it("an add queued before the key existed is sent without one", async () => {
+    await seed();
+    const add: QueuedEdit = { kind: "add", itemId: -5, canonicalId: 1008, name: "x", quantity: 1 };
+    await writeItem(1, add);
+    await writeItem(1, add);
+    expect(((await api("/me/lists/1", "GET")) as { items: unknown[] }).items).toHaveLength(4);
+  });
 });

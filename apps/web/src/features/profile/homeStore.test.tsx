@@ -15,6 +15,7 @@ import { ChainControls } from "./controls/ChainControls";
 import {
   adoptHomeStore,
   adoptNearestHomeStore,
+  clearLocation,
   getProfile,
   resetProfileCache,
   useResolveHomeStore,
@@ -90,6 +91,48 @@ describe("adoptNearestHomeStore", () => {
     expect(getProfile()).toMatchObject({ homeChainId: null, homeStoreId: null });
   });
 
+  it("does not adopt the store of the old location when the location changed while the request ran", async () => {
+    setLocation({ lat: 31.8971, lon: 35.0099, source: "manual" });
+    updateProfile({ homeChainId: "yochananof", homeStoreId: null });
+    server.use(
+      http.get(`${API_BASE_URL}/stores/nearest`, async () => {
+        // The shopper moves to another city before the answer for the first one arrives.
+        setLocation({ lat: 32.0853, lon: 34.7818, source: "manual" });
+        return HttpResponse.json({ store_id: 104, chain_id: "7290803800003" });
+      }),
+    );
+    await expect(adoptNearestHomeStore("yochananof")).resolves.toBeNull();
+    expect(getProfile()).toMatchObject({ homeChainId: "yochananof", homeStoreId: null });
+    expect(readShopper().homeStoreId).toBeNull();
+  });
+
+  it("does not adopt it either when the location was cleared (back to the default city) meanwhile", async () => {
+    setLocation({ lat: 31.8971, lon: 35.0099, source: "manual" });
+    updateProfile({ homeChainId: "yochananof", homeStoreId: null });
+    server.use(
+      http.get(`${API_BASE_URL}/stores/nearest`, async () => {
+        clearLocation();
+        return HttpResponse.json({ store_id: 104, chain_id: "7290803800003" });
+      }),
+    );
+    await expect(adoptNearestHomeStore("yochananof")).resolves.toBeNull();
+    expect(getProfile().homeStoreId).toBeNull();
+  });
+
+  it("still adopts it when the location was set again to the same neighborhood meanwhile", async () => {
+    setLocation({ lat: 31.8971, lon: 35.0099, source: "manual" });
+    updateProfile({ homeChainId: "yochananof", homeStoreId: null });
+    server.use(
+      http.get(`${API_BASE_URL}/stores/nearest`, async () => {
+        // The same place again (a device fix a few meters away rounds to the same coordinates).
+        setLocation({ lat: 31.8972, lon: 35.0101, source: "device" });
+        return HttpResponse.json({ store_id: 104, chain_id: "7290803800003" });
+      }),
+    );
+    await expect(adoptNearestHomeStore("yochananof")).resolves.toBe(104);
+    expect(getProfile().homeStoreId).toBe(104);
+  });
+
   it("leaves the profile alone when the chain has no store (404) or the call fails, so the compare fallback still works", async () => {
     updateProfile({ homeChainId: "king_store", homeStoreId: null });
     await expect(adoptNearestHomeStore("king_store")).resolves.toBeNull(); // the mock has none
@@ -134,6 +177,25 @@ describe("the results page keeps the home store resolved", () => {
     view.rerender(<Probe />);
     await new Promise((r) => setTimeout(r, 30));
     expect(seen).toHaveLength(1);
+  });
+
+  it("asks again for the new location when the first answer was dropped because the location changed", async () => {
+    setLocation({ lat: 31.8971, lon: 35.0099, source: "manual" });
+    updateProfile({ homeChainId: "yochananof", homeStoreId: null });
+    let first = true;
+    server.use(
+      http.get(`${API_BASE_URL}/stores/nearest`, async ({ request }) => {
+        const lat = new URL(request.url).searchParams.get("lat");
+        if (first) {
+          first = false;
+          setLocation({ lat: 32.0853, lon: 34.7818, source: "manual" });
+          return HttpResponse.json({ store_id: 104, chain_id: "7290803800003" }); // the old place's
+        }
+        return HttpResponse.json({ store_id: lat === "32.085" ? 204 : 104, chain_id: "x" });
+      }),
+    );
+    render(<Probe />);
+    await waitFor(() => expect(getProfile().homeStoreId).toBe(204));
   });
 
   it("falls back to the stores of the result on screen when the lookup finds none", async () => {

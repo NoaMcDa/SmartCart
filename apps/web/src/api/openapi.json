@@ -814,6 +814,19 @@
             "title": "Checked",
             "type": "boolean"
           },
+          "client_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "POST /me/lists/{id}/items only, an idempotency key: a random id the client makes for this add and sends again on every retry (a lost response, an offline queue replayed twice). The first POST inserts the item and answers 201; a POST carrying the same id for the same list answers 200 with the stored item and inserts nothing. Without one, every POST inserts. Read back as the key the item was added with; ignored by PUT (a kept item keeps its key) and when creating a list.",
+            "title": "Client Id"
+          },
           "confirmed": {
             "default": true,
             "title": "Confirmed",
@@ -907,6 +920,19 @@
             "description": "Ticked off in the store (shared lists, #101)",
             "title": "Checked",
             "type": "boolean"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "POST /me/lists/{id}/items only, an idempotency key: a random id the client makes for this add and sends again on every retry (a lost response, an offline queue replayed twice). The first POST inserts the item and answers 201; a POST carrying the same id for the same list answers 200 with the stored item and inserts nothing. Without one, every POST inserts. Read back as the key the item was added with; ignored by PUT (a kept item keeps its key) and when creating a list.",
+            "title": "Client Id"
           },
           "confirmed": {
             "default": true,
@@ -5612,7 +5638,7 @@
     },
     "/me/lists/{list_id}/items": {
       "post": {
-        "description": "Appends an item to the end of the list (owner or editor). ``id`` in the body is ignored.",
+        "description": "Appends an item to the end of the list (owner or editor). ``id`` in the body is ignored.\nWith a ``client_id`` the add is idempotent per list: a replay answers 200 with the stored item\n(the one that was added first, as it is now) and inserts nothing, also when the list has since\nreached its size cap.",
         "operationId": "add_item_me_lists__list_id__items_post",
         "parameters": [
           {
@@ -5652,6 +5678,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListItem"
+                }
+              }
+            },
+            "description": "A replay: the item stored before"
+          },
           "201": {
             "content": {
               "application/json": {
