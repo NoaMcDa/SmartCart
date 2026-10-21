@@ -517,6 +517,7 @@ def parse_list_profile(db_url: str) -> dict:
     from smartcart_api.main import app
 
     spent: dict[str, list[float]] = defaultdict(list)
+    slowest: dict = {"ms": 0.0}
     original = psycopg.Cursor.execute
 
     def timed(self, query, *args, **kwargs):
@@ -527,7 +528,11 @@ def parse_list_profile(db_url: str) -> dict:
             key = " ".join(
                 str(getattr(query, "as_string", lambda _c: query)(self.connection)).split()
             )
-            spent[key[:110]].append((time.perf_counter() - t0) * 1000)
+            ms = (time.perf_counter() - t0) * 1000
+            spent[key[:110]].append(ms)
+            if ms > slowest["ms"] and isinstance(query, str):
+                params = args[0] if args else kwargs.get("params")
+                slowest.update(ms=ms, query=query, params=params)
 
     text = HAND_BASKETS["small (6 lines)"]
     with TestClient(app) as client:
@@ -541,7 +546,18 @@ def parse_list_profile(db_url: str) -> dict:
         finally:
             psycopg.Cursor.execute = original
     rows = sorted(spent.items(), key=lambda kv: -sum(kv[1]))
+    explain: list[str] = []
+    if slowest.get("query"):
+        try:
+            with psycopg.connect(db_url) as conn:
+                plan = conn.execute(
+                    "EXPLAIN (ANALYZE, BUFFERS, TIMING OFF) " + slowest["query"], slowest["params"]
+                ).fetchall()
+            explain = [_short_plan(r[0])[:230] for r in plan][:40]
+        except Exception as exc:  # noqa: BLE001 - a diagnostic never stops the run
+            explain = [f"EXPLAIN failed: {type(exc).__name__}: {str(exc)[:200]}"]
     return {
+        "explain_slowest": explain,
         "total_ms": round(total, 1),
         "sql_ms": round(sum(sum(v) for v in spent.values()), 1),
         "statements": sum(len(v) for v in spent.values()),
@@ -1465,6 +1481,13 @@ def render_report(res: dict) -> str:
             for t in pp["top"]:
                 a(f"| `{md_escape(t['sql'])}` | {t['calls']} | {t['total_ms']} | {t['max_ms']} |")
             a("")
+            if pp.get("explain_slowest"):
+                a("`EXPLAIN (ANALYZE, BUFFERS)` of the slowest statement:")
+                a("")
+                a("```")
+                a("\n".join(pp["explain_slowest"]))
+                a("```")
+                a("")
 
     for key, title in (
         ("api", "production semantics"),
