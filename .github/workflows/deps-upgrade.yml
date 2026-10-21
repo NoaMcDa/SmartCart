@@ -293,7 +293,10 @@ jobs:
   push:
     name: push the lock files to deps/upgrade-<date>
     needs: [lock, python, web]
-    if: needs.lock.outputs.changed == 'true' || needs.web.outputs.changed == 'true'
+    # TEMP, restored with the push trigger removal: exercise this job although web fails on the
+    # playwright-core duplicate. Permanent condition:
+    # if: needs.lock.outputs.changed == 'true' || needs.web.outputs.changed == 'true'
+    if: always() && needs.lock.result == 'success' && needs.python.result == 'success' && (needs.lock.outputs.changed == 'true' || needs.web.outputs.changed == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
