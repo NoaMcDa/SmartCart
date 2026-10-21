@@ -10,14 +10,12 @@
       "sha256_original": "94a034ea9f6e2bd5f003f4fd6f8ef980e999f5f266baa2200da0d66062b3ae9b",
       "bytes_original": 9790,
       "published_at": "2026-10-19T08:05+03:00",
-      "fetched_at": "2026-10-21T18:08:48+00:00",
+      "fetched_at": "2026-10-21T21:58:17+00:00",
       "schema": "v1",
       "gate": {
-        "status": "quarantined",
-        "gates": [
-          "stale_date"
-        ],
-        "reason": "stale_date: published 2026-10-19T05:05:01+00:00, 61.2 h old (limit 36 h)"
+        "status": "loaded",
+        "gates": [],
+        "reason": "items=24"
       },
       "stores": 24,
       "sha256": "94a034ea9f6e2bd5f003f4fd6f8ef980e999f5f266baa2200da0d66062b3ae9b",
@@ -30,23 +28,24 @@
       }
     },
     {
-      "file": "PriceFull7290103152017-001-001-20261021-080011.gz",
+      "file": "PriceFull7290103152017-001-003-20261021-080003.gz",
       "kind": "price_full",
-      "source_file": "PriceFull7290103152017-001-001-20261021-080011.gz",
-      "sha256_original": "167b3971b16c9b20c7927bed7ae141df7dd384a14d7f886c9ae4486a3367927b",
-      "bytes_original": 502372,
+      "source_file": "PriceFull7290103152017-001-003-20261021-080003.gz",
+      "sha256_original": "078888ab2f9b492f91cc3afb4f9c4cc384a96ef2e5678ad29ed67dd22584316d",
+      "bytes_original": 510751,
       "published_at": "2026-10-21T08:00+03:00",
-      "fetched_at": "2026-10-21T18:08:55+00:00",
+      "fetched_at": "2026-10-21T21:58:38+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
         "gates": [],
-        "reason": "items=6508"
+        "reason": "items=6750"
       },
-      "items_original": 6508,
+      "same_store_as_promo": true,
+      "items_original": 6750,
       "items_trimmed": 200,
-      "sha256": "7d1c1854e17a00775e8ccf3c618a01deaed9b7c47cae8c4b717a78126e17528d",
-      "bytes": 11576,
+      "sha256": "f2b5c1cec77d7a16092178867f68d6acfb164b150ffbc7a34b643928c5c7a125",
+      "bytes": 10742,
       "parsed": {
         "stores": 0,
         "items": 200,
@@ -55,23 +54,122 @@
       }
     },
     {
-      "file": "PromoFull7290103152017-001-001-20261021-080047.gz",
+      "file": "PromoFull7290103152017-001-003-20261021-140535.gz",
       "kind": "promo_full",
-      "source_file": "PromoFull7290103152017-001-001-20261021-080047.gz",
-      "sha256_original": "61367fe8a38850d98cf394dd532b0a2cc7e6c25eae0a264180269ed942fef866",
-      "bytes_original": 85621,
-      "published_at": "2026-10-21T08:00+03:00",
-      "fetched_at": "2026-10-21T18:09:02+00:00",
+      "source_file": "PromoFull7290103152017-001-003-20261021-140535.gz",
+      "sha256_original": "6f70bbdbb83ff6d09087f7fa6e29ffe87240e1e9ba206e67e2fa2f350bfeac17",
+      "bytes_original": 112835,
+      "published_at": "2026-10-21T14:05+03:00",
+      "fetched_at": "2026-10-21T21:58:29+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
         "gates": [],
-        "reason": "items=658"
+        "reason": "items=798"
       },
-      "promos_original": 658,
+      "full_file": {
+        "promos": 798,
+        "clubs": {
+          "promos": 798,
+          "without_club_id": 0,
+          "distinct_values": 1,
+          "distinct_names": 0,
+          "values": [
+            {
+              "text": "0",
+              "n": 798,
+              "rule": "everyone"
+            }
+          ],
+          "names": []
+        },
+        "shelf": {
+          "checked": true,
+          "promo_stores": [
+            "3"
+          ],
+          "price_stores": [
+            "3"
+          ],
+          "price_rows": 6750
+        },
+        "shelf_check": {
+          "single_items_with_shelf": 2113,
+          "single_unit_equals_shelf_x_rate": 1845,
+          "single_unit_within_rate_rounding": 1915,
+          "single_unit_below_shelf": 2113,
+          "mismatches": [
+            {
+              "promo": "0001117498",
+              "item": "5904941750312",
+              "shelf": "3.90",
+              "min_qty": "4",
+              "rate": "34.52",
+              "price": "11.00"
+            },
+            {
+              "promo": "0001117498",
+              "item": "5904941751302",
+              "shelf": "3.50",
+              "min_qty": "4",
+              "rate": "27.63",
+              "price": "11.00"
+            },
+            {
+              "promo": "0001117498",
+              "item": "5904941751920",
+              "shelf": "3.90",
+              "min_qty": "4",
+              "rate": "34.52",
+              "price": "11.00"
+            },
+            {
+              "promo": "0001117720",
+              "item": "7290005966033",
+              "shelf": "35.20",
+              "min_qty": "2",
+              "rate": "1.41",
+              "price": "70.00"
+            },
+            {
+              "promo": "0001117720",
+              "item": "7290005966088",
+              "shelf": "35.20",
+              "min_qty": "2",
+              "rate": "1.41",
+              "price": "70.00"
+            },
+            {
+              "promo": "0001117720",
+              "item": "7290014466128",
+              "shelf": "35.20",
+              "min_qty": "2",
+              "rate": "1.41",
+              "price": "70.00"
+            },
+            {
+              "promo": "0001117720",
+              "item": "7290014466463",
+              "shelf": "35.20",
+              "min_qty": "2",
+              "rate": "1.41",
+              "price": "70.00"
+            },
+            {
+              "promo": "0001117720",
+              "item": "7290015951869",
+              "shelf": "35.20",
+              "min_qty": "2",
+              "rate": "1.41",
+              "price": "70.00"
+            }
+          ]
+        }
+      },
+      "promos_original": 798,
       "promos_trimmed": 100,
-      "sha256": "e3f41ab809e6bf51867bfdf33be29a9dd922c9e3d5881a675acb9b6a8b83bc95",
-      "bytes": 9677,
+      "sha256": "afc8c9807c7fa6e44648fdd035e5db5b024be31b69a0fd42bb0ef977445169df",
+      "bytes": 9986,
       "parsed": {
         "stores": 0,
         "items": 0,

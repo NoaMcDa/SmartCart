@@ -4,13 +4,13 @@
   "max_promos": 100,
   "files": [
     {
-      "file": "Stores7290055700007-000-20261021-000100.xml",
+      "file": "Stores7290055700007-000-20261022-000100.xml",
       "kind": "stores",
-      "source_file": "Stores7290055700007-000-20261021-000100.xml",
-      "sha256_original": "0b4ac44bce0afcf41ebc8e9ae25795a86d721abe6666619bb17be97661e5fc22",
+      "source_file": "Stores7290055700007-000-20261022-000100.xml",
+      "sha256_original": "1695f38df6764b4b1ff27a30ced2233eeba11df0c179934dd5081531cf0b884f",
       "bytes_original": 61394,
-      "published_at": "2026-10-21T00:01+03:00",
-      "fetched_at": "2026-10-21T18:06:06+00:00",
+      "published_at": "2026-10-22T00:01+03:00",
+      "fetched_at": "2026-10-21T21:56:04+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
@@ -18,7 +18,7 @@
         "reason": "items=147"
       },
       "stores": 147,
-      "sha256": "0b4ac44bce0afcf41ebc8e9ae25795a86d721abe6666619bb17be97661e5fc22",
+      "sha256": "1695f38df6764b4b1ff27a30ced2233eeba11df0c179934dd5081531cf0b884f",
       "bytes": 61394,
       "parsed": {
         "stores": 147,
@@ -28,23 +28,24 @@
       }
     },
     {
-      "file": "PriceFull7290055700007-001-002-20261021-051019.gz",
+      "file": "PriceFull7290055700007-001-416-20261022-000012.gz",
       "kind": "price_full",
-      "source_file": "PriceFull7290055700007-001-002-20261021-051019.gz",
-      "sha256_original": "2c1adaaadc81dd4f8bc7786e2deaba3cc1ca3a8b2bff476ebeee0c05a876d4ba",
-      "bytes_original": 474252,
-      "published_at": "2026-10-21T05:10+03:00",
-      "fetched_at": "2026-10-21T18:06:10+00:00",
+      "source_file": "PriceFull7290055700007-001-416-20261022-000012.gz",
+      "sha256_original": "fd83b69966980d34f3966176f6438a393ed1abfd1d91bb17c289bd4e62ee81af",
+      "bytes_original": 905877,
+      "published_at": "2026-10-22T00:00+03:00",
+      "fetched_at": "2026-10-21T21:56:10+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
         "gates": [],
-        "reason": "items=5899"
+        "reason": "items=11082"
       },
-      "items_original": 5899,
+      "same_store_as_promo": true,
+      "items_original": 11082,
       "items_trimmed": 200,
-      "sha256": "2be848f8592cca59a7b43a0523866b0ee1bc79f4dd43ddb0399bdf47defd0fc7",
-      "bytes": 11069,
+      "sha256": "4a91c34f2d24f624b8c09d656184a3cd2c33c446280415068e9fb0e82ea79dd0",
+      "bytes": 12792,
       "parsed": {
         "stores": 0,
         "items": 200,
@@ -53,23 +54,75 @@
       }
     },
     {
-      "file": "PromoFull7290055700007-001-002-20261021-051128.gz",
+      "file": "PromoFull7290055700007-001-416-20261022-000047.gz",
       "kind": "promo_full",
-      "source_file": "PromoFull7290055700007-001-002-20261021-051128.gz",
-      "sha256_original": "3237ff5b33b117cf7ef809e0becf8b18ba9e5011a7aecc2b4080938eace0a889",
-      "bytes_original": 184904,
-      "published_at": "2026-10-21T05:11+03:00",
-      "fetched_at": "2026-10-21T18:06:30+00:00",
+      "source_file": "PromoFull7290055700007-001-416-20261022-000047.gz",
+      "sha256_original": "707f507d8fd631d9dda27d6bde36835b798b95d56790dcd7b321b269df061895",
+      "bytes_original": 216072,
+      "published_at": "2026-10-22T00:00+03:00",
+      "fetched_at": "2026-10-21T21:56:07+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
         "gates": [],
-        "reason": "items=1550"
+        "reason": "items=1653"
       },
-      "promos_original": 1550,
+      "full_file": {
+        "promos": 1653,
+        "clubs": {
+          "promos": 1653,
+          "without_club_id": 0,
+          "distinct_values": 3,
+          "distinct_names": 3,
+          "values": [
+            {
+              "text": "0",
+              "n": 1643,
+              "rule": "everyone"
+            },
+            {
+              "text": "(2=מועדון קרפור אשראי|2=מועדון אפליקציה)",
+              "n": 6,
+              "rule": "מועדון קרפור אשראי | מועדון אפליקציה"
+            },
+            {
+              "text": "(3=Goodi)",
+              "n": 4,
+              "rule": "Goodi"
+            }
+          ],
+          "names": [
+            [
+              "מועדון קרפור אשראי",
+              6
+            ],
+            [
+              "מועדון אפליקציה",
+              6
+            ],
+            [
+              "Goodi",
+              4
+            ]
+          ]
+        },
+        "shelf": {
+          "checked": false,
+          "promo_stores": [
+            "416"
+          ],
+          "price_stores": [
+            "134"
+          ],
+          "price_rows": 11082,
+          "why": "the PriceFull is for another store than the PromoFull"
+        },
+        "shelf_check": null
+      },
+      "promos_original": 1653,
       "promos_trimmed": 100,
-      "sha256": "747955f9f652545a6f1940d5dabcef1e2d0c7ba0cafbaec4980784eb721b498e",
-      "bytes": 9975,
+      "sha256": "5c257d804abf757bfca81b48f48b3c875aca7acfddea9d34def7116fef86d8a1",
+      "bytes": 8954,
       "parsed": {
         "stores": 0,
         "items": 0,
