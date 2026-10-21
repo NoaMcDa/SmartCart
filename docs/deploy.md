@@ -57,14 +57,20 @@ On the VPS the API unit reads `/etc/smartcart/ingest.env`, then `/etc/smartcart/
 |---|---|---|
 | `DATABASE_URL` | yes | The API's connection, as the least-privilege role `smartcart_api` (see "Which role" below), through the **session** pooler (port 5432 on the pooler host), the **transaction** pooler (port 6543, with `DB_POOLER_MODE=transaction`) or the direct host |
 | `DB_POOLER_MODE` | no (`session`) | `transaction` when `DATABASE_URL` goes through the transaction pooler: no server-side prepared statements (`prepare_threshold=None`) and the time zone set per transaction (`SET LOCAL TIME ZONE 'UTC'`) instead of per connection. Any other value than `session` or `transaction` stops the API when it first opens the pool |
-| `SUPABASE_JWT_SECRET` | yes | The project's JWT secret; `/me/*` answers 503 without it |
+| `SUPABASE_JWT_SECRET` | yes, until the project signs with an asymmetric key | The project's HS256 JWT secret. `/me/*` answers 503 when neither this nor a JWKS URL is configured. Once the project's signing key is ES256/RS256 and the old tokens have expired, delete it: the API then verifies with the public key only and the secret is no longer on the host (docs/security-review.md R5) |
+| `SUPABASE_URL` | for `DELETE /me`, and the JWKS | The project URL. The API also derives the key set URL from it, `$SUPABASE_URL/auth/v1/.well-known/jwks.json`, and fetches it only when an ES256 or RS256 token arrives |
+| `SUPABASE_JWKS_URL` | no | Overrides the derived key set URL |
+| `SUPABASE_JWT_ISSUER` | recommended | `https://<project>.supabase.co/auth/v1`; pins `iss` for every token, and so the keys to one project |
+| `SUPABASE_JWKS_TTL_S`, `SUPABASE_JWKS_MIN_REFRESH_S` | no (600, 30) | How long fetched keys are trusted, and the least time between two fetches (an unknown `kid` cannot make the API fetch more often) |
+| `API_RATE_LIMIT_BACKEND` | recommended: `postgres` (default `memory`) | `postgres` counts request limits in `api_rate_limits`, shared by every worker and replica; run `smartcart-ingest migrate` first (migration `20261022120000`). Default `memory` counts per process (limit times `WEB_CONCURRENCY`) so a laptop, CI or a deploy that has not migrated yet needs nothing. If the database cannot count, requests fall back to per-process counting (a warning in the log), except beta-code and share-link guessing, which answer 503 |
+| `API_RATE_LIMIT_POOL_MAX` | no (3) | Connections per worker of the limiter's own pool; budget workers x (`API_POOL_MAX` + this) |
 | `API_CORS_ORIGINS` | yes | `https://<your domain>` (comma separated; add the Vercel preview origin only if you use previews) |
 | `API_PUBLIC_WEB_URL` | yes | `https://<your domain>`: the origin of list-invite links |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | for `DELETE /me` | Supabase Admin API (docs/api.md, account deletion) |
 | `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT` | for web push | Without them alerts are recorded, not pushed |
 | `API_QUERY_EMBEDDER` | no (`hash`) | `bge-m3` once BGE-M3 vectors are loaded (docs/api.md, search) |
 | `WEB_CONCURRENCY` | no (2 in the unit) | uvicorn worker processes |
-| `API_POOL_MAX` | no (10) | connections per worker; total = workers x this |
+| `API_POOL_MAX` | no (10) | connections per worker; total = workers x this (plus `API_RATE_LIMIT_POOL_MAX` per worker with the `postgres` limiter) |
 | `SMARTCART_API_PORT` | no (8000) | loopback port of the unit; set the same in `setup.sh`'s environment |
 
 **Which connection: session or transaction pooler.** Both work. `infra-provisioning.md` section 3.2
@@ -214,7 +220,8 @@ create when you add the domain to the project; unverified which record type it a
 ```bash
 sudoedit /etc/smartcart/api.env     # DATABASE_URL (pooler, smartcart_api), DB_POOLER_MODE, SUPABASE_JWT_SECRET,
                                     # API_CORS_ORIGINS=https://<domain>, API_PUBLIC_WEB_URL=https://<domain>,
-                                    # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VAPID_* (runbook step 11)
+                                    # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VAPID_* (runbook step 11),
+                                    # API_RATE_LIMIT_BACKEND=postgres (after the migrations), SUPABASE_JWT_ISSUER
 sudoedit /etc/smartcart/jobs.env    # DATABASE_URL for precompute and alerts (postgres)
 sudo SMARTCART_API_DOMAIN=api.<domain> bash /opt/smartcart/infra/vps/setup.sh
 # ... ==> API healthy: {"status":"ok","version":"0.3.0"}

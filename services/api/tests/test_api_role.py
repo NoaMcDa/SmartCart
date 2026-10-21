@@ -64,9 +64,10 @@ def test_granting_twice_is_fine_and_an_unknown_role_is_an_error(db, api_role: st
             (f"%\\_api\\_%{api_role}",),
         ).fetchall()
     ]
-    # one set of policies, not two: 11 from 20261011100500_api_role.sql and 6 for the beta and photo
-    # tables from 20261021120200_api_role_beta_ocr.sql
-    assert len(names) == len(set(names)) == 17
+    # one set of policies, not two: 11 from 20261011100500_api_role.sql, 6 for the beta and photo
+    # tables from 20261021120200_api_role_beta_ocr.sql and 1 for the rate limit counters from
+    # 20261022120000_api_rate_limits.sql
+    assert len(names) == len(set(names)) == 18
     with pytest.raises(psycopg.errors.RaiseException), db.transaction():
         db.execute("SELECT smartcart_grant_api_role('no_such_role_anywhere')")
 
