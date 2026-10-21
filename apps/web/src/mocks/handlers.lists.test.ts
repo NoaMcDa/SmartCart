@@ -4,7 +4,7 @@ import { API_BASE_URL } from "@/api/config";
 import { resetMeMock } from "./handlers";
 import { server } from "./node";
 
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 beforeEach(() => resetMeMock());

@@ -12,7 +12,7 @@ import { MAX_MERGE_ATTEMPTS, mergeVerdict, writeItem } from "./itemWrites";
 import { itemsOf, type SharedItem } from "./listSync";
 import type { QueuedEdit } from "./offlineQueue";
 
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 beforeEach(() => resetMeMock());

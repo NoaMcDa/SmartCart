@@ -290,7 +290,10 @@ test.describe("checked items and offline edits on a shared list", () => {
       .getByRole("button", { name: /הוסיפי כמות/ })
       .click();
     await expect(second.nth(1).getByRole("group")).toContainText("3");
-    await first.first().getByRole("button", { name: /הוסיפי כמות/ }).click(); // same item, other field
+    await first
+      .first()
+      .getByRole("button", { name: /הוסיפי כמות/ })
+      .click(); // same item, other field
     await expect(first.first().getByRole("group")).toContainText("2");
 
     // Everything is there on both screens: the tick, and both quantity changes.
