@@ -221,14 +221,19 @@ What the real files showed against the rules this repository started with:
   price nobody gets: `coupon_required` (`AdditionalIsCoupon` 1: 12 % of Rami Levy's promotions, 9 % of
   Shufersal's, 5 % of Mega's, under 2 % elsewhere), `basket_condition` (a group with `MinPurchaseAmount`,
   "מעל 75", or the all-zeros item: 148 of Rami Levy's 2660, 25 of Mega's 1550, 25 of Yohananof's
-  1199), `multi_group` (two groups, a condition group of `RewardType` 0 and a reward group: "1+1"
-  and "second at 50 %" shapes; 42 of Tiv Taam's 2246), `weekday_restricted` (`PromotionDays` other
-  than all seven days; the numbering of the days is **not known**, none in the samples),
+  1199), `multi_group` (more than one group that is not a same-item pair: a reward for another
+  product than the trigger, three groups, quantities of a price-only reward such as "1+3"; the
+  two-group "1+1", "2+1" and "second at 50 %" shapes are applied now, see "Two-group promotions"
+  below), `weekday_restricted` (`PromotionDays` other than all seven days; the numbering of the
+  days is **not known**: no promotion in the seven full files has one, see below),
   `packaging_credit` (a description of the form "זיכוי אריזה"/"קיזוז אריזה": a weight adjustment at
   the till with a 1 to 4 percent reward, Tiv Taam and Yohananof), `reward_type_unhandled`,
   `reward_value_unusable` (no price, or a percentage that is not between 0 and 100) and
-  `reward_values_differ` (items of one promotion with different prices). Across the seven full
-  files 81 % (Rami Levy) to 100 % (King Store) of the promotions are applied.
+  `reward_values_differ` (items of one promotion with different prices), and for two-group pairs
+  `redemption_limited` (a `RedemptionLimit` above 0, which is applied nowhere),
+  `club_in_description` (the description names a club while `ClubID` says everyone) and
+  `pair_description_disagrees` (the words contradict the fields). Across the seven full files
+  @@APPLIED@@
 - **Reading of an applied promotion** (one group, real item codes, no coupon, no basket condition):
 
 | Items | `reward_type` | `reward_value` | `min_qty` |
@@ -243,13 +248,65 @@ What the real files showed against the rules this repository started with:
   still link their items. `RedemptionLimit`, `MinNoOfItemOffered` (10, 1 or empty: meaning **not
   known**), `AllowMultipleDiscounts` and `max_qty` are stored in `raw` and not applied anywhere.
 
+**Two-group promotions: "buy X, get Y at P % off"** (new; verified on the full files of Shufersal,
+Rami Levy, Mega, Tiv Taam and Yohananof, run 39663328336 and the one before it, 39660333324;
+`grouped_terms` → `_pair_terms`, tests in `test_promo_pairs.py`, the real counts in
+`test_real_promos.py`). Every `multi_group` promotion in the seven full files was classified by a
+signature (groups, `RewardType`, quantities, rate, how the groups' item sets relate; the probe prints
+them as `PROMO_SHAPES`). The shapes, with what each is and what is done:
+
+| Shape (full files) | Meaning | Done |
+|---|---|---|
+| trigger group `RewardType` 0 (`MinQty` 1) + reward group `RewardType` 1 or 10, rate 100, price 0, same items: "1+1" (Shufersal 13, Tiv Taam 10, Yohananof 6, Rami Levy 6, Mega 3) | buy one, get one free | **applied**: `buy_x_get_y`, `min_qty` 1, `reward_value` 1, `raw.get_percent` 100 |
+| the same with `MinQty` 2 on the trigger: "2+1 הזול מבניהם" (Rami Levy 7, Shufersal 1) | buy two, the cheapest of the three free | **applied**: `min_qty` 2, `reward_value` 1 |
+| trigger (`MinQty` 1) + reward `RewardType` 10, rate 40 to 70, price = trigger price x (1 - rate), items equal or the reward group larger: "השני ב 50%" (Tiv Taam 31, Rami Levy 3, Mega 4) | buy one, the second at P % off | **applied**: `buy_x_get_y`, 1 and 1, `raw.get_percent` P |
+| a trigger group with the all-zeros item and `MinPurchaseAmount`, or a reward group with it ("מעל 75"; `basket_condition` is 148 of Rami Levy's promotions, 11 of Shufersal's, 25 of Mega's and 25 of Yohananof's, two-group or not) | a basket threshold | unapplied: `basket_condition` (as before) |
+| the same groups with `AdditionalIsCoupon` 1 (Mega's "פיצוי ..." compensation coupons, Shufersal's `20ש - קופון ח"ע` series) | a coupon | unapplied: `coupon_required` |
+| price-only rewards with no rate ("1+3 חינם הזול מביניהם", "1+2", Yohananof 2) | unknown semantics | unapplied: `multi_group` |
+| `RewardType` 6 in both groups (Tiv Taam "קופון 25 ש\"ח הנחה"), an empty trigger group (Osher Ad "חלון מכירת שקיות"), three groups | coupons, bag sales | unapplied: `multi_group` |
+| rate 65 with description "ב35% הנחה" (Yohananof 1) | the words say 35 % off, the price says 65 % off | unapplied: `pair_description_disagrees` |
+
+What makes a pair applied (every condition; otherwise the promotion keeps its reason): exactly one
+trigger group (all items `RewardType` 0, real item codes) and one reward group (`RewardType` 1, 2, 3
+or 10, with `DiscountRate` and `DiscountedPrice`); nothing weighed; whole-number `MinQty` X and Y
+(1 to 10) which are free only for rate 100 and reward price 0, and exactly 1 and 1 for a percentage
+off; one rate for all items; with the trigger's `DiscountedPrice` present the reward price equals
+`trigger x (1 - rate / 100)` within an agora; no redemption limit; no coupon, no basket condition,
+no weekday restriction; the description names no other `N+M` than X+Y and no other percentage than
+the rate (a fat percentage in a product name does not count); and it does not name a club while
+`ClubID` says everyone. Only the items that are in both groups are linked: such an item pairs with
+itself, which is true however the store lets a pair mix products; items only in the reward group
+(Tiv Taam: 2 of 35) need a trigger of another item, are counted in `raw.reward_only_items` and are not
+linked. The reading is `buy_x_get_y` with `raw.get_percent` P (the percentage the "got" units are
+off; 100 is free), so the effective price per pack is `shelf x (X + Y (1 - P/100)) / (X + Y)`, needed
+`X + Y` packs, in the precompute, `/compare` and the MILP (docs/optimizer.md).
+
+What is **verified**: the structure (trigger group at the shelf price, reward group at rate and price)
+and the arithmetic `reward = trigger x (1 - rate / 100)` on every promotion of the fixtures
+(`test_promo_pairs.py`, `test_real_promos.py`); @@SHELF@@ The descriptions agree with the fields
+("1+1", "2+1", "השני ב 50%", "השני בחצי"). What is **not determined**: whether the pair may mix
+products of the group. For "2+1 הזול מבניהם" ("the cheapest of them") the description says it does,
+for the others the file does not; the adapter applies only the same-item reading and the MILP's
+mixed-pair rule is a lower bound (docs/optimizer.md), so a promo with more than one item has
+confidence 0.9 (`mixed_items_unverified`). The meaning of `MinNoOfItemOffered` (10 everywhere) and of
+`AllowMultipleDiscounts` is still not known. Rami Levy's and Mega's trigger groups carry no price
+(`MinPurchaseAmount` is `0.00`, not a threshold), so there the reward group's rate and price are all
+the file shows.
+
+**Weekday-restricted promotions** (`PromotionDays`): none of the 9972 promotions of the seven full
+files has a value other than empty or `1,2,3,4,5,6,7` (Osher Ad's two list all seven), so the day
+numbering (Sunday = 1 as in Israeli systems, or Monday = 1 as in ISO) **cannot be pinned from real
+data**, and a promotion with a restriction keeps `weekday_restricted`, unapplied, with a test on an
+inline file. If a chain publishes one, the day numbering needs a promotion whose description names
+the day ("יום שלישי") before it is applied.
+
 **Still provisional** (no real file has shown it): the **older layouts**, the one the synthetic
 fixtures use (`PromotionItems/Item` with `MinQty`, `DiscountedPrice`, `DiscountRate`,
 `DiscountType`, `AdditionalGiftCount` and `IsGiftItem` on the promotion) and the legacy flat
 `Sales/Sale` rows, which the three unreachable chains may still publish; their mapping below is
-unchanged and unverified. `buy_x_get_y` is produced only by that older layout (`IsGiftItem` 1 or
-`AdditionalGiftCount` above 0): **no real promotion maps to it**, and the grouped layout's "1+1"
-promotions are `multi_group`, not applied. Whether `v2` is this grouped layout is not known: none of
+unchanged and unverified. In that older layout `buy_x_get_y` comes from `IsGiftItem` 1 or
+`AdditionalGiftCount` above 0 (no real promotion maps to it that way); the real files' "1+1" and
+"second at 50 %" reach the same reward type through the two-group reading above. Whether `v2` is this grouped layout is not known: none of
 the real promo files carries a `SchemaVersion`, so they are all `v1` by the container rule.
 
 | Condition (older layout only, provisional) | `reward_type` | `reward_value` |
@@ -285,6 +342,7 @@ it as `PricedItem.promo_confidence` on /compare and /optimize (`basket.promo_con
 | `MinQty` missing: the quantity (buy X) defaults to 1 | minus 0.2 | `min_qty_missing` |
 | `buy_x_get_y` known only from `IsGiftItem`: "get Y" defaults to 1 | minus 0.2 | `gift_count_inferred` |
 | no end date | minus 0.1 | `end_date_missing` |
+| a two-group pair whose group has more than one item: whether a pair may mix products is not shown | minus 0.1 | `mixed_items_unverified` |
 | the description contradicts the reward: an `N+M` pattern on a promo that is not `buy_x_get_y`, a percentage written as a discount ("20% הנחה", "50% על השני", "ב-60%") on one that is not `percent`, or an `N ב P` ("3ב11.90") on a `bundle` whose price is neither `P` nor `P` per `N` units | minus 0.3 | `description_disagrees` |
 | read but not applied (coupon, basket condition, two groups, weekday restriction, packaging credit, unusable or differing values; see "Promotions in real files") | 0.1 | the reason (`coupon_required`, `basket_condition`, `multi_group`, ...) |
 | no explicit reward field at all (`reward_type = other`, never applied to a price) | 0.1 | `reward_unparsed` |

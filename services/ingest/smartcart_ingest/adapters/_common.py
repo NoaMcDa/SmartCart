@@ -463,16 +463,22 @@ def _common_quantity(items: list[dict[str, str]]) -> Decimal | None:
 
 def _pair_description_agrees(description: str, x: Decimal, y: Decimal, rate: Decimal) -> bool:
     """Whether the description does not contradict the pair the fields describe: an ``N+M`` must be
-    X+Y, a presented percentage ("השני ב 50%", "20% הנחה") must be the rate, and "1+1" style
-    wording ("N+M", free) cannot go with a rate below 100. A number inside a product name (a fat
-    percentage) is not a presented percentage."""
+    X+Y, and a presented percentage must be the rate. Tiv Taam writes "השני ב 40%" for a reward
+    whose ``DiscountRate`` is 60 (verified on 708 items against the store's shelf prices: the
+    price is 40 % of the shelf price), so a percentage without the word "הנחה" (discount) is
+    also read as the price fraction ``100 - rate``; with "הנחה" it must be the rate itself
+    ("ב35% הנחה" on a rate of 65, Yohananof, is a contradiction). Words that say "free" ("N+M")
+    cannot go with a rate below 100. A number inside a product name (a fat percentage) is not a
+    presented percentage."""
     shown = {Decimal(n.replace(",", ".")) for n in _DESC_PERCENT_NUMBER.findall(description)}
-    if _DESC_PERCENT.search(description) and (rate >= 100 or rate not in shown):
+    says_discount = "הנחה" in description
+    percent_ok = rate in shown or (not says_discount and 100 - rate in shown)
+    if _DESC_PERCENT.search(description) and (rate >= 100 or not percent_ok):
         return False
     plus = _DESC_X_PLUS_Y.search(description)
     if plus:
         left, right = (Decimal(n) for n in re.findall(r"\d+", plus.group(0)))
-        if (left, right) != (x, y) or (rate < 100 and rate not in shown):
+        if (left, right) != (x, y) or (rate < 100 and not percent_ok):
             return False
     return True
 

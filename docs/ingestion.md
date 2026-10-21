@@ -365,7 +365,13 @@ PromoFull four more kinds of line: `PROMO_PROFILE` (histogram of every raw field
 values, date windows against the publication time, items per promotion, confidence reasons),
 `PROMO_LAYOUT` (how often each element occurs), `PROMO_RAW` (the first three promotions as nested
 dicts) and `PROMO_SAMPLE` (two promotions per reward type as the adapter read them), so the outcome
-and the real layout can be read without downloading an artifact. Artifacts:
+and the real layout can be read without downloading an artifact. Three more lines describe the
+promotions that are not a plain one-group reward: `PROMO_SHAPES` (a histogram of signatures of every
+multi-group or weekday-restricted promotion: groups, reward types, quantity, rate, how the groups'
+item sets relate; the `PromotionDays` values; and, when the chain's PriceFull is for the same store,
+a `shelf_check` of trigger and reward prices against the shelf prices), `PROMO_SHAPE_EXAMPLE` (a few
+such promotions in full per signature) and `PROMO_DAYS` (restricted `PromotionDays` against
+descriptions, printed only when a file has one). Artifacts:
 `portal-probe-files` (the raw files, 7 days) and `portal-probe-report` (table and JSON, 30 days).
 Inputs: `chains` (space-separated slugs, default all ten), `timeout` (seconds per download,
 default 180) and `commit_fixtures` (below). The job only fails if the script itself breaks;

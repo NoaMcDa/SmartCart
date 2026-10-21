@@ -71,6 +71,30 @@ def test_many_items_link_only_those_in_both_groups() -> None:
     assert p.raw["confidence"] == 0.9 and p.raw["confidence_reasons"] == ["mixed_items_unverified"]
 
 
+@pytest.mark.parametrize(
+    ("desc", "rate", "price"),
+    [
+        ("סולגאר השני ב 40%", "60", "7.96"),  # Tiv Taam: "at 40 %" is the price, the rate 60 off
+        ("רסקיו השני ב 60% מועדון", "40", "11.94"),
+        ("מוצר השני ב 30%", "70", "5.97"),
+        ("מוצר השני ב 40%", "40", "11.94"),  # or the rate itself
+    ],
+)
+def test_tiv_taam_writes_the_price_percentage_and_the_file_the_discount(desc, rate, price) -> None:
+    """Verified on 708 items against the store's shelf prices: the reward price is
+    shelf x (1 - rate), so a description "השני ב 40%" on rate 60 is consistent, not a conflict."""
+    club = "1 - המועדון החדש" if "מועדון" in desc else "0 - כלל הלקוחות"
+    p = pair([trigger(A, "19.90")], [half(A, price, rate=rate)], desc=desc, club=club)
+    assert p.reward_type == "buy_x_get_y" and p.raw["get_percent"] == rate
+    assert p.raw["confidence"] == 1.0
+
+
+def test_the_word_discount_pins_the_reading_to_the_rate() -> None:
+    """Yohananof "ב35% הנחה" on a reward group of rate 65: the words say 35 % off, the price 65 %."""
+    p = pair([trigger(A, "13.90")], [half(A, "4.87", rate="65")], desc="מוצרי נובי ב35% הנחה")
+    assert (p.reward_type, p.raw["unapplied"]) == ("other", "pair_description_disagrees")
+
+
 def test_a_missing_trigger_price_does_not_stop_the_pair() -> None:
     """Rami Levy and Mega publish the trigger group without a price: the reward group's rate and
     price are then the whole reading (nothing to cross-check them against)."""

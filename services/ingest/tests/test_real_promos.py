@@ -301,3 +301,40 @@ def test_the_scheduler_loads_every_real_promo_file_with_its_items(db, tmp_path) 
         " WHERE p.chain_id = %s", (adapter.chain_id,),
     ).fetchone()[0]  # fmt: skip
     assert 0 < linked <= EXPECTED[slug]["item_codes"]  # only items the chain has priced
+
+
+# (applied, unapplied) of the 100 committed promotions per chain, before and after the two-group
+# "buy X, get Y at P % off" reading (docs/adapters.md): the promotions that moved are the "1+1"
+# and "השני ב 50%" ones that were `multi_group`.
+APPLIED_BEFORE_AND_NOW = {
+    "king_store": ((100, 0), (100, 0)),
+    "mega": ((93, 7), (93, 7)),
+    "osherad": ((99, 1), (99, 1)),
+    "ramilevy": ((81, 19), (81, 19)),
+    "shufersal": ((86, 14), (87, 13)),  # one "1+1"
+    "tivtaam": ((96, 4), (98, 2)),  # two "second at 50 %"; "1+1 מועדון" stays (club_in_description)
+    "yohananof": ((91, 9), (94, 6)),  # three "1+1"
+}
+
+
+@pytest.mark.parametrize("slug", sorted(APPLIED_BEFORE_AND_NOW))
+def test_how_many_real_promotions_are_applied_now(slug: str) -> None:
+    promos = _parsed(slug).promos
+    applied = sum(p.reward_type != "other" for p in promos)
+    before, now = APPLIED_BEFORE_AND_NOW[slug]
+    assert (applied, len(promos) - applied) == now
+    pairs = [p for p in promos if p.raw.get("shape") == "pair"]
+    assert len(pairs) == now[0] - before[0]
+    for p in pairs:
+        assert p.reward_type == "buy_x_get_y" and p.raw["unapplied"] is None
+        assert p.raw["get_percent"] in ("50", "100") and p.raw["confidence"] in (0.9, 1.0)
+        assert p.min_qty == D(1) and p.reward_value == D(1) and p.item_codes
+
+
+def test_no_real_promotion_is_weekday_restricted() -> None:
+    """None of the promotions in the fixtures, nor in the full files of the probe's run 39660333324
+    (9972 promotions of seven chains; only Osher Ad's two list all seven days), has a PromotionDays
+    other than empty or all seven. The day numbering is therefore not known, and such a promotion
+    stays unapplied (``weekday_restricted``, tested on an inline file in test_promo_grouped.py)."""
+    for slug in EXPECTED:
+        assert all(p.raw["unapplied"] != "weekday_restricted" for p in _parsed(slug).promos)
