@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { updateAlert, type FlexLevel, type PriceAlert } from "@/api/client";
 import { BottomSheet, Button, SegmentedControl } from "@/components/ui";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
@@ -46,15 +46,17 @@ export function EditAlertSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const priceId = useId();
+  const saving = useRef(false);
 
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (!alert) return;
+    if (!alert || saving.current) return;
     const value = parseThreshold(price);
     if (value === null) {
       setError(t("thresholdInvalid"));
       return;
     }
+    saving.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -67,6 +69,7 @@ export function EditAlertSheet({
     } catch (err) {
       setError(alertError(err, locale));
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   }

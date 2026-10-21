@@ -6,6 +6,7 @@ import {
   applyEdits,
   clearEdits,
   coalesce,
+  completeAdd,
   dropFirstEdits,
   enqueueEdit,
   isNetworkFailure,
@@ -207,6 +208,37 @@ describe("telling no connection from a refusal", () => {
   it("an unrelated error while online is not a lost connection", () => {
     expect(isNetworkFailure(new Error("duplicate key"))).toBe(false);
     expect(isNetworkFailure({ message: "row-level security" })).toBe(false);
+  });
+});
+
+describe("an item added offline that reached the server", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    resetQueueForTests();
+  });
+
+  const add: QueuedEdit = { kind: "add", itemId: -5, canonicalId: 1001, name: "חלב", quantity: 1 };
+
+  it("drops the add and gives the waiting edits of that item its real id, in one write", () => {
+    enqueueEdit(3, add);
+    enqueueEdit(3, { kind: "checked", itemId: -5, checked: true });
+    enqueueEdit(3, { kind: "checked", itemId: 7, checked: true });
+    completeAdd(3, -5, 900);
+    const expected = [
+      { kind: "checked", itemId: 900, checked: true },
+      { kind: "checked", itemId: 7, checked: true },
+    ];
+    expect(queuedEdits(3)).toEqual(expected);
+    // It is what a reload reads: a replay that failed right after the add keeps the real id.
+    resetQueueForTests();
+    expect(queuedEdits(3)).toEqual(expected);
+  });
+
+  it("empties the list's queue when the add was the only edit", () => {
+    enqueueEdit(3, add);
+    completeAdd(3, -5, 900);
+    expect(queuedCount(3)).toBe(0);
+    expect(JSON.parse(window.localStorage.getItem(SHARED_QUEUE_KEY)!).lists).toEqual({});
   });
 });
 

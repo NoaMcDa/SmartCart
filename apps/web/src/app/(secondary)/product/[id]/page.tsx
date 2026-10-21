@@ -21,5 +21,6 @@ export default async function Page({
   const canonicalId = Number(id);
   if (!Number.isInteger(canonicalId) || canonicalId <= 0) notFound();
   const hint = (Array.isArray(name) ? name[0] : name)?.trim().slice(0, 200) || null;
-  return <ProductDetail canonicalId={canonicalId} nameHint={hint} />;
+  // The key gives every product its own state (the alert form, "added", the flexibility level).
+  return <ProductDetail key={canonicalId} canonicalId={canonicalId} nameHint={hint} />;
 }

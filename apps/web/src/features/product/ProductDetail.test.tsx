@@ -1,6 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { http, HttpResponse } from "msw";
+import { API_BASE_URL } from "@/api/config";
 import { resetPhase2Mock } from "@/mocks/handlers.phase2";
 import { getListState, resetListStoreForTests } from "@/state/list";
 import { PROFILE_KEY } from "@/state/shopper";
@@ -117,6 +119,36 @@ describe("product detail", () => {
     await user.click(within(alert).getByRole("button", { name: "יצירת התראה" }));
     expect(await within(alert).findByTestId("alert-error")).toHaveTextContent("הקלידי מחיר חיובי");
     expect(within(alert).queryByTestId("alert-existing")).toBeNull();
+  });
+});
+
+describe("product detail: requests that outlive the product on screen", () => {
+  it("ignores the answer of the previous product's request when the page moves to another product", async () => {
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post(
+        `${API_BASE_URL}/compare`,
+        async () => {
+          await held;
+          return HttpResponse.json({ detail: "late and refused" }, { status: 500 });
+        },
+        { once: true },
+      ),
+    );
+    const view = render(<ProductDetail canonicalId={1001} nameHint="חלב טרי 3%, 1 ליטר" />);
+    view.rerender(<ProductDetail canonicalId={1003} nameHint="משקה סויה" />);
+    await screen.findByTestId("variants");
+
+    release(); // the first request ends last, with an error
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(screen.queryByText(/לא הצלחנו לטעון את המחירים/)).toBeNull();
+    expect(screen.getByTestId("variants")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("משקה סויה");
   });
 });
 

@@ -85,11 +85,16 @@ function HandoffSheet({
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  // The latest tap on "copy" is the one whose answer is shown: the clipboard can take a while (a
+  // permission prompt), and an older tap that ends last must not turn "copied" into "failed".
+  const copyToken = useRef(0);
   const text = listText(items, (i) => t("listLine", { name: i.name, quantity: i.quantity }));
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   async function copy() {
     trackEvent("cart_handoff", { action: "copy" });
+    copyToken.current += 1;
+    const mine = copyToken.current;
     let ok = false;
     try {
       await navigator.clipboard.writeText(text);
@@ -107,6 +112,7 @@ function HandoffSheet({
         }
       }
     }
+    if (mine !== copyToken.current) return;
     setCopied(ok);
     setFailed(!ok);
   }
