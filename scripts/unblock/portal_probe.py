@@ -1016,6 +1016,26 @@ def _promo_section(files: dict, slugs: Sequence[str]) -> list[str]:
     ]
 
 
+def reachability(row: dict) -> str:
+    """What the "portal reachable" column says for one chain. The HTTP root check alone misleads:
+    the four Cerberus chains share an FTP-over-TLS host whose HTTPS root does not answer (status 0)
+    although the login passes and files download, and King Store's root answers 403 while its
+    files download. So when the root does not answer well, a file that was actually downloaded
+    (or, with no download, a passing FTP login) wins and the root status is kept in brackets."""
+    root = f"{row.get('reachable')} ({row.get('http_status')})"
+    if row.get("reachable") in ("OK", "REACHABLE"):
+        return root
+    downloads = row.get("downloads") or {}
+    got = sum(1 for d in downloads.values() if d.get("file"))
+    if got:
+        return (
+            f"OK (files downloaded: {got} of {len(downloads)}; HTTP root {row.get('http_status')})"
+        )
+    if str(row.get("login", "")).startswith("ok"):
+        return f"OK (FTP login passes; HTTP root {row.get('http_status')})"
+    return root
+
+
 def _shelf_section(files: dict, slugs: Sequence[str]) -> list[str]:
     """One row per chain: whether the PromoFull's prices were checked against the PriceFull of
     the same store, and the counts (one-group promotions, then trigger/reward pairs)."""
@@ -1087,7 +1107,7 @@ def render(probe_result: dict | None, gate_result: dict, slugs: Sequence[str]) -
         g = files.get(slug, {}) if isinstance(files.get(slug), dict) else {}
         st, pf, pr = g.get("stores"), g.get("price_full"), g.get("promo_full")
         downloads = c.get("downloads", {})
-        reach = f"{c['reachable']} ({c['http_status']})" if c else "not probed"
+        reach = reachability(c) if c else "not probed"
         # The adapter's own reading first: a quarantined Stores file keeps schema 'unknown'.
         schemas = sorted({x["parse"].get("schema") or x["gate"].get("schema") or "?"
                           for x in (st, pf, pr) if x})  # fmt: skip

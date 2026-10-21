@@ -278,3 +278,45 @@ def test_the_manifest_keeps_the_whole_files_clubs_and_shelf_check(tmp_path: Path
         "shelf_check": {"single_items_with_shelf": 5},
     }  # fmt: skip
     assert by_kind["price_full"]["same_store_as_promo"] is True
+
+
+# --- the reachability column -------------------------------------------------------------------
+
+
+def test_reachability_reports_what_was_actually_reachable() -> None:
+    cerberus = {
+        "http_status": 0, "reachable": "UNREACHABLE", "login": "ok (certificate not verified)",
+        "downloads": {"stores": {"file": "S.xml"}, "price_full": {"file": "P.gz"},
+                      "promo_full": {"error": "timed out"}},
+    }  # fmt: skip
+    got = portal_probe.reachability(cerberus)
+    assert got == "OK (files downloaded: 2 of 3; HTTP root 0)"
+    # the login alone, before (or without) any download
+    none = portal_probe.reachability({**cerberus, "downloads": {}})
+    assert none == "OK (FTP login passes; HTTP root 0)"
+    # King Store: the root answers 403, the files download
+    king = {
+        "http_status": 403, "reachable": "BLOCKED?", "login": "n/a",
+        "downloads": {"stores": {"file": "S.gz"}, "price_full": {"file": "P.gz"},
+                      "promo_full": {"file": "R.gz"}},
+    }  # fmt: skip
+    assert portal_probe.reachability(king) == "OK (files downloaded: 3 of 3; HTTP root 403)"
+    # nothing came: the root's own verdict stays (Victory, Hazi Hinam from a cloud runner)
+    blocked = {"http_status": 403, "reachable": "BLOCKED?", "login": "n/a",
+               "downloads": {"stores": {"error": "no file downloaded"}}}  # fmt: skip
+    assert portal_probe.reachability(blocked) == "BLOCKED? (403)"
+    failed = {"http_status": 0, "reachable": "UNREACHABLE", "login": "failed: timeout"}
+    assert portal_probe.reachability(failed) == "UNREACHABLE (0)"
+    # a root that answers is reported as it is
+    assert portal_probe.reachability({"http_status": 200, "reachable": "OK"}) == "OK (200)"
+
+
+def test_the_probe_table_uses_the_reachability_column() -> None:
+    probe = {
+        "runner": "r", "started_at": "a", "finished_at": "b",
+        "chains": {"tivtaam": {"http_status": 0, "reachable": "UNREACHABLE", "login": "ok",
+                               "downloads": {"promo_full": {"file": "x.gz"}}}},
+    }  # fmt: skip
+    md = portal_probe.render(probe, {"files": {"tivtaam": {}}, "alerts": []}, ["tivtaam"])
+    assert "| Tiv Taam | OK (files downloaded: 1 of 1; HTTP root 0) | ok |" in md
+    assert "UNREACHABLE" not in md
