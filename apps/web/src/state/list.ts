@@ -213,6 +213,21 @@ export function listReducer(state: ListState, action: ListAction): ListState {
   }
 }
 
+type SoftAttribute = NonNullable<BasketItemInput["allow"]>[number];
+
+const API_SOFT_ATTRIBUTES: ReadonlySet<string> = new Set<SoftAttribute>([
+  "pack_size",
+  "packaging",
+  "fat_pct",
+  "variety",
+  "flavor",
+]);
+
+/** The row's allowed attributes the API knows (it answers 422 to any other key), without repeats. */
+function apiAllow(allow: readonly string[]): SoftAttribute[] {
+  return [...new Set(allow)].filter((a): a is SoftAttribute => API_SOFT_ATTRIBUTES.has(a));
+}
+
 /** The rows the API can price: resolved canonicals, duplicates merged. */
 export function basketItems(state: Pick<ListState, "items">): BasketItemInput[] {
   const byCanonical = new Map<number, BasketItemInput>();
@@ -220,6 +235,7 @@ export function basketItems(state: Pick<ListState, "items">): BasketItemInput[] 
     if (!it.canonical || it.notFound) continue;
     const id = it.canonical.canonical_id;
     const prev = byCanonical.get(id);
+    const allow = apiAllow(it.allow);
     if (prev) {
       prev.quantity = round3(Number(prev.quantity) + it.quantity);
       continue;
@@ -229,6 +245,7 @@ export function basketItems(state: Pick<ListState, "items">): BasketItemInput[] 
       quantity: it.quantity,
       flex_level: it.flexLevel,
       ...(it.flexLevel === "exact" && it.exactItemId ? { exact_item_id: it.exactItemId } : {}),
+      ...(it.flexLevel !== "exact" && allow.length > 0 ? { allow } : {}),
     });
   }
   return [...byCanonical.values()];

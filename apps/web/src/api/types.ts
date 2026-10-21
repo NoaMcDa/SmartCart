@@ -719,6 +719,11 @@ export interface components {
         };
         /** BasketItem */
         BasketItem: {
+            /**
+             * Allow
+             * @description Attributes the person allows to differ (the flexibility sheet's checked soft attributes). With any_brand or close, a store may also offer an item of a sibling canonical (same product type and taxonomy node) that differs from the requested one only in these attributes; it is always a labeled substitute. Ignored when flex_level is exact. Unknown keys are rejected.
+             */
+            allow?: ("pack_size" | "packaging" | "fat_pct" | "variety" | "flavor")[];
             /** Canonical Id */
             canonical_id: number;
             /**

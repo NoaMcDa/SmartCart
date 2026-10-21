@@ -24,6 +24,13 @@ Line rules:
   carries the mapping confidence, the attribute tags (matched, differs, unverified) of the item
   against the canonical, and the non-substitute item of that store as ``original_item_id`` when
   there is one.
+* Allowed attributes (issue #31, ``BasketItem.allow``): with ``any_brand`` or ``close`` and a
+  non-empty ``allow``, a store may also offer an item of a sibling canonical (same product type,
+  taxonomy node and base unit) whose critical attributes differ from the requested canonical's
+  only in allowed keys (``sibling_candidates``). The cheapest of the canonical's own offer and
+  the siblings' (by effective unit price) wins, and a sibling's offer is always a substitute with
+  a ``differs`` tag on every allowed attribute that differs. Nothing the person did not allow is
+  relaxed; ``exact`` ignores ``allow``.
 """
 
 from __future__ import annotations
@@ -41,6 +48,7 @@ import psycopg
 
 from smartcart_api import schemas
 from smartcart_api.precompute import FLEX_ORDER, Option, item_options
+from smartcart_catalog.judge import BRAND_KEYS, quantity_in_base, values_equal
 from smartcart_catalog.models import ALWAYS_UNVERIFIED
 
 _C2 = Decimal("0.01")
@@ -371,6 +379,90 @@ def _text(v: Any) -> str:
     return str(v)
 
 
+def _soft_differs(want: dict, have: dict, allow: tuple[str, ...]) -> bool:
+    """Whether a sibling's typical soft attributes differ from the requested canonical's in an
+    attribute that is not allowed (brand and the pack-size unit are not attributes of the match)."""
+    for key in set(want) | set(have):
+        if key in BRAND_KEYS or key in {"unit", "barcodes"} or key in allow:
+            continue
+        if key == "pack_size":
+            a = quantity_in_base(want.get(key), want.get("unit"))
+            b = quantity_in_base(have.get(key), have.get("unit"))
+            if a is not None and b is not None and a != b:
+                return True
+        elif key in want and key in have and not values_equal(key, have[key], want[key]):
+            return True
+    return False
+
+
+def sibling_candidates(
+    conn: psycopg.Connection,
+    wanted: set[tuple[int, str, tuple[str, ...]]],
+    canon: dict[int, tuple],
+) -> dict[tuple[int, str, tuple[str, ...]], list[tuple[int, dict[str, Any]]]]:
+    """(canonical_id, flex level, allowed attributes) -> [(sibling canonical id, {critical key:
+    the sibling's value})] for the siblings a store may offer instead.
+
+    A sibling has the same product type, taxonomy node and base unit and is another canonical.
+    It qualifies only when every critical attribute that differs from the requested canonical's
+    (a key one of them lacks counts as differing) is in ``allow``, and at least one differs.
+    At ``any_brand`` its typical soft attributes (pack size, ...) must also equal the requested
+    canonical's unless allowed; at ``close`` soft differences are the level's own business.
+    Which allowed keys exist is the caller's list (``schemas.SoftAttribute``); a key that no
+    canonical pair differs in (``packaging``, ``pack_size``) never qualifies a sibling.
+    """
+    out: dict[tuple[int, str, tuple[str, ...]], list[tuple[int, dict[str, Any]]]] = {}
+    if not wanted:
+        return out
+    rows = conn.execute(
+        "SELECT c.id, s.id, s.critical_attrs, s.soft_attrs FROM canonical_products AS c"
+        " JOIN canonical_products AS s ON s.product_type = c.product_type"
+        "  AND s.taxonomy_id = c.taxonomy_id AND s.base_unit = c.base_unit AND s.id <> c.id"
+        " WHERE c.id = ANY(%s) ORDER BY c.id, s.id",
+        (sorted({w[0] for w in wanted}),),
+    ).fetchall()
+    for cid, flex, allow in sorted(wanted):
+        want_crit, want_soft = canon[cid][2], canon[cid][3]
+        found: list[tuple[int, dict[str, Any]]] = []
+        for c_id, sib, crit, soft in rows:
+            if c_id != cid:
+                continue
+            keys = set(want_crit) | set(crit)
+            differs = {
+                k: crit.get(k)
+                for k in sorted(keys)
+                if not values_equal(k, crit.get(k), want_crit.get(k))
+            }
+            if not differs or not set(differs) <= set(allow):
+                continue
+            if flex == "any_brand" and _soft_differs(want_soft, soft, allow):
+                continue
+            found.append((sib, differs))
+        out[(cid, flex, allow)] = found
+    return out
+
+
+def _substitute_tags(
+    item_attrs: dict,
+    verified: list[str],
+    critical: dict,
+    soft: dict,
+    rule_keys: list[str],
+    differs: dict[str, Any],
+) -> list[schemas.AttributeTag]:
+    """``_tags``, and for a sibling's item every allowed attribute that makes it a sibling is
+    tagged ``differs`` even when the item's own value was never extracted: the item is mapped to
+    the sibling canonical, so it does not have the requested value."""
+    tags = _tags(item_attrs, verified, critical, soft, rule_keys)
+    for key, sibling_value in differs.items():
+        i = next((n for n, t in enumerate(tags) if t.key == key), None)
+        if i is None:
+            tags.append(schemas.AttributeTag(key=key, value=_text(sibling_value), status="differs"))
+        elif tags[i].status == "unverified":
+            tags[i] = schemas.AttributeTag(key=key, value=_text(sibling_value), status="differs")
+    return tags
+
+
 def price_baskets(
     conn: psycopg.Connection,
     items: list[schemas.BasketItem],
@@ -384,11 +476,12 @@ def price_baskets(
     if not stores:
         return baskets
     store_ids = list(baskets)
-    # Merge duplicate canonicals with the same flex level and exact item.
-    merged: dict[tuple[int, str, int | None], Decimal] = defaultdict(Decimal)
+    # Merge duplicate canonicals with the same flex level, exact item and allowed attributes.
+    merged: dict[tuple[int, str, int | None, tuple[str, ...]], Decimal] = defaultdict(Decimal)
     for it in items:
         exact = it.exact_item_id if it.flex_level == "exact" else None
-        merged[(it.canonical_id, it.flex_level, exact)] += it.quantity
+        allow = () if it.flex_level == "exact" else tuple(sorted(set(it.allow)))
+        merged[(it.canonical_id, it.flex_level, exact, allow)] += it.quantity
     canon_ids = sorted({k[0] for k in merged})
     canon = {
         r[0]: r
@@ -401,12 +494,14 @@ def price_baskets(
             (canon_ids,),
         ).fetchall()
     }
+    siblings = sibling_candidates(conn, {k[:2] + k[3:] for k in merged if k[3]}, canon)
+    price_ids = sorted({*canon_ids, *(sid for sibs in siblings.values() for sid, _ in sibs)})
     rows = conn.execute(
         "SELECT canonical_id, store_id, flex_level, item_id, shelf_price, effective_price,"
         " effective_unit_price, uom, promo_id, promo_min_qty, club_required, club_name,"
         " price_valid_from, is_estimated, noclub"
         " FROM effective_prices WHERE store_id = ANY(%s) AND canonical_id = ANY(%s)",
-        (store_ids, canon_ids),
+        (store_ids, price_ids),
     ).fetchall()
     chains = chain_clubs(conn, {s.chain_id for s in stores})
     store_chain = {s.store_id: chains.get(s.chain_id) for s in stores}
@@ -437,41 +532,59 @@ def price_baskets(
     # Exact barcodes, priced live.
     exact_choices: dict[tuple[int, int, int], _Choice] = {}
     exact_offers: dict[tuple[int, int, int], _Choice] = {}
-    exact_keys = [(cid, ex) for (cid, _f, ex) in merged if ex is not None]
+    exact_keys = [(cid, ex) for (cid, _f, ex, _a) in merged if ex is not None]
     if exact_keys:
         exact_choices, exact_offers = _exact_choices(
             conn, exact_keys, stores, clubs, as_of, canon, chains
         )
 
-    chosen: dict[tuple[int, int], tuple[_Choice, Decimal, str, int | None]] = {}
+    # (store, canonical) -> (choice, quantity, flex, exact item, canonical the choice is mapped to,
+    # critical key -> the sibling's value where it differs from the requested canonical: non-empty
+    # only for a sibling)
+    chosen: dict[
+        tuple[int, int], tuple[_Choice, Decimal, str, int | None, int, dict[str, Any]]
+    ] = {}
     chosen_offer: dict[tuple[int, int], _Choice] = {}
-    for (cid, flex, ex), qty in merged.items():
+    for (cid, flex, ex, allow), qty in merged.items():
         for s in stores:
+            src, differs = cid, {}
             if ex is not None:
                 c = exact_choices.get((cid, ex, s.store_id))
                 offer = exact_offers.get((cid, ex, s.store_id))
             else:
                 c = eff.get((cid, s.store_id, flex))
-                offer = offers.get((cid, s.store_id, flex))
+                best_sib = min(
+                    (
+                        (sc.key(), sib, diff)
+                        for sib, diff in siblings.get((cid, flex, allow), ())
+                        if (sc := eff.get((sib, s.store_id, flex))) is not None
+                    ),
+                    default=None,
+                )
+                # The canonical's own offer keeps a tie; a sibling must be cheaper per unit.
+                if best_sib is not None and (c is None or best_sib[0][:2] < c.key()[:2]):
+                    src, differs = best_sib[1], best_sib[2]
+                    c = eff[(src, s.store_id, flex)]
+                offer = offers.get((src, s.store_id, flex))
             if c is None:
                 continue
             prev = chosen.get((s.store_id, cid))
             if prev is None:
-                chosen[(s.store_id, cid)] = (c, qty, flex, ex)
+                chosen[(s.store_id, cid)] = (c, qty, flex, ex, src, differs)
                 if offer is not None:
                     chosen_offer[(s.store_id, cid)] = offer
             else:  # the same canonical asked twice at different levels: keep both quantities
-                chosen[(s.store_id, cid)] = (prev[0], prev[1] + qty, prev[2], prev[3])
+                chosen[(s.store_id, cid)] = (prev[0], prev[1] + qty, *prev[2:])
 
     item_ids = sorted({c.item_id for c, *_ in chosen.values()})
-    info = _item_info(conn, item_ids, canon_ids)
+    info = _item_info(conn, item_ids, price_ids)
     promo_rows = conn.execute(
         "SELECT id, description, raw->>'confidence' FROM promos WHERE id = ANY(%s)",
         (sorted({c.promo_id for c, *_ in chosen.values() if c.promo_id}),),
     ).fetchall()
     promo_desc = {r[0]: r[1] for r in promo_rows}
     promo_conf = {r[0]: promo_confidence(r[2]) for r in promo_rows}
-    for (sid, cid), (c, qty, _flex, ex) in chosen.items():
+    for (sid, cid), (c, qty, _flex, ex, src, differs) in chosen.items():
         base_unit, critical, soft, rule_keys = (
             canon[cid][1],
             canon[cid][2],
@@ -479,9 +592,10 @@ def price_baskets(
             canon[cid][4],
         )
         raw_name, mappings, attrs, verified = info.get(c.item_id, ("", {}, {}, []))
-        mapping = mappings.get(cid)
+        mapping = mappings.get(src)
         level = mapping[0] if mapping else "exact"
-        is_sub = ex is None and FLEX_ORDER.get(level, 0) == FLEX_ORDER["close"]
+        # A sibling canonical's item is never what was asked for: always a labeled substitute.
+        is_sub = ex is None and (bool(differs) or FLEX_ORDER.get(level, 0) == FLEX_ORDER["close"])
         by_weight = base_unit == "kg"
         total, applied = line_total(c, qty, by_weight)
         add_qty = add_saving = None
@@ -530,14 +644,16 @@ def price_baskets(
             club_name=c.club_name,
             price_valid_from=c.price_valid_from,
             confidence=float(mapping[1]) if mapping else None,
-            tags=_tags(attrs, verified, critical, soft, rule_keys) if is_sub else [],
+            tags=_substitute_tags(attrs, verified, critical, soft, rule_keys, differs)
+            if is_sub
+            else [],
             original_item_id=original,
             promo_confidence=promo_conf.get(c.promo_id) if c.promo_id else None,
             club_offer_name=offer_name,
             club_offer_discount=offer_discount,
         )
     for b in baskets.values():
-        b.missing = sorted({cid for (cid, _f, _e) in merged if cid not in b.lines})
+        b.missing = sorted({cid for (cid, _f, _e, _a) in merged if cid not in b.lines})
     return baskets
 
 

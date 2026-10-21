@@ -16,6 +16,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 FlexLevel = Literal["exact", "any_brand", "close"]
 TravelMode = Literal["car", "walk_transit", "delivery"]
+SoftAttribute = Literal["pack_size", "packaging", "fat_pct", "variety", "flavor"]
+"""The soft attributes the flexibility sheet lets a person allow to differ (BasketItem.allow);
+the web app's ``softAttributes()`` keys."""
 
 
 class _Model(BaseModel):
@@ -200,6 +203,15 @@ class BasketItem(_Model):
     quantity: Decimal = Field(gt=0)
     flex_level: FlexLevel = "any_brand"
     exact_item_id: int | None = Field(default=None, description="Required when flex_level is exact")
+    allow: list[SoftAttribute] = Field(
+        default_factory=list,
+        max_length=5,
+        description="Attributes the person allows to differ (the flexibility sheet's checked soft "
+        "attributes). With any_brand or close, a store may also offer an item of a sibling "
+        "canonical (same product type and taxonomy node) that differs from the requested one "
+        "only in these attributes; it is always a labeled substitute. Ignored when flex_level "
+        "is exact. Unknown keys are rejected.",
+    )
 
 
 class Location(_Model):
