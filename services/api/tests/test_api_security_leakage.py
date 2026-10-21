@@ -348,9 +348,9 @@ def test_cors_never_allows_credentials_and_limits_headers_and_methods(client) ->
     assert ours <= allowed_headers <= ours | safelisted
     assert "*" not in r.headers["access-control-allow-headers"]
     methods = {x.strip() for x in r.headers["access-control-allow-methods"].split(",")}
-    assert methods == {"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+    assert methods == {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
     assert preflight(client, origin, headers="x-evil").status_code == 400
-    assert preflight(client, origin, method="PATCH").status_code == 400
+    assert preflight(client, origin, method="TRACE").status_code == 400
     assert preflight(client, origin, method="TRACE").status_code == 400
     # the actual response of an allowed origin carries no credentials flag either
     assert (

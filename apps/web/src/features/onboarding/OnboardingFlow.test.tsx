@@ -1,8 +1,12 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearChainClubsCache } from "@/features/profile/clubs";
 import { getProfile, resetProfileCache } from "@/features/profile/profileState";
 import { STORAGE_KEYS } from "@/features/profile/storage";
+import { API_BASE_URL } from "@/api/config";
+import { server } from "@/mocks/node";
 import { OnboardingFlow } from "./OnboardingFlow";
 
 const push = vi.fn();
@@ -11,13 +15,18 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+beforeAll(() => server.listen({ onUnhandledFrame: "bypass" }));
+afterAll(() => server.close());
+
 beforeEach(() => {
   window.localStorage.clear();
   resetProfileCache();
+  clearChainClubsCache();
   push.mockClear();
 });
 
 afterEach(() => {
+  server.resetHandlers();
   vi.unstubAllGlobals();
   Object.defineProperty(navigator, "geolocation", { value: undefined, configurable: true });
 });
@@ -142,12 +151,62 @@ describe("onboarding", () => {
     expect(chains.getAllByRole("button", { pressed: true })).toHaveLength(1);
     expect(getProfile().homeChainId).toBe("rami_levy");
 
+    // The clubs come from the API, grouped by chain, and the profile keeps their ids.
     const clubs = within(screen.getByTestId("club-cards"));
-    await user.click(clubs.getByRole("button", { name: "מועדון שופרסל" }));
+    const tiv = await clubs.findByRole("button", { name: "המועדון החדש" });
+    expect(clubs.getByTestId("club-group-rami_levy")).toBeInTheDocument();
+    expect(clubs.queryByRole("button", { name: /שופרסל/ })).not.toBeInTheDocument();
+    expect(clubs.getByTestId("clubs-none")).toHaveTextContent("שופרסל");
+    await user.click(tiv);
     await user.click(clubs.getByRole("button", { name: "מועדון רמי לוי" }));
-    expect(getProfile().clubs).toEqual(["שופרסל", "רמי לוי"]);
-    await user.click(clubs.getByRole("button", { name: "מועדון שופרסל" }));
-    expect(getProfile().clubs).toEqual(["רמי לוי"]);
+    expect(getProfile().clubs).toEqual(["tivtaam:new", "ramilevy:club"]);
+    expect(tiv).toHaveAttribute("aria-pressed", "true");
+    expect(within(tiv).getByText("מועדון")).toBeInTheDocument();
+    await user.click(tiv);
+    expect(getProfile().clubs).toEqual(["ramilevy:club"]);
+    expect(tiv).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("step 2: a credit card club is its own choice, next to the chain's club", async () => {
+    const user = userEvent.setup();
+    render(<OnboardingFlow />);
+    await user.click(screen.getByTestId("onboarding-next"));
+    const group = within(await screen.findByTestId("club-group-rami_levy"));
+    expect(group.getAllByRole("button")).toHaveLength(7);
+    const card = group.getByRole("button", { name: "ישראכרט מגנטי" });
+    expect(within(card).getByText("כרטיס אשראי או תשלום")).toBeInTheDocument();
+    await user.click(card);
+    await user.click(group.getByRole("button", { name: "מועדון רמי לוי" }));
+    expect(getProfile().clubs).toEqual(["ramilevy:isracard", "ramilevy:club"]);
+  });
+
+  it("step 2: when the club list cannot be loaded it says so and retries", async () => {
+    server.use(
+      http.get(`${API_BASE_URL}/chains/clubs`, () => HttpResponse.json({}, { status: 500 })),
+    );
+    const user = userEvent.setup();
+    render(<OnboardingFlow />);
+    await user.click(screen.getByTestId("onboarding-next"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "לא הצלחנו לטעון את רשימת המועדונים",
+    );
+    server.resetHandlers();
+    await user.click(screen.getByRole("button", { name: "ניסיון חוזר" }));
+    expect(await screen.findByRole("button", { name: "המועדון החדש" })).toBeVisible();
+  });
+
+  it("step 2: the last list is kept, so the clubs show offline", async () => {
+    const user = userEvent.setup();
+    const first = render(<OnboardingFlow />);
+    await user.click(screen.getByTestId("onboarding-next"));
+    await screen.findByRole("button", { name: "המועדון החדש" });
+    first.unmount();
+    clearChainClubsCache(); // a new page view
+    server.use(http.get(`${API_BASE_URL}/chains/clubs`, () => HttpResponse.error()));
+    resetProfileCache();
+    render(<OnboardingFlow />);
+    await user.click(screen.getByTestId("onboarding-next"));
+    expect(await screen.findByRole("button", { name: "המועדון החדש" })).toBeVisible();
   });
 
   it("the baseline hint is visible until a home chain is picked", async () => {

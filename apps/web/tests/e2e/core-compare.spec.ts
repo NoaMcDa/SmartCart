@@ -81,7 +81,7 @@ for (const viewport of [
       await page.getByText(/^פירוט הסל/).click();
       const details = page.getByTestId("basket-details");
       await expect(details.getByRole("link", { name: /^תחליף:/ })).toHaveCount(3);
-      await expect(details.getByText("מבצע מועדון · רמי לוי")).toBeVisible();
+      await expect(details.getByText("מבצע מועדון · מועדון רמי לוי")).toBeVisible();
       await expect(details.getByText("מחיר משוער · שקיל").first()).toBeVisible();
       // The substitutions list says the same as the substitution card (₪1.20 for the milk, against
       // the original at that store) and labels which comparison each row made.

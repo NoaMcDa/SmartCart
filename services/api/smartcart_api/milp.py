@@ -41,14 +41,14 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from itertools import combinations
 
 import psycopg
 
 from smartcart_api import schemas
 from smartcart_api.basket import ZERO, StoreBasket, StoreInfo, money
-from smartcart_api.precompute import PromoTerms, fold_promo
+from smartcart_api.precompute import GET_PERCENT_SQL, PromoTerms, fold_promo
 
 try:  # the API must still start (heuristic only) if the wheel is missing on a platform
     from ortools.sat.python import cp_model
@@ -155,9 +155,9 @@ class Solution:
 
 # --- reading the lines and their promos --------------------------------------------------------
 
-_PROMOS_SQL = """
+_PROMOS_SQL = f"""
 SELECT p.id, p.store_id, p.description, p.club_only, p.club_name, p.min_qty, p.reward_type,
-       p.reward_value, p.max_qty, p.chain_id, pi.item_id
+       p.reward_value, {GET_PERCENT_SQL}, p.max_qty, p.chain_id, pi.item_id
 FROM promos AS p
 JOIN promo_items AS pi ON pi.promo_id = p.id
 LEFT JOIN file_tracking AS f ON f.id = p.file_id
@@ -211,7 +211,7 @@ def priced_lines(
     rows: dict[int, list[_PromoRow]] = defaultdict(list)
     if want:
         for r in conn.execute(_PROMOS_SQL, {"items": sorted(set(want)), "as_of": as_of}):
-            rows[r[10]].append(_PromoRow(PromoTerms(*r[:8]), r[8], r[9]))
+            rows[r[11]].append(_PromoRow(PromoTerms(*r[:9]), r[9], r[10]))
 
     out: dict[int, list[Line]] = {}
     members: dict[str, list[tuple[Line, Decimal, _PromoRow | None]]] = defaultdict(list)
@@ -242,15 +242,19 @@ def priced_lines(
         if len(set(prices.values())) == 1:
             fixed, unit = next(iter(prices.values())), dict.fromkeys(prices, ZERO)
         elif row is not None and row.terms.reward_type == "buy_x_get_y":
-            # Mixed prices: the store gives the cheapest units free. Counting the cheapest shelf
-            # price of the group never overstates the discount.
+            # Mixed prices: the store gives the cheapest units free (or P % off, for "the second at
+            # 50 %"). Counting the cheapest shelf price of the group never overstates the discount.
             y = (
                 row.terms.reward_value
                 if row.terms.reward_value and row.terms.reward_value > 0
                 else 1
             )
+            off = row.terms.get_percent / 100 if row.terms.get_percent is not None else 1
             cheapest = min(line.shelf_price for line, _, _ in mem)
-            fixed = -(Decimal(y) * cheapest)
+            # toward zero to the agora: never claim a fraction of an agora the store does not give
+            fixed = (-(Decimal(y) * cheapest * Decimal(off))).quantize(
+                Decimal("0.01"), rounding=ROUND_CEILING
+            )
             unit = {line.canonical_id: line.shelf_price for line, _, _ in mem}
         else:  # per-unit promo prices (percent, a price per unit): each unit at its own price
             fixed, unit = ZERO, {c: p / n for c, p in prices.items()}

@@ -8,11 +8,17 @@ Gates (thresholds per chain from :meth:`Settings.thresholds_for`):
                        (``store_id NULL``) when the store has no history for the item, or is not
                        loaded yet. A chain-level record (``store_code`` None, issue #80) is
                        compared with the latest base price.
+* ``price_drop``       the mirror of ``price_jump``: a price at or below the latest known price
+                       divided by ``price_drop_factor`` (shekels read as agorot, a lost decimal
+                       point). Items whose previous price is under ``price_drop_min_previous``
+                       shekels are not compared. 0 turns the gate off.
 * ``item_count_drop``  a full file (PriceFull, PromoFull, Stores) with fewer records than
                        ``item_count_drop_ratio`` times the previous loaded file of the same kind
                        for the same chain and store.
 * ``stale_date``       ``published_at`` older than ``stale_file_max_age_hours`` (elapsed time, so
-                       a daylight-saving change does not shift it).
+                       a daylight-saving change does not shift it); a Stores file has its own,
+                       longer ``stale_stores_max_age_hours``, because chains publish the store
+                       list much less often than prices.
 * ``empty_file``       a Stores or PriceFull file with no records.
 
 Every gate runs, so one file can fail several. A failing file gets one ``quarantine_events`` row
@@ -109,26 +115,70 @@ def latest_known_prices(
     return {(r[0], r[1]): r[2] for r in rows}
 
 
-def gate_price_jump(
-    conn: psycopg.Connection, parsed: ParsedFile, factor: float
-) -> GateFailure | None:
+KnownPrices = dict[str, dict[tuple[str, str | None], Decimal]]
+
+
+def known_prices(conn: psycopg.Connection, parsed: ParsedFile) -> KnownPrices:
+    """chain id -> :func:`latest_known_prices` for every (item, store) the file prices."""
     by_chain: dict[str, set[tuple[str, str | None]]] = defaultdict(set)
     for p in parsed.prices:
         by_chain[p.chain_id].add((p.item_code, p.store_code))
+    return {
+        chain_id: latest_known_prices(conn, chain_id, pairs) for chain_id, pairs in by_chain.items()
+    }
+
+
+def gate_price_jump(
+    conn: psycopg.Connection,
+    parsed: ParsedFile,
+    factor: float,
+    known: KnownPrices | None = None,
+) -> GateFailure | None:
+    known = known if known is not None else known_prices(conn, parsed)
     limit = Decimal(str(factor))
     bad: list[str] = []
-    for chain_id, pairs in by_chain.items():
-        known = latest_known_prices(conn, chain_id, pairs)
-        for p in parsed.prices:
-            if p.chain_id != chain_id:
-                continue
-            prev = known.get((p.item_code, p.store_code))
-            if prev is not None and prev > 0 and p.price > prev * limit:
-                bad.append(f"{p.item_code}@{p.store_code or 'base'} {prev}->{p.price}")
+    for p in parsed.prices:
+        prev = known.get(p.chain_id, {}).get((p.item_code, p.store_code))
+        if prev is not None and prev > 0 and p.price > prev * limit:
+            bad.append(f"{p.item_code}@{p.store_code or 'base'} {prev}->{p.price}")
     if not bad:
         return None
     return GateFailure(
         "price_jump", f"{len(bad)} prices above {factor}x the previous price: {_examples(bad)}"
+    )
+
+
+def gate_price_drop(
+    conn: psycopg.Connection,
+    parsed: ParsedFile,
+    factor: float,
+    min_previous: float = 0.0,
+    known: KnownPrices | None = None,
+) -> GateFailure | None:
+    """The mirror of :func:`gate_price_jump`: a price at or below ``previous / factor``.
+
+    Shekels read as agorot (12.90 published as 0.129) or a lost decimal point show up as a drop
+    of 10x or 100x, and load today as a genuine price change. A positive price is compared (a zero
+    or negative one is the ``zero_price`` gate's), and only against a previous price of at least
+    ``min_previous`` shekels: penny items (bags, deposits) swing by large factors for real.
+    A ``factor`` of 1 or less (0 in the settings) turns the gate off."""
+    if factor <= 1:
+        return None
+    known = known if known is not None else known_prices(conn, parsed)
+    divisor = Decimal(str(factor))
+    floor = Decimal(str(min_previous))
+    bad: list[str] = []
+    for p in parsed.prices:
+        prev = known.get(p.chain_id, {}).get((p.item_code, p.store_code))
+        if prev is None or prev <= 0 or prev < floor or p.price <= 0:
+            continue
+        if p.price * divisor <= prev:
+            bad.append(f"{p.item_code}@{p.store_code or 'base'} {prev}->{p.price}")
+    if not bad:
+        return None
+    return GateFailure(
+        "price_drop",
+        f"{len(bad)} prices at or below 1/{factor:g} of the previous price: {_examples(bad)}",
     )
 
 
@@ -153,7 +203,15 @@ def gate_item_count_drop(
     return None
 
 
-def gate_stale_date(parsed: ParsedFile, max_age_hours: float, now: datetime) -> GateFailure | None:
+def gate_stale_date(
+    parsed: ParsedFile,
+    max_age_hours: float,
+    now: datetime,
+    stores_max_age_hours: float | None = None,
+) -> GateFailure | None:
+    """``stores_max_age_hours`` replaces the limit for a Stores file (see the module doc)."""
+    if parsed.raw.kind == "stores" and stores_max_age_hours is not None:
+        max_age_hours = stores_max_age_hours
     # Both times are Israel time, so they usually share one tzinfo object, and Python then
     # subtracts their wall clocks and ignores the UTC offset: across the autumn change the age
     # would read an hour too short, across the spring one an hour too long. Subtract in UTC.
@@ -187,12 +245,25 @@ def check(
     file_id: int | None = None,
 ) -> list[GateFailure]:
     """Run every gate; an empty list means the file may be loaded."""
+    known = known_prices(conn, parsed) if parsed.prices else {}
     results = [
         gate_zero_price(parsed),
-        gate_price_jump(conn, parsed, thresholds.price_jump_factor),
+        gate_price_jump(conn, parsed, thresholds.price_jump_factor, known),
+        gate_price_drop(
+            conn,
+            parsed,
+            thresholds.price_drop_factor,
+            thresholds.price_drop_min_previous,
+            known,
+        ),
         gate_item_count_drop(conn, parsed, thresholds.item_count_drop_ratio, file_id),
         gate_empty_full(parsed),
-        gate_stale_date(parsed, thresholds.stale_file_max_age_hours, now),
+        gate_stale_date(
+            parsed,
+            thresholds.stale_file_max_age_hours,
+            now,
+            thresholds.stale_stores_max_age_hours,
+        ),
     ]
     return [r for r in results if r is not None]
 

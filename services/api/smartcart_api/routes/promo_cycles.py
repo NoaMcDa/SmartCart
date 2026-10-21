@@ -19,7 +19,7 @@ import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from smartcart_api import schemas
-from smartcart_api.basket import club_member
+from smartcart_api.basket import ChainClubNames, chain_clubs, club_member
 from smartcart_api.db import get_conn
 from smartcart_catalog import promo_cycles as pc
 
@@ -45,8 +45,12 @@ def get_promo_cycles(
         raise HTTPException(status_code=404, detail="canonical product not found")
     marked = [c for c in (clubs or []) if c.strip()]
 
-    def include(club_name: str | None, chain_name: str, chain_clubs: Sequence[str]) -> bool:
-        return bool(marked) and club_member(club_name, marked, chain_name, chain_clubs)
+    chain_ids = [r[0] for r in conn.execute("SELECT id FROM chains").fetchall()]
+    ids_by_name = {name: names.ids for name, names in chain_clubs(conn, chain_ids).values()}
+
+    def include(club_name: str | None, chain_name: str, own_clubs: Sequence[str]) -> bool:
+        names = ChainClubNames(own_clubs, ids_by_name.get(chain_name))
+        return bool(marked) and club_member(club_name, marked, chain_name, names)
 
     today = datetime.now(UTC).date()
     chains = [

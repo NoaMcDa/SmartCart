@@ -1,0 +1,19 @@
+[Unit]
+Description=SmartCart ingestion: late full files, two passes in the afternoon (Israel time)
+
+[Timer]
+# A chain that publishes its PriceFull or PromoFull after the 08:30 pass of smartcart-ingest-full
+# would otherwise get nothing for the day (docs/ingestion.md, "Schedule"). These passes list only
+# the PriceFull and PromoFull files of the chains that have not loaded all of today's yet, and
+# files already loaded are skipped by hash, so a quiet day costs a few database reads.
+# 11:30 and 15:30 sit clear of the hourly delta at :20 and of the 09:30 precompute; the late
+# precompute (smartcart-precompute-late.timer) follows an hour after each.
+OnCalendar=*-*-* 11:30:00 Asia/Jerusalem
+OnCalendar=*-*-* 15:30:00 Asia/Jerusalem
+RandomizedDelaySec=300
+# A missed late pass is not replayed after a reboot: the next one, or tomorrow's full sync, loads it.
+Persistent=false
+Unit=smartcart-ingest-late.service
+
+[Install]
+WantedBy=timers.target

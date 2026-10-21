@@ -293,7 +293,7 @@ const STORES: StoreSpec[] = [
         price: 136.5,
         name: "פילה סלמון נורבגי טרי",
         promo: "מבצע מועדון",
-        club: "רמי לוי",
+        club: "מועדון רמי לוי",
       },
       { canonical_id: 1009, price: 12.9, name: "ביצים L, 12 יחידות" },
     ],

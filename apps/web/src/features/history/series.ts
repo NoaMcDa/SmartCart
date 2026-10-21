@@ -6,6 +6,7 @@
  * line is cut where consecutive points are more than MAX_JOIN_DAYS apart, and the chart says so.
  */
 import type { PriceHistoryResponse, PromoWindow } from "@/api/client";
+import { clubRuleText } from "@/features/profile/clubs";
 import { DEFAULT_LOCALE, INTL_LOCALE, type Locale } from "@/i18n/locales";
 import { translate } from "@/i18n/messages";
 import { historyMessages } from "@/i18n/messages/history";
@@ -190,7 +191,8 @@ export function promoAudience(
   const t = (key: "promoEveryone" | "promoClub" | "promoClubNamed", vars?: { club: string }) =>
     translate(historyMessages, locale, key, vars);
   if (!p.clubOnly) return t("promoEveryone");
-  return p.clubName ? t("promoClubNamed", { club: p.clubName }) : t("promoClub");
+  const club = clubRuleText(p.clubName, locale);
+  return club ? t("promoClubNamed", { club }) : t("promoClub");
 }
 
 /** Confidence on a promo (D10): a percentage, or "לא נבדק" when the API has none. */

@@ -33,7 +33,7 @@ from decimal import Decimal
 import psycopg
 import structlog
 
-from smartcart_api.basket import _Choice, gate_club, money
+from smartcart_api.basket import _Choice, chain_club_names, gate_club, money
 from smartcart_api.push import GONE, PushSender, PushTarget
 
 log = structlog.get_logger("smartcart_api.alerts_job")
@@ -85,7 +85,7 @@ _CANDIDATES_SQL = """
 SELECT ep.store_id, ep.item_id, ep.shelf_price, COALESCE(ep.effective_price, ep.shelf_price),
        ep.effective_unit_price, ep.uom, ep.promo_id, ep.promo_min_qty, ep.club_required,
        ep.club_name, ep.price_valid_from, ep.is_estimated, ep.noclub,
-       s.name, c.name, c.club_names, i.raw_name
+       s.name, c.name, c.club_names, i.raw_name, c.id
 FROM effective_prices AS ep
 JOIN stores AS s ON s.id = ep.store_id
 JOIN chains AS c ON c.id = s.chain_id
@@ -112,7 +112,7 @@ def best_hit(
         {"cid": canonical_id, "flex": flex, "lon": lon, "lat": lat, "radius": radius_m},
     ).fetchall():
         c = _Choice(r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11])
-        pick, _offer = gate_club(c, r[12], clubs, (r[14], list(r[15] or [])))
+        pick, _offer = gate_club(c, r[12], clubs, (r[14], chain_club_names(r[17], r[15])))
         if pick is None or pick.effective_unit_price > threshold:
             continue
         if best is None or (pick.effective_unit_price, r[0]) < (best.unit_price, best.store_id):

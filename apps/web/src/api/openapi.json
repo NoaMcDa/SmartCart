@@ -361,6 +361,33 @@
         "title": "CanonicalRef",
         "type": "object"
       },
+      "ChainClubs": {
+        "additionalProperties": false,
+        "properties": {
+          "chain_id": {
+            "title": "Chain Id",
+            "type": "string"
+          },
+          "chain_name": {
+            "title": "Chain Name",
+            "type": "string"
+          },
+          "clubs": {
+            "items": {
+              "$ref": "#/components/schemas/ClubChoice"
+            },
+            "title": "Clubs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "chain_id",
+          "chain_name",
+          "clubs"
+        ],
+        "title": "ChainClubs",
+        "type": "object"
+      },
       "ChainOnline": {
         "additionalProperties": false,
         "properties": {
@@ -414,6 +441,39 @@
           "enabled"
         ],
         "title": "ChainOnline",
+        "type": "object"
+      },
+      "ClubChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Stable club id the profile stores and /compare takes in `clubs`",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "club (loyalty club), card (credit or payment card), staff, other",
+            "enum": [
+              "club",
+              "card",
+              "staff",
+              "other"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "The club's name (Hebrew), also the `club_name` of its promos",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "title": "ClubChoice",
         "type": "object"
       },
       "CompareRequest": {
@@ -793,13 +853,39 @@
           "sort": {
             "title": "Sort",
             "type": "integer"
+          },
+          "updated_at": {
+            "description": "The item's version: moves whenever the item changes, by any member and by any path. Send it back as expected_updated_at to PATCH or DELETE the item only if nobody changed it since you read it (a 409 answers with the current row otherwise).",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
           }
         },
         "required": [
           "id",
-          "sort"
+          "sort",
+          "updated_at"
         ],
         "title": "ListItem",
+        "type": "object"
+      },
+      "ListItemConflict": {
+        "additionalProperties": false,
+        "description": "The 409 body of the per-item routes: the item as it is now.",
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/ListItem"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "current"
+        ],
+        "title": "ListItemConflict",
         "type": "object"
       },
       "ListItemIn": {
@@ -837,6 +923,18 @@
             "title": "Flex Level",
             "type": "string"
           },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PUT /me/lists/{id} only: an id of an item of this list keeps that row (its id and its other members' view of it) and updates it; no id, or an id this list does not have, adds an item. Ignored when creating a list and by POST /me/lists/{id}/items.",
+            "title": "Id"
+          },
           "input_text": {
             "anyOf": [
               {
@@ -865,6 +963,104 @@
           }
         },
         "title": "ListItemIn",
+        "type": "object"
+      },
+      "ListItemPatch": {
+        "additionalProperties": false,
+        "description": "``PATCH /me/lists/{id}/items/{item_id}``: only the fields named are changed.",
+        "properties": {
+          "canonical_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Id"
+          },
+          "checked": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked"
+          },
+          "confirmed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed"
+          },
+          "expected_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The item's updated_at as you last read it. When it is not the item's current version (compared to the millisecond) nothing is changed and the answer is a 409 carrying the current row. Omitted: the change is applied whatever the version.",
+            "title": "Expected Updated At"
+          },
+          "flex_level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "exact",
+                  "any_brand",
+                  "close"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flex Level"
+          },
+          "input_text": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Text"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          }
+        },
+        "title": "ListItemPatch",
         "type": "object"
       },
       "ListMember": {
@@ -4088,6 +4284,60 @@
         ]
       }
     },
+    "/chains/clubs": {
+      "get": {
+        "description": "The clubs a person can be a member of, per chain: what the profile's club picker lists and\nwhat `clubs` of /compare, /optimize and the barcode lookup take (the ids). The data is\n`adapters/chain_clubs.json`: only clubs seen in real transparency files; a chain missing here\nhas no club promotion we can attribute. Nothing about the person is read.",
+        "operationId": "chains_clubs_chains_clubs_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChainClubs"
+                  },
+                  "title": "Response Chains Clubs Chains Clubs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Chains Clubs",
+        "tags": [
+          "stores"
+        ]
+      }
+    },
     "/chains/online": {
       "get": {
         "operationId": "chains_online_chains_online_get",
@@ -5236,7 +5486,7 @@
         ]
       },
       "get": {
-        "description": "An owned list, or one shared with the user (``shared``, ``role``). Only the owner may\nPUT or DELETE it; editors change items through PostgREST (RLS).",
+        "description": "An owned list, or one shared with the user (``shared``, ``role``). Only the owner may\nPUT or DELETE it; owner and editors change single items with ``/me/lists/{id}/items``.",
         "operationId": "get_list_me_lists__list_id__get",
         "parameters": [
           {
@@ -5293,7 +5543,7 @@
         ]
       },
       "put": {
-        "description": "Replace the list's name, recurrence and items.",
+        "description": "Replace the list's name, recurrence and items (owner only).\n\nId-stable: an item that carries the ``id`` of one of this list's items keeps its row and id and\nis updated only if something changed; items without an id are added; items the body does not\nname are deleted. The owner and the editors change single items, without touching the others,\nwith ``POST/PATCH/DELETE /me/lists/{id}/items``.",
         "operationId": "update_list_me_lists__list_id__put",
         "parameters": [
           {
@@ -5357,6 +5607,251 @@
         "summary": "Update List",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/me/lists/{list_id}/items": {
+      "post": {
+        "description": "Appends an item to the end of the list (owner or editor). ``id`` in the body is ignored.",
+        "operationId": "add_item_me_lists__list_id__items_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListItemIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Item",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/me/lists/{list_id}/items/{item_id}": {
+      "delete": {
+        "description": "Removes one item (owner or editor). With ``expected_updated_at``, only if nobody changed it\nsince: otherwise 409 with the current item. 404 when the item is already gone.",
+        "operationId": "delete_item_me_lists__list_id__items__item_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Delete only if this is still the item's version",
+            "in": "query",
+            "name": "expected_updated_at",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Delete only if this is still the item's version",
+              "title": "Expected Updated At"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListItemConflict"
+                }
+              }
+            },
+            "description": "The item changed since expected_updated_at; the body has its current state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Item",
+        "tags": [
+          "shares"
+        ]
+      },
+      "patch": {
+        "description": "Changes the named fields of one item (owner or editor), and answers the item. With\n``expected_updated_at`` the change is made only if nobody changed the item since: otherwise\n409 with the current item. 404 when the item is gone.",
+        "operationId": "patch_item_me_lists__list_id__items__item_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListItemPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListItemConflict"
+                }
+              }
+            },
+            "description": "The item changed since expected_updated_at; the body has its current state"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Item",
+        "tags": [
+          "shares"
         ]
       }
     },

@@ -11,6 +11,7 @@
  */
 import { api, ApiError, type Schemas } from "@/api/client";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
+import { clubIdsOnly } from "./clubs";
 import type { LocalProfile } from "./profileState";
 
 export type ServerProfile = Schemas["Profile"];
@@ -71,7 +72,7 @@ export function fromServerProfile(
         : null,
     radiusKm: Math.round(server.radius_m / 1000) || 1,
     homeStoreId: server.home_store_id ?? null,
-    clubs: server.clubs ?? [],
+    clubs: clubIdsOnly(server.clubs ?? []),
     travelMode: server.travel_mode,
     extraStopValue: Number(server.extra_stop_value),
     costPerKm: Number(server.cost_per_km),

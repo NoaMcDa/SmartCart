@@ -14,7 +14,7 @@ import { handlers } from "../../src/mocks/handlers";
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers": "*",
-  "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 };
 
 export type ApiCall = { method: string; path: string; search: string; body: unknown };

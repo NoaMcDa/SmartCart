@@ -6,6 +6,7 @@ import { AuthProvider } from "@/features/auth/AuthProvider";
 import { setSupabaseForTests } from "@/features/auth/supabaseClient";
 import { resetTrackingForTests } from "@/features/seo/track";
 import { server } from "@/mocks/node";
+import { clearChainClubsCache } from "./clubs";
 import { ProfileScreen } from "./ProfileScreen";
 import { recordSaving } from "./savingsHistory";
 import { getProfile, resetProfileCache, updateProfile } from "./profileState";
@@ -22,6 +23,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 beforeEach(() => {
   window.localStorage.clear();
+  clearChainClubsCache();
   resetProfileCache();
   resetListStoreForTests();
   __resetThemeStoreForTests();
@@ -65,7 +67,7 @@ describe("profile", () => {
     updateProfile({
       radiusKm: 9,
       homeChainId: "yochananof",
-      clubs: ["יוחננוף"],
+      clubs: ["yohananof:staff", "יוחננוף"], // a chain name from the old picker is dropped
       extraStopValue: 40,
     });
     const user = userEvent.setup();
@@ -75,9 +77,14 @@ describe("profile", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByRole("button", { name: "מועדון יוחננוף" })).toHaveAttribute(
+    expect(getProfile().clubs).toEqual(["yohananof:staff"]);
+    expect(await screen.findByRole("button", { name: "מועדון עובדים" })).toHaveAttribute(
       "aria-pressed",
       "true",
+    );
+    expect(screen.getByRole("button", { name: "המועדון החדש" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
     );
     expect(screen.getByRole("slider", { name: "כמה שווה לך עצירה נוספת?" })).toHaveValue("40");
 

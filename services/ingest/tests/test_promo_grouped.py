@@ -181,9 +181,12 @@ def test_a_minimum_purchase_in_the_reward_group_itself_is_a_basket_condition() -
     assert p.raw["unapplied"] == "basket_condition"
 
 
-def test_two_groups_are_not_applied() -> None:
+def test_two_groups_that_are_not_a_pair_are_not_applied() -> None:
+    """The trigger and the reward are different products: whatever the store does at the till, a
+    per-item price cannot show it (the same-item pairs are read, test_promo_pairs.py)."""
     p = only(promo("1", group(item(reward="0", qty="3", price="7.90")),
-                   group(item(reward="1", qty="1", rate="100", price="0.00"), gid="2")))  # fmt: skip
+                   group(item("7290000000002", reward="1", qty="1", rate="100", price="0.00"),
+                         gid="2")))  # fmt: skip
     assert p.raw["unapplied"] == "multi_group"
 
 
@@ -244,7 +247,10 @@ def test_a_club_expression_lists_its_alternatives() -> None:
     rami = "((2=מועדון לקוחות אשראי))&(3=תווי זיכוי|3=מולטיפס)"
     assert parse_club(rami).name == "מועדון לקוחות אשראי | תווי זיכוי | מולטיפס"
     p = only(promo("1", group(item(price="11.90")), club=mega))
-    assert (p.club_only, p.club_name) == (True, "מועדון קרפור אשראי | מועדון אפליקציה")
+    # Shufersal has no club table (none of its real files names a club), so the expression
+    # matches nobody: stored as "אחר" with the text kept in raw. The chain-specific reading is in
+    # test_club_rules.py.
+    assert (p.club_only, p.club_name) == (True, "אחר")
     assert p.raw["club_expression"] == mega and p.raw["club_ids"] == [mega]
 
 

@@ -43,6 +43,7 @@ uv run smartcart-api serve --reload        # http://localhost:8000/docs
 |---|---|---|
 | `GET /health` | none | liveness and API version |
 | `GET /search?q=&limit=` | none | hybrid search over canonical products |
+| `GET /chains/clubs` | none | the clubs and cards a person can be a member of, per chain (ids for `clubs`) |
 | `POST /parse-list` | none | free text to canonical items with quantities and confidence |
 | `POST /compare` | none | basket total at every store in the radius |
 | `POST /optimize` | none | single store, split, minimum effort, each with a net-saving breakdown |
@@ -50,7 +51,8 @@ uv run smartcart-api serve --reload        # http://localhost:8000/docs
 | `POST /feedback/gap` | optional | report-a-gap: shown versus actual price, or a missing item |
 | `GET /me/profile`, `PUT /me/profile` | required | the user's profile (home store, radius, clubs, travel, flex defaults) |
 | `GET /me/lists`, `POST /me/lists` | required | saved lists with their items; GET also returns the lists shared with the user (`shared`, `role`) |
-| `GET`, `PUT`, `DELETE /me/lists/{list_id}` | required | one list (GET: owned or shared); PUT (owner only) replaces name, recurrence and items |
+| `GET`, `PUT`, `DELETE /me/lists/{list_id}` | required | one list (GET: owned or shared); PUT (owner only) replaces name, recurrence and items, keeping the ids of the items it names |
+| `POST /me/lists/{list_id}/items`; `PATCH`, `DELETE /me/lists/{list_id}/items/{item_id}` | required, owner or editor | one item at a time (see "Per-item writes"); 403 for a viewer, 404 for anyone without access |
 
 Requests reject unknown fields (422). The basket routes take no user identity and store nothing.
 
@@ -233,14 +235,15 @@ one row per (canonical, store, flexibility level):
   size, converted to the canonical's base unit (kg and 100 g convert; other mismatches are left
   out). An item with no size under a per-unit canonical is compared per pack.
 - Promo folding, for promos active at `as_of` for the store or chain-wide, from loaded files.
-  The reward mapping follows the adapters' provisional mapping (docs/adapters.md), not yet
-  verified against real files:
+  The reward mapping follows the adapters' mapping (docs/adapters.md: verified on real files for
+  the one-group readings and the two-group "buy one, get one at P % off"; the older layouts stay
+  provisional):
 
   | `reward_type` | Reading | Effective price per pack | `promo_min_qty` |
   |---|---|---|---|
   | `price` | `reward_value` is the promo unit price | `reward_value` | `min_qty` or 1 |
   | `percent` | 20 = 20 %, 0.2 = 20 % | `shelf x (1 - rate)` | `min_qty` or 1 |
-  | `buy_x_get_y` | buy X = `min_qty` (default 1), get Y = `reward_value` | `shelf x X / (X + Y)` (1+1: half) | X + Y |
+  | `buy_x_get_y` | buy X = `min_qty` (default 1), get Y = `reward_value`; free, or `P` % off when `promos.raw.get_percent` is set ("the second at 50 %") | `shelf x (X + Y (1 - P/100)) / (X + Y)` (1+1: half; second at 50 %: 75 %) | X + Y |
   | `bundle` | N = `min_qty` for `reward_value` in total ("3 for 20" = 6.67 each); a value below one shelf price is read per unit | `reward_value / N` | N |
   | `other` | not applied | | |
 
@@ -353,20 +356,28 @@ New environment variables (never commit real values):
 ### Club filtering (#19)
 
 The rule lives in `basket.club_member` and `basket.gate_club`, used by /compare, /optimize (and
-so the MILP, through `price_baskets`), the barcode lookup and the alerts job. A club-only promo
-(`promos.club_only`) applies only when:
+so the MILP, through `price_baskets`), the barcode lookup, the promo-cycles route and the alerts
+job. A club-only promo (`promos.club_only`) has a `club_name` that is a **rule over club labels**
+written by the ingest from the real `ClubID` text (docs/adapters.md, "Club promotions"): one
+label, or labels joined by `|` (any of) and `&` (all of) with brackets. The rule is evaluated as
+written, where a name is satisfied when:
 
-1. one of the request's `clubs` equals the promo's `club_name`, compared trimmed, with inner
-   whitespace collapsed and case-folded. Credit-card deals follow the same rule (the user marks
-   the card's name); or
-2. the promo's club is the chain's own customer club (`מועדון לקוחות`, the adapters' name for
-   regulation club code 1, or a name in `chains.club_names`) and the user marked the chain
-   itself: its name (what the web app sends), `מועדון <chain name>`, or a prefix of the chain's
-   name followed by a space.
+1. it is the label of a club of the promo's chain whose **id** (`ramilevy:club`) is in the
+   request's `clubs`; or it equals one of the `clubs` as typed (trimmed, inner whitespace
+   collapsed, case-folded), which is how the first version of the picker worked; or
+2. it is the chain's own customer club of the older rule (`מועדון לקוחות`, or a name in
+   `chains.club_names`) and the user marked the chain itself (its name, `מועדון <chain name>`, or
+   a prefix of the chain's name followed by a space). The web app no longer sends chain names.
 
-A restriction that could not be parsed (no club name, `אחר`, `club <n>`) never applies, for
-anyone: the safe default. The club codes are the adapters' provisional mapping, not verified
-against real files.
+A restriction that could not be parsed or that nobody can be a member of (no club name, `אחר`,
+`club <n>`, an unknown text, a malformed rule) never applies, for anyone: the safe default. The
+profile stores club ids and the web app sends them in `clubs`; ids of another chain's table never
+unlock a promo of this chain.
+
+`GET /chains/clubs` (public, `Cache-Control: public, max-age=3600`, reads nothing about a person)
+lists what the picker offers: `[{chain_id, chain_name, clubs: [{id, label, kind}]}]`, from
+`adapters/chain_clubs.json`. Only chains with a club in a real file are listed; `kind` is `club`,
+`card` (credit or payment card), `staff` or `other`.
 
 The precompute keeps, next to the best row, `noclub` (the best price without any club deal)
 and `noclub.clubs` (each club's own best deal that beats `noclub`), so a member of club A gets
@@ -376,7 +387,8 @@ then describe that price (true only when the user's own club deal is applied), a
 `club_offer_name` / `club_offer_discount` report the deal they did not mark, as information. It
 never enters a total, a store ranking, an "add one more" suggestion or a saving (the D7 hero
 number). Tests: `test_clubs.py` (a basket whose cheapest store changes with membership, in
-/compare and /optimize, and the unparseable default).
+/compare and /optimize, and the unparseable default) and `test_api_clubs_real.py` (the real
+`ClubID` texts through the stored rule to /compare for a person holding club ids).
 
 `PricedItem.promo_confidence` is `promos.raw->>'confidence'` when the adapter recorded one
 (0 to 1, or a percentage), else null. `StoreResult.lat` / `lon` come from `stores.geog`; `geo_precision` and `distance_approximate` from `stores.geo_precision` (below).
@@ -490,6 +502,43 @@ distance. Tests: `tests/test_api_geo_precision.py`.
   migration adds `lists` and `list_items` to `supabase_realtime`); the conflict rule and offline
   merge are the web workstream's.
 
+#### Per-item writes (no last-write-wins)
+
+Where there is no Supabase client (local development, the mock) the web app writes one item at a
+time instead of replacing the list, so two people editing within one poll interval do not
+overwrite each other. Owner and accepted editors only; a viewer gets 403 (they can read the list),
+a stranger or a list that does not exist 404. Every statement runs under the caller's RLS, and the
+item must belong to the list in the path (an item id of another list is a 404).
+
+- `POST /me/lists/{id}/items`: body `ListItemIn` (an `id` in it is ignored); appends the item
+  (`sort` = last + 1; `user_id` = the caller) and answers 201 with the `ListItem`. At most 200
+  items per list (403 beyond; the count and the position are taken under a per-list advisory
+  lock).
+- `PATCH /me/lists/{id}/items/{item_id}`: body `ListItemPatch`, any of `canonical_id`,
+  `input_text` (both may be null), `quantity`, `flex_level`, `confirmed`, `checked` (not null),
+  with the same limits as `ListItemIn`; only the named fields change. Answers the `ListItem`.
+- `DELETE /me/lists/{id}/items/{item_id}`: 204; 404 when it is already gone.
+- Version: `ListItem.updated_at` (new column `list_items.updated_at`, migration
+  `20261022090000_list_items_updated_at.sql`). A `BEFORE INSERT OR UPDATE` trigger is its only
+  writer: the time of the insert, the old value for an UPDATE that changes nothing, otherwise the
+  current time and always later than the old value (`clock_timestamp()`, not `now()`, so a
+  transaction that started early and commits late cannot carry an older version). A value a
+  caller sends, also through PostgREST, is replaced (`test_authenticated_cannot_forge_the_item_version`).
+- Precondition: `PATCH` takes `expected_updated_at` in the body and `DELETE` takes it as a query
+  parameter (URL-encode the `+` of an offset), both the `updated_at` as it was read. The item is
+  locked (`SELECT ... FOR UPDATE`) and the versions are compared to the millisecond (a browser
+  `Date` keeps no more); when they differ nothing is written and the answer is **409** with
+  `{"detail": ..., "current": <the ListItem as it is now>}` (`ListItemConflict`). Omitted: the
+  write is unconditional. `If-Unmodified-Since` was not used: its resolution is one second.
+- `PUT /me/lists/{id}` is id-stable: an entry whose `id` is one of this list's items updates that
+  row, and only if something changed (an unchanged item keeps its `updated_at` and sends nothing
+  to Realtime); an entry with no id, or an id this list does not have (never another list's row),
+  is inserted; a row no entry names is deleted; the same id twice is 422. The author of a kept
+  row stays. It is still a whole-list replace, so it does not merge with concurrent item edits:
+  the web app uses it for nothing but creating and importing; PUT stays owner-only.
+- CORS now allows `PATCH` (`allow_methods` in `main.py`; without it a browser on another origin
+  fails the preflight).
+
 ### Alerts and web push (#23)
 
 - An alert takes the profile's neighborhood (consent required, else 422) and is stored rounded
@@ -528,6 +577,7 @@ distance. Tests: `tests/test_api_geo_precision.py`.
 |---|---|
 | `20261008100100_shared_lists_rls.sql` | `owns_list()`, list item policies by list (owner, editor, viewer), `list_shares.expires_at` |
 | `20261009100000_mvp_followups.sql` | `list_shares.id` (identity, unique), `list_items.checked`, `substitution_feedback.source`, `gap_report_pressure()` and the `quality_gap_reports_7d` view, `quality_warnings` |
+| `20261022090000_list_items_updated_at.sql` | `list_items.updated_at` and its trigger (the item version of the per-item routes); no grant changes |
 
 ## Events: phase 2 surfaces (#101, #102)
 

@@ -27,6 +27,9 @@ type Profile = Schemas["Profile"];
 type ProfileUpdate = Schemas["ProfileUpdate"];
 type ShoppingList = Schemas["ShoppingList"];
 type ShoppingListIn = Schemas["ShoppingListIn"];
+type ListItem = Schemas["ListItem"];
+type ListItemIn = Schemas["ListItemIn"];
+type ListItemPatch = Schemas["ListItemPatch"];
 
 const url = (path: string) => `${API_BASE_URL}${path}`;
 
@@ -204,14 +207,64 @@ export const handlers = [
       : HttpResponse.json({ detail: "not found" }, { status: 404 });
   }),
 
+  // Id-stable like the API: an item with the id of one of the list's items keeps its row (and its
+  // version unless something changed), the others are added, the ones not named are removed.
   http.put(url("/me/lists/:id"), async ({ params, request }) => {
     const body = (await request.json()) as ShoppingListIn;
     await latency();
     const idx = meLists.findIndex((l) => l.id === Number(params.id));
     if (idx < 0) return HttpResponse.json({ detail: "not found" }, { status: 404 });
-    const next = toShoppingList(Number(params.id), body);
+    const next = toShoppingList(Number(params.id), body, meLists[idx]);
     meLists[idx] = next;
     return HttpResponse.json(next);
+  }),
+
+  // Per-item writes (owner and editors; the mock has one signed-in user). `updated_at` is the
+  // item's version: PATCH and DELETE with a stale `expected_updated_at` answer 409 with the row.
+  http.post(url("/me/lists/:id/items"), async ({ params, request }) => {
+    const body = (await request.json()) as ListItemIn;
+    await latency();
+    const list = meLists.find((l) => l.id === Number(params.id));
+    if (!list) return HttpResponse.json({ detail: "list not found" }, { status: 404 });
+    if (list.items.length >= 200) {
+      return HttpResponse.json({ detail: "a list has at most 200 items" }, { status: 403 });
+    }
+    const sort = list.items.reduce((max, i) => Math.max(max, i.sort), -1) + 1;
+    const row = itemRow(nextItemId(list), sort, body);
+    list.items.push(row);
+    return HttpResponse.json(row, { status: 201 });
+  }),
+
+  http.patch(url("/me/lists/:id/items/:itemId"), async ({ params, request }) => {
+    const body = (await request.json()) as ListItemPatch;
+    await latency();
+    const found = findItem(params.id, params.itemId);
+    if (!found) return HttpResponse.json({ detail: "item not found" }, { status: 404 });
+    if (isStale(found, body.expected_updated_at)) return itemConflict(found);
+    const changes: Partial<ListItem> = {};
+    if ("canonical_id" in body) changes.canonical_id = body.canonical_id ?? null;
+    if ("input_text" in body) changes.input_text = body.input_text ?? null;
+    if (body.quantity != null) changes.quantity = String(body.quantity);
+    if (body.flex_level != null) changes.flex_level = body.flex_level;
+    if (body.confirmed != null) changes.confirmed = body.confirmed;
+    if (body.checked != null) changes.checked = body.checked;
+    const changed = Object.entries(changes).some(
+      ([k, v]) => String(found[k as keyof ListItem]) !== String(v),
+    );
+    Object.assign(found, changes);
+    if (changed) found.updated_at = stamp();
+    return HttpResponse.json(found);
+  }),
+
+  http.delete(url("/me/lists/:id/items/:itemId"), async ({ params, request }) => {
+    await latency();
+    const found = findItem(params.id, params.itemId);
+    if (!found) return HttpResponse.json({ detail: "item not found" }, { status: 404 });
+    const expected = new URL(request.url).searchParams.get("expected_updated_at");
+    if (isStale(found, expected)) return itemConflict(found);
+    const list = meLists.find((l) => l.id === Number(params.id))!;
+    list.items = list.items.filter((i) => i.id !== found.id);
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.delete(url("/me/lists/:id"), async ({ params }) => {
@@ -253,27 +306,92 @@ let meProfile: Profile | null = null;
 let meLists: ShoppingList[] = [];
 let meNextListId = 1;
 
-function toShoppingList(id: number, body: ShoppingListIn): ShoppingList {
+/** The last item id handed out per list, so a deleted item's id is never reused. */
+const lastItemId = new Map<number, number>();
+
+function nextItemId(list: Pick<ShoppingList, "id" | "items">): number {
+  const last =
+    lastItemId.get(list.id) ?? list.items.reduce((m, i) => Math.max(m, i.id), list.id * 1000);
+  lastItemId.set(list.id, last + 1);
+  return last + 1;
+}
+
+let stampSeq = 0;
+/**
+ * A strictly increasing `updated_at` with microseconds, like the API's. The microsecond digits are
+ * a counter, so two writes in the same millisecond still have different versions to the API, while
+ * a client that kept only the milliseconds (a `Date`) still matches, as it does against the API.
+ */
+function stamp(): string {
+  stampSeq += 1;
+  const ms = new Date().toISOString().slice(0, -1);
+  return `${ms}${String(stampSeq % 1000).padStart(3, "0")}Z`;
+}
+
+function itemRow(id: number, sort: number, item: ListItemIn): ListItem {
+  return {
+    id,
+    sort,
+    canonical_id: item.canonical_id ?? null,
+    confirmed: item.confirmed ?? true,
+    flex_level: item.flex_level ?? "any_brand",
+    input_text: item.input_text ?? null,
+    quantity: String(item.quantity ?? "1"),
+    checked: item.checked ?? false,
+    updated_at: stamp(),
+  };
+}
+
+const SAME_FIELDS = [
+  "canonical_id",
+  "confirmed",
+  "flex_level",
+  "input_text",
+  "quantity",
+  "checked",
+  "sort",
+] as const;
+
+function toShoppingList(id: number, body: ShoppingListIn, previous?: ShoppingList): ShoppingList {
   const now = new Date().toISOString();
+  const draft = { id, items: previous?.items ?? [] };
+  const before = new Map(draft.items.map((i) => [i.id, i]));
+  const used = new Set<number>();
+  const items = (body.items ?? []).map((item, i) => {
+    const old = item.id != null && !used.has(item.id) ? before.get(item.id) : undefined;
+    if (old) used.add(old.id);
+    const row = itemRow(old?.id ?? nextItemId(draft), i, item);
+    if (!old) return row;
+    // Unchanged: the same version, as the trigger keeps it.
+    const same = SAME_FIELDS.every((k) => String(old[k]) === String(row[k]));
+    return same ? old : row;
+  });
   return {
     id,
     name: body.name,
     is_recurring: body.is_recurring ?? false,
-    items: (body.items ?? []).map((item, i) => ({
-      id: id * 1000 + i + 1,
-      sort: i,
-      canonical_id: item.canonical_id ?? null,
-      confirmed: item.confirmed ?? true,
-      flex_level: item.flex_level ?? "any_brand",
-      input_text: item.input_text ?? null,
-      quantity: String(item.quantity ?? "1"),
-      checked: item.checked ?? false,
-    })),
-    created_at: now,
+    items,
+    created_at: previous?.created_at ?? now,
     updated_at: now,
     shared: false,
     role: "owner",
   };
+}
+
+function findItem(listId: unknown, itemId: unknown): ListItem | undefined {
+  return meLists.find((l) => l.id === Number(listId))?.items.find((i) => i.id === Number(itemId));
+}
+
+/** Versions match to the millisecond, like the API's check. */
+function isStale(item: ListItem, expected: string | null | undefined): boolean {
+  return !!expected && Date.parse(expected) !== Date.parse(item.updated_at);
+}
+
+function itemConflict(item: ListItem) {
+  return HttpResponse.json(
+    { detail: "the item changed since you read it", current: item },
+    { status: 409 },
+  );
 }
 
 /** Test hook: forget the signed-in user's profile and lists. */
@@ -281,4 +399,5 @@ export function resetMeMock(): void {
   meProfile = null;
   meLists = [];
   meNextListId = 1;
+  lastItemId.clear();
 }

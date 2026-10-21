@@ -77,8 +77,8 @@ EXPECTED: dict[str, dict] = {
     "shufersal": {
         "file": "PromoFull7290027600007-001-310-20261021-043100.gz",
         "store": "310", "promos": 100, "item_codes": 625, "club_only": 0,
-        "rewards": {"bundle": 60, "other": 14, "price": 26},
-        "unapplied": {"basket_condition": 3, "coupon_required": 10, "multi_group": 1},
+        "rewards": {"bundle": 60, "buy_x_get_y": 1, "other": 13, "price": 26},
+        "unapplied": {"basket_condition": 3, "coupon_required": 10},  # "1+1": was multi_group
         "pinned": {
             "4632236": ("bundle", D("50.00"), D("2"), False),
             "4632340": ("price", D("24.90"), D("1"), False),
@@ -86,9 +86,11 @@ EXPECTED: dict[str, dict] = {
     },
     "tivtaam": {
         "file": "PromoFull7290873255550-000-002-20261021-004004.gz",
-        "store": "2", "promos": 100, "item_codes": 233, "club_only": 59,
-        "rewards": {"bundle": 36, "other": 4, "price": 60},
-        "unapplied": {"multi_group": 3, "reward_value_unusable": 1},
+        "store": "2", "promos": 100, "item_codes": 229, "club_only": 59,
+        # item_codes was 233: two "second at 50 %" promotions list 2 reward-only items each, which
+        # are no longer linked (they need a trigger of another item).
+        "rewards": {"bundle": 36, "buy_x_get_y": 2, "other": 2, "price": 60},
+        "unapplied": {"club_in_description": 1, "reward_value_unusable": 1},
         "pinned": {
             "289904": ("bundle", D("12.90"), D("2"), True),  # "water 2 for 12.9, club"
             "314977": ("price", D("159.90"), D("1"), True),
@@ -97,9 +99,9 @@ EXPECTED: dict[str, dict] = {
     "yohananof": {
         "file": "PromoFull7290803800003-000-009-20261021-004031.gz",
         "store": "9", "promos": 100, "item_codes": 302, "club_only": 2,
-        "rewards": {"bundle": 65, "other": 9, "price": 26},
-        "unapplied": {"basket_condition": 3, "coupon_required": 2, "multi_group": 3,
-                      "packaging_credit": 1},  # fmt: skip
+        "rewards": {"bundle": 65, "buy_x_get_y": 3, "other": 6, "price": 26},
+        "unapplied": {"basket_condition": 3, "coupon_required": 2,
+                      "packaging_credit": 1},  # fmt: skip  (3 "1+1" were multi_group)
         "pinned": {
             "365892": ("price", D("29.90"), D("1"), False),
             "78510": ("bundle", D("61.75"), D("1.90"), False),  # "2 kg for 65": 1.9 kg for 61.75
@@ -182,8 +184,17 @@ def test_club_values_of_the_real_files() -> None:
     assert names["tivtaam"] == {"המועדון החדש": 59}
     assert names["yohananof"] == {"מועדון עובדים": 2}
     assert not names["shufersal"] and not names["osherad"] and not names["mega"]
-    # Expressions list their alternatives and are never a name a user marks (safe default).
-    assert all(" | " in n for n in names["king_store"])
+    # Expressions are resolved against the chain's club table (chain_clubs.json) into a rule over
+    # club labels: the 18 King Store customer groups keep the three that are clubs a person can
+    # belong to, Rami Levy's "A|B & C|D" keeps its AND (test_club_rules.py has the membership).
+    assert names["king_store"] == {
+        "מועדון לקוחות | לקוחות סיטונאים | עובדי קינגסטור": 18,
+        "לקוחות סיטונאים": 3,
+    }
+    assert names["ramilevy"] == {
+        "(מועדון רמי לוי | מועדון לקוחות אשראי) & (ישראכרט מגנטי | תווי זיכוי מימוש)": 1,
+        "מועדון חברתי | מועדון רמי לוי | מועדון לקוחות אשראי | מועדון נטען | לקוחות ארנק": 1,
+    }
     assert all(len(n) <= 120 for slug in names for n in names[slug])
     for slug in ("king_store", "ramilevy"):
         promos = [p for p in _parsed(slug).promos if p.club_only]
@@ -299,3 +310,40 @@ def test_the_scheduler_loads_every_real_promo_file_with_its_items(db, tmp_path) 
         " WHERE p.chain_id = %s", (adapter.chain_id,),
     ).fetchone()[0]  # fmt: skip
     assert 0 < linked <= EXPECTED[slug]["item_codes"]  # only items the chain has priced
+
+
+# (applied, unapplied) of the 100 committed promotions per chain, before and after the two-group
+# "buy X, get Y at P % off" reading (docs/adapters.md): the promotions that moved are the "1+1"
+# and "השני ב 50%" ones that were `multi_group`.
+APPLIED_BEFORE_AND_NOW = {
+    "king_store": ((100, 0), (100, 0)),
+    "mega": ((93, 7), (93, 7)),
+    "osherad": ((99, 1), (99, 1)),
+    "ramilevy": ((81, 19), (81, 19)),
+    "shufersal": ((86, 14), (87, 13)),  # one "1+1"
+    "tivtaam": ((96, 4), (98, 2)),  # two "second at 50 %"; "1+1 מועדון" stays (club_in_description)
+    "yohananof": ((91, 9), (94, 6)),  # three "1+1"
+}
+
+
+@pytest.mark.parametrize("slug", sorted(APPLIED_BEFORE_AND_NOW))
+def test_how_many_real_promotions_are_applied_now(slug: str) -> None:
+    promos = _parsed(slug).promos
+    applied = sum(p.reward_type != "other" for p in promos)
+    before, now = APPLIED_BEFORE_AND_NOW[slug]
+    assert (applied, len(promos) - applied) == now
+    pairs = [p for p in promos if p.raw.get("shape") == "pair"]
+    assert len(pairs) == now[0] - before[0]
+    for p in pairs:
+        assert p.reward_type == "buy_x_get_y" and p.raw["unapplied"] is None
+        assert p.raw["get_percent"] in ("50", "100") and p.raw["confidence"] in (0.9, 1.0)
+        assert p.min_qty == D(1) and p.reward_value == D(1) and p.item_codes
+
+
+def test_no_real_promotion_is_weekday_restricted() -> None:
+    """None of the promotions in the fixtures, nor in the full files of the probe's run 39660333324
+    (9972 promotions of seven chains; only Osher Ad's two list all seven days), has a PromotionDays
+    other than empty or all seven. The day numbering is therefore not known, and such a promotion
+    stays unapplied (``weekday_restricted``, tested on an inline file in test_promo_grouped.py)."""
+    for slug in EXPECTED:
+        assert all(p.raw["unapplied"] != "weekday_restricted" for p in _parsed(slug).promos)

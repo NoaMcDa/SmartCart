@@ -18,6 +18,9 @@ import { Tag } from "@/components/ui/Tag";
 import { AlertMe } from "@/features/alerts/AlertMe";
 import { PriceHistory, type HistoryStoreOption } from "@/features/history/PriceHistory";
 import { IconClock } from "@/components/ui/icons";
+import { ClubName } from "@/features/profile/ClubName";
+import { clubRuleText } from "@/features/profile/clubs";
+import { formatRich } from "@/i18n/format";
 import { ReportGapButton } from "@/features/feedback/GapReportSheet";
 import { useShopper } from "@/state/shopper";
 import { useRich } from "@/i18n/format-2";
@@ -253,9 +256,7 @@ export function ProductDetail({
                 </thead>
                 <tbody>
                   {rows.map(({ store, item, effective, shelf }) => {
-                    const member = item.club_name
-                      ? (shopper?.clubs.includes(item.club_name) ?? false)
-                      : false;
+                    const club = clubRuleText(item.club_name, locale);
                     const hasPromo = Boolean(item.promo_description) || item.club_required;
                     return (
                       <tr key={store.store_id}>
@@ -288,8 +289,10 @@ export function ProductDetail({
                             <span className={styles.promo}>
                               {item.club_required ? (
                                 <Chip tone="accent" size="sm">
-                                  {item.club_name
-                                    ? t("clubPromoNamed", { club: item.club_name })
+                                  {club
+                                    ? formatRich(t("clubPromoNamed"), {
+                                        club: <ClubName rule={item.club_name} />,
+                                      })
                                     : t("clubPromo")}
                                 </Chip>
                               ) : (
@@ -297,7 +300,7 @@ export function ProductDetail({
                                   {item.promo_description}
                                 </Chip>
                               )}
-                              {item.club_required && !member ? (
+                              {item.club_required ? (
                                 <span className={styles.muted}>{t("clubOnly")}</span>
                               ) : null}
                               <PromoConfidence confidence={item.promo_confidence} />

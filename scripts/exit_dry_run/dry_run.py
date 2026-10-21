@@ -39,7 +39,24 @@ from smartcart_ingest import db as dbmod
 from smartcart_ingest import report as rep
 
 ISRAEL = ZoneInfo("Asia/Jerusalem")
-REAL_DAY = date(2026, 10, 8)
+
+
+def real_day(files: list | None = None) -> date:
+    """The day the real window covers: the Israel date most real PriceFull files were published on.
+
+    The real fixtures are refreshed when the portal probe fetches newer files (2026-10-08 first,
+    2026-10-21 with promos), so the day follows them instead of being fixed. Stores files are
+    published less often and can be older; they do not pick the day."""
+    files = fixture_set("real") if files is None else files
+    days = Counter(
+        f.published_at.astimezone(ISRAEL).date() for f in files if f.kind == "price_full"
+    )
+    if not days:
+        raise ValueError("no real PriceFull fixture")
+    return max(days, key=lambda d: (days[d], d))
+
+
+REAL_DAY = real_day()
 SYNTH_START, SYNTH_END = date(2026, 10, 6), date(2026, 10, 9)
 DB_REAL, DB_SYNTH = "exit_dry_run_real", "exit_dry_run_synthetic"
 TEL_AVIV = (34.7818, 32.0853)  # lon, lat: a dense area, as docs/phase-0-exit-report.md suggests

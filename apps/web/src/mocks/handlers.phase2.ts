@@ -269,6 +269,7 @@ export const phase2Handlers = [
           input_text: null,
           quantity: "2",
           checked: false,
+          updated_at: now,
         },
         {
           id: listId * 1000 + 2,
@@ -279,6 +280,7 @@ export const phase2Handlers = [
           input_text: null,
           quantity: "1",
           checked: false,
+          updated_at: now,
         },
       ],
       created_at: now,

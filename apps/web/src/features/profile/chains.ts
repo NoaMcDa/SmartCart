@@ -13,8 +13,9 @@ import { profileMessages, type ProfileMessageKey } from "@/i18n/messages/profile
 export type Chain = {
   id: string;
   /**
-   * Hebrew name: also the club name sent in `clubs` (matches the API's club_name), so it stays the
-   * identity of the chain in every locale. Show `chainName(chain, locale)` to the user.
+   * Hebrew name: the identity of the chain in every locale (the API's chain_name and the fallback
+   * of a compare result). Show `chainName(chain, locale)` to the user. Clubs are not chains: see
+   * `clubs.ts`.
    */
   name: string;
   /** Single letter for the badge. */
@@ -50,17 +51,6 @@ export function chainName(chain: Chain, locale: Locale = DEFAULT_LOCALE): string
 export function chainLetter(chain: Chain, locale: Locale = DEFAULT_LOCALE): string {
   if (locale === DEFAULT_LOCALE) return chain.letter;
   return translate(profileMessages, locale, `letter_${chain.id}` as ProfileMessageKey);
-}
-
-/**
- * Club names are chain names; the API matches `clubs` against the promo's club_name. `name` is the
- * Hebrew club (chain) name; the label shows the chain name of `locale`.
- */
-export function clubLabel(name: string, locale: Locale = DEFAULT_LOCALE): string {
-  const chain = CHAINS.find((c) => c.name === name);
-  return translate(profileMessages, locale, "clubName", {
-    name: chain ? chainName(chain, locale) : name,
-  });
 }
 
 type StoreLike = { store_id: number; chain_id: string; chain_name: string; distance_m: number };

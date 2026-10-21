@@ -102,12 +102,21 @@ is a suggestion only (below).
 |---|---|
 | every line has the same bundle price (one product; or "3 for 20" / a unit price over several products) | that price, for any N units |
 | buy X get Y over products with different prices | the units' shelf prices minus Y x the cheapest shelf price in the group |
+| buy X get Y at P % off over products with different prices ("the second at 50 %"; `raw.get_percent` P) | the units' shelf prices minus Y x P % of the cheapest shelf price in the group, rounded toward zero to the agora |
 | percent or unit price over products with different prices | each unit at its own promo price |
 
 The buy-X-get-Y rule is conservative: Israeli promos give the cheapest unit free, and counting
-the cheapest shelf price of the group never claims more than the store gives. The reward reading
-of the promo fields is still the adapters' provisional mapping (docs/adapters.md), not yet
-verified on real files.
+the cheapest shelf price of the group never claims more than the store gives. The same holds for
+the percentage form: whichever unit of a pair the store discounts, it is at least the cheapest
+shelf price of the group, so `Y x P % x cheapest` is a lower bound of the discount. The reward
+reading of the plain promo fields is verified on real files (docs/adapters.md). The two-group "buy
+one, get one at P % off" shape ("1+1" and "השני ב 50%" in Shufersal, Tiv Taam and Yohananof files)
+is read by the adapters from the real layout, with one reservation: **whether a pair may mix
+products of the group is not shown by the file**. The adapter links only items that appear in both
+groups and lowers the promo's confidence by 0.1 (`mixed_items_unverified`) when there is more
+than one. A group of one product is exact in every reading; for mixed pairs the MILP counts only
+the lower bound, which would still be too high if a store allowed pairs of the same product only.
+That is why the confidence says so.
 
 ### Why the store-set form
 
@@ -186,6 +195,14 @@ integer bundle variables natively. It stays the fallback if a platform lacks the
   whose best deal is another promo does not join the group.
 - Weighed goods and fractional quantities never join bundles.
 - Daily `hours` windows of promos are not applied (as in the precompute).
+- Promos restricted to some weekdays (`PromotionDays`) are never applied: the adapters read them as
+  unapplied (`weekday_restricted`), so neither the precompute, /compare nor the MILP sees them.
+- A "buy one, get one at P % off" promo (`buy_x_get_y` with `raw.get_percent`) folds into the
+  precompute as `shelf x (X + Y (1 - P/100)) / (X + Y)` per pack with `X + Y` packs needed (the
+  second at 50 %: 75 % of the shelf price, two needed), so `/compare`'s `line_total` (whole packs at
+  the effective price, the rest at the shelf price) and the MILP's single-product group need no new
+  code; only the MILP's mixed-price group reads `get_percent` (table above). A promo with a
+  redemption limit is not applied by the adapter at all (`redemption_limited`).
 - Store sets grow as N choose K; the schema caps them at 575.
 - The fallback to the heuristic is per request, not per plan.
 
@@ -199,7 +216,7 @@ travel and extra-stop costs) and checks against an exhaustive search over every 
 assignment and every way of putting units into a bundle. The DB half writes a random world to the
 tables (2 chains, 3 to 5 stores at distinct distances, 3 to 4 canonicals one of which may be
 weighed, store exceptions, products a chain or store does not stock, close-level substitutes, two
-sibling milks, unit price / percent / 1+1 / "N for X" promos with and without a minimum quantity,
+sibling milks, unit price / percent / 1+1 / "second at P %" / "N for X" promos with and without a minimum quantity,
 club-only promos, one promo shared by two products), runs the real precompute and calls the
 real routes. `expected()` in that file recomputes every line from the promo definitions.
 

@@ -1,0 +1,54 @@
+{
+  "_comment": "Which clubs a person can be a member of, per chain, and which ClubID texts of the transparency files mean each (docs/adapters.md, 'Club promotions'). A club has a stable id '<slug>:<name>' that the profile stores, a Hebrew label (also the club_name of a promo, so it never contains | & ( ) or a double quote), a kind (club, card, staff, other) and the exact ClubID names ('texts', compared after trimming, collapsing spaces and case-folding; the label counts as a text too). Only texts seen in real files are listed (the 2026-10-21 probe); a text that is not listed here matches nobody. Chains with no club text in their real files (Shufersal, Osher Ad, Victory, Machsanei Hashuk, Hazi Hinam) have no entry.",
+  "chains": [
+    {
+      "chain_id": "7290058108879",
+      "slug": "king_store",
+      "name": "קינג סטור",
+      "clubs": [
+        {"id": "king_store:club", "label": "מועדון לקוחות", "kind": "club", "texts": ["מועדון לקוחות"]},
+        {"id": "king_store:wholesale", "label": "לקוחות סיטונאים", "kind": "other", "texts": ["לקוחות סיטונאים", "לקוחות סיטונאים סניפים"]},
+        {"id": "king_store:staff", "label": "עובדי קינגסטור", "kind": "staff", "texts": ["עובדי קינגסטור -ARABIC", "עובדי קינגסטור -HEBREW"]}
+      ]
+    },
+    {
+      "chain_id": "7290058140886",
+      "slug": "ramilevy",
+      "name": "רמי לוי",
+      "clubs": [
+        {"id": "ramilevy:club", "label": "מועדון רמי לוי", "kind": "club", "texts": ["מועדון שיווק השקמה"]},
+        {"id": "ramilevy:social", "label": "מועדון חברתי", "kind": "club", "texts": ["מועדון חברתי"]},
+        {"id": "ramilevy:credit", "label": "מועדון לקוחות אשראי", "kind": "card", "texts": ["מועדון לקוחות אשראי"]},
+        {"id": "ramilevy:topup", "label": "מועדון נטען", "kind": "card", "texts": ["מועדון נטען"]},
+        {"id": "ramilevy:wallet", "label": "לקוחות ארנק", "kind": "card", "texts": ["לקוחות ארנק"]},
+        {"id": "ramilevy:isracard", "label": "ישראכרט מגנטי", "kind": "card", "texts": ["ישראכרט מגנטי"]},
+        {"id": "ramilevy:vouchers", "label": "תווי זיכוי מימוש", "kind": "card", "texts": ["תווי זיכוי מימוש"]}
+      ]
+    },
+    {
+      "chain_id": "7290055700007",
+      "slug": "mega",
+      "name": "קרפור (מגה)",
+      "clubs": [
+        {"id": "mega:app", "label": "מועדון אפליקציה", "kind": "club", "texts": ["מועדון אפליקציה"]},
+        {"id": "mega:credit", "label": "מועדון קרפור אשראי", "kind": "card", "texts": ["מועדון קרפור אשראי"]}
+      ]
+    },
+    {
+      "chain_id": "7290873255550",
+      "slug": "tivtaam",
+      "name": "טיב טעם",
+      "clubs": [
+        {"id": "tivtaam:new", "label": "המועדון החדש", "kind": "club", "texts": ["המועדון החדש"]}
+      ]
+    },
+    {
+      "chain_id": "7290803800003",
+      "slug": "yohananof",
+      "name": "יוחננוף",
+      "clubs": [
+        {"id": "yohananof:staff", "label": "מועדון עובדים", "kind": "staff", "texts": ["מועדון עובדים"]}
+      ]
+    }
+  ]
+}

@@ -194,6 +194,18 @@ def is_full_loaded(
     return row is not None
 
 
+def loaded_full_stores(conn: psycopg.Connection, chain_id: str, kind: str, day: date) -> int:
+    """Stores of a chain with a loaded ``kind`` file published on ``day`` (Israel). A synthetic
+    row for a byte-identical republish counts: the store's full of the day is loaded."""
+    row = conn.execute(
+        "SELECT count(DISTINCT store_code) FROM file_tracking"
+        " WHERE chain_id = %s AND kind = %s AND status = 'loaded'"
+        "   AND (published_at AT TIME ZONE 'Asia/Jerusalem')::date = %s",
+        (chain_id, kind, day),
+    ).fetchone()
+    return int(row[0])
+
+
 def _has_item_count_column(conn: psycopg.Connection) -> bool:
     row = conn.execute(
         "SELECT 1 FROM pg_attribute WHERE attrelid = 'file_tracking'::regclass"

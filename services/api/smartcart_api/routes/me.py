@@ -20,7 +20,7 @@ from psycopg.types.json import Jsonb
 
 from smartcart_api import schemas
 from smartcart_api.auth import User, user_conn
-from smartcart_api.lists import load_lists
+from smartcart_api.lists import load_lists, write_items
 
 router = APIRouter(prefix="/me", tags=["me"])
 MAX_LISTS_PER_USER = 200
@@ -101,31 +101,6 @@ def _owned_list(conn: psycopg.Connection, user: User, list_id: int) -> schemas.S
     return load_lists(conn, user, [list_id], include_shared=False)[0]
 
 
-def _write_items(
-    conn: psycopg.Connection, user: User, list_id: int, items: list[schemas.ListItemIn]
-) -> None:
-    conn.execute("DELETE FROM list_items WHERE list_id = %s", (list_id,))
-    with conn.cursor() as cur:
-        cur.executemany(
-            "INSERT INTO list_items (list_id, user_id, canonical_id, input_text, quantity,"
-            " flex_level, confirmed, checked, sort) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            [
-                (
-                    list_id,
-                    user.id,
-                    it.canonical_id,
-                    it.input_text,
-                    it.quantity,
-                    it.flex_level,
-                    it.confirmed,
-                    it.checked,
-                    n,
-                )
-                for n, it in enumerate(items)
-            ],
-        )
-
-
 @router.get("/lists", response_model=list[schemas.ShoppingList])
 def list_lists(uc: UserConn) -> list[schemas.ShoppingList]:
     """The user's own lists, then the lists other users shared with them (accepted invites),
@@ -146,14 +121,14 @@ def create_list(body: schemas.ShoppingListIn, uc: UserConn) -> schemas.ShoppingL
         "INSERT INTO lists (user_id, name, is_recurring) VALUES (%s, %s, %s) RETURNING id",
         (user.id, body.name, body.is_recurring),
     ).fetchone()[0]
-    _write_items(conn, user, list_id, body.items)
+    write_items(conn, user, list_id, body.items)
     return _owned_list(conn, user, list_id)
 
 
 @router.get("/lists/{list_id}", response_model=schemas.ShoppingList)
 def get_list(list_id: int, uc: UserConn) -> schemas.ShoppingList:
     """An owned list, or one shared with the user (``shared``, ``role``). Only the owner may
-    PUT or DELETE it; editors change items through PostgREST (RLS)."""
+    PUT or DELETE it; owner and editors change single items with ``/me/lists/{id}/items``."""
     user, conn = uc
     found = _load_lists(conn, user, list_id)
     if not found:
@@ -163,7 +138,12 @@ def get_list(list_id: int, uc: UserConn) -> schemas.ShoppingList:
 
 @router.put("/lists/{list_id}", response_model=schemas.ShoppingList)
 def update_list(list_id: int, body: schemas.ShoppingListIn, uc: UserConn) -> schemas.ShoppingList:
-    """Replace the list's name, recurrence and items."""
+    """Replace the list's name, recurrence and items (owner only).
+
+    Id-stable: an item that carries the ``id`` of one of this list's items keeps its row and id and
+    is updated only if something changed; items without an id are added; items the body does not
+    name are deleted. The owner and the editors change single items, without touching the others,
+    with ``POST/PATCH/DELETE /me/lists/{id}/items``."""
     user, conn = uc
     updated = conn.execute(
         "UPDATE lists SET name = %s, is_recurring = %s WHERE id = %s AND user_id = %s",
@@ -171,7 +151,7 @@ def update_list(list_id: int, body: schemas.ShoppingListIn, uc: UserConn) -> sch
     ).rowcount
     if not updated:
         raise HTTPException(status_code=404, detail="list not found")
-    _write_items(conn, user, list_id, body.items)
+    write_items(conn, user, list_id, body.items)
     return _owned_list(conn, user, list_id)
 
 

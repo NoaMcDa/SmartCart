@@ -294,7 +294,144 @@ def _fmt_value(value: object) -> str:
     return str(value)
 
 
-def promo_profile(parsed, data: bytes) -> dict:  # noqa: ANN001
+def _shelf_check(groups: list, shelf: dict, check: Counter, bad: list, pid: str | None) -> None:
+    """Count, for a trigger group (``RewardType`` 0) and a reward group with a rate, the items
+    whose shelf price is known: trigger price = shelf, reward price = shelf x (1 - rate)."""
+    from decimal import Decimal
+
+    def num(v: str | None) -> Decimal | None:
+        try:
+            return Decimal(v) if v else None
+        except Exception:  # noqa: BLE001
+            return None
+
+    trig = [g for g in groups if {i.get("rewardtype") for i in g[1]} == {"0"}]
+    rew = [g for g in groups if g not in trig]
+    if len(trig) != 1 or len(rew) != 1:
+        return
+    mates = {i.get("itemcode"): i for i in trig[0][1]}
+    for item in rew[0][1]:
+        code = item.get("itemcode")
+        base, mate = shelf.get(code), mates.get(code)
+        rate, price = num(item.get("discountrate")), num(item.get("discountedprice"))
+        if base is None or mate is None or rate is None or price is None:
+            continue
+        check["items_with_shelf"] += 1
+        want = Decimal(str(base)) * (1 - rate / 100)
+        ok_reward = abs(want - price) <= Decimal("0.02")
+        check["reward_equals_shelf_x_rate"] += ok_reward
+        tprice = num(mate.get("discountedprice"))
+        if tprice is not None:
+            check["trigger_priced"] += 1
+            check["trigger_equals_shelf"] += abs(Decimal(str(base)) - tprice) <= Decimal("0.02")
+        if not ok_reward or (
+            tprice is not None and abs(Decimal(str(base)) - tprice) > Decimal("0.02")
+        ):
+            bad.append({"promo": pid, "item": code, "shelf": str(base), "trigger": str(tprice),
+                        "rate": str(rate), "reward": str(price)})  # fmt: skip
+
+
+def promo_shapes(
+    data: bytes, examples: int = 3, limit_items: int = 3, shelf: dict | None = None
+) -> dict:
+    """The shapes of the real promotions that are not a plain single-group price, bundle or
+    percent (#47): more than one group, a weekday restriction. Per promotion a signature is
+    built from what the file says (days, coupon, per group the reward types, item counts, quantity
+    and rate, and how the groups' item sets relate); the result is a histogram of signatures, a
+    few promotions in full per signature, and the ``PromotionDays`` values against descriptions
+    so the day numbering can be read off. With ``shelf`` (item code -> price, from the same
+    store's PriceFull) every two-group promotion whose reward group carries a rate is checked: the
+    trigger item's ``DiscountedPrice`` against the shelf price and the reward item's price against
+    ``shelf x (1 - rate / 100)`` (``shelf_check``). Pure; copies text and numbers, executes
+    nothing."""
+    from smartcart_ingest import xmlutil
+    from smartcart_ingest.adapters._common import ALL_ROW_TAGS, CONTAINERS, containers_in
+
+    decoded = xmlutil.decode(data)
+    root = xmlutil.read_header(decoded.data, ALL_ROW_TAGS)
+    row_tags = {r for c, (g, r) in CONTAINERS.items() if g == "promo" and c in containers_in(root)}
+    full_week = set("1234567")
+    sigs: Counter[str] = Counter()
+    shown: dict[str, list] = {}
+    days_seen: Counter[str] = Counter()
+    day_examples: dict[str, list] = {}
+    check: Counter[str] = Counter()
+    check_bad: list = []
+    for row in xmlutil.iter_rows(decoded.data, row_tags):
+        f = xmlutil.scalar_children(row)
+        days = f.get("promotiondays", "").replace(" ", "")
+        days_seen[days or "(empty)"] += 1
+        restricted = bool(days) and set(days.split(",")) != full_week
+        if restricted:
+            bucket = day_examples.setdefault(days, [])
+            if len(bucket) < 6:
+                bucket.append({
+                    "id": f.get("promotionid"), "description": f.get("promotiondescription", "")[:80],
+                    "start": f.get("promotionstartdatetime"), "end": f.get("promotionenddatetime"),
+                })  # fmt: skip
+        groups = []
+        for el in row.iter():
+            if xmlutil.localname(el) == "Group":
+                gf = xmlutil.scalar_children(el)
+                items = [xmlutil.scalar_children(i) for i in el.iter()
+                         if xmlutil.localname(i) == "PromotionItem"]  # fmt: skip
+                groups.append((gf, items))
+        if len(groups) == 1 and not restricted:
+            continue
+        if shelf and len(groups) == 2:
+            _shelf_check(groups, shelf, check, check_bad, f.get("promotionid"))
+        sets = [{i.get("itemcode") for i in items} for _, items in groups]
+        if len(sets) < 2:
+            relation = "-"
+        elif all(s == sets[0] for s in sets):
+            relation = "same_items"
+        elif any(s <= t for s in sets for t in sets if s is not t):
+            relation = "nested_items"
+        else:
+            relation = "different_items"
+        parts = []
+        for gf, items in groups:
+            kinds = sorted({i.get("rewardtype", "?") for i in items})
+            qty = sorted({i.get("minqty", "?").rstrip("0").rstrip(".") for i in items})[:3]
+            rate = sorted({i.get("discountrate", "") for i in items} - {""})[:3]
+            wild = any(set(i.get("itemcode", "")) == {"0"} for i in items)
+            parts.append(
+                f"[rt={'/'.join(kinds)} q={'/'.join(qty)} r={'/'.join(rate) or '-'}"
+                f"{' WILD' if wild else ''}{' MINBUY' if gf.get('minpurchaseamount') else ''}"
+                f"{' W' if any(i.get('bisweighted') == '1' for i in items) else ''}]"
+            )
+        sig = (
+            f"groups={len(groups)} {relation} days={'restricted' if restricted else 'all'}"
+            f" coupon={f.get('additionaliscoupon', '')} " + "".join(parts)
+        )
+        sigs[sig] += 1
+        bucket = shown.setdefault(sig, [])
+        if len(bucket) < examples:
+            bucket.append({
+                "id": f.get("promotionid"), "description": f.get("promotiondescription", "")[:80],
+                "days": days, "min_offered": f.get("minnoofitemoffered"),
+                "redemption_limit": f.get("redemptionlimit"), "gift": f.get("isgiftitem"),
+                "allow_multiple": f.get("allowmultiplediscounts"),
+                "groups": [{
+                    "min_purchase": gf.get("minpurchaseamount"), "type": gf.get("discounttype"),
+                    "n": len(items),
+                    "items": [{k: v for k, v in i.items()
+                               if k in ("itemcode", "rewardtype", "minqty", "maxqty",
+                                        "discountrate", "discountedprice",
+                                        "discountedpricepermida") and v}
+                              for i in items[:limit_items]],
+                } for gf, items in groups],
+            })  # fmt: skip
+    return {
+        "signatures": dict(sigs.most_common()),
+        "examples": shown,
+        "days": dict(days_seen.most_common()),
+        "day_examples": day_examples,
+        "shelf_check": {**check, "mismatches": check_bad[:8]} if shelf else None,
+    }
+
+
+def promo_profile(parsed, data: bytes, shelf: dict | None = None) -> dict:  # noqa: ANN001
     """What a real PromoFull holds, as the adapter read it: reward types, club ids, a value
     histogram of every raw field with few distinct values (``RewardType``, ``DiscountType``,
     ``MinQty``, ``AllowMultipleDiscounts`` ...), date windows against the file's publication
@@ -345,6 +482,10 @@ def promo_profile(parsed, data: bytes) -> dict:  # noqa: ANN001
         layout = promo_layout(data)
     except ValueError as exc:
         layout = {"error": str(exc)[:200]}
+    try:
+        shapes = promo_shapes(data, shelf=shelf)
+    except Exception as exc:  # noqa: BLE001 - extra; never fail the probe
+        shapes = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     return {
         "promos": len(promos),
         "stores": sorted({p.store_code for p in promos})[:20],
@@ -368,10 +509,27 @@ def promo_profile(parsed, data: bytes) -> dict:  # noqa: ANN001
         "layout": {k: v for k, v in layout.items() if k != "samples"},
         "layout_samples": layout.get("samples", []),
         "samples": samples,
+        "shapes": shapes,
     }  # fmt: skip
 
 
-def parse_summary(adapter, path: Path) -> dict:  # noqa: ANN001
+def _shelf_prices(adapter, parsed, price_path: Path | None) -> dict | None:  # noqa: ANN001
+    """item code -> shelf price from the chain's PriceFull, only when it is the promo file's store
+    (a promo file is per store; another store's shelf prices prove nothing)."""
+    if price_path is None:
+        return None
+    try:
+        data = price_path.read_bytes()
+        priced = adapter.parse(adapter.raw_file_for(price_path.name, data), data)
+    except Exception:  # noqa: BLE001 - extra; never fail the probe
+        return None
+    stores = {p.store_code for p in parsed.promos}
+    if not priced.prices or {p.store_code for p in priced.prices} != stores:
+        return None
+    return {p.item_code: p.price for p in priced.prices}
+
+
+def parse_summary(adapter, path: Path, price_path: Path | None = None) -> dict:  # noqa: ANN001
     """What the adapter reads from the file, outside any database. Errors are reported."""
     data = path.read_bytes()
     try:
@@ -394,7 +552,9 @@ def parse_summary(adapter, path: Path) -> dict:  # noqa: ANN001
                                         if p.raw.get("unapplied")))  # fmt: skip
         if parsed.promos:
             try:
-                out["profile"] = promo_profile(parsed, data)
+                out["profile"] = promo_profile(
+                    parsed, data, _shelf_prices(adapter, parsed, price_path)
+                )
             except Exception as exc:  # noqa: BLE001 - the profile is extra; never fail the probe
                 out["profile_error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
     return out
@@ -462,10 +622,23 @@ def _print_promo_profile(slug: str, entry: dict) -> None:
     if not profile:
         return
     head = {k: v for k, v in profile.items()
-            if k not in ("samples", "layout_samples", "layout")}  # fmt: skip
+            if k not in ("samples", "layout_samples", "layout", "shapes")}  # fmt: skip
     for tag, body in (("PROMO_PROFILE", head), ("PROMO_LAYOUT", profile["layout"])):
         print(f"{tag} " + json.dumps({"chain": slug, **body}, ensure_ascii=False),
               file=sys.stderr, flush=True)  # fmt: skip
+    shapes = profile.get("shapes") or {}
+    if shapes:
+        print("PROMO_SHAPES " + json.dumps({"chain": slug, "signatures": shapes.get("signatures"),
+                                            "days": shapes.get("days"), "error": shapes.get("error"),
+                                            "shelf_check": shapes.get("shelf_check")},
+                                           ensure_ascii=False), file=sys.stderr, flush=True)  # fmt: skip
+        for sig, found in (shapes.get("examples") or {}).items():
+            print("PROMO_SHAPE_EXAMPLE " + json.dumps({"chain": slug, "signature": sig,
+                                                       "examples": found}, ensure_ascii=False),
+                  file=sys.stderr, flush=True)  # fmt: skip
+        if shapes.get("day_examples"):
+            print("PROMO_DAYS " + json.dumps({"chain": slug, "examples": shapes["day_examples"]},
+                                             ensure_ascii=False), file=sys.stderr, flush=True)  # fmt: skip
     for i, sample in enumerate(profile.get("layout_samples", [])):
         print("PROMO_RAW " + json.dumps({"chain": slug, "n": i, "promotion": sample},
                                         ensure_ascii=False), file=sys.stderr, flush=True)  # fmt: skip
@@ -506,7 +679,8 @@ def gate(files: Path, slugs: Sequence[str], now: datetime | None) -> dict:
                     continue
                 adapter = cls()
                 results: dict = {}
-                for kind, path in sorted(pick_files(files, slug, adapter).items(),
+                picked = pick_files(files, slug, adapter)
+                for kind, path in sorted(picked.items(),
                                          key=lambda kv: KINDS.index(kv[0])):  # fmt: skip
                     data = path.read_bytes()
                     info = adapter.parse_filename(path.name)
@@ -518,7 +692,7 @@ def gate(files: Path, slugs: Sequence[str], now: datetime | None) -> dict:
                             if info.published_at
                             else None
                         ),
-                        "parse": parse_summary(adapter, path),
+                        "parse": parse_summary(adapter, path, picked.get("price_full")),
                     }
                     fetcher.current = _OneFile(adapter.chain_id, path.name, kind, data)
                     report = sched.run_full([adapter.chain_id]).chains[0]
