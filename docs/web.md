@@ -48,9 +48,11 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
 | `npm run lhci` | Lighthouse CI on `/`, `/compare`, `/design-system` (accessibility, best practices, SEO). Needs a build and `CHROME_PATH` |
 | `npm run fetch:fonts` | Re-download Heebo into `public/fonts` (one-time setup, output committed) |
 
-Playwright is pinned to 1.56.1 because that matches the Chromium revision preinstalled in the
-Claude Code containers (`/opt/pw-browsers/chromium-1194`). Elsewhere run
-`npx playwright install chromium` once, or set `PW_CHROMIUM_PATH` to a Chromium binary.
+Playwright is pinned to 1.64.1 (`@playwright/test` and the `playwright-core` override together), the
+first line that runs on Ubuntu 26.04 and on `ubuntu-latest` after its November 2026 move
+([dev-setup.md](dev-setup.md#continuous-integration)). The Claude Code containers have the 1.56
+Chromium (`/opt/pw-browsers/chromium-1194`): set `PW_CHROMIUM_PATH` to its `chrome-linux/chrome`, or
+run `npx playwright install chromium` once elsewhere.
 
 ## Stack and why
 
@@ -61,7 +63,7 @@ Claude Code containers (`/opt/pw-browsers/chromium-1194`). Elsewhere run
 | Styling | CSS Modules plus CSS variables | Tokens are the source of truth; no Tailwind |
 | Lint | ESLint 9 flat config, stylelint 17 | ESLint 10 is out; staying on 9 until the React plugins in `eslint-config-next` declare support |
 | Unit tests | Vitest 5, Testing Library, jsdom 29 | jsdom 30 needs Node 22.22.2+ |
-| E2E | Playwright 1.56.1, Chromium | See above |
+| E2E | Playwright 1.64.1, Chromium | See above |
 | API types | `openapi-typescript` 7 + `openapi-fetch` | Generated from the committed contract |
 | Mocks | MSW 3 handlers, resolved in process with `getResponse` | No mock service worker, so it never fights the PWA worker |
 | PWA | Hand-written `public/sw.js`, `app/manifest.ts` | See [PWA and offline](#pwa-and-offline) |

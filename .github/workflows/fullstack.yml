@@ -20,10 +20,10 @@ permissions:
 jobs:
   fullstack:
     name: demo pipeline, API smoke test, web e2e against the real API
-    # ubuntu-latest moves to Ubuntu 26.04 in November 2026. Playwright 1.61 and newer ship Chromium for
-    # it (1.56.1 did not: "Playwright does not support chromium on ubuntu26.04-x64"), so this runs on
-    # the moving label and meets 26.04 when GitHub flips it.
-    runs-on: ubuntu-26.04
+    # ubuntu-latest still resolves to Ubuntu 24.04 and moves to 26.04 in November 2026. Playwright 1.61
+    # and newer ship Chromium for 26.04 (1.56.1 did not: "Playwright does not support chromium on
+    # ubuntu26.04-x64"); with 1.64.1 this job was run once on `ubuntu-26.04` and passed (2026-10-21).
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     services:
