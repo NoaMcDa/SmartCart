@@ -156,6 +156,12 @@ def test_promotion_level_conditions_are_read_but_not_applied(kwargs: dict, reaso
     assert p.item_codes == ["7290000000001"]  # still linked to its item
 
 
+@pytest.mark.parametrize("desc", ["זיכוי אריזה ירקות דלעת", "קיזוז אריזה ג.עופר פילה אמנון"])
+def test_a_packaging_credit_is_not_a_discount(desc: str) -> None:
+    p = only(promo("1", group(item(reward="10", qty="0.5", rate="1", price="14.51")), desc=desc))
+    assert (p.reward_type, p.raw["unapplied"]) == ("other", "packaging_credit")
+
+
 def test_every_weekday_is_no_restriction() -> None:
     p = only(promo("1", group(item(price="11.90")), days="1,2,3,4,5,6,7"))
     assert p.reward_type == "price"
@@ -269,6 +275,26 @@ def test_n_for_p_in_the_description_must_match_the_fields() -> None:
     bad = promo_parse_confidence("bundle", description="בירה 3 ב 25.9", reward_value=D("25.00"),
                                  **kwargs)  # fmt: skip
     assert bad == (0.7, ["description_disagrees"])
-    wrong_n = promo_parse_confidence("bundle", description="בירה 2 ב 25", reward_value=D("25"),
-                                     **kwargs)  # fmt: skip
-    assert wrong_n == (0.7, ["description_disagrees"])
+    wrong_price = promo_parse_confidence(
+        "bundle", description="בירה 2 ב 30", reward_value=D("25"), **kwargs
+    )
+    assert wrong_price == (0.7, ["description_disagrees"])
+    # The price is the published one; the "26" is part of a product name.
+    name_number = promo_parse_confidence(
+        "bundle", description="יין פורטה 26 ב 90", reward_value=D("90"), **kwargs
+    )
+    assert name_number == (1.0, [])
+    # A weighed "2 for 120" is 1.9 kg for 114 in the fields: the same price per unit.
+    weighed = promo_parse_confidence(
+        "bundle", description="בשר טחון 2 ב 120", min_qty=D("1.9"), gift_count=None,
+        ends_at=datetime(2026, 10, 30), reward_value=D("114"),
+    )  # fmt: skip
+    assert weighed == (1.0, [])
+
+
+def test_a_very_long_club_label_is_shortened() -> None:
+    label = "מועדון לקוחות & " * 30
+    club = parse_club(f"3 - {label}")
+    assert club.name is not None and len(club.name) <= 120 and club.name.endswith("\u2026")
+    p = only(promo("1", group(item(price="11.90")), club=f"3 - {label}".replace("&", "&amp;")))
+    assert p.raw["club_ids"] == [f"3 - {label}".strip()]

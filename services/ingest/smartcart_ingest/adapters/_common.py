@@ -110,6 +110,12 @@ class Club(NamedTuple):
     expression: bool = False
 
 
+def _shorten(name: str, limit: int = 120) -> str:
+    """A very long club label (Shufersal lists dozens of credit-card clubs after "3 - ") cut to
+    ``limit`` characters; the full value stays in ``raw.club_ids``."""
+    return name if len(name) <= limit else name[: limit - 1].rstrip() + "\u2026"
+
+
 def parse_club(value: str) -> Club:
     """Read one ``ClubID`` value from a promotion (verified on real files, 2026-10-21).
 
@@ -131,7 +137,7 @@ def parse_club(value: str) -> Club:
         code, label = match.group(1), (match.group(2) or "").strip()
         if int(code) == 0:
             return Club(True, None)
-        return Club(False, label or CLUB_NAMES.get(code) or f"club {code}")
+        return Club(False, _shorten(label) or CLUB_NAMES.get(code) or f"club {code}")
     if _CLUB_EXPR_CHARS.search(text):
         names: list[str] = []
         for token in _CLUB_ALT.split(text):
@@ -146,7 +152,7 @@ def parse_club(value: str) -> Club:
         if len(joined) > 120:  # King Store lists 18 customer groups; the full text stays in raw
             joined = " | ".join(names[:3]) + f" | +{len(names) - 3}"
         return Club(False, joined or text, True)
-    return Club(False, text)
+    return Club(False, _shorten(text))
 
 
 def resolve_clubs(values: list[str]) -> tuple[bool, str | None, str | None]:
@@ -385,7 +391,11 @@ def promo_parse_confidence(
     n_for_p = _DESC_N_FOR_P.search(text)
     if n_for_p and reward_type == "bundle" and reward_value is not None and min_qty is not None:
         n, price = Decimal(n_for_p.group(1)), Decimal(n_for_p.group(2).replace(",", "."))
-        disagrees = disagrees or n != min_qty or price != reward_value
+        # The price must agree, or at least the price per unit (a weighed "2 ב 120" is 1.9 kg for
+        # 114 in the fields). A number in a product name ("יין פורטה 26 ב 90") does not count when
+        # the stated price is the published one.
+        same_unit_price = n > 0 and min_qty > 0 and price / n == reward_value / min_qty
+        disagrees = disagrees or not (price == reward_value or same_unit_price)
     if disagrees:
         score -= 0.3
         reasons.append("description_disagrees")
@@ -396,8 +406,13 @@ def promo_parse_confidence(
 
 _WILDCARD_ITEM = re.compile(r"^0+$")
 _FULL_WEEK = frozenset(range(1, 8))
+_PACKAGING_CREDIT = re.compile(r"(?:זיכוי|קיזוז)\s+אריזה")
+"""Tiv Taam and Yohananof publish packaging credits ("זיכוי אריזה ירקות", "קיזוז אריזה פילה") as
+promotions with a 1 to 4 percent reward: a weight adjustment at the till, not a discount on the
+shelf price. The description only blocks (never creates) a reward."""
 UNAPPLIED_REASONS = (
     "coupon_required",
+    "packaging_credit",
     "basket_condition",
     "multi_group",
     "weekday_restricted",
@@ -488,6 +503,8 @@ def grouped_terms(groups_el: etree._Element, fields: dict[str, str]) -> dict[str
         weekdays = set()
     if fields.get("additionaliscoupon") == "1":
         out["unapplied"] = "coupon_required"
+    elif _PACKAGING_CREDIT.search(fields.get("promotiondescription", "")):
+        out["unapplied"] = "packaging_credit"
     elif min_purchase is not None or wildcard:
         out["unapplied"] = "basket_condition"
     elif len(groups) != 1:

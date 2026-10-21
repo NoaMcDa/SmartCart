@@ -296,8 +296,8 @@ the VPS (#22) remains the production path whatever it shows. Steps:
    Yohananof (added for this workflow; it also runs on the VPS), and the laibcatalog download
    probe. Its exit code is printed, not enforced.
 2. `scripts/unblock/portal_probe.py probe`: per D13 chain, the portal's HTTP status, the Cerberus
-   login, and one Stores and one PriceFull file through `smartcart_ingest.adapters.fetch_fixtures`
-   (`--kind stores --kind price_full --timeout`, the pinned upstream scraper, one subprocess per
+   login, and one Stores, one PriceFull and one PromoFull file through
+   `smartcart_ingest.adapters.fetch_fixtures` (all three kinds, `--timeout`, the pinned upstream scraper, one subprocess per
    download so a hung portal is killed). Files land in `$RUNNER_TEMP/portal-probe/files/<slug>/`,
    outside the checkout. Only transparency portals are contacted, never an online store.
 3. `smartcart-ingest migrate` on the throwaway Supabase Postgres, then `portal_probe.py gate`:
@@ -306,13 +306,21 @@ the VPS (#22) remains the production path whatever it shows. Steps:
    bypass). The outcome is read back from `file_tracking` and `quarantine_events`.
 
 The job summary is one table: chain, portal reachable (HTTP status), login (Cerberus only), the
-Stores and PriceFull file (name, size, publication time), what the adapter parsed (stores and
-online stores; items and prices), the gate result (`loaded`, `quarantined (<gates>)`, `failed
+Stores, PriceFull and PromoFull file (name, size, publication time), what the adapter parsed (stores and
+online stores; items and prices; promos and club-only promos), the gate result (`loaded`, `quarantined (<gates>)`, `failed
 (<reason>)`) and the schema the adapter detected (v1 or v2; v2 depends on the provisional marker,
-#57). Download errors and alerts follow in collapsed sections. The same table is also printed to
+#57). A second table, "PromoFull files as the adapter read them", gives per chain the promos, the
+reward types the adapter assigned, how many were read but not applied and why, club-only,
+expired or not-yet-started at publication, confidence below 1.0, and what the loader wrote
+(promos and item links). Download errors and alerts follow in collapsed sections. The same table is also printed to
 the job log, and the gate step logs one untruncated `RESULT {...}` JSON line per file (chain,
-kind, file, size, publication time, schema, stores, items, prices, parse error, status, gates,
-reason), so the outcome can be read without downloading an artifact. Artifacts:
+kind, file, size, publication time, schema, stores, items, prices, promos, reward types, not-applied
+reasons, club-only, promos and item links loaded, parse error, status, gates, reason), and for each
+PromoFull four more kinds of line: `PROMO_PROFILE` (histogram of every raw field with few distinct
+values, date windows against the publication time, items per promotion, confidence reasons),
+`PROMO_LAYOUT` (how often each element occurs), `PROMO_RAW` (the first three promotions as nested
+dicts) and `PROMO_SAMPLE` (two promotions per reward type as the adapter read them), so the outcome
+and the real layout can be read without downloading an artifact. Artifacts:
 `portal-probe-files` (the raw files, 7 days) and `portal-probe-report` (table and JSON, 30 days).
 Inputs: `chains` (space-separated slugs, default all ten), `timeout` (seconds per download,
 default 180) and `commit_fixtures` (below). The job only fails if the script itself breaks;
@@ -328,12 +336,16 @@ not changed.
 
 **Committing real fixtures (`commit_fixtures`, #32).** With the input set, the probe job runs
 `portal_probe.py fixtures` after the gates: every file the adapter accepted is written to
-`<chain>/real/`, Stores whole and PriceFull trimmed to its first 200 rows by
-`fetch_fixtures.trim_price_file` (decoded and parsed with the adapters' own `xmlutil`, no entity
+`<chain>/real/`, Stores whole, PromoFull trimmed to 100 promotions and PriceFull trimmed to its
+first 200 rows by `fetch_fixtures.trim_price_file` (decoded and parsed with the adapters' own `xmlutil`, no entity
 resolution; header, XML declaration, encoding, BOM and outer gzip or zip kept; a numeric `Count`
-on the container updated), then re-parsed through the adapter. Each chain gets a `MANIFEST.json`:
+on the container updated), then re-parsed through the adapter. `trim_promo_file` keeps
+100 promotions evenly spaced over the file (the first, then every n-th: a real PromoFull is sorted by
+promotion id, so its first hundred are the oldest and, at Shufersal, 98 coupons), each whole with
+all its items; the legacy flat `Sales/Sale` layout is grouped by `PromotionID`, so a promotion's rows
+are kept or dropped together. Each chain gets a `MANIFEST.json`:
 source file name, sha256 and size of the original and of the committed file, publication and
-fetch times, rows before and after trimming, what the adapter parsed, the schema and the gate
+fetch times, rows (`items_*`) or promotions (`promos_*`) before and after trimming, what the adapter parsed, the schema and the gate
 result seen on the runner. A separate job, the only one with `contents: write`, copies the
 artifact into `services/ingest/tests/fixtures/<chain>/real/` (`scripts/unblock/copy_fixtures.sh`
 accepts only `<known chain>/real/<plain file name>`), commits as `github-actions[bot]` and pushes
@@ -341,12 +353,31 @@ the branch `probe/fixtures-<YYYYMMDD>` (with the run id appended if that branch 
 request is opened, and a push with the workflow token does not start other workflows, so CI runs
 when the pull request is opened. `tests/test_adapters.py` then picks the files up: each must parse
 through its adapter with a schema, a publication time and (PriceFull) a store code, items, prices
-with a store code and every price above zero; and per chain the files go through the Scheduler
+with a store code and every price above zero, (PromoFull) promotions with a store code, a known
+reward type and a confidence; and per chain the files go through the Scheduler
 path with the clock one hour after the newest file and must load, or be quarantined only by the quality
 gates above that their `MANIFEST.json` recorded. The synthetic fixtures are unchanged
 and stay the regression set for the edge cases. In one fresh
 database a PriceFull has no earlier file, so the item-count and price-jump gates cannot trip;
 stale date and zero price can.
+
+**What the first two runs measured (2026-10-21, GitHub runner, runs 39642633971 and
+39647593706, about 20 minutes each, started 17:18 and 17:52 UTC).** Reachable and downloading:
+Shufersal, Rami Levy, Tiv Taam, Osher Ad and Yohananof (Cerberus FTP login `ok`, certificate not
+verified as upstream), Mega and King Store (HTTP 403 on the home page, the scraper still gets the
+files). Not reachable: Victory and Machsanei Hashuk (laibcatalog: connection timed out), Hazi Hinam
+(HTTP 403). So seven of ten chains yield files from a runner, as on 2026-10-08. Every Stores,
+PriceFull and PromoFull file the adapters read went through the Scheduler path and `loaded`; the
+Stores files of Rami Levy, Tiv Taam, Osher Ad and Yohananof were `quarantined (stale_date)` (the
+newest Stores file on those Cerberus portals was published 2026-10-19, 60 to 68 hours old against
+the 36-hour limit; they publish Stores files rarely, which a nightly load must tolerate). PromoFull
+sizes: Shufersal 242 KB (1358 promotions, store 116) and 1000 (store 310), Rami Levy 395 KB (2660),
+Mega 185 KB (1550), Tiv Taam 341 KB (2246), Osher Ad 86 KB (658), Yohananof 1199, King Store 23 KB
+(301); the promo item codes are linked only to items the chain's PriceFull of that run priced
+(the PriceFull and PromoFull are for different stores at Shufersal and Yohananof). The reading
+of the files is in docs/adapters.md, "Promotions in real files". The scraper takes the first listed
+file, and Yohananof's portal lists a stale 2024 `PromoFull0000000000000-...` first: `fetch` now
+retries with ten files when the first is not usable.
 
 Run it locally without portal access on a migrated database:
 `uv run --no-sync python scripts/unblock/portal_probe.py gate --files services/ingest/tests/fixtures`
@@ -359,7 +390,10 @@ Run it locally without portal access on a migrated database:
   of the ten chains lists and downloads today's files, and that published times and store codes
   parse from the real filenames.
 - Chain base prices and per-store exceptions (needs a model change, see Loader).
-- Ending promos that disappear from the day's PromoFull (they keep their `ends_at`).
+- Ending promos that disappear from the day's PromoFull (they keep their `ends_at`). King Store's
+  file carries promotions that are over (38 of 301), so `ends_at` matters there.
+- PromoFull from Victory, Machsanei Hashuk and Hazi Hinam (unreachable from the runner), and a
+  second store per chain (whether chain-wide promotions repeat across store files).
 - Held deltas never expire; a day whose full file never loads keeps its deltas held.
 - `tests/test_quality_adapters.py` runs every registered chain adapter's fixtures through the
   whole pipeline (gates included) and checks the gates catch a zero price, a price jump and a stale
