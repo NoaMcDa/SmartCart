@@ -889,23 +889,34 @@ def api_stage(
                 rec["cheapest_complete"] = (
                     {"store": f"{best['chain_name']} {best['store_name']}",
                      "total": money(best["total"])} if best else None)  # fmt: skip
-                for solver in ("heuristic", "milp"):
+                for variant, solver in (
+                    ("", "heuristic"),
+                    ("", "milp"),
+                    ("relaxed_", "heuristic"),
+                    ("relaxed_", "milp"),
+                ):
+                    # "relaxed": an extra stop is worth nothing and any split is returned, which
+                    # exercises the split code and the MILP's third solve (docs/optimizer.md).
+                    relaxed = variant == "relaxed_"
                     req = {**body, "solver": solver,
-                           "travel": {"mode": "car", "cost_per_km": 1.2, "extra_stop_value": 25}}  # fmt: skip
+                           "travel": {"mode": "car", "cost_per_km": 1.2,
+                                      "extra_stop_value": 0 if relaxed else 25}}  # fmt: skip
+                    if relaxed:
+                        req["min_split_saving"] = 0
                     ms_list: list[float] = []
                     opt = None
                     for _ in range(repeats):
                         res, ms = timed(lambda req=req: client.post("/optimize", json=req))
                         ms_list.append(ms)
                         if res.status_code != 200:
-                            run.fail("api", f"/optimize {solver} {loc['name']} {bname}: HTTP "
+                            run.fail("api", f"/optimize {variant}{solver} {loc['name']} {bname}: HTTP "
                                      f"{res.status_code} {res.text[:200]}")  # fmt: skip
                             opt = None
                             break
                         opt = res.json()
                     entry: dict = {"ms": summarize_ms(ms_list)}
                     if opt is not None:
-                        label = f"{loc['name']} {bname} {solver}"
+                        label = f"{loc['name']} {bname} {variant}{solver}"
                         for key in ("single", "split", "minimum_effort"):
                             check_plan(opt.get(key), f"{label} {key}", problems)
                         recommended = [
@@ -918,7 +929,7 @@ def api_stage(
                         })  # fmt: skip
                         if solver == "milp" and opt["solver"] != "milp":
                             problems.append(f"{label}: the MILP fell back to the heuristic")
-                    rec[solver] = entry
+                    rec[variant + solver] = entry
                 h, m = (
                     rec.get("heuristic", {}).get("recommended"),
                     rec.get("milp", {}).get("recommended"),
@@ -1563,6 +1574,28 @@ def render_report(res: dict) -> str:
 
                 a(
                     f"| {md_escape(basket)} | {med('compare')} | {med('heuristic')} | {med('milp')} |"
+                )
+            a("")
+        relaxed = [r for r in api["runs"] if "relaxed_milp" in r]
+        if relaxed:
+            a(
+                "Relaxed variant (an extra stop is worth 0 and `min_split_saving` is 0, so a split is "
+                "returned whenever it is at least as cheap): this is the heavy path of the MILP."
+            )
+            a("")
+            a(
+                "| location | basket | heuristic ms | MILP ms | split (heuristic) | split (MILP) | net saving heuristic / MILP |"
+            )
+            a("|---|---|---|---|---|---|---|")
+            for r in relaxed:
+                h, mm = r["relaxed_heuristic"], r["relaxed_milp"]
+                hs, ms_ = h.get("split") or {}, mm.get("split") or {}
+                a(
+                    f"| {md_escape(r['location'])} | {md_escape(r['basket'])} | {_ms(h.get('ms'))} | "
+                    f"{_ms(mm.get('ms'))} | {md_escape(', '.join(hs.get('stores', [])) or '-')} | "
+                    f"{md_escape(', '.join(ms_.get('stores', [])) or '-')} | "
+                    f"{_n((h.get('recommended') or {}).get('net_saving'))} / "
+                    f"{_n((mm.get('recommended') or {}).get('net_saving'))} |"
                 )
             a("")
         if api["problems"]:
