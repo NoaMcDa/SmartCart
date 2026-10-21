@@ -233,7 +233,11 @@ What the real files showed against the rules this repository started with:
   `redemption_limited` (a `RedemptionLimit` above 0, which is applied nowhere),
   `club_in_description` (the description names a club while `ClubID` says everyone) and
   `pair_description_disagrees` (the words contradict the fields). Across the seven full files
-  @@APPLIED@@
+82 % (Rami Levy) to 100 % (King Store) of the promotions are applied; with the two-group pairs,
+  Rami Levy 2179 of 2660 (was 2163), Shufersal 1232 of 1358 (1218), Mega 1446 of 1550 (1439), Tiv Taam
+  2226 of 2246 (2187), Yohananof 1144 of 1199 (1138), Osher Ad 655 of 658 and King Store 301 of 301
+  unchanged (probe runs 39663328336 and 39665275662, 2026-10-21; Shufersal's run 39665275662 file
+  is the 1358-promotion one, run 39663328336 happened to fetch a one-promotion file).
 - **Reading of an applied promotion** (one group, real item codes, no coupon, no basket condition):
 
 | Items | `reward_type` | `reward_value` | `min_qty` |
@@ -264,7 +268,7 @@ them as `PROMO_SHAPES`). The shapes, with what each is and what is done:
 | the same groups with `AdditionalIsCoupon` 1 (Mega's "פיצוי ..." compensation coupons, Shufersal's `20ש - קופון ח"ע` series) | a coupon | unapplied: `coupon_required` |
 | price-only rewards with no rate ("1+3 חינם הזול מביניהם", "1+2", Yohananof 2) | unknown semantics | unapplied: `multi_group` |
 | `RewardType` 6 in both groups (Tiv Taam "קופון 25 ש\"ח הנחה"), an empty trigger group (Osher Ad "חלון מכירת שקיות"), three groups | coupons, bag sales | unapplied: `multi_group` |
-| rate 65 with description "ב35% הנחה" (Yohananof 1) | the words say 35 % off, the price says 65 % off | unapplied: `pair_description_disagrees` |
+| rate 65 with description "ב35% הנחה" (Yohananof 1), one more in Tiv Taam | the words say 35 % off, the price says 65 % off | unapplied: `pair_description_disagrees` |
 
 What makes a pair applied (every condition; otherwise the promotion keeps its reason): exactly one
 trigger group (all items `RewardType` 0, real item codes) and one reward group (`RewardType` 1, 2, 3
@@ -283,8 +287,17 @@ off; 100 is free), so the effective price per pack is `shelf x (X + Y (1 - P/100
 
 What is **verified**: the structure (trigger group at the shelf price, reward group at rate and price)
 and the arithmetic `reward = trigger x (1 - rate / 100)` on every promotion of the fixtures
-(`test_promo_pairs.py`, `test_real_promos.py`); @@SHELF@@ The descriptions agree with the fields
-("1+1", "2+1", "השני ב 50%", "השני בחצי"). What is **not determined**: whether the pair may mix
+(`test_promo_pairs.py`, `test_real_promos.py`), and **against the stores' own shelf prices** (the
+probe's `shelf_check`, run 39665275662, for the chains whose PriceFull is for the promotion file's
+store): Tiv Taam 708 of 708 reward items cost `shelf x (1 - rate / 100)` and 708 of 708 trigger
+prices equal the shelf price, Rami Levy 157 of 157 and Mega 37 of 37 reward prices (their trigger
+groups carry no price), no mismatch; Shufersal's and Yohananof's PriceFull files are for other
+stores, so those two are checked by the arithmetic inside the file only. The descriptions agree
+with the fields ("1+1", "2+1", "השני ב 50%", "השני בחצי"); **Tiv Taam writes the price percentage**:
+"השני ב 40%" is a reward of rate 60 (the second costs 40 % of the shelf price; 15 promotions, 40 /
+60 / 70 against rates 60 / 40 / 30, all complementary), so a percentage without the word "הנחה" is
+read as the rate or as `100 - rate`, and with "הנחה" as the rate only (Yohananof "ב35% הנחה" on a
+rate of 65 stays unapplied, 1 promotion). What is **not determined**: whether the pair may mix
 products of the group. For "2+1 הזול מבניהם" ("the cheapest of them") the description says it does,
 for the others the file does not; the adapter applies only the same-item reading and the MILP's
 mixed-pair rule is a lower bound (docs/optimizer.md), so a promo with more than one item has
