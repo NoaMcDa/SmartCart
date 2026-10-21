@@ -2,15 +2,16 @@ name: Portal probe
 
 # Issues #32, #53, #57 and #60 (preparation). From a GitHub-hosted runner, which is NOT an Israeli
 # IP, so this also measures which portals block cloud ranges: reachability of the transparency
-# portals of the ten D13 chains, the Cerberus FTP login, one Stores and one PriceFull file per
-# chain where reachable (through the pinned upstream scraper, never a chain's online store), and
+# portals of the ten D13 chains, the Cerberus FTP login, one Stores, one PriceFull and one PromoFull
+# file per chain where reachable (through the pinned upstream scraper, never a chain's online store), and
 # every downloaded file through the real Scheduler path (adapter, quality gates, loader) in a
 # throwaway Postgres. Downloaded files are untrusted data: only the chain adapters read them.
 # It is a measurement: unreachable portals do not fail the job. See docs/ingestion.md.
 #
 # With commit_fixtures, the files the adapters accepted become regression fixtures: Stores whole,
-# PriceFull trimmed to its first 200 rows, under services/ingest/tests/fixtures/<chain>/real/ with
-# a MANIFEST.json, committed by a separate job (the only one with write access) to a new branch
+# PriceFull trimmed to its first 200 rows, PromoFull trimmed to its first 100 promotions (each kept
+# whole with all its items), under services/ingest/tests/fixtures/<chain>/real/ with a
+# MANIFEST.json, committed by a separate job (the only one with write access) to a new branch
 # probe/fixtures-<YYYYMMDD>. No pull request is opened.
 
 on:
@@ -70,6 +71,7 @@ jobs:
       CHAINS: ${{ inputs.chains || '' }}
       DOWNLOAD_TIMEOUT: ${{ inputs.timeout || 180 }}
       FIXTURE_ITEMS: "200"
+      FIXTURE_PROMOS: "100"
 
     steps:
       # Scheduled runs use the default branch, which may hold only docs and workflow copies; the
@@ -106,7 +108,7 @@ jobs:
           exit 0
 
       # Untrusted downloads live outside the checkout ($RUNNER_TEMP); nothing runs from there.
-      - name: Download one Stores and one PriceFull file per chain
+      - name: Download one Stores, one PriceFull and one PromoFull file per chain
         run: |
           echo "PROBE_DIR=$RUNNER_TEMP/portal-probe" >> "$GITHUB_ENV"
           PROBE_DIR="$RUNNER_TEMP/portal-probe"
@@ -119,7 +121,8 @@ jobs:
         run: uv run --no-sync smartcart-ingest migrate
 
       # Prints one untruncated "RESULT {...}" line per file to the log (schema, counts, gate
-      # status, gates and reason).
+      # status, gates and reason), and for a PromoFull the PROMO_PROFILE, PROMO_LAYOUT, PROMO_RAW
+      # and PROMO_SAMPLE lines (what the real promotions hold, as the adapter read them).
       - name: Adapters, quality gates and loader (the real Scheduler path)
         run: |
           args=()
@@ -138,13 +141,13 @@ jobs:
             echo "no probe table" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Build regression fixtures (trimmed PriceFull, whole Stores, MANIFEST.json)
+      - name: Build regression fixtures (trimmed PriceFull and PromoFull, whole Stores, MANIFEST.json)
         id: fixtures
         if: inputs.commit_fixtures
         run: |
           uv run --no-sync python scripts/unblock/portal_probe.py fixtures \
             --files "$PROBE_DIR/files" --gate-json portal-probe.json \
-            --out "$PROBE_DIR/fixtures" --max-items "$FIXTURE_ITEMS"
+            --out "$PROBE_DIR/fixtures" --max-items "$FIXTURE_ITEMS" --max-promos "$FIXTURE_PROMOS"
           mkdir -p "$PROBE_DIR/fixtures"
           echo "chains=$(find "$PROBE_DIR/fixtures" -name MANIFEST.json | wc -l | tr -d ' ')" >> "$GITHUB_OUTPUT"
 
@@ -218,7 +221,7 @@ jobs:
             exit 0
           fi
           git commit -q -m "Real transparency fixtures from the portal probe" \
-            -m "Stores files whole, PriceFull trimmed to its first $FIXTURE_ITEMS rows, with a MANIFEST.json per chain. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            -m "Stores files whole, PriceFull trimmed to its first $FIXTURE_ITEMS rows, PromoFull trimmed to its first $FIXTURE_PROMOS promotions, with a MANIFEST.json per chain. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           git push origin "HEAD:refs/heads/$branch"
           {
             echo "## Fixtures committed"
@@ -229,3 +232,4 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
         env:
           FIXTURE_ITEMS: "200"
+          FIXTURE_PROMOS: "100"
