@@ -239,7 +239,13 @@ The first real-day run priced a tray of 12 eggs at 14.20 **per egg**. This secti
    `pack_reads` (`count_from_name`: the name stated it and the fields said 1 or nothing;
    `count_conflict`: two stated counts differed, the smaller was used; `measure_conflict`, below)
    and `pack_samples` (up to 20 of each, with the item id, the name and what each reading said).
-5. If no reading states a count the item is compared per pack as before (`pack_units` NULL, the
+5. **Sanity cap** (`precompute.sane_pack`, the limits of the loader's `unitprice.MAX_BASE_AMOUNT`): a
+   pack above 50 kg, 50 l or 10,000 units is no reading, in the fields' fallback (`derive_unit_price`)
+   as in the name's. Mega's `ליטר 1` rows (80 to 686 "liters" of chips, spices and canned peas, really
+   grams) get no unit price from the loader and none from the precompute either; a dimension the
+   canonical does not have (liters under a per-100 g canonical) is no reading. The item is left out of
+   that canonical, or, under a per-unit canonical with no stated count, compared per pack.
+6. If no reading states a count the item is compared per pack as before (`pack_units` NULL, the
    quantity counts shelf items). A single loose roll under `toilet-paper` (typical 32) is therefore
    priced as one roll per pack: not detectable without a stated count.
 

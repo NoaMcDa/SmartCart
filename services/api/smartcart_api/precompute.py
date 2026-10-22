@@ -65,6 +65,7 @@ from psycopg.types.json import Jsonb
 
 from smartcart_catalog.models import NormalizedItem
 from smartcart_catalog.normalize import normalize
+from smartcart_ingest.unitprice import MAX_BASE_AMOUNT
 
 log = structlog.get_logger("smartcart_api.precompute")
 
@@ -185,24 +186,45 @@ _LITER = {"l", "lt", "ltr", "liter", "litre", "ליטר", "ל"}
 _UNIT = {"unit", "units", "יחידה", "יחידות", "יח"}
 
 
+_DIM = {"100g": "mass", "100ml": "volume", "unit": "unit"}
+
+
+def sane_pack(amount: Decimal, base_unit: str) -> bool:
+    """A pack of ``amount`` grams, milliliters or units (``base_unit`` 100g, 100ml or unit) that a
+    real shelf item can be: positive and within the loader's limits (``unitprice.MAX_BASE_AMOUNT``:
+    50 kg, 50 l, 10,000 units)."""
+    dim = _DIM.get(base_unit)
+    return dim is not None and 0 < amount <= MAX_BASE_AMOUNT[dim]
+
+
 def derive_unit_price(
     price: Decimal, quantity: Decimal | None, unit: str | None
 ) -> tuple[Decimal, str] | None:
-    """Unit price from the pack size when the file published none: per 100 g, 100 ml or unit."""
+    """Unit price from the pack size when the file published none: per 100 g, 100 ml or unit.
+
+    None when the pack is not sane (``sane_pack``): at most 50 kg, 50 l or 10,000 units. Mega's
+    ``ליטר 1`` rows carry 80 to 686 "liters" of chips and spices; the loader gives them no unit
+    price and this fallback must not invent one from the same field."""
     if quantity is None or quantity <= 0 or not unit:
         return None
     u = "".join(ch for ch in unit.strip().lower() if ch not in "\"'׳״. ")
     if u in _GRAM:
-        return price * _HUNDRED / quantity, "100g"
-    if u in _KG:
-        return price * _HUNDRED / (quantity * 1000), "100g"
-    if u in _ML:
-        return price * _HUNDRED / quantity, "100ml"
-    if u in _LITER:
-        return price * _HUNDRED / (quantity * 1000), "100ml"
-    if u in _UNIT:
-        return price / quantity, "unit"
-    return None
+        base, dim = quantity, "100g"
+    elif u in _KG:
+        base, dim = quantity * 1000, "100g"
+    elif u in _ML:
+        base, dim = quantity, "100ml"
+    elif u in _LITER:
+        base, dim = quantity * 1000, "100ml"
+    elif u in _UNIT:
+        base, dim = quantity, "unit"
+    else:
+        return None
+    if not sane_pack(base, dim):
+        return None
+    if dim == "unit":
+        return price / base, "unit"
+    return price * _HUNDRED / base, dim
 
 
 def to_base_unit(unit_price: Decimal, uom: str, base_unit: str) -> Decimal | None:
@@ -459,13 +481,15 @@ def _read_count(p: PricedItem) -> UnitReading | None:
             from_name = norm.total_quantity
         elif norm.pack_count > 1:  # "6 גלילים 400 גרם": the pieces, not the grams
             from_name = Decimal(norm.pack_count)
+        if from_name is not None and not sane_pack(from_name, "unit"):
+            from_name = None
     field = derive_unit_price(p.price, p.quantity, p.unit)
     from_fields = p.quantity if field is not None and field[1] == "unit" else None
     from_published = None
     if p.uom == "unit" and p.unit_price is not None and p.unit_price > 0:
         implied = p.price / p.unit_price  # 14.20 at 1.18 per unit: 12.03 eggs, i.e. 12
         whole = implied.quantize(Decimal(1), rounding=ROUND_HALF_UP)
-        if whole > 0 and abs(implied - whole) <= whole * Decimal("0.06"):
+        if sane_pack(whole, "unit") and abs(implied - whole) <= whole * Decimal("0.06"):
             from_published = whole
     readings = (("name", from_name), ("fields", from_fields), ("published", from_published))
     stated = {k: v for k, v in readings if v is not None and v >= _STATED_COUNT}
@@ -502,6 +526,7 @@ def _read_measure(p: PricedItem, base_unit: str) -> UnitReading | None:
         and not norm.is_weighed
         and norm.base_unit == base_unit
         and norm.total_quantity
+        and sane_pack(norm.total_quantity, base_unit)
     ):
         readings["name"] = p.price * _HUNDRED / norm.total_quantity
     if not readings:

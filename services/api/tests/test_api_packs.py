@@ -24,6 +24,7 @@ from smartcart_api import schemas
 from smartcart_api.basket import money, shelf_packs, units_per_pack
 from smartcart_api.precompute import (
     PricedItem,
+    derive_unit_price,
     precompute_effective_prices,
     read_unit_price,
     unit_price_in,
@@ -539,3 +540,70 @@ def test_price_history_is_per_egg_too(client, db, world: World) -> None:
     assert r.status_code == 200, r.text
     prices = {D(p["unit_price"]) for p in r.json()["points"] if p["unit_price"] is not None}
     assert prices == {D("1.2000")}
+
+
+# --- the sanity cap of the fallback (Mega's gram packs labelled as liters) -------------------------
+
+
+@pytest.mark.parametrize(
+    ("qty", "unit"),
+    [
+        ("200", "ליטר"),  # Mega 'ליטר 1' rows carry 80 to 686 "liters" of chips and spices
+        ("80", "ליטר"),
+        ("686", "ליטר"),
+        ("50.1", "ליטר"),
+        ("50001", "מיליליטר"),
+        ("50.5", 'ק"ג'),
+        ("50001", "גרם"),
+        ("10001", "יחידות"),
+    ],
+)
+def test_the_fallback_refuses_an_insane_pack(qty, unit) -> None:
+    assert derive_unit_price(D("12.90"), D(qty), unit) is None
+
+
+@pytest.mark.parametrize(
+    ("qty", "unit", "per100"),
+    [
+        ("50", "ליטר", D("12.90") * 100 / 50000),  # the limit itself is a real pack
+        ("7920", "מיליליטר", D("12.90") * 100 / 7920),  # the largest real volume (King Store)
+        ("8", 'ק"ג', D("12.90") * 100 / 8000),  # the largest real weight
+    ],
+)
+def test_the_fallback_keeps_the_largest_real_packs(qty, unit, per100) -> None:
+    got = derive_unit_price(D("12.90"), D(qty), unit)
+    assert got is not None and got[0] == per100
+    assert derive_unit_price(D("12.90"), D("10000"), "יחידות") == (D("12.90") / 10000, "unit")
+
+
+def test_a_gram_pack_labelled_as_liters_gets_no_unit_price() -> None:
+    """The loader leaves the unit price NULL for these rows; the precompute must not compute
+    one from the same fields: '200 liters' of chips is no price per 100 ml."""
+    chips = _item("7.90", "צ'יפס פיקנטי 200", "200", "ליטר")
+    assert read_unit_price(chips, "100ml") is None  # a liter canonical: no price, not 0.0040
+    assert read_unit_price(chips, "100g") is None  # nor 200 liters read as 200 kg of anything
+    assert read_unit_price(chips, "unit") is not None  # per pack, as an item of unknown size
+
+
+def test_the_name_still_prices_a_mislabelled_pack_when_it_states_a_sane_size() -> None:
+    """The fields are refused, the name '200 גרם' is not: per 100 g, and still no per-100 ml."""
+    chips = _item("7.90", "צ'יפס פיקנטי 200 גרם", "200", "ליטר")
+    got = read_unit_price(chips, "100g")
+    assert got is not None and got.unit_price == D("3.95") and got.uom == "100g"
+    assert read_unit_price(chips, "100ml") is None  # a dimension the canonical does not have
+
+
+@pytest.mark.db
+@pytest.mark.postgis
+@pytest.mark.pgvector
+def test_precompute_gives_a_mislabelled_item_no_row(db, world: World) -> None:
+    add_counted_canonical(db, world, "soda", 1000, base="100ml")
+    add_pack_item(db, world, "chips", "soda", "t-c1", "צ'יפס פיקנטי 200", "200", "ליטר", "7.90")
+    precompute_effective_prices(db, chains=world.chains)
+    assert (
+        db.execute(
+            "SELECT count(*) FROM effective_prices WHERE canonical_id = %s",
+            (world.canon["soda"],),
+        ).fetchone()[0]
+        == 0
+    )
