@@ -169,7 +169,7 @@ jobs:
   commit-report:
     name: commit the report to real-day/report-<run id>
     needs: real-day
-    if: always() && inputs.commit_report
+    if: always() && (inputs.commit_report || github.event_name == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
