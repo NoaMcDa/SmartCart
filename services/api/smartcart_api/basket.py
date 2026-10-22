@@ -32,6 +32,9 @@ Line rules:
   there is one, with that item's offer at the same store as ``original_here`` (display only: it
   is the store's ``any_brand`` row, already club-gated, priced at the line's quantity, and read
   from the rows and item lookups the line itself uses, so it adds no query per line).
+* Offers for the quantity asked: the line is the cheapest for the quantity among the ``effective_prices``
+  row (best unit price), the options of a club row and the rows of ``effective_offers`` that are open
+  to the user; a tie goes to an item of the level (not a close substitute), then the lower unit price.
 * Allowed attributes (issue #31, ``BasketItem.allow``): with ``any_brand`` or ``close`` and a
   non-empty ``allow``, a store may also offer an item of a sibling canonical (same product type,
   taxonomy node and base unit) whose critical attributes differ from the requested canonical's
@@ -48,24 +51,25 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from typing import Any
 
 import psycopg
 
 from smartcart_api import schemas
+from smartcart_api.offers import (  # noqa: F401  (re-exported: the pricing rules live in offers.py)
+    ZERO,
+    line_total,
+    money,
+    shelf_packs,
+    units_per_pack,
+)
 from smartcart_api.precompute import FLEX_ORDER, Option, item_options
 from smartcart_catalog.judge import BRAND_KEYS, quantity_in_base, values_equal
 from smartcart_catalog.models import ALWAYS_UNVERIFIED
 from smartcart_ingest.adapters import membership
 
-_C2 = Decimal("0.01")
 _Q4 = Decimal("0.0001")
-ZERO = Decimal(0)
-
-
-def money(d: Decimal) -> Decimal:
-    return d.quantize(_C2, rounding=ROUND_HALF_UP)
 
 
 def distance_is_approximate(geo_precision: str | None) -> bool:
@@ -307,49 +311,6 @@ def _from_option(o: Option) -> _Choice:
     )
 
 
-def shelf_packs(c: _Choice, quantity: Decimal, units_per_pack: Decimal | None) -> Decimal:
-    """Shelf items to buy for ``quantity`` packs of the requested canonical.
-
-    ``units_per_pack`` is the canonical's typical count (12 for ``eggs-l``), None when the
-    canonical is not counted in units. When both it and the item's own count (``c.pack_units``)
-    are known the line buys whole shelf items covering ``quantity x units_per_pack`` units;
-    otherwise the quantity already counts shelf items."""
-    if c.pack_units is None or units_per_pack is None:
-        return quantity
-    return (quantity * units_per_pack / c.pack_units).to_integral_value(rounding=ROUND_CEILING)
-
-
-def units_per_pack(base_unit: str, soft_attrs: dict | None) -> Decimal | None:
-    """The typical count of a canonical counted in units (``soft_attrs.pack_size`` in units); 1
-    when it states none. None for a weight or a volume, which count shelf items."""
-    if base_unit != "unit":
-        return None
-    soft = soft_attrs or {}
-    size = soft.get("pack_size")
-    if size is None or soft.get("unit") not in (None, "unit"):
-        return Decimal(1)
-    try:
-        value = Decimal(str(size))
-    except ArithmeticError:
-        return Decimal(1)
-    return value if value > 0 else Decimal(1)
-
-
-def line_total(c: _Choice, quantity: Decimal, by_weight: bool) -> tuple[Decimal, bool]:
-    """(line total, promo applied) for ``quantity`` of choice ``c``."""
-    if by_weight:
-        return money(quantity * c.effective_unit_price), c.promo_id is not None
-    need = c.promo_min_qty or Decimal(1)
-    if c.promo_id is None:
-        return money(quantity * c.shelf_price), False
-    if need <= 1:
-        return money(quantity * c.effective_price), True
-    bundles = (quantity / need).to_integral_value(rounding=ROUND_FLOOR)
-    rest = quantity - bundles * need
-    total = bundles * money(c.effective_price * need) + rest * c.shelf_price
-    return money(total), bundles > 0
-
-
 def _unit_paid(c: _Choice, total: Decimal, qty: Decimal, by_weight: bool) -> Decimal:
     """The unit price actually paid on a line: the effective one, scaled by what the quantity
     pays against the shelf price (a half-filled bundle pays more than the promo unit price)."""
@@ -547,6 +508,7 @@ def price_baskets(
     eff: dict[tuple[int, int, str], _Choice] = {}
     offers: dict[tuple[int, int, str], _Choice] = {}
     alternatives: dict[tuple[int, int, str], list[_Choice]] = {}
+    extra_offers: dict[tuple[int, int, str], list[_Choice]] = defaultdict(list)
     for r in rows:
         cid, sid, flex = r[0], r[1], r[2]
         c = _Choice(
@@ -577,13 +539,40 @@ def price_baskets(
         if offer is not None:
             offers[(cid, sid, flex)] = offer
 
+    # The other offers kept for the key (effective_offers: cheapest for some quantity or audience).
+    # Open to the user: a plain offer, or the deal of a club they marked; a club deal they did not
+    # mark is information only, like the rank 0 row's.
+    for r in conn.execute(
+        "SELECT canonical_id, store_id, flex_level, item_id, shelf_price, effective_price,"
+        " effective_unit_price, uom, promo_id, promo_min_qty, club_required, club_name,"
+        " price_valid_from, is_estimated, pack_units"
+        " FROM effective_offers WHERE store_id = ANY(%s) AND canonical_id = ANY(%s)"
+        " ORDER BY canonical_id, store_id, flex_level, rank",
+        (store_ids, price_ids),
+    ).fetchall():
+        key = (r[0], r[1], r[2])
+        if key not in eff:
+            continue
+        x = _Choice(*r[3:])
+        chain = store_chain.get(r[1])
+        if x.club_required and not club_member(x.club_name, clubs, *(chain or (None, []))):
+            extra_offers[key].append(x)
+            continue
+        have = [eff[key], *alternatives.get(key, ())]
+        if all(
+            (h.item_id, h.promo_id, h.club_name) != (x.item_id, x.promo_id, x.club_name)
+            for h in have
+        ):
+            alternatives.setdefault(key, []).append(x)
+
     # Exact barcodes, priced live.
     exact_choices: dict[tuple[int, int, int], _Choice] = {}
     exact_offers: dict[tuple[int, int, int], _Choice] = {}
     exact_keys = [(cid, ex) for (cid, _f, ex, _a) in merged if ex is not None]
     if exact_keys:
+        exact_qty = {(k[0], k[2]): q for k, q in merged.items() if k[2] is not None}
         exact_choices, exact_offers = _exact_choices(
-            conn, exact_keys, stores, clubs, as_of, canon, chains
+            conn, exact_keys, stores, clubs, as_of, canon, chains, exact_qty
         )
 
     # (store, canonical) -> (choice, quantity, flex, exact item, canonical the choice is mapped to,
@@ -639,14 +628,19 @@ def price_baskets(
             else:  # the same canonical asked twice at different levels: one line, both quantities
                 chosen[(s.store_id, cid)] = (prev[0], prev[1] + qty, *prev[2:])
 
-    # The offers were ranked by unit price (what the precompute keeps), but the line pays for the
-    # quantity asked: a deal that needs 4 packs does not help a list with 3. Take the cheapest line
-    # among the canonical's own offer, its allowed siblings' and the other offers of a club row
-    # open to this user; the own offer first, so it keeps every tie. Marking a club never raises
-    # a line, and an allowed sibling is chosen only when it is cheaper for the quantity.
+    # The rank 0 offer is the best by unit price, which does not know the quantity: a deal that
+    # needs 4 packs does not help a list with 3, and a tray of 30 does not help 12 eggs. Take the
+    # cheapest line for the quantity among the canonical's own offer, the other offers kept for the
+    # key (effective_offers, the options of a club row) that are open to this user, and the allowed
+    # siblings'. A tie goes to an exact or any-brand item over a substitute, then to the
+    # requested canonical's own offer over a sibling's, then to the lower unit price. Marking a club never
+    # raises a line, and an allowed sibling is chosen only when it is cheaper for the quantity.
     per: dict[int, Decimal | None] = {  # units one requested pack holds, counted canonicals only
         cid: units_per_pack(canon[cid][1], canon[cid][3]) for cid in canon_ids
     }
+    pending: list[tuple[tuple[int, int], list[tuple[_Choice, int, dict[str, Any]]], list[Decimal]]]
+    pending = []
+    tied: set[tuple[int, int]] = set()  # (item, canonical) whose mapping level breaks a tie
     for key, (c, qty, flex, ex, src, differs) in list(chosen.items()):
         sid, cid = key
         if ex is not None or canon[cid][1] == "kg":
@@ -655,14 +649,50 @@ def price_baskets(
         for oc, osrc, odiff in options.get(key) or [(c, src, differs)]:
             full.append((oc, osrc, odiff))
             full += [(a, osrc, odiff) for a in alternatives.get((osrc, sid, flex), ())]
-        best = min(full, key=lambda t: line_total(t[0], shelf_packs(t[0], qty, per[cid]), False)[0])
+        totals = [line_total(t[0], shelf_packs(t[0], qty, per[cid]), False)[0] for t in full]
+        low = min(totals)
+        at_low = [t for t, tot in zip(full, totals, strict=True) if tot == low]
+        if len({(t[0].item_id, t[1]) for t in at_low}) > 1:
+            tied |= {(t[0].item_id, t[1]) for t in at_low if not t[2]}
+        pending.append((key, full, totals))
+    close_level: set[tuple[int, int]] = set()
+    if tied:
+        close_level = {
+            (r[0], r[1])
+            for r in conn.execute(
+                "SELECT item_id, canonical_id FROM item_canonical WHERE flex_level = 'close'"
+                " AND NOT human_rejected AND item_id = ANY(%s) AND canonical_id = ANY(%s)",
+                (sorted({i for i, _ in tied}), sorted({c for _, c in tied})),
+            )
+        }
+    for key, full, totals in pending:
+        sid, cid = key
+        c, qty, flex, ex, src, differs = chosen[key]
+        order = sorted(
+            range(len(full)),
+            key=lambda i: (
+                totals[i],
+                bool(full[i][2]) or (full[i][0].item_id, full[i][1]) in close_level,
+                bool(full[i][2]),
+                full[i][0].key(),
+                i,
+            ),
+        )
+        best = full[order[0]]
         if best[0] is not c:
             chosen[key] = (best[0], qty, flex, ex, best[1], best[2])
-            offer = offers.get((best[1], sid, flex))
-            if offer is not None:
-                chosen_offer[key] = offer
-            else:
-                chosen_offer.pop(key, None)
+        # A club deal the user did not mark, as information: the cheapest such offer of the source.
+        club = [
+            o
+            for o in (offers.get((best[1], sid, flex)), *extra_offers.get((best[1], sid, flex), ()))
+            if o is not None
+        ]
+        if club:
+            chosen_offer[key] = min(
+                club, key=lambda o: line_total(o, shelf_packs(o, qty, per[cid]), False)[0]
+            )
+        else:
+            chosen_offer.pop(key, None)
 
     # The original at a substitute's own store (display only): the store's any_brand row of the
     # requested canonical, the cheapest for the quantity of the offers open to this user. A
@@ -818,9 +848,14 @@ def _exact_choices(
     as_of: datetime,
     canon: dict[int, tuple],
     chains: dict[str, tuple[str, list[str]]],
+    qty: dict[tuple[int, int], Decimal],
 ) -> tuple[dict[tuple[int, int, int], _Choice], dict[tuple[int, int, int], _Choice]]:
     """(canonical_id, exact_item_id, store_id) -> live choice for that barcode at that store,
-    and the club deals the user did not mark (information only), with the same club rule."""
+    and the club deals the user did not mark (information only), with the same club rule.
+
+    The choice is the cheapest line for the quantity asked (``qty``, in shelf items, or kg) among
+    every way to buy the barcode there that is open to the user: the shelf price and each promo, of
+    each item of the chain with that barcode; a tie goes to the lower unit price."""
     out: dict[tuple[int, int, int], _Choice] = {}
     offers: dict[tuple[int, int, int], _Choice] = {}
     by_chain: dict[str, list[int]] = defaultdict(list)
@@ -841,34 +876,36 @@ def _exact_choices(
         for chain_id in {r[1] for r in rows}:
             chain_items = [r[0] for r in rows if r[1] == chain_id]
             chain_name, chain_club_names = chains.get(chain_id, (None, []))
-            per_club: dict[tuple[int, int], dict] = {}
-            opts = item_options(
+            every: dict[tuple[int, int], list[Option]] = {}
+            item_options(
                 conn,
                 chain_id,
                 by_chain.get(chain_id, []),
                 chain_items,
                 as_of,
                 {i: base_unit for i in chain_items},
-                per_club,
+                None,
+                None,
+                every,
             )
-            for (sid, iid), (best, noclub) in opts.items():
-                offer = None
-                pick = best
-                if best.club_required and not club_member(
-                    best.club_name, clubs, chain_name, chain_club_names
-                ):
-                    offer, pick = best, noclub
-                    for name, alt in per_club.get((sid, iid), {}).items():
-                        if (
-                            club_member(name, clubs, chain_name, chain_club_names)
-                            and alt.key() < pick.key()
-                        ):
-                            pick = alt
-                cur = out.get((cid, exact_id, sid))
-                if cur is None or pick.effective_unit_price < cur.effective_unit_price:
-                    out[(cid, exact_id, sid)] = _from_option(pick)
-                    if offer is not None:
-                        offers[(cid, exact_id, sid)] = _from_option(offer)
-                    else:
-                        offers.pop((cid, exact_id, sid), None)
+            asked, by_weight = qty[(cid, exact_id)], base_unit == "kg"
+            by_store: dict[int, list[Option]] = defaultdict(list)
+            for (sid, _iid), ways in every.items():
+                by_store[sid].extend(ways)
+            for sid, ways in by_store.items():
+                opened = [
+                    not o.club_required
+                    or club_member(o.club_name, clubs, chain_name, chain_club_names)
+                    for o in ways
+                ]
+                ranked = [(line_total(o, asked, by_weight)[0], o.key()) for o in ways]
+                member = [i for i, ok in enumerate(opened) if ok]
+                if not member:
+                    continue
+                out[(cid, exact_id, sid)] = _from_option(ways[min(member, key=ranked.__getitem__)])
+                closed = [i for i, ok in enumerate(opened) if not ok]
+                if closed:  # a club deal the user did not mark: information only
+                    offers[(cid, exact_id, sid)] = _from_option(
+                        ways[min(closed, key=ranked.__getitem__)]
+                    )
     return out, offers

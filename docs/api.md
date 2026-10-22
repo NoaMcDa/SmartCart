@@ -164,9 +164,13 @@ treat it like any other unreviewed copy. Where it appears:
   [Effective prices](#effective-prices-nightly)). Per line:
   - club deals apply only when the user listed that club (`clubs`); otherwise the row's
     `noclub` option is used and no club deal is shown. The line pays the cheapest of the offers
-    open to the user for the quantity asked (`basket.club_alternatives`): the club deal, the best
-    deal without a club and the other marked clubs' deals, so marking a club never raises a line
-    (a club deal that needs 4 packs does not beat a plain "2 for 16" when 2 are asked);
+    open to the user for the quantity asked: the `effective_prices` row (best unit price), the
+    options of a club row (`basket.club_alternatives`: the best deal without a club and the marked
+    clubs' deals) and the other offers kept in `effective_offers` (a pack that is dearer per unit but
+    the cheapest way to buy 12 eggs, a "2 for 16" next to a deeper "4 for 28"), so marking a club
+    never raises a line and a club deal that needs 4 packs does not beat a plain "2 for 16" when 2
+    are asked ([optimizer.md](optimizer.md#offers-for-the-quantity-asked)). A tie goes to an exact or
+    any-brand item over a substitute, then to the lower unit price;
   - `flex_level = exact` with `exact_item_id`: that barcode must be sold by the store's chain
     (mapped to the canonical at exact or any_brand) and is priced live with the same promo
     folding; otherwise the canonical counts as missing at that store;
@@ -288,7 +292,11 @@ one row per (canonical, store, flexibility level):
 
   A promo that does not lower the price is ignored. `max_qty` and daily `hours` windows are not
   applied (phase 2 MILP, with cross-item promos).
-- Ranking: lowest effective unit price, then effective price, then item id.
+- Ranking: lowest effective unit price, then effective price, then item id. That offer is the
+  `effective_prices` row (what `/search`, the history and the alerts read). The other offers that
+  are the cheapest line for some quantity or club audience (at most four per key) go to
+  `effective_offers`, which only `/compare` and `/optimize` read
+  ([optimizer.md](optimizer.md#offers-for-the-quantity-asked)).
 - Club promos may win; the row then has `club_required`, `club_name` and `noclub`, the best
   option without any club promo, used by /compare for users without that club.
 - Idempotent: upsert on the primary key, then rows of the processed chains not produced by the
@@ -658,6 +666,7 @@ item must belong to the list in the path (an item id of another list is a 404).
 | `20261022090000_list_items_updated_at.sql` | `list_items.updated_at` and its trigger (the item version of the per-item routes); no grant changes |
 | `20261023090000_list_items_client_id_touch.sql` | `list_items.client_id` with its partial unique index (idempotent add), and the `SECURITY DEFINER` trigger that moves `lists.updated_at` when an item changes; no grant changes |
 | `20261023100000_effective_prices_pack_units.sql` | `effective_prices.pack_units`: units in one shelf item, for whole-pack line totals |
+| `20261024110000_effective_offers.sql` | `effective_offers`: up to four more offers per (canonical, store, level) with `rank` and `kind`, read by `/compare` and `/optimize`; the API role's grants function wraps the previous one |
 
 ## Events: phase 2 surfaces (#101, #102)
 
