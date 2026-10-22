@@ -164,3 +164,26 @@ describe("net saving for a single store", () => {
     expect(estimateTravelCost("delivery", 4200, 1.2)).toBe(0);
   });
 });
+
+describe("whole packs (counted goods)", () => {
+  it("prices what is bought, packs x shelf price, not the quantity asked", () => {
+    // Asking for 3 of a canonical whose pack covers them buys 1 pack: the shelf comparison uses the
+    // packs bought, so the waterfall must not change when only the quantity asked grows.
+    const triple = lastResultFixture();
+    const visit = (node: unknown): void => {
+      if (Array.isArray(node)) return node.forEach(visit);
+      if (!node || typeof node !== "object") return;
+      const rec = node as Record<string, unknown>;
+      if (rec.canonical_id === MILK && "shelf_price" in rec && "line_total" in rec) {
+        rec.packs = Number(rec.quantity);
+        rec.quantity = String(Number(rec.quantity) * 3);
+      }
+      Object.values(rec).forEach(visit);
+    };
+    visit(triple);
+    const tripledModel = buildSplitModel(triple)!;
+    const before = computeSplit(model, initial).waterfall!;
+    const after = computeSplit(tripledModel, assignmentOf(tripledModel.plan)).waterfall!;
+    expect(after).toEqual(before);
+  });
+});
