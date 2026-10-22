@@ -13,6 +13,7 @@ import { Tag } from "@/components/ui/Tag";
 import { IconCheck, IconClock, IconInfo } from "@/components/ui/icons";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { recordSpend } from "@/features/budget/spendState";
+import { recordFinishedShop } from "@/features/personal/record";
 import { pushPendingSpend } from "@/features/budget/sync";
 import { ReportGapButton } from "@/features/feedback/GapReportSheet";
 import { recordSaving } from "@/features/profile/savingsHistory";
@@ -215,6 +216,8 @@ function StoreModeInner() {
       });
       if (signedIn) void pushPendingSpend();
     }
+    // What was ticked is a finished trip for "my usual" and "buy again" (kept on the device).
+    recordFinishedShop(session.items);
     clearSession();
     router.push("/");
   }

@@ -1,5 +1,6 @@
 "use client";
 
+import { PersonalPrivacySection } from "@/features/personal/PersonalPrivacySection";
 import { useT } from "@/i18n/LocaleProvider";
 import { privacyMessages } from "@/i18n/messages/privacy";
 import styles from "./privacy.module.css";
@@ -60,6 +61,8 @@ export function PrivacySections() {
           <li>{t("spendControl")}</li>
         </ul>
       </section>
+
+      <PersonalPrivacySection />
 
       <section aria-labelledby="p-handoff">
         <h2 id="p-handoff">{t("handoffTitle")}</h2>

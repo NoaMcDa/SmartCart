@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { FlexChip, IconClose, IconWarning, Stepper, Tag } from "@/components/ui";
+import { UsualQuantityHint } from "@/features/personal/UsualQuantityHint";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { listMessages } from "@/i18n/messages/list";
 import { rescueFocus } from "@/lib/focus";
@@ -34,6 +35,7 @@ export function ListRow({ item, onOpenFlex }: ListRowProps) {
             <FlexChip level={item.flexLevel} onClick={() => onOpenFlex(item.id)} />
             {item.isWeighed ? <Tag variant="estimated">{t("estimatedTag")}</Tag> : null}
           </div>
+          <UsualQuantityHint item={item} />
         </div>
         <Stepper
           value={item.quantity}

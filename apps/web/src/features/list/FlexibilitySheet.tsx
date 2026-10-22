@@ -5,6 +5,7 @@ import type { FlexLevel } from "@/api/client";
 import { BottomSheet, Button, CheckChip, FLEX_LEVELS, Switch } from "@/components/ui";
 import { flexLevelLabel } from "@/components/ui/Chip";
 import { reportFlexChanged } from "@/features/consent/betaEvents";
+import { recordBrandSignal } from "@/features/personal/record";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { listMessages } from "@/i18n/messages/list";
 import { productName } from "@/lib/format";
@@ -66,7 +67,13 @@ function SheetBody({
 
   function save() {
     listActions.setFlex(item.id, { level, allow, remember: remember && taxonomy !== null });
-    if (level !== item.flexLevel) reportFlexChanged(level);
+    if (level !== item.flexLevel) {
+      reportFlexChanged(level);
+      // Choosing the exact product by hand is one more "keeps the brand" for this category.
+      if (level === "exact" && item.canonical) {
+        recordBrandSignal(item.canonical.canonical_id, "kept_brand");
+      }
+    }
     onClose();
   }
 

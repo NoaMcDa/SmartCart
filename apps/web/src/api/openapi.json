@@ -626,7 +626,8 @@
               "store_mode_used",
               "image_parsed",
               "cart_handoff",
-              "locale_changed"
+              "locale_changed",
+              "personalization"
             ],
             "title": "Name",
             "type": "string"
@@ -1918,6 +1919,331 @@
           "needs_confirmation"
         ],
         "title": "ParsedRow",
+        "type": "object"
+      },
+      "PersonalData": {
+        "additionalProperties": false,
+        "description": "``PUT /me/personal`` replaces the whole document. Bounded in every list, and overall to\n256 KB; it is read back only by its owner (row-level security) and by nothing else.",
+        "properties": {
+          "dismissals": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalDismissal"
+            },
+            "maxItems": 200,
+            "title": "Dismissals",
+            "type": "array"
+          },
+          "prefs": {
+            "$ref": "#/components/schemas/PersonalPrefs"
+          },
+          "refs": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalRef"
+            },
+            "maxItems": 200,
+            "title": "Refs",
+            "type": "array"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalSignal"
+            },
+            "maxItems": 100,
+            "title": "Signals",
+            "type": "array"
+          },
+          "trips": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalTrip"
+            },
+            "maxItems": 40,
+            "title": "Trips",
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "title": "PersonalData",
+        "type": "object"
+      },
+      "PersonalDismissal": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 60,
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "buy_again",
+              "brand_default",
+              "value_pack"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "key",
+          "at"
+        ],
+        "title": "PersonalDismissal",
+        "type": "object"
+      },
+      "PersonalLine": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_id": {
+            "title": "Canonical Id",
+            "type": "integer"
+          },
+          "quantity": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000.0,
+            "title": "Quantity",
+            "type": "number"
+          }
+        },
+        "required": [
+          "canonical_id",
+          "quantity"
+        ],
+        "title": "PersonalLine",
+        "type": "object"
+      },
+      "PersonalPrefs": {
+        "additionalProperties": false,
+        "properties": {
+          "learn": {
+            "default": true,
+            "description": "Learn from this person's own lists and finished shopping trips (device and account). Off: nothing new is recorded.",
+            "title": "Learn",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the preferences were last changed; the newer side wins",
+            "title": "Updated At"
+          },
+          "value_packs": {
+            "default": false,
+            "description": "Prefer value packs: the list builder suggests the larger pack where its unit price is lower. Off by default.",
+            "title": "Value Packs",
+            "type": "boolean"
+          }
+        },
+        "title": "PersonalPrefs",
+        "type": "object"
+      },
+      "PersonalRef": {
+        "additionalProperties": false,
+        "description": "A product as the person's lists named it, so a device that did not see it can still draw it.",
+        "properties": {
+          "base_unit": {
+            "enum": [
+              "100g",
+              "100ml",
+              "unit",
+              "kg"
+            ],
+            "title": "Base Unit",
+            "type": "string"
+          },
+          "canonical_id": {
+            "title": "Canonical Id",
+            "type": "integer"
+          },
+          "category_path_he": {
+            "items": {
+              "maxLength": 80,
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Category Path He",
+            "type": "array"
+          },
+          "display_name_ar": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name Ar"
+          },
+          "display_name_he": {
+            "maxLength": 120,
+            "title": "Display Name He",
+            "type": "string"
+          },
+          "taxonomy_id": {
+            "maxLength": 60,
+            "title": "Taxonomy Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "canonical_id",
+          "display_name_he",
+          "taxonomy_id",
+          "base_unit"
+        ],
+        "title": "PersonalRef",
+        "type": "object"
+      },
+      "PersonalSignal": {
+        "additionalProperties": false,
+        "description": "One time the person kept an exact brand or turned a substitute down, per category.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_-]{6,64}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "kept_brand",
+              "rejected_substitute"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "taxonomy_id": {
+            "maxLength": 60,
+            "title": "Taxonomy Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "taxonomy_id",
+          "kind"
+        ],
+        "title": "PersonalSignal",
+        "type": "object"
+      },
+      "PersonalState": {
+        "additionalProperties": false,
+        "properties": {
+          "dismissals": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalDismissal"
+            },
+            "maxItems": 200,
+            "title": "Dismissals",
+            "type": "array"
+          },
+          "exists": {
+            "description": "false when nothing is stored yet and these are the defaults",
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "prefs": {
+            "$ref": "#/components/schemas/PersonalPrefs"
+          },
+          "refs": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalRef"
+            },
+            "maxItems": 200,
+            "title": "Refs",
+            "type": "array"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalSignal"
+            },
+            "maxItems": 100,
+            "title": "Signals",
+            "type": "array"
+          },
+          "trips": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalTrip"
+            },
+            "maxItems": 40,
+            "title": "Trips",
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "exists"
+        ],
+        "title": "PersonalState",
+        "type": "object"
+      },
+      "PersonalTrip": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_-]{6,64}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "finished: the lines ticked off in store mode; list: a list the person cleared",
+            "enum": [
+              "finished",
+              "list"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalLine"
+            },
+            "maxItems": 60,
+            "title": "Lines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "kind",
+          "lines"
+        ],
+        "title": "PersonalTrip",
         "type": "object"
       },
       "Plan": {
@@ -6445,6 +6771,152 @@
         "summary": "Delete Share",
         "tags": [
           "shares"
+        ]
+      }
+    },
+    "/me/personal": {
+      "delete": {
+        "operationId": "delete_personal_me_personal_delete",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Personal",
+        "tags": [
+          "me"
+        ]
+      },
+      "get": {
+        "operationId": "get_personal_me_personal_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Personal",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "put_personal_me_personal_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonalData"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Personal",
+        "tags": [
+          "me"
         ]
       }
     },

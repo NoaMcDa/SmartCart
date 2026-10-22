@@ -11,6 +11,7 @@
 | ``POST /events`` first-party beta events (allowlisted, rate limited) | routes/events.py |
 | ``POST /parse-recipe`` (phase 3, #71) | routes/recipe.py |
 | ``GET/POST /me/spend`` budget and spend (phase 3, #70) | routes/spend.py |
+| ``GET/PUT/DELETE /me/personal`` personalization habits (phase 3) | routes/personal.py |
 | ``GET /promo-cycles/{canonical_id}`` (phase 3, #69) | routes/promo_cycles.py |
 
 See docs/api.md.
@@ -40,6 +41,7 @@ from smartcart_api.routes import (
     me,
     me_delete,
     optimize,
+    personal,
     promo_cycles,
     recipe,
     search,
@@ -109,6 +111,7 @@ app.include_router(swaps.router, dependencies=[Depends(limit("optimize", 20, per
 # Phase 3 routers.
 app.include_router(recipe.router)
 app.include_router(spend.router, dependencies=[Depends(limit("me", 240))])
+app.include_router(personal.router, dependencies=[Depends(limit("me", 240))])
 app.include_router(promo_cycles.router)
 app.include_router(image.router)
 app.include_router(chains.router)

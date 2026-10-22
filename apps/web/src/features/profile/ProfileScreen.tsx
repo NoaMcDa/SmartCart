@@ -9,6 +9,7 @@ import { Price } from "@/components/ui/Price";
 import { IconInfo } from "@/components/ui/icons";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { MonthlyBudgetSection } from "@/features/budget/MonthlyBudgetSection";
+import { PersonalSection } from "@/features/personal/PersonalSection";
 import { formatRich, stripBidiMarks } from "@/i18n/format";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { profileMessages } from "@/i18n/messages/profile";
@@ -158,6 +159,8 @@ export function ProfileScreen() {
           </h2>
           <FlexDefaultsSection />
         </Card>
+
+        <PersonalSection className={styles.wide} />
 
         <Card as="section" aria-labelledby="theme-heading">
           <h2 id="theme-heading" className={styles.sectionTitle}>

@@ -749,6 +749,7 @@ The contract additions are new routes and optional fields, so older clients keep
 | `PUT`, `DELETE /me/spend/{id}` | required | correct an entry (the actual checkout total replaces the estimate), or remove it (204) |
 | `GET /me/spend/export` | required | every spend entry and the budget: the user's copy of their spend data |
 | `GET /promo-cycles/{canonical_id}?clubs=` | none | when a promo is likely to return, per chain (#69) |
+| `GET`, `PUT`, `DELETE /me/personal` | required | the person's own habits (personalization): read, replace, erase. See [personalization.md](personalization.md) |
 
 `PUT /me/profile` gains `monthly_budget` (ILS, 2 decimals, at least 0). It is written only when
 the request names it: a client that omits the field keeps the stored budget (the existing
@@ -875,6 +876,38 @@ means a promo is running or none is expected soon. Club-only promos count only f
 in `clubs` (repeatable), with the /compare club rule (`basket.club_member`; the same callback,
 `club_filter`, serves `smartcart-catalog promo-cycles --club`). It reads `promos` per
 request and is not on the compare or optimize path.
+
+### Personalization (/me/personal)
+
+`GET` returns `{version, prefs, refs, trips, signals, dismissals, exists}` (the defaults with
+`exists: false` when nothing is stored, or when the stored document is one the schema no longer
+reads); `PUT` takes the same document without `exists` and **replaces** the stored one; `DELETE`
+erases it (204, also when there is none).
+
+- Typed and bounded (`schemas.PersonalData`): `prefs {learn, value_packs, updated_at}`; at most 200
+  `refs` (canonical id, Hebrew and Arabic name up to 120 characters, taxonomy id, base unit, category
+  path of up to 4 names), 40 `trips` (`id`, `at`, `kind` finished or list, at most 60 `lines` of
+  canonical id and a quantity above 0 and up to 1000), 100 `signals` (`id`, `at`, `taxonomy_id`, `kind`
+  kept_brand or rejected_substitute), 200 `dismissals` (`kind` buy_again, brand_default or value_pack, a
+  `key`, `at`). Unknown keys are 422 (the models forbid extras), so there is no free-text field; the
+  body limit (256 KB) still applies, and the web app trims its document to 200 KB.
+- Storage: `preferences.data -> 'personal'` (the table existed since the first user-tables migration:
+  one row per user, forced RLS, owner only). A `PUT` or `DELETE` changes only that key of `data`.
+  No migration. `DELETE /me` removes the whole row, as before.
+- Privacy: read only by its owner, for the suggestions the web app computes on the device; never
+  joined to another table, never used for ranking, never in `events`, never sold.
+- Tests (`test_api_personal.py`): empty read, replace and read back, another user cannot see or change
+  it, other keys of the row survive, deletion with and without a document, `DELETE /me`, a document the
+  schema cannot read, every malformed field and every bound, the largest allowed document (200 or a 413,
+  never a 500), the event allowlist.
+
+### Events: personalization
+
+`POST /events` accepts one more name. No product, category, count or date.
+
+| Event | Props |
+|---|---|
+| `personalization` | `kind` (required): `usual`, `buy_again`, `brand_default`, `value_pack`; `action` (required): `shown`, `accepted`, `dismissed`, `undone` |
 
 ### Events: voice list
 

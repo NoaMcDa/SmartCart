@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/shell/AppShell";
+import { PersonalSync } from "@/features/personal/PersonalSync";
 import { ProfileSync } from "@/features/profile/ProfileSync";
 
 /**
@@ -10,6 +11,7 @@ export default function SecondaryLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <ProfileSync />
+      <PersonalSync />
       <AppShell>{children}</AppShell>
     </>
   );

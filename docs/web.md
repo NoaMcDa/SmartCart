@@ -1295,6 +1295,41 @@ names), `i18n/messages/photo.test.ts`; `tests/e2e/photo.spec.ts` (with `photo-he
 `/parse-image` with the real multipart body because `mockApi` rewrites bodies as JSON) and
 `tests/a11y/photo.spec.ts`.
 
+## Personalization (phase 3)
+
+"My usual", "buy again", the exact-brand offer, "you usually take N" and large-family value packs, all
+computed on the device from the person's own history. The method, the thresholds (proposals), the
+privacy handling and the limits are in [personalization.md](personalization.md); this section is the
+web map.
+
+| Piece | Where |
+|---|---|
+| Document, bounds, merge | `features/personal/personalDoc.ts`; store `personalState.ts` (`usePersonal`, `personalActions`) |
+| Rules (pure) | `habits.ts`, `valuePacks.ts` |
+| Recording | `record.ts`, called from `StoreMode.finish`, the list builder's "clear", `substitution/actions.ts`, `swaps/actions.ts`, `FlexibilitySheet` |
+| UI | `PersonalSuggestions` and `ValuePackSuggestions` (mounted in `ListBuilder`), `UsualQuantityHint` (in `ListRow`), `PersonalSection` (Profile), `PersonalPrivacySection` (`/privacy`) |
+| Account copy | `PersonalSync` (core and secondary layouts), `api/client.ts` `getPersonal`, `putPersonal`, `deletePersonal` |
+
+- **Storage.** `sc-personal-v1`, in `CORE_DATA_KEYS`: "מחקי את הנתונים שלי" removes it (after
+  `DELETE /me/personal` when signed in) and the export (`personalization`) holds it. Anonymous visitors
+  never make a request for it.
+- **Home screen.** Above the list: "לקנות שוב?" (with the reason, "לא עכשיו", an undo), "הרגילים שלי"
+  (add one, or all), the exact-brand offer (apply with an undo, or "לא, תודה"). Below the list, only with
+  the Profile preference on: "אריזות גדולות שמשתלמות". Each area has its own persistent `role="status"`
+  line (`data-testid` `personal-status`, and `value-pack-status` for the packs) that carries the undo.
+- **Profile.** "התאמה אישית": the learning switch (on), the value-pack switch (off), counts, where it is
+  kept, "נקי את מה שנלמד". Learning off hides every suggestion and stops recording.
+- **Events.** `personalization {kind, action}` through `trackEvent` (`reportPersonalization` in
+  `consent/betaEvents.ts`); `shown` once per kind per page session. The API allowlist and
+  `features/seo/track.ts` `EventProps` list the same name (checked at compile time).
+- **Mocks.** `mocks/handlers.personal.ts` (`/me/personal`, `resetPersonalMock`, `seedPersonalMock`,
+  `mockPersonal`) and `mocks/packs.ts` (eggs: a 12-pack or a tray of 30, whichever is cheapest for the
+  quantity asked, wired into the mock `/compare`).
+- **Copy.** `i18n/messages/personal.ts`, he and ar with the same keys (compile-checked; the Arabic is
+  machine drafted and awaits native review, #73).
+- **New accessibility trees.** `personal-suggestions`, `personal-value-pack`, `personal-usual-quantity`,
+  `personal-profile-section` in `tests/a11y/aria-snapshots/`; no existing snapshot changed.
+
 ## Kosher filter
 
 A real setting, not a stored preference that did nothing: the API filters by it

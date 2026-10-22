@@ -28,6 +28,7 @@ discussions. Phases 0, 1 and 2 are built (see phase-2-status.md). Read in this o
 23. [security-review.md](security-review.md): the pre-beta security review of the API and the web app: findings by severity, the fixes with their tests, what remains and why, and the new settings.
 24. [real-day-dry-run.md](real-day-dry-run.md): one real day through ingestion, matching, the precompute, `/compare` and `/optimize` and the basket index on a GitHub runner (`real-day.yml`), with timings next to the synthetic ones.
 25. [exit-window.md](exit-window.md): the nightly runner rehearsal of the Phase 0 exit window (`exit-window.yml`): one real file per kind per chain through the real Scheduler with the real clock, one JSON record per day on the `exit-window/data` branch, and the generated report. Not the VPS window.
+26. [personalization.md](personalization.md): phase 3 personalization on synthetic data: my usual, buy again, brand-default offers and large-family value packs, computed from the person's own history on the device, what is stored, the rules and thresholds (proposals), the account copy (`/me/personal`), controls, privacy and the tests.
 
 ## Facts versus estimates
 

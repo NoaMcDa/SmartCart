@@ -24,7 +24,9 @@ import {
   kosherHitLabel,
 } from "./kosher";
 import { phase2Handlers } from "./handlers.phase2";
+import { personalHandlers } from "./handlers.personal";
 import { phase3Handlers } from "./handlers.phase3";
+import { applyPacksToCompare } from "./packs";
 import { parseRow } from "./parseRow";
 
 export { parseRow };
@@ -46,6 +48,7 @@ export const handlers = [
   ...betaHandlers,
   ...phase2Handlers,
   ...phase3Handlers,
+  ...personalHandlers,
   http.get(url("/health"), () =>
     HttpResponse.json({ status: "ok" as const, version: "0.1.0-mock" }),
   ),
@@ -77,8 +80,11 @@ export const handlers = [
     }
     return HttpResponse.json(
       applyKosherToCompare(
-        applyAllowToCompare(
-          compareFixture(body.home_store_id === undefined ? HOME_STORE_ID : body.home_store_id),
+        applyPacksToCompare(
+          applyAllowToCompare(
+            compareFixture(body.home_store_id === undefined ? HOME_STORE_ID : body.home_store_id),
+            body.items,
+          ),
           body.items,
         ),
         body.kosher,
