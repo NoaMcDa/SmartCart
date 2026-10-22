@@ -210,7 +210,7 @@ What the real files showed against the rules this repository started with:
   every Shufersal and Tiv Taam promotion was club-only): `0`, `0 - כלל הלקוחות` (everyone),
   `1 - המועדון החדש` (Tiv Taam's club: code, dash, name), and expressions: Mega
   `(2=מועדון קרפור אשראי|2=מועדון אפליקציה)`, King Store `("לקוחות הקפה=3" | "מועדון לקוחות=3" | ...)`
-  (18 groups), Rami Levy `((2=...))&(3=...|3=...)`, Shufersal `3 - <dozens of card clubs joined by &>`.
+  (18 groups), Rami Levy `((2=...))&(3=...|3=...)`, Shufersal `3 - <23 club names joined by &>` (12 distinct, quoted under "Club promotions").
   `parse_club` reads these (see its docstring): code 0 is everyone; otherwise the label after
   the dash is the club name; an expression lists its distinct club names joined by ` | `, cut at 120
   characters, the full text kept in `raw`. That is the text-level reading; which club a person has to
@@ -292,8 +292,9 @@ and the arithmetic `reward = trigger x (1 - rate / 100)` on every promotion of t
 probe's `shelf_check`, run 39665275662, for the chains whose PriceFull is for the promotion file's
 store): Tiv Taam 708 of 708 reward items cost `shelf x (1 - rate / 100)` and 708 of 708 trigger
 prices equal the shelf price, Rami Levy 157 of 157 and Mega 37 of 37 reward prices (their trigger
-groups carry no price), no mismatch; Shufersal's and Yohananof's PriceFull files are for other
-stores, so those two are checked by the arithmetic inside the file only. The descriptions agree
+groups carry no price), no mismatch. (Shufersal's and Yohananof's PriceFull files of that run were
+for other stores; the probe now fetches the PriceFull of the PromoFull's own store, and all seven
+chains are in "Shelf check against the same store" below.) The descriptions agree
 with the fields ("1+1", "2+1", "השני ב 50%", "השני בחצי"); **Tiv Taam writes the price percentage**:
 "השני ב 40%" is a reward of rate 60 (the second costs 40 % of the shelf price; 15 promotions, 40 /
 60 / 70 against rates 60 / 40 / 30, all complementary), so a percentage without the word "הנחה" is
@@ -306,6 +307,44 @@ confidence 0.9 (`mixed_items_unverified`). The meaning of `MinNoOfItemOffered` (
 `AllowMultipleDiscounts` is still not known. Rami Levy's and Mega's trigger groups carry no price
 (`MinPurchaseAmount` is `0.00`, not a threshold), so there the reward group's rate and price are all
 the file shows.
+
+**Shelf check against the same store** (**verified**, probe run 39681477048, 2026-10-21, whole
+files, not the trimmed fixtures). A promotion's prices can only be compared with the shelf prices
+of its own store, and for Shufersal and Yohananof the PriceFull and the PromoFull the probe had
+fetched were for different stores. The probe (`scripts/unblock/portal_probe.py`, `fetch_chain`) now
+takes the largest of the first ten PromoFull files the portal lists and then asks the scraper for
+the PriceFull of **that store** (`store_id`, the store code in the file name); the manifest of every
+chain's fixtures records the numbers (`full_file` of the PromoFull entry). The first check is for
+one-group promotions (`DiscountedPrice / MinQty` against the shelf price, not weighed, with a
+rate); the second for trigger and reward pairs (reward price against `shelf x (1 - rate / 100)`,
+trigger price against the shelf price):
+
+| Chain (store) | Promotions in the file | One-group items with a shelf price | price = `shelf x (1 - rate)` to the agora | within the rate's rounding | below the shelf price | Pairs: reward / trigger price equal |
+|---|---|---|---|---|---|---|
+| Shufersal (39) | 1408 | 2251 | 1477 | 2172 | 2251 | 61 of 61 / 61 of 61 |
+| Yohananof (5) | 1241 | 2108 | 760 | 2108 | 2108 | 70 of 70 / 70 of 70 |
+| Rami Levy (3) | 2676 | 5753 | 5474 | 5515 | 5751 | 1 of 1 / (trigger group has no price) |
+| Mega | 1653 | not checked: the PriceFull named for store 416 carries `StoreId` 134 inside | | | | earlier run 39665275662: 37 of 37 rewards |
+| King Store (31) | 516 | 505 | 490 | 505 | 502 | none |
+| Osher Ad (3) | 798 | 2113 | 1845 | 1915 | 2113 | none |
+| Tiv Taam (2) | 2245 | 2391 | 438 | 2117 | 2390 | 707 of 707 / 707 of 707 |
+
+"Within the rate's rounding" allows half a percentage point of the shelf price plus two agorot,
+because Shufersal, Yohananof and Tiv Taam publish whole-percent rates (Tiv Taam's 438 exact ones
+against 2117 is that); Rami Levy and Osher Ad publish two-decimal rates (seen in the logged
+examples). What this shows: every checked pair price is exactly the shelf price or the shelf price
+times `1 - rate` (839 reward and 838 trigger prices over four chains, no mismatch), and a
+promotion's unit price is below the shelf price on 15,115 of the 15,121 one-group items checked (2
+Rami Levy, 3 King Store and 1 Tiv Taam item are at or above it; which ones is not logged). What it
+does **not** show: the 79 Shufersal, 238 Rami Levy, 198 Osher Ad and 274 Tiv Taam items outside the
+rate's rounding are not wrong prices. The eight logged examples per chain are of two kinds:
+promotions where one price covers several items with different shelf prices (mix-and-match: Rami
+Levy "3 for 20" over items of 7.50 to 7.90, Osher Ad "4 for 11" over items of 3.50 to 3.90), where
+`DiscountRate` cannot be a per-item percentage, and single items whose whole-percent rate is a loose
+rounding of the real one (Shufersal: rate 5 on a 14.90 shelf price gives 14.46, which is 2.95 %).
+That is **inferred** from the logged examples, not checked on all of them. The app uses
+`DiscountedPrice`, never the rate, so these items do not move a price. The Mega gap is a file quirk to look at (a PriceFull whose file
+name and header disagree on the store), not a result.
 
 **Weekday-restricted promotions** (`PromotionDays`): none of the 9972 promotions of the seven full
 files has a value other than empty or `1,2,3,4,5,6,7` (Osher Ad's two list all seven), so the day
@@ -357,14 +396,39 @@ trimmed to 100 promotions each) unless it says otherwise.
 | King Store | `("לקוחות סיטונאים=3" \| "לקוחות סיטונאים סניפים=3")` | 3 | wholesale customers |
 | Rami Levy | `(1=מועדון חברתי\|1=מועדון שיווק   השקמה\|1=מועדון לקוחות אשראי\|1=מועדון נטען\|1=לקוחות ארנק)` | 1 | any of five clubs (note the three spaces inside the second name) |
 | Rami Levy | `((1=מועדון שיווק   השקמה\|1=מועדון לקוחות אשראי))&(3=ישראכרט מגנטי\|3=תווי זיכוי מימוש\|3=עיגול אגורות)` | 1 | one of two clubs **and** one of three payment options |
-| Mega | only `0` in the committed file; the probe's full-file profile also listed `(2=מועדון קרפור אשראי\|2=מועדון אפליקציה)` (**not** in a committed fixture) | | any of a credit-card club and the app club |
-| Shufersal | only `0 - כלל הלקוחות` in the committed file; the full-file profile described `3 - <dozens of card clubs joined by &>` (exact text **not** committed, so none of it is mapped) | | |
+| Mega | only `0` in the committed file; the whole file (1653 promotions, probe run 39681477048) also has `(2=מועדון קרפור אשראי\|2=מועדון אפליקציה)` (6) and `(3=Goodi)` (4), neither in a committed fixture | | any of a credit-card club and the app club; "Goodi" is not understood and stays unmapped |
+| Shufersal | only `0 - כלל הלקוחות` in the committed file; the whole file of store 39 (1408 promotions) has it on 1407 and one more text, quoted below | 1 | a list of 23 club names joined by ` & `, 12 distinct |
 | Osher Ad | only `0` | | |
 | Victory, Machsanei Hashuk, Hazi Hinam | no real file (their portals did not answer from the runner) | | |
 
 The number in `<type>=<name>` is a club type. Which type goes with what is **not determined**
 (Rami Levy puts its clubs under 1 and its payment options under 3, Mega its clubs under 2, King
 Store its groups under 3), so the mapping ignores the type and matches on the name.
+
+**Shufersal's club text, verbatim** (probe run 39681477048, the PromoFull of store 39, 1 of 1408
+promotions; 447 characters; the file does not say what a club promotion of another store holds, so
+more texts are likely; the probe now logs every distinct `ClubID` text of the file it fetched as
+`PROMO_CLUBS` lines, and the manifest keeps them whole):
+
+```
+3 - מועדון לקוחות & עמותת לשובע-אשראי & מועדון עובדים אשראי & מועדון לקוחות אשראי & מועדון עובדים אשראי & מועדון לקוחות פ משולב & עובדי בי"ח תה"ש-משולב & בי"ח משולב(בלנס/השרון/שנ & ארגון עובדים משולב & מועדון לקוחות אשראי & מועדון לקוחות אשראי & הקרן לידידות-אשראי & מועדון לקוחות-אשראי & אקים-משולב & מועדון לקוחות & מועדון לקוחות & מועדון לקוחות & הקרן לרווחה-אשראי & מועדון לקוחות & מועדון לקוחות & מועדון לקוחות & מועדון לקוחות & מועדון לקוחות
+```
+
+| Distinct name in the list | Times | In the table | Kind | Why |
+|---|---|---|---|---|
+| מועדון לקוחות | 9 | no | | generic ("customer club"); repeated under what are probably different club ids, so which club it is is not known |
+| מועדון לקוחות אשראי, מועדון לקוחות-אשראי | 4 (3 and 1) | `shufersal:credit` | card | the credit-card club; the hyphenated spelling is read as the same club (**inferred**) |
+| מועדון עובדים אשראי | 2 | `shufersal:staff_credit` | card | the employees' credit-card club (**inferred** from the words) |
+| עמותת לשובע-אשראי, הקרן לידידות-אשראי, הקרן לרווחה-אשראי | 1 each | no | | credit-card groups of one association or fund each: organisation-specific, they would fill the profile picker for no one |
+| מועדון לקוחות פ משולב, עובדי בי"ח תה"ש-משולב, בי"ח משולב(בלנס/השרון/שנ, ארגון עובדים משולב, אקים-משולב | 1 each | no | | "combined" groups of one organisation or hospital each (the third name is cut at 25 characters by the chain) |
+
+**How the list is read is inferred, not verified**: the names are joined by `&`, but nobody can be
+in a dozen different card clubs at once, so the table reads the list as **any of** (`label_separator`
+in the chain's entry). If the chain meant "all of", a person holding one card would be shown a
+price the till refuses; only two names are mapped, so that is the whole exposure, and a list with
+no mapped name is `אחר` and matches nobody (never a plain name that the older chain-own-club rule
+could meet). The text of the one promotion therefore becomes `מועדון עובדים אשראי | מועדון לקוחות
+אשראי`.
 
 **The mapping** is `services/ingest/smartcart_ingest/adapters/chain_clubs.json`, read by
 `adapters/clubs.py`. Per chain it lists the clubs a person can pick, each with a stable id
@@ -384,6 +448,9 @@ and case-folding; the label counts as a name too):
 | | `ramilevy:wallet` | לקוחות ארנק | card | לקוחות ארנק |
 | | `ramilevy:isracard` | ישראכרט מגנטי | card | ישראכרט מגנטי |
 | | `ramilevy:vouchers` | תווי זיכוי מימוש | card | תווי זיכוי מימוש |
+| | `ramilevy:multipass` | מולטיפס תו רמי לוי | card | מולטיפס תו רמי לוי |
+| Shufersal | `shufersal:credit` | מועדון לקוחות אשראי | card | מועדון לקוחות אשראי, מועדון לקוחות-אשראי |
+| | `shufersal:staff_credit` | מועדון עובדים אשראי | card | מועדון עובדים אשראי |
 | Mega | `mega:app` | מועדון אפליקציה | club | מועדון אפליקציה |
 | | `mega:credit` | מועדון קרפור אשראי | card | מועדון קרפור אשראי |
 | Tiv Taam | `tivtaam:new` | המועדון החדש | club | המועדון החדש |
@@ -391,10 +458,13 @@ and case-folding; the label counts as a name too):
 
 What is **inferred, not verified**: that "מועדון שיווק השקמה" is Rami Levy's own club (it is the
 chain's legal name; the label says "מועדון רמי לוי"), what "מועדון נטען", "לקוחות ארנק" and
-"מועדון חברתי" are, and that Mega's two names are what the full-file profile showed. Not mapped on
-purpose: King Store's internal groups (HEBREW, ARABIC, test, owners, vehicles, an association, ...),
-"עיגול אגורות" (rounding to the agora is a payment option, not a membership) and everything in
-Shufersal's files. The owner's list of to-dos is `smartcart-ingest clubs-report [--unmapped]`: every
+"מועדון חברתי" are, that "מולטיפס תו רמי לוי" (new in run 39681477048, a payment option under type
+3 like the vouchers) is the Multipass voucher, and everything said about Shufersal above. Not mapped
+on purpose: King Store's internal groups (HEBREW, ARABIC, test, owners, vehicles, an association,
+...) and its "לקוחות מועדון" and "לקחות פרידיס" (a variant and a misspelling, each on a few
+promotions that name the 18 groups anyway), "עיגול אגורות" (rounding to the agora is a payment
+option, not a membership), Mega's "Goodi", and the nine Shufersal names in the table above. The
+owner's list of to-dos is `smartcart-ingest clubs-report [--unmapped]`: every
 `ClubID` text of the loaded club promotions, the rule it became, and the names the table does not
 know. Add a name to a club (or a new club) in `chain_clubs.json` and the next load of that
 chain's PromoFull file picks it up.
@@ -406,14 +476,17 @@ with brackets, e.g. Rami Levy's AND text is stored as
 becomes a rule (`resolve_clubs(values, chain_id)`):
 
 - `0` and `0 - כלל הלקוחות` are everyone: `club_only` stays false.
-- `<n> - <name>` is one name, whatever characters it holds (Shufersal's label may contain `&`).
+- `<n> - <name>` is one name, whatever characters it holds, except for a chain whose entry has a
+  `label_separator` (Shufersal, `&`): its label is a list of names read as any of (inferred, see
+  above). `clubs-report` splits it the same way, so it lists the nine unmapped names, not one
+  447-character name.
 - A boolean expression is parsed (`|` any of, `&` all of, brackets, double-quoted names; `&` binds
   tighter than `|`), and each `type=name` or `"name=type"` is looked up in the chain's table.
 - **Unknown matches nobody.** An unknown alternative of an `|` is dropped (it could never be
   true); an unknown part of an `&` makes the whole rule unknown; a rule with no known name is
   stored as `אחר`, or as the name itself when it is one plain name (so the owner sees it); `אחר`
-  and a text that does not parse are never satisfied. A chain with no table (Shufersal) can never
-  match.
+  and a text that does not parse are never satisfied. A chain with no table (Osher Ad, and
+  the three whose portals did not answer) can never match.
 - Several club values on one promotion must all hold (`A & B`): the safe reading, since the files
   do not say whether they are alternatives. A bare numeric code (`1`) keeps the older fallback
   name of `CLUB_NAMES`.
@@ -589,6 +662,13 @@ chain id all zeros, 2024, before its real files) is handled: when the first file
 adapter accepts, `fetch` asks the scraper for ten and takes the newest usable one. Run the
 laibcatalog chains (victory, machsanei_hashuk) after about 08:00 Israel time, and Machsanei
 Hashuk not on a Saturday: their listings are empty outside those hours (upstream stability notes).
+
+`fetch` also takes `--store N` (only that store's files) and `--candidates N` (download N and keep
+the largest). The Portal probe uses both: the largest of ten PromoFull files, then the PriceFull
+of the same store, so the committed PriceFull and PromoFull of a chain are for one store (Shufersal
+store 39 and Yohananof store 5 were replaced for this on 2026-10-22; the other five already were).
+The probe's reachability column reports files downloaded or a passing FTP login when the HTTP root
+does not answer (the four Cerberus chains, King Store's 403), see `portal_probe.reachability`.
 
 Files land raw (still compressed) in `tests/fixtures/real/<slug>/`, together with a
 `manifest.json` that holds the sha256 and our adapter's parse result for each file. The test

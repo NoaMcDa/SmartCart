@@ -299,7 +299,6 @@ def _club_promos(slug: str):
     ("slug", "held", "gets", "club_only_total"),
     [
         ("tivtaam", ["tivtaam:new"], 59, 59),
-        ("yohananof", ["yohananof:staff"], 2, 2),
         ("king_store", ["king_store:club"], 18, 21),
         ("king_store", ["king_store:wholesale"], 21, 21),
         ("ramilevy", ["ramilevy:social"], 1, 2),
@@ -321,7 +320,7 @@ def test_members_get_the_real_club_promos_and_non_members_none(
     assert all(not p.club_only for p in promos if p.raw["club_ids"] in (["0"], ["0 - כלל הלקוחות"]))
 
 
-@pytest.mark.parametrize("slug", ["shufersal", "osherad", "mega"])
+@pytest.mark.parametrize("slug", ["shufersal", "osherad", "mega", "yohananof"])
 def test_chains_whose_real_files_hold_only_everyone_have_no_club_promo(slug: str) -> None:
     _chain, promos = _club_promos(slug)
     assert promos and not any(p.club_only for p in promos)

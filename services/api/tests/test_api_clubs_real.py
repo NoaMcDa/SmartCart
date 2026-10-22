@@ -80,12 +80,17 @@ def test_chains_clubs_lists_what_the_picker_offers(client) -> None:
     assert r.status_code == 200, r.text
     assert r.headers["cache-control"] == "public, max-age=3600"
     rows = {row["chain_id"]: row for row in r.json()}
-    assert {RAMI, TIV, MEGA, "7290058108879", "7290803800003"} == set(rows)
+    assert {RAMI, TIV, MEGA, "7290058108879", "7290803800003", "7290027600007"} == set(rows)
     ids = [c["id"] for row in rows.values() for c in row["clubs"]]
     assert len(ids) == len(set(ids))
     assert {c["id"]: c["kind"] for c in rows[RAMI]["clubs"]}["ramilevy:isracard"] == "card"
     assert rows[TIV]["clubs"] == [{"id": "tivtaam:new", "label": "המועדון החדש", "kind": "club"}]
-    assert "7290027600007" not in rows  # no real Shufersal file names a club
+    # Shufersal: the two card clubs of its list (a text read as any of, inferred), nothing else
+    assert rows["7290027600007"]["clubs"] == [
+        {"id": "shufersal:credit", "label": "מועדון לקוחות אשראי", "kind": "card"},
+        {"id": "shufersal:staff_credit", "label": "מועדון עובדים אשראי", "kind": "card"},
+    ]
+    assert {c["id"]: c["kind"] for c in rows[RAMI]["clubs"]}["ramilevy:multipass"] == "card"
 
 
 # --- the whole path ---------------------------------------------------------------------------

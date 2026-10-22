@@ -110,7 +110,7 @@ For the lead to copy into the blocker column (this file does not edit that one):
   files are pushed to a new branch `probe/fixtures-<YYYYMMDD>` (Stores whole, PriceFull trimmed to
   200 rows, PromoFull trimmed to 100 promotions, `MANIFEST.json` per chain) by a separate job with
   `contents: write`; open the pull request by hand, and CI runs then (a push with the workflow token starts no workflow). Downloads
-  are parsed only by the adapters, in the real Scheduler path. A Cerberus login line reading
+  are parsed only by the adapters, in the real Scheduler path. The PromoFull is the largest of the first ten the portal lists and the PriceFull is the one of the same store (so promo prices are checked against that store's shelf prices); the log carries `PROMO_CLUBS` lines (every distinct `ClubID` text with its count and the rule the club table makes of it) and, with `commit_fixtures`, the manifest keeps the whole file's club texts and shelf check (`full_file`). A Cerberus login line reading
   `ok (certificate not verified, as upstream ...)` is a pass: the scraper does not verify that
   portal's certificate, which does not match its host name.
 - **Extraction pilot.** Without the secret it shows a notice and is green. With it, the spend is
