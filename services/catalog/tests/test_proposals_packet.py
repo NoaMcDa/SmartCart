@@ -304,3 +304,17 @@ def test_import_command_reports_problems_and_writes_nothing(synthetic_run, tmp_p
     res = CliRunner().invoke(app, ["proposals-import", str(filled), "--reviewer", "T",
                                    "--out-dir", str(tmp_path / "prop")])  # fmt: skip
     assert res.exit_code == 1 and not (tmp_path / "prop").exists()
+
+
+SAMPLE = DATA / "proposals" / "proposals-real-2026-10-22-top30.csv"
+
+
+def test_the_committed_real_sample_is_a_packet_a_reviewer_can_start_from() -> None:
+    """Top 30 of the Real day run of 2026-10-22: real chain names, empty decisions, row hashes that
+    match, and each row sold by at least two chains with a real example per chain."""
+    rows = rows_of(SAMPLE.read_text(encoding="utf-8-sig"))
+    assert [int(r["rank"]) for r in rows] == list(range(1, 31))
+    assert all(int(r["chains"]) >= 2 and r["examples"] and r["decision"] == "" for r in rows)
+    assert {r["kind"] for r in rows} <= {"variant", "new_type"}
+    result = K.parse_filled_csv(SAMPLE)  # row_hash of every row matches its proposal columns
+    assert result.counts == {"accept": 0, "edit": 0, "reject": 0, "pending": 30}

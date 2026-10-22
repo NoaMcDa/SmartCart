@@ -670,12 +670,14 @@ chain), `--date`. It writes `canonical-proposals.html`, `.csv` (UTF-8 with a BOM
    product type, the same critical values and the same base unit are one group (the catalog's definition
    of "same at any brand"). Untyped products are grouped by their exact core name (word order ignored),
    then near duplicates are merged: hash-embedding cosine at least 0.90, or a name that is the cut prefix
-   of another. Attributes keyed for an untyped group are only fat percentage, state and plant base (a flavor
-   word in an untyped name is part of the name).
+   of another. Attributes keyed for an untyped group are only state and plant base: a flavor word or a percentage in an
+   untyped name stays in the name, because for an unknown type a percentage can be sugar, tomato or alcohol.
 5. **Not proposed** (and counted, with samples, in the JSON): a typed group whose product type already has a
    canonical with those critical values (`matching_gaps`: the items are unmapped because of the judge or
    blocking, a matching question, not a catalog gap); a typed group whose critical value no name states
-   (`missing_critical`: a canonical needs it); a group sold by one chain (`below_min_chains`, default
+   (`missing_critical`: a canonical needs it), or says only "something else" (`unspecific_critical`: a flavor
+   `other` or `milk+other`); a group with the same type and critical values as a wider one in another unit
+   (`same_type_other_unit`: `seed` allows one canonical, the other unit is named in the notes); a group sold by one chain (`below_min_chains`, default
    `--min-chains 2`: a canonical exists to compare prices across chains); a group whose names are not alike
    enough (`low_cohesion`); a group with no base unit. Precision over recall.
 6. **Rank.** `priority` = 0.30 chains selling it (share of the chains in the data) + 0.15 barcodes sold at two
@@ -741,7 +743,66 @@ would see), adds a section to the report and keeps the packet in the `real-day-r
 `.github/workflows/real-day.yml` passes it, and `commit_report` also pushes the packet to
 `real-day/report-<run id>`.
 
-REAL_RUN_SECTION
+#### The run on real data (2026-10-22, measured)
+
+Real day run [39806015065](https://github.com/NoaMcDa/SmartCart/actions/runs/39806015065) (commit `e2ee65d`,
+dispatched on this branch with `commit_report`; the packet is on `real-day/report-39806015065`). Six
+chains had files (King Store 8,396 items, Yohananof 13,721, Shufersal 14,437, Tiv Taam 25,925, Rami Levy
+18,315, Osher Ad 8,679). The stage took 102 s on the runner (after `judge`, 210 s, and `embed`, 280 s).
+
+| | Items | Groups |
+|---|---|---|
+| Loaded | 89,473 | |
+| Mapped by the rule judge (any level, review queue included) | 19,314 (21.6 %) | |
+| Not mapped | 70,159 | |
+| Of them with a valid GS1 barcode | 66,437 (11,262 barcodes at two or more chains; 1,664 members split off as a wrong barcode) | 46,904 products |
+| After grouping | | 28,985 groups |
+| Not a catalog gap: the type already has a canonical with those values | 9,009 | 441 |
+| Critical value no name states | 5,093 | 296 |
+| Critical value "other" or "milk+other" | 264 | 20 |
+| Same type and values as a kept group, other unit | 108 | 13 |
+| Sold by one chain | 24,206 | 20,405 |
+| Names not alike (cohesion under 0.5) | 1,595 | 12 |
+| No base unit | 1,005 | 336 |
+| **Candidates** (two or more chains, well formed) | 28,469 (40.6 % of the unmapped) | 7,475 |
+| **Top 150 proposed** (50 variants, 100 new types) | up to 2,356 items (3.4 %), 3,891 stores | 150 |
+
+Reading the numbers (the reading is mine; none is a precision):
+
+- **The catalog gap is large and long-tailed.** 7,475 candidate groups cover 41 % of the unmapped items;
+  150 proposals cover only 3.4 %, because each real group is small (a product at six chains is a handful of
+  items). A reviewer is the bottleneck: the top 150 is about an hour of reading at 30 seconds a row
+  (an estimate), and the proposals follow the same order the packet ranks them in.
+- **Most unmapped items are sold by one chain** (24,206 of 70,159): non-food, clothing and house goods that a
+  cross-chain canonical does not help. The default `--min-chains 2` leaves them out on purpose.
+- **A matching question, not a catalog gap, hides behind 9,009 items** (441 groups): the extractor gave them a
+  product type that has a canonical, and the judge did not map them. Many are keyword mistakes (a cheese
+  spread with garlic typed as `garlic`, a herbal tea typed as `tea_black`; the biggest group is 304 items typed
+  `chocolate_milk`). That list (`stats.matching_gaps` in the JSON, first ten) is input for the matching work, not for
+  this packet.
+- **The top of the list is plausible to a non-reviewer's eye**: cooking cream 15 %, bulgarian cheese 16 %,
+  Gouda, frozen strawberries and mango, white chocolate (211 items, 56 barcodes at several chains), spicy
+  hummus, plain yogurt 0 % and 4 %, cottage cheese 9 %, almond flour, cornflour, chili and teriyaki sauce,
+  sesame. Weaker ones are named in the notes of the row: a name from a single product may carry its brand
+  ("דניאלה תות"), a flavor the extractor misread (`דניאלה תות` has `flavor: cheese`), diapers (a category section 2 left out on purpose because size classes need their own
+  attributes) and a few types whose keyword is too loose. The reviewer rejects those; the import keeps the
+  reason.
+- **Two defects were found by the first real run and fixed**: flavors `other` and `milk+other` became proposals no
+  canonical can be (now excluded: `unspecific_critical`); a percentage in an untyped name was read as fat
+  ("20 % פחות סוכר", tomato content 22 %), now it stays in the name only. Answering the first packet found a third: bulgarian cheese
+  16 % was proposed twice (packed, per 100 g, and weighed, per kg), which `seed` rejects as indistinguishable
+  at any brand; now one proposal per type and critical values, with the other unit named in its notes.
+- **End to end on the real packet**: accepting the cooking cream and the bulgarian cheese, and editing the
+  almond flour into a new type, with Arabic names filled in, gives a file that the scratch `seed` check accepts
+  (248 canonicals). The same check with a new banana-flavored yogurt fails with "must state the flavor": the
+  Arabic lexicon has no banana.
+
+A trimmed sample of the real packet (top 30, the full columns, importable) is
+`data/proposals/proposals-real-2026-10-22-top30.csv`, so a reviewer can start; the whole 150 rows, the HTML
+page and the JSON with the excluded samples are on the report branch above and in the artifact for 30 days.
+**It is real chain data of one day from six chains, a measurement of the catalog gap and not a sample of
+anything**; the stores column uses the backlog's definition (a base price counts every physical store of the
+chain) over the few store files that run downloaded.
 
 ### Tests
 
