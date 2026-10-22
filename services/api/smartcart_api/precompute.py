@@ -1,8 +1,11 @@
 """Nightly effective-price precompute (issue #47, docs/architecture.md section 4, layer 3).
 
 For every (canonical product, store, flexibility level) pick the item with the lowest effective
-unit price and store it in ``effective_prices``. ``/compare`` and ``/optimize`` only read that
-table.
+unit price and store it in ``effective_prices`` (what ``/search``, the history and the alerts read).
+``/compare`` and ``/optimize`` read that table and ``effective_offers``: up to four more offers per
+key that are the cheapest line for some quantity or club audience, so that the line for 12 eggs is
+the 12-pack although a tray of 30 has the better unit price (``offers.choose_extras``, docs/optimizer.md
+"Offers for the quantity asked").
 
 Which items compete (decision D4): an item mapped in ``item_canonical`` at level ``m``
 qualifies for a requested level ``L`` when ``m`` is at or below ``L`` in exact < any_brand <
@@ -46,7 +49,8 @@ deal even when club B's deal won the row. Matching a user's clubs to a promo is
 ``basket.club_member``.
 
 The job is idempotent: it upserts on the primary key and deletes rows of the processed chains
-that this run did not produce. A ``match_runs`` row (kind ``precompute``) records the counts.
+that this run did not produce; ``effective_offers`` rows of the processed chains are replaced as a
+whole. A ``match_runs`` row (kind ``precompute``) records the counts, ``offer_rows`` included.
 """
 
 from __future__ import annotations
@@ -55,7 +59,7 @@ import json
 import time
 from collections import defaultdict
 from collections.abc import Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -63,6 +67,7 @@ import psycopg
 import structlog
 from psycopg.types.json import Jsonb
 
+from smartcart_api.offers import choose_extras, identity, kind_of, units_per_pack
 from smartcart_catalog.models import NormalizedItem
 from smartcart_catalog.normalize import normalize
 from smartcart_ingest.unitprice import MAX_BASE_AMOUNT
@@ -110,6 +115,10 @@ class Option:
     pack_units: Decimal | None = None
     """Units in one shelf item, for a per-unit canonical whose item states its count (12 for a
     tray of 12 eggs); None when the count is not stated or the unit is a weight or a volume."""
+    amount: Decimal | None = None
+    """Per-100 g and per-100 ml canonicals: the item's weight or volume in hundreds of grams or
+    milliliters (``shelf price / unit price``), None otherwise. Not stored: ``offers.choose_extras``
+    uses it to compare only offers of the same size."""
 
     def key(self) -> tuple:
         return (self.effective_unit_price, self.effective_price, self.item_id, self.promo_id or 0)
@@ -317,6 +326,7 @@ def item_options(
     base_units: dict[int, str] | None = None,
     per_club: dict[tuple[int, int], dict[str, Option]] | None = None,
     notes: list[dict] | None = None,
+    every: dict[tuple[int, int], list[Option]] | None = None,
 ) -> dict[tuple[int, int], tuple[Option, Option]]:
     """(store_id, item_id) -> (best option overall, best option without a club promo).
 
@@ -326,6 +336,8 @@ def item_options(
     named by a club promo, when it beats the no-club option. Club promos without a club name are
     left out: they never apply (issue #19). ``notes`` receives one dict per item whose pack was
     read from the name against the fields, or whose readings disagreed (``UnitReading.note``).
+    ``every`` receives, per (store_id, item_id), every way to buy the item: the shelf price and each
+    promo that lowers it, whichever is best (``offers.choose_extras`` picks from these).
     """
     if not store_ids or not item_ids:
         return {}
@@ -358,8 +370,10 @@ def item_options(
             price_valid_from=p.valid_from,
             is_estimated=p.is_estimated,
             pack_units=reading.pack_units,
+            amount=p.price / unit_price if base in ("100g", "100ml") and unit_price > 0 else None,
         )
         best, best_noclub = plain, plain
+        ways = [plain]
         for promo in promos.get(p.item_id, ()):
             if promo.store_id is not None and promo.store_id != p.store_id:
                 continue
@@ -378,6 +392,7 @@ def item_options(
                 club_required=promo.club_only,
                 club_name=promo.club_name if promo.club_only else None,
             )
+            ways.append(opt)
             if opt.key() < best.key():
                 best = opt
             if not promo.club_only and opt.key() < best_noclub.key():
@@ -388,6 +403,8 @@ def item_options(
                 if cur is None or opt.key() < cur.key():
                     clubs[promo.club_name] = opt
         out[(p.store_id, p.item_id)] = (best, best_noclub)
+        if every is not None:
+            every[(p.store_id, p.item_id)] = ways
         if per_club is not None and (p.store_id, p.item_id) in per_club:
             clubs = per_club[(p.store_id, p.item_id)]
             for name in [n for n, o in clubs.items() if not o.key() < best_noclub.key()]:
@@ -592,6 +609,9 @@ class PrecomputeResult:
     rows_by_flex: dict[str, int] | None = None
     rows_with_promo: int = 0
     rows_club_required: int = 0
+    offer_rows: int = 0
+    """Rows written to ``effective_offers``: the other offers kept per key (``offers.py``)."""
+    offers_by_kind: dict[str, int] = field(default_factory=dict)
     seconds: float = 0.0
     pack_notes: list[dict] | None = None
     """Items whose pack was read from the name against the fields, or whose readings disagreed."""
@@ -611,6 +631,8 @@ class PrecomputeResult:
             "rows_by_flex": self.rows_by_flex or {},
             "rows_with_promo": self.rows_with_promo,
             "rows_club_required": self.rows_club_required,
+            "offer_rows": self.offer_rows,
+            "offers_by_kind": dict(sorted(self.offers_by_kind.items())),
             "seconds": round(self.seconds, 3),
             "pack_reads": dict(sorted(kinds.items())),
             "pack_samples": [n for n in notes if n["kind"] != "count_from_name"][:MAX_PACK_SAMPLES]
@@ -618,11 +640,25 @@ class PrecomputeResult:
         }
 
 
+def _sig(cache: dict[int, tuple], o: Option) -> tuple:
+    cache[id(o)] = sig = _signature(o)
+    return sig
+
+
+def _signature(o: Option) -> tuple:
+    """What decides the price of an offer for any quantity (and who may use it)."""
+    return (
+        identity(o), o.shelf_price, o.effective_price, o.effective_unit_price,
+        o.promo_min_qty, o.pack_units, o.amount,
+    )  # fmt: skip
+
+
 def _chain_rows(
     conn: psycopg.Connection, chain_id: str, as_of: datetime, notes: list[dict] | None = None
-) -> tuple[list[tuple], int, int]:
+) -> tuple[list[tuple], int, int, list[tuple]]:
+    """(``effective_prices`` rows, stores, items priced, ``effective_offers`` rows) of one chain."""
     mappings = conn.execute(
-        "SELECT ic.item_id, ic.canonical_id, ic.flex_level, cp.base_unit"
+        "SELECT ic.item_id, ic.canonical_id, ic.flex_level, cp.base_unit, cp.soft_attrs"
         " FROM item_canonical AS ic"
         " JOIN items AS i ON i.id = ic.item_id"
         " JOIN canonical_products AS cp ON cp.id = ic.canonical_id"
@@ -633,30 +669,38 @@ def _chain_rows(
         r[0] for r in conn.execute("SELECT id FROM stores WHERE chain_id = %s", (chain_id,))
     ]
     if not mappings or not store_ids:
-        return [], len(store_ids), 0
+        return [], len(store_ids), 0, []
     # One base unit per item for the conversion; an item mapped to canonicals with different
     # base units is priced once per base unit.
     by_base: dict[str, set[int]] = defaultdict(set)
-    for item_id, _cid, _lvl, base in mappings:
+    per: dict[int, Decimal | None] = {}  # units one requested pack holds, counted canonicals only
+    for item_id, cid, _lvl, base, soft in mappings:
         by_base[base].add(item_id)
+        per[cid] = units_per_pack(base, soft)
     options: dict[tuple[str, int, int], tuple[Option, Option]] = {}
     club_opts: dict[tuple[str, int, int], dict[str, Option]] = {}
+    every: dict[tuple[str, int, int], list[Option]] = {}
     for base, items in by_base.items():
         per_club: dict[tuple[int, int], dict[str, Option]] = {}
+        ways: dict[tuple[int, int], list[Option]] = {}
         got = item_options(
             conn, chain_id, store_ids, sorted(items), as_of, {i: base for i in items}, per_club,
-            notes,
+            notes, ways,
         )  # fmt: skip
         for (sid, iid), opts in got.items():
             options[(base, sid, iid)] = opts
         for (sid, iid), clubs in per_club.items():
             club_opts[(base, sid, iid)] = clubs
+        for (sid, iid), opts_ in ways.items():
+            every[(base, sid, iid)] = opts_
     by_item: dict[int, list[tuple[int, str, str]]] = defaultdict(list)
-    for item_id, cid, lvl, base in mappings:
+    for item_id, cid, lvl, base, _soft in mappings:
         by_item[item_id].append((cid, lvl, base))
 
     best: dict[tuple[int, int, str], tuple[Option, Option]] = {}
     best_club: dict[tuple[int, int, str], dict[str, Option]] = defaultdict(dict)
+    # every way to buy the canonical at the store, with whether the item is a close substitute
+    ways_at: dict[tuple[int, int, str], list[tuple[Option, bool]]] = defaultdict(list)
     for (base, sid, iid), (opt, noclub) in options.items():
         clubs = club_opts.get((base, sid, iid), {})
         for cid, lvl, cbase in by_item[iid]:
@@ -666,6 +710,8 @@ def _chain_rows(
                 if FLEX_ORDER[lvl] > FLEX_ORDER[level]:
                     continue
                 key = (cid, sid, level)
+                if base != "kg":  # a weighed line is priced per kg: the best unit price is final
+                    ways_at[key].extend((w, lvl == "close") for w in every[(base, sid, iid)])
                 cur = best.get(key)
                 if cur is None:
                     best[key] = (opt, noclub)
@@ -679,17 +725,43 @@ def _chain_rows(
                     if have is None or copt.key() < have.key():
                         best_club[key][name] = copt
     rows = []
+    extra_rows: list[tuple] = []
+    picked: dict[tuple, list[tuple[int, int | None, str | None]]] = {}
+    sigs: dict[int, tuple] = {}  # signature of each offer, built once
     for (cid, sid, level), (opt, noclub) in best.items():
         noclub_js = None
+        stored = [opt]
         if opt.club_required:
             noclub_js = noclub.as_json()
-            alts = {  # every club whose deal beats the no-club option, the winner's included
-                name: o.as_json()
+            club_alts = {  # every club whose deal beats the no-club option, the winner's included
+                name: o
                 for name, o in sorted(best_club.get((cid, sid, level), {}).items())
                 if o.key() < noclub.key()
             }
+            alts = {name: o.as_json() for name, o in club_alts.items()}
             if alts:
                 noclub_js["clubs"] = alts
+            stored += [noclub, *club_alts.values()]
+        cands = ways_at.get((cid, sid, level), ())
+        if len(cands) > 1:
+            # Stores of a chain mostly share prices: the choice is made once per distinct set.
+            sig = (per[cid], tuple(identity(o) for o in stored))
+            sig += (frozenset((sigs.get(id(o)) or _sig(sigs, o), sub) for o, sub in cands),)
+            ids = picked.get(sig)
+            if ids is None:
+                ids = [identity(o) for o in choose_extras(cands, stored, per[cid])]
+                picked[sig] = ids
+            by_id = {identity(o): o for o, _sub in cands}
+            for rank, ident in enumerate(ids, 1):
+                x = by_id[ident]
+                extra_rows.append(
+                    (
+                        cid, sid, level, rank, kind_of(x), x.item_id, x.shelf_price,
+                        x.effective_unit_price, x.uom, x.promo_id, x.club_required, x.club_name,
+                        x.price_valid_from, x.effective_price, x.promo_min_qty, x.is_estimated,
+                        x.pack_units,
+                    )
+                )  # fmt: skip
         rows.append(
             (
                 cid,
@@ -710,7 +782,7 @@ def _chain_rows(
                 opt.pack_units,
             )
         )
-    return rows, len(store_ids), len({iid for (_b, _s, iid) in options})
+    return rows, len(store_ids), len({iid for (_b, _s, iid) in options}), extra_rows
 
 
 def precompute_effective_prices(
@@ -741,7 +813,7 @@ def precompute_effective_prices(
             " ON COMMIT DROP"
         )
         for chain_id in chain_ids:
-            rows, n_stores, n_items = _chain_rows(conn, chain_id, as_of, result.pack_notes)
+            rows, n_stores, n_items, extra = _chain_rows(conn, chain_id, as_of, result.pack_notes)
             result.chains += 1
             result.stores += n_stores
             result.items_priced += n_items
@@ -780,6 +852,23 @@ def precompute_effective_prices(
                 " WHERE s.id = e.store_id AND s.chain_id = %s AND e.computed_at <> %s",
                 (chain_id, computed_at),
             ).rowcount
+            # The other offers of the chain's keys: replaced as a whole (same transaction).
+            conn.execute(
+                "DELETE FROM effective_offers AS e USING stores AS s"
+                " WHERE s.id = e.store_id AND s.chain_id = %s",
+                (chain_id,),
+            )
+            with conn.cursor().copy(
+                "COPY effective_offers (canonical_id, store_id, flex_level, rank, kind, item_id,"
+                " shelf_price, effective_unit_price, uom, promo_id, club_required, club_name,"
+                " price_valid_from, effective_price, promo_min_qty, is_estimated, pack_units,"
+                " computed_at) FROM STDIN"
+            ) as copy:
+                for r in extra:
+                    copy.write_row((*r, computed_at))
+            result.offer_rows += len(extra)
+            for r in extra:
+                result.offers_by_kind[r[4]] = result.offers_by_kind.get(r[4], 0) + 1
             result.rows_written += len(rows)
             for r in rows:
                 result.rows_by_flex[r[3]] += 1

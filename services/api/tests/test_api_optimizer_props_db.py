@@ -39,6 +39,8 @@ from smartcart_api.settings import get_settings
 D = Decimal
 pytestmark = [pytest.mark.db, pytest.mark.postgis, pytest.mark.pgvector]
 SEEDS = range(18)
+MANY_SEEDS = range(12)
+FEW, MANY = (2, 6), (8, 14)  # promos drawn per world
 PACK_EFFECT_SEEDS: set[int] = set()  # seeds with a line whose shelf packs differ from the quantity
 CLUBS = ("club-a", "club-b")
 
@@ -96,54 +98,6 @@ def fold(shelf: Decimal, p: Promo) -> tuple[Decimal, int] | None:
     return (eff, need) if 0 <= eff < shelf else None
 
 
-def best_offers(
-    built: Built, store: dict, cid: int, clubs: list[str]
-) -> list[tuple[Decimal, int, Promo | None]]:
-    """The offers that tie for the user's best price per unit at (store, canonical): [(price per
-    pack, packs needed, promo)]. A club promo is for members only."""
-    shelf = built.shelf[(store["id"], cid)]
-    offers: list[tuple[Decimal, int, Promo | None]] = [(shelf, 1, None)]
-    for p in built.promos:
-        if p.chain != store["chain"] or cid not in p.items or p.store not in (None, store["id"]):
-            continue
-        if p.club is not None and p.club not in clubs:
-            continue
-        f = fold(shelf, p)
-        if f is not None:
-            offers.append((f[0], f[1], p))
-    low = min(o[0] for o in offers)
-    return [o for o in offers if o[0] == low]
-
-
-def club_extras(
-    built: Built, store: dict, cid: int, clubs: list[str]
-) -> list[tuple[Decimal, int, Promo | None]]:
-    """When the best offer overall is a club deal (the row is club-only), the other offers open
-    to the user: the best price without a club deal and each marked club's own best deal when it
-    beats that. The cheapest of these for the quantity asked is what the line charges."""
-    shelf = built.shelf[(store["id"], cid)]
-    mine = [
-        p
-        for p in built.promos
-        if p.chain == store["chain"] and cid in p.items and p.store in (None, store["id"])
-    ]
-    folded = [(fold(shelf, p), p) for p in mine]
-    everything = [(shelf, 1, None)] + [(f[0], f[1], p) for f, p in folded if f is not None]
-    low = min(o[0] for o in everything)
-    if not any(o[2] is not None and o[2].club is not None for o in everything if o[0] == low):
-        return []
-    noclub = [o for o in everything if o[2] is None or o[2].club is None]
-    nlow = min(o[0] for o in noclub)
-    out = [o for o in noclub if o[0] == nlow]
-    for name in clubs:
-        deals = [o for o in everything if o[2] is not None and o[2].club == name]
-        if deals:
-            best = min(o[0] for o in deals)
-            if best < nlow:
-                out += [o for o in deals if o[0] == best]
-    return out
-
-
 def line_price(
     shelf: Decimal, offer: tuple[Decimal, int, Promo | None], qty: Decimal, weighed: bool
 ) -> Decimal:
@@ -160,15 +114,23 @@ def line_price(
 
 @dataclass
 class Best:
-    eff: Decimal  # price per pack (per kg when weighed) of the best offer
+    eff: Decimal  # price per pack (per kg when weighed) of the chosen offer
     kind: str  # main (any-brand item, maybe on promo) | sub (close-level item, no promo)
     shelf: Decimal
-    offers: list  # the tied offers of a main item
-    extras: list = field(default_factory=list)  # other offers open to the user (club rows)
     n: int | None = None  # units in one shelf item, when its name states them
 
 
-def packs_of(b: Best, qty: Decimal, per: int | None) -> Decimal:
+@dataclass
+class Way:
+    """One way to buy a canonical at a store: an item and one of its offers open to the user."""
+
+    sub: bool  # the close-level substitute item
+    shelf: Decimal
+    n: int | None  # units in one shelf item, when its name states them
+    offer: tuple[Decimal, int, Promo | None]  # price per pack, packs needed, promo
+
+
+def packs_of(b: Best | Way, qty: Decimal, per: int | None) -> Decimal:
     """Shelf items that cover ``qty`` requested packs of ``per`` units each (whole packs), or the
     quantity itself when the item states no count or the canonical is weighed."""
     if b.n is None or per is None:
@@ -176,76 +138,106 @@ def packs_of(b: Best, qty: Decimal, per: int | None) -> Decimal:
     return (qty * per / b.n).to_integral_value(rounding=ROUND_CEILING)
 
 
-def level_best(built: Built, store: dict, cid: int, flex: str, clubs: list[str]) -> Best | None:
-    """The best offer of canonical ``cid`` at ``store`` for flexibility ``flex``: the any-brand
-    item with its best promo for this user, or at "close" the substitute item when it is cheaper
-    (a tie goes to the any-brand item, which is the older row)."""
+def ways_at(built: Built, store: dict, cid: int, flex: str, clubs: list[str]) -> list[Way]:
+    """Every way the store sells canonical ``cid`` to this user for flexibility ``flex``: the
+    any-brand item at its shelf price and under each promo that lowers it (a club promo only for
+    members), and at "close" the substitute item at its shelf price. Independent of the precompute:
+    nothing here is ranked by unit price."""
     sid = store["id"]
-    main = None
+    n = built.pack_n.get((store["chain"], cid))
+    out: list[Way] = []
     if (sid, cid) in built.shelf:
-        offers = best_offers(built, store, cid, clubs)
-        extras = [] if built.canon[cid] else club_extras(built, store, cid, clubs)
-        n = built.pack_n.get((store["chain"], cid))
-        main = Best(offers[0][0], "main", built.shelf[(sid, cid)], offers, extras, n)
-    sub = None
+        shelf = built.shelf[(sid, cid)]
+        out.append(Way(False, shelf, n, (shelf, 1, None)))
+        for p in built.promos:
+            if p.chain != store["chain"] or cid not in p.items or p.store not in (None, sid):
+                continue
+            if p.club is not None and p.club not in clubs:
+                continue
+            f = fold(shelf, p)
+            if f is not None:
+                out.append(Way(False, shelf, n, (f[0], f[1], p)))
     if flex == "close" and (sid, cid) in built.sub_shelf:
         price = built.sub_shelf[(sid, cid)]
-        sub = Best(
-            price, "sub", price, [(price, 1, None)], [], built.pack_n.get((store["chain"], cid))
-        )
-    if main is not None and (sub is None or main.eff <= sub.eff):
-        return main
-    return sub
+        out.append(Way(True, price, n, (price, 1, None)))
+    return out
+
+
+@dataclass
+class Pick:
+    way: Way
+    total: Decimal
+    ambiguous: bool  # another offer of the same price, kind of item and unit price differs in shape
+
+
+def cheapest(ways: list[Way], qty: Decimal, per: int | None, weighed: bool) -> Pick | None:
+    """The cheapest line for ``qty``; a tie goes to an any-brand item over a substitute, then to
+    the lower price per pack (the best unit price, which is what the precompute ranks by)."""
+    if not ways:
+        return None
+
+    def total(w: Way) -> Decimal:
+        return line_price(w.shelf, w.offer, packs_of(w, qty, per), weighed)
+
+    def key(w: Way) -> tuple:
+        return (total(w), w.sub, w.offer[0])
+
+    best = min(ways, key=key)
+    tied = {
+        (w.sub, w.offer[2].label if w.offer[2] else None, w.offer[1])
+        for w in ways
+        if key(w) == key(best)
+    }
+    return Pick(best, total(best), len(tied) > 1)
 
 
 @dataclass
 class Exp:
-    totals: set[Decimal]  # the possible line totals (more than one only when offers tie)
+    totals: set[Decimal]  # the line total (a set of one: kept for the callers that test membership)
     sub: bool
     src: int  # the canonical whose item is bought (a sibling's, when allowed and cheaper)
     best: Best
     orig: set[Decimal] | None  # a substitute's original_here totals, None when the store has none
-    offer: tuple  # the offer the line charges (the cheapest of those open to the user)
+    offer: tuple  # the offer the line charges
+    ambiguous: bool = False  # two offers tie in price and differ in shape (a promo, a bundle size)
 
 
 def expected(built: Built, store: dict, item: dict, clubs: list[str]) -> Exp | None:
-    """What the line for ``item`` at ``store`` must be, or None when the store cannot supply it."""
+    """What the line for ``item`` at ``store`` must be, or None when the store cannot supply it.
+
+    The cheapest line for the quantity among every offer open to the user (docs/optimizer.md,
+    "Offers for the quantity asked"), not the offer with the best unit price."""
     cid, flex = item["canonical_id"], item.get("flex_level", "any_brand")
     qty, weighed = D(item["quantity"]), built.canon[cid]
     per = built.per.get(cid)
-    own = level_best(built, store, cid, flex, clubs)
+    own = cheapest(ways_at(built, store, cid, flex, clubs), qty, per, weighed)
     src, chosen = cid, own
     sib_cid = built.sibling.get(cid)
-
-    def totals_of(b: Best) -> set[Decimal]:
-        q = packs_of(b, qty, per)
-        return {min(line_price(b.shelf, o, q, weighed) for o in [d, *b.extras]) for d in b.offers}
-
     if item.get("allow") and sib_cid is not None:
-        sib = level_best(built, store, sib_cid, flex, clubs)
+        sib = cheapest(ways_at(built, store, sib_cid, flex, clubs), qty, per, weighed)
         # The allowed sibling is bought when it is cheaper for the quantity; the own offer keeps a tie.
-        if sib is not None and (own is None or min(totals_of(sib)) < min(totals_of(own))):
+        if sib is not None and (own is None or sib.total < own.total):
             src, chosen = sib_cid, sib
     if chosen is None:
         return None
-    sub = src != cid or chosen.kind == "sub"
-    totals = totals_of(chosen)
+    w = chosen.way
+    sub = src != cid or w.sub
     orig = None
     if sub:
-        o = level_best(built, store, cid, "any_brand", clubs)
+        o = cheapest(ways_at(built, store, cid, "any_brand", clubs), qty, per, weighed)
         if o is not None:
-            q = packs_of(o, qty, per)
-            orig = {
-                min(line_price(o.shelf, x, q, weighed) for x in [d, *o.extras]) for d in o.offers
-            }
-    q = packs_of(chosen, qty, per)
-    cheapest = min(
-        [*chosen.offers, *chosen.extras], key=lambda o: line_price(chosen.shelf, o, q, weighed)
-    )
-    return Exp(totals, sub, src, chosen, orig, cheapest)
+            orig = {o.total}
+    best = Best(w.offer[0], "sub" if w.sub else "main", w.shelf, w.n)
+    return Exp({chosen.total}, sub, src, best, orig, w.offer, chosen.ambiguous)
 
 
-def build_world(db, rnd: random.Random, w: World, prnd: random.Random | None = None) -> Built:
+def build_world(
+    db,
+    rnd: random.Random,
+    w: World,
+    prnd: random.Random | None = None,
+    promos: tuple[int, int] = FEW,
+) -> Built:
     """``prnd`` draws the pack features (typical pack of a canonical, units in a chain's item), so
     the rest of every world is the same with or without them."""
     prnd = prnd or random.Random(0)
@@ -433,7 +425,7 @@ def build_world(db, rnd: random.Random, w: World, prnd: random.Random | None = N
             Promo(label, ch, store, kind, value, n, club, {c for c in cids if (ch, c) in items})
         )
 
-    for k in range(rnd.randint(2, 6)):
+    for k in range(rnd.randint(*promos)):
         ch = w.chains[rnd.randrange(2)]
         cid = rnd.choice(list(built.canon))
         weighed = built.canon[cid]
@@ -492,7 +484,7 @@ def pooled_problem(
             exp = expected(built, s, it, clubs)
             if exp is None:
                 continue
-            if len(exp.totals) > 1:
+            if exp.ambiguous:
                 return None
             eff, need, promo = exp.offer
             key = None
@@ -571,9 +563,9 @@ def base(db, catalog: World) -> World:
     return catalog
 
 
-def example(db, base: World, seed: int):
+def example(db, base: World, seed: int, promos: tuple[int, int] = FEW):
     rnd = random.Random(seed)
-    built = build_world(db, rnd, base, random.Random(seed + 7919))
+    built = build_world(db, rnd, base, random.Random(seed + 7919), promos)
     precompute_effective_prices(db, chains=base.chains)
     cids = list(built.canon)
     items = []
@@ -597,7 +589,25 @@ def example(db, base: World, seed: int):
 def test_compare_prices_equal_an_independent_recomputation(
     db, client, base: World, seed: int
 ) -> None:
-    rnd, built, items, clubs, body = example(db, base, seed)
+    check_compare(db, client, base, seed, FEW)
+
+
+@pytest.mark.parametrize("seed", MANY_SEEDS)
+def test_compare_prices_with_many_promos_equal_an_independent_recomputation(
+    db, client, base: World, seed: int
+) -> None:
+    """Eight to fourteen promos over the same few canonicals: several per item and chain, so a
+    key has more candidate offers than the table keeps unless they are the useful ones. The line is
+    still the cheapest for the quantity among every offer open to the user (``ways_at``)."""
+    check_compare(db, client, base, seed, MANY)
+    n = db.execute(
+        "SELECT max(c) FROM (SELECT count(*) c FROM effective_offers GROUP BY canonical_id, store_id, flex_level) q"
+    ).fetchone()[0]
+    assert n is None or n <= 4  # at most four rows next to the effective_prices row
+
+
+def check_compare(db, client, base: World, seed: int, promos: tuple[int, int]) -> None:
+    rnd, built, items, clubs, body = example(db, base, seed, promos)
     qty = {i["canonical_id"]: D(i["quantity"]) for i in items}
     by_item = {i["canonical_id"]: i for i in items}
     by_id = {s["id"]: s for s in built.stores}
@@ -681,7 +691,18 @@ def test_the_random_worlds_exercise_pack_rounding() -> None:
 
 @pytest.mark.parametrize("seed", SEEDS)
 def test_optimize_plans_equal_the_exhaustive_reference(db, client, base: World, seed: int) -> None:
-    rnd, built, items, clubs, body = example(db, base, seed)
+    check_optimize(db, client, base, seed, FEW)
+
+
+@pytest.mark.parametrize("seed", MANY_SEEDS)
+def test_optimize_plans_with_many_promos_equal_the_exhaustive_reference(
+    db, client, base: World, seed: int
+) -> None:
+    check_optimize(db, client, base, seed, MANY)
+
+
+def check_optimize(db, client, base: World, seed: int, promos: tuple[int, int]) -> None:
+    rnd, built, items, clubs, body = example(db, base, seed, promos)
     qty = {i["canonical_id"]: D(i["quantity"]) for i in items}
     cmp = {st["store_id"]: st for st in client.post("/compare", json=body).json()["stores"]}
     dist = {

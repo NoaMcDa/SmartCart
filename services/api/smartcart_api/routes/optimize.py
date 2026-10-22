@@ -301,13 +301,13 @@ def _optimize_milp(
             extra_stop_value=body.travel.extra_stop_value,
         )
 
-    single_sol = split_sol = None
+    single_sol = split_sol = best_overall = None
     if candidates:
         cand = problem(candidates)
         single_sol = milp.solve(cand, 1, hint=h_single.assignment if h_single else None)
         if body.max_stores >= 2 and len(candidates) >= 2:
             split_hint = h_split.assignment if h_split else None
-            best = milp.solve(cand, body.max_stores, hint=split_hint)
+            best = best_overall = milp.solve(cand, body.max_stores, hint=split_hint)
             if best is not None and len(best.used) >= 2:
                 split_sol = best
             elif body.min_split_saving <= 0:
@@ -315,6 +315,23 @@ def _optimize_milp(
                 # it, which min_split_saving = 0 still accepts (as in the heuristic).
                 split_sol = milp.solve(cand, body.max_stores, min_stores=2, hint=split_hint)
     home_sol = milp.solve(problem([home.info]), 1) if home is not None else None
+
+    # Never worse than the heuristic: the solver's objective rounds per-unit promo prices of a
+    # shared group to an agora, so a plan within an agora of the optimum can be preferred over one
+    # that is really cheaper. Both plans are priced exactly (the MILP's own totals are rounded once
+    # at the end), so compare them and keep the heuristic's when it is strictly better.
+    single_sol = _no_worse(single_sol, h_single, baskets)
+    if best_overall is not None and len(best_overall.used) < 2 and split_sol is None:
+        # the optimum looked like one store, but the heuristic found a cheaper split
+        split_sol = _no_worse(best_overall, h_split, baskets)
+        if split_sol is best_overall:
+            split_sol = None
+    split_sol = _no_worse(split_sol, h_split, baskets)
+    if home is not None:
+        home_eval = evaluate_subsets(
+            [home.info], {home.info.store_id: home}, canonical_ids, 1, body.travel
+        )[0]
+        home_sol = _no_worse(home_sol, home_eval, baskets)
 
     if split_sol is not None and single_sol is not None:
         good_enough = (
@@ -368,6 +385,42 @@ def _optimize_milp(
         solver="milp",
         generated_at=datetime.now(UTC),
     )
+
+
+def _from_eval(ev: SubsetEval, baskets: dict[int, StoreBasket]) -> milp.Solution:
+    """A heuristic plan in the MILP's result type: its lines as /compare prices them, no bundles."""
+    return milp.Solution(
+        status="heuristic",
+        assignment=dict(ev.assignment),
+        missing=list(ev.missing),
+        line_totals={c: baskets[s].lines[c].line_total for c, s in ev.assignment.items()},
+        units_in_bundles={},
+        bundles=[],
+        suggestions=[],
+        basket_total=ev.basket_total,
+        travel_cost=ev.travel_cost,
+        extra_stop_cost=ev.extra_stop_cost,
+        seconds=0.0,
+        store_set=ev.stores,
+    )
+
+
+def _no_worse(
+    sol: milp.Solution | None, ev: SubsetEval | None, baskets: dict[int, StoreBasket]
+) -> milp.Solution | None:
+    """``sol`` unless the heuristic's plan ``ev`` is strictly better (fewer missing items, then
+    a lower total with travel and extra stops). A tie keeps the MILP's plan, which knows the
+    bundles. Both totals are exact money, so this is a comparison of what the user would pay."""
+    if sol is None or ev is None:
+        return sol
+    if (len(ev.missing), ev.cost) < (len(sol.missing), sol.cost):
+        log.info(
+            "milp plan worse than the heuristic's, heuristic kept",
+            milp_cost=str(sol.cost),
+            heuristic_cost=str(ev.cost),
+        )
+        return _from_eval(ev, baskets)
+    return sol
 
 
 def _milp_basket(basket: StoreBasket, sol: milp.Solution) -> StoreBasket:

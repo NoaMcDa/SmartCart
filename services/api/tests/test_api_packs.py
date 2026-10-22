@@ -392,11 +392,13 @@ def test_the_basket_no_longer_prices_eggs_at_170(client, db, world: World) -> No
 @pytest.mark.db
 @pytest.mark.postgis
 @pytest.mark.pgvector
-def test_a_tray_beats_a_small_pack_per_egg_and_the_total_stays_honest(
+def test_a_tray_wins_the_unit_price_but_not_the_line_for_twelve_eggs(
     client, db, world: World
 ) -> None:
-    """At close, 30 eggs for 29.90 (1.00 an egg) win over 12 for 14.20 (1.18); the line for
-    12 eggs is then the whole tray, 29.90, not 12 x 1.00."""
+    """At close, 30 eggs for 29.90 (1.00 an egg) beat 12 for 14.20 (1.18) by unit price, which is
+    what /search and the effective_prices row rank by. The line for 12 eggs is the 12-pack, 14.20,
+    the cheapest way to buy 12; 30 eggs are the tray (docs/optimizer.md, "Offers for the quantity
+    asked"). It used to be the whole tray, 29.90, for 12 eggs."""
     add_counted_canonical(db, world, "eggs", 12)
     add_pack_item(db, world, "p12", "eggs", "t-c1", "ביצים 12 יח גדול L", "1.00", "יחידות", "14.20")
     add_pack_item(
@@ -404,11 +406,17 @@ def test_a_tray_beats_a_small_pack_per_egg_and_the_total_stays_honest(
         level="close",
     )  # fmt: skip
     precompute_effective_prices(db, chains=world.chains)
+    assert ep_row(db, world, "eggs", "home", "close")["item_id"] == world.items["p30"]  # rank 0
     any_brand = line(client, world, "eggs", 1)
     assert any_brand["item_id"] == world.items["p12"] and D(any_brand["line_total"]) == D("14.20")
-    close = line(client, world, "eggs", 1, flex_level="close")
-    assert close["item_id"] == world.items["p30"] and D(close["packs"]) == 1
-    assert D(close["line_total"]) == D("29.90") and close["is_substitute"]
+    close = line(client, world, "eggs", 1, flex_level="close")  # 12 eggs
+    assert close["item_id"] == world.items["p12"] and D(close["packs"]) == 1
+    assert D(close["line_total"]) == D("14.20") and not close["is_substitute"]
+    tray = line(client, world, "eggs", 2.5, flex_level="close")  # 30 eggs
+    assert tray["item_id"] == world.items["p30"] and D(tray["packs"]) == 1
+    assert D(tray["line_total"]) == D("29.90") and tray["is_substitute"]
+    two = line(client, world, "eggs", 2, flex_level="close")  # 24 eggs: 2 packs, not a tray
+    assert two["item_id"] == world.items["p12"] and D(two["line_total"]) == D("28.40")
 
 
 @pytest.mark.db
