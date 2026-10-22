@@ -29,7 +29,7 @@ data is a template (docs/methodology.md is the only hand-written page, and it sa
 | File | Content |
 |---|---|
 | `categories.json` | Taxonomy levels 1 and 2 (19 departments, 56 categories in the seed): slug, Hebrew name, `canonical_count`, `has_page`, parent and breadcrumb path |
-| `products.json` | Every MVP canonical (245 in the seed): slug, Hebrew name, taxonomy path, base unit, critical attributes, rank, `has_page`. With prices: per chain the minimum and median unit price, store count, `is_estimated`, and the latest `price_valid_from`. Without: `prices: null`, `price_valid_from: null`, `no_prices_yet: true` |
+| `products.json` | Every MVP canonical (245 in the seed): slug, Hebrew name, taxonomy path, base unit, critical attributes, rank, `has_page`. With prices: per chain the minimum and median unit price, store count, `is_estimated`, and the latest `price_valid_from`. Without: `prices: null`, `price_valid_from: null`, `no_prices_yet: true`. A price the export kept off the page (see "Prices the export keeps off the pages") is listed in `withheld` (only when there is one) |
 | `quality.json` | Latest `evaluate` row of `match_runs`: precision and sample per flexibility level, run date, gold set size, `synthetic`, the 98% target. `{"available": false}` when no run exists |
 | `basket-index.json` | The published basket definition (version 1, 25 items) and the months, each `draft` or `published` |
 
@@ -102,6 +102,10 @@ Build-time settings (all read in `features/seo/config.ts`):
 | `NEXT_PUBLIC_INDEX_UNPRICED` | `1` (default) / `0` | index or `noindex` unpriced product pages, see above |
 | `SEO_STRICT_SITE_URL` | `1` | opt-in guard: a `NODE_ENV=production` build **fails** when the site URL is unset, the placeholder, not absolute, or not https |
 | `SEO_ALLOW_PLACEHOLDER` | `1` | switches the guard off again (CI and local builds) |
+| `SEO_PREVIEW_DRAFTS` | `1` | preview builds only: the basket-index page shows the newest month even as a draft, under a visible "draft" label, `noindex`, out of the sitemap. Combined with `SEO_STRICT_SITE_URL=1` the build fails, so a deploy build cannot show a draft |
+
+The strict guard also refuses any `.invalid` host (reserved by RFC 2606): the real-prices preview builds with
+`https://preview.invalid`, so that build can never be the one that ships.
 
 The guard is opt-in because `next build` always runs with `NODE_ENV=production`, including the CI build
 that has no domain. Set `SEO_STRICT_SITE_URL=1` in the deploy build only (next to
@@ -212,6 +216,42 @@ lines against a chain's own site (shelf prices; never copy content). (3) Run aga
 `--reviewed-by`. (4) Commit `basket-index.json`, `public/seo/reports/`, `docs/reports/`, rebuild and
 deploy. The first month needs real prices: none are loaded, so `months` is empty and the page says so.
 
+## Prices the export keeps off the pages
+
+The first real day showed that `effective_prices` can hold rows that must not become a public page: a tray of
+twelve eggs read as one egg (14.20 where the others say 1.18), a unit price that rounds to nothing. Pricing and
+matching are not changed here (they belong to the precompute and the catalog); the export decides only what a
+public page may show. `export_seo.screen_prices` withholds, in this order (thresholds are **proposals**, constants
+at the top of `export_seo.py`):
+
+| Reason | Rule |
+|---|---|
+| `bad_price` | zero, negative, not finite, or below half an agora (it would print as 0.00) |
+| `above_cap` | above the cap of its unit: 150 per 100 g, 100 per 100 ml, 300 per unit, 1,000 per kg |
+| `store_outlier` | a store 5 times above or below its own chain's median, in a chain with at least three stores |
+| `chain_outlier` | with three or more chains, a chain median 4 times above or below the median of all the chains' medians |
+| `chains_disagree` | with exactly two chains, medians 4 times apart: nobody can tell which is right, so both are withheld |
+
+A withheld row is not deleted and not corrected. `products[].withheld` lists chain, reason, detail and row count;
+the product page then says either that a price of one or more chains is not shown because it is far from the
+others, or (nothing left to show) that the product's prices are being checked, never that none were loaded.
+`smartcart-catalog seo-audit --dir DIR [--json-out F] [--md-out F] [--fail-on-error]` reads an export and reports
+page counts, priced against unpriced, and what still looks wrong (codes `bad_price`, `above_cap`, `chain_outlier`,
+`store_spread`, `missing_field`, `bad_name`, `bad_date`, `old_price`, `no_stores`, `withheld`, `basket_line`).
+After the screen, the first six should be zero; `old_price` and `store_spread` are listed for a human.
+
+The basket index is **not** screened: it prices the raw rows, so a bad row shows as a failed check instead of
+disappearing. Its new `line_outlier` error (a basket line costing 4 times or more at one chain than at another,
+or a line costing nothing) names the line; each chain row of a month now carries `line_costs` (median store x
+amount per line).
+
+Which products get a page is still decided by rank alone, not by whether they have prices: a URL that was
+published must not turn into a 404 the day a price disappears. Priced products beyond the budget stay plain rows.
+
+## SEO on real prices (preview)
+
+PLACEHOLDER_REAL_SECTION
+
 ## Arabic UI and the indexed Hebrew (#73)
 
 The static pages are generated at build time in Hebrew and must stay Hebrew in the server HTML,
@@ -237,8 +277,8 @@ are Hebrew data and are not translated; Arabic canonical display names are a cat
   every page's JSON-LD (see "Checks"); there is no network from the build environment. Run each page type
   through Google's Rich Results Test and the Schema.org validator once after the first deploy
   (`beta-plan.md` checklist). Lighthouse (accessibility, best practices, SEO) is 100 on all six page types
-  in the `a11y` CI job. Known gap: the `Offer` nodes carry no `validFrom`, so the date of a price is
-  the visible `<time>` on the same page, not part of the JSON-LD (`jsonld.ts`).
+  in the `a11y` CI job. Each `Offer` carries `validFrom` (the chain's own price date, in Israel time) and the
+  price table has a dated row per chain (`<time>`), so no price is dated only by the page-level line.
 - **Not indexed yet.** There is no domain, so nothing is submitted to Search Console and no indexed-page
   count exists. After launch: submit `/sitemap.xml`, record the indexed count weekly in the beta report
   (issue #35's last criterion).
