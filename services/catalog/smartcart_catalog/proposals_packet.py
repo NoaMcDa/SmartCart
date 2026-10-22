@@ -301,7 +301,8 @@ def render_html(run: ProposalRun, meta: PacketMeta) -> str:
 {kinds.get("new_type", 0)} עם סוג מוצר חדש. מכסות {st.get("proposal_items", 0):,} פריטים.</li>
 <li>לא הוצעו: {gaps.get("groups", 0)} קבוצות ({gaps.get("items", 0):,} פריטים) שכבר יש להן מוצר
 קנוני עם אותם ערכים קריטיים (שאלת התאמה, לא פער בקטלוג);
-{st.get("missing_critical", {}).get("groups", 0)} קבוצות שערך קריטי שלהן לא נאמר בשמות;
+{st.get("missing_critical", {}).get("groups", 0)} קבוצות שערך קריטי שלהן לא נאמר בשמות,
+{st.get("unspecific_critical", {}).get("groups", 0)} שערך קריטי שלהן כללי מדי (&quot;אחר&quot;);
 {st.get("below_min_chains", {}).get("groups", 0)} קבוצות של רשת אחת בלבד.</li>
 </ul>
 </div>

@@ -333,7 +333,32 @@ def test_real_proposals_are_ranked_by_priority(real) -> None:
 def test_the_run_accounts_for_every_group(real) -> None:
     _, r = real
     s = r.stats
-    excluded = sum(s[k]["groups"] for k in ("matching_gaps", "missing_critical",
+    excluded = sum(s[k]["groups"] for k in ("matching_gaps", "missing_critical", "unspecific_critical",
                                            "below_min_chains", "low_cohesion", "no_base_unit"))  # fmt: skip
     assert s["candidate_groups"] + excluded <= s["groups"]
     assert s["candidate_groups"] + excluded == s["groups"]
+
+
+def test_a_critical_value_that_says_something_else_is_never_proposed() -> None:
+    assert P.is_unspecific("other") and P.is_unspecific("milk+other")
+    assert not P.is_unspecific("milk") and not P.is_unspecific("strawberry")
+
+
+def test_a_percentage_in_an_untyped_name_stays_in_the_name_and_is_not_called_fat(catalog) -> None:
+    items = [
+        item(c, str(n), "רוטב עגבניות 22% בשלות", qty=240, unit="גרם")
+        for n, c in enumerate(("c1", "c2"), 1)
+    ]
+    p = run(items, catalog).proposals[0]
+    assert "22%" in p.display_name_he and "fat_pct" not in p.critical_attrs
+    assert any("reviewer" in u and "critical_attrs" in u for u in p.uncertain)
+
+
+def test_a_name_from_a_single_product_is_marked_as_possibly_carrying_a_brand(catalog) -> None:
+    code = gtin("729000777888")
+    items = [
+        item(c, str(n), "במבה נוגט", barcode=code, qty=150, unit="גרם")
+        for n, c in enumerate(("c1", "c2"), 1)
+    ]
+    p = run(items, catalog).proposals[0]
+    assert p.skus == 1 and any("single product" in u for u in p.uncertain)

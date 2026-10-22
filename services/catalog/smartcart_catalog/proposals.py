@@ -33,7 +33,8 @@ Method (every step is deterministic and has no network):
    values is *not* proposed: its items are unmapped because of the judge or the blocking, a
    matching question, and they are counted (``matching_gaps``). A typed group whose critical value
    is not stated by its members is not proposed either (a canonical needs it); it is counted
-   (``missing_critical``). Precision over recall: a proposal must at least be a well-formed canonical.
+   (``missing_critical``) or says only "something else" (``unspecific_critical``, a flavor
+   ``other`` or ``milk+other``). Precision over recall: a proposal must at least be a well-formed canonical.
 6. **Rank.** ``priority`` is a documented score, an **estimate** (the weights are a judgement; the
    components are measured and every one is shown): chains selling the group (0.30), barcodes sold
    at two or more chains (0.15), stores (0.20), the basket weight of its department (0.15, a
@@ -118,7 +119,10 @@ _UNIT_HE = {"g": "גרם", "ml": "מ״ל", "unit": "יח׳"}
 _SIZE_UNIT_FOR_BASE = {"100g": "g", "100ml": "ml", "unit": "unit"}
 
 _GS1_LENGTHS = (8, 12, 13, 14)
-UNTYPED_KEYS = ("fat_pct", "state", "base")
+UNTYPED_KEYS = ("state", "base")
+"""Attributes read for a name with no product type. A percentage in such a name stays in the name
+but is not called a fat percentage: for an unknown type it can be sugar, tomato content or alcohol
+("20% פחות סוכר", "רוטב עגבניות 22%")."""
 
 
 def valid_barcode(code: str | None) -> str | None:
@@ -425,8 +429,8 @@ def critical_signature(
 ) -> tuple[str | None, tuple[tuple[str, Any], ...]]:
     """``(product type, critical values)`` of one item, as the extractor states them. For a typed
     item the keys are its type's critical keys; for an untyped one, what the name states
-    (fat percentage, state, plant base; a flavor word in an untyped name is part of the name, so
-    it stays in the name and is not a key)."""
+    (state and plant base; a flavor word or a percentage in an untyped name is part of the name,
+    so it stays in the name and is not a key)."""
     a = prep.attrs
     if a is None:
         return None, ()
@@ -621,6 +625,13 @@ def _same_value(a: Any, b: Any) -> bool:
         return str(a) == str(b)
 
 
+def is_unspecific(value: Any) -> bool:
+    """A critical value that says "something else" (``other``, ``milk+other``): the extractor saw
+    an extra ingredient or a second flavor it has no word for. No canonical can be that."""
+    text = str(value)
+    return text == "other" or text.endswith("+other") or text.startswith("other+")
+
+
 def covered_by(catalog: Catalog, product_type: str, critical: Mapping[str, Any]) -> str | None:
     """The slug of an existing canonical of ``product_type`` with exactly these critical values."""
     for c in catalog.canonicals:
@@ -770,6 +781,10 @@ def derive_definition(group: Group, catalog: Catalog) -> dict[str, Any]:
     name, lead_folded, name_note = group_name(group)
     if name_note:
         uncertain.append(name_note)
+    if len(group.clusters) == 1:
+        uncertain.append(
+            "display_name_he: from a single product, it may carry its brand; generalize it"
+        )
 
     pt = group.product_type
     # the group's key: what its products' names state (a value no name states is absent)
@@ -797,8 +812,9 @@ def derive_definition(group: Group, catalog: Catalog) -> dict[str, Any]:
             uncertain.append("taxonomy_id: choose a node (candidates are hints)")
         uncertain.append("product_type: the extractor knows no type for these names")
         uncertain.append(
-            "critical_attrs: what the names state; which attributes are critical for a new type"
-            " is the reviewer's decision"
+            "critical_attrs: only state and plant base are read for an unknown type; which"
+            " attributes are critical (fat, flavor, a percentage kept in the name) is the"
+            " reviewer's decision"
         )
         soft_keys = {"pack_size", "brand"}
 
@@ -934,6 +950,7 @@ def propose(
         "groups": len(groups),
         "matching_gaps": {"groups": 0, "items": 0, "top": []},
         "missing_critical": {"groups": 0, "items": 0},
+        "unspecific_critical": {"groups": 0, "items": 0},
         "below_min_chains": {"groups": 0, "items": 0},
         "low_cohesion": {"groups": 0, "items": 0},
         "no_base_unit": {"groups": 0, "items": 0},
@@ -956,6 +973,9 @@ def propose(
             rule = catalog.rules[g.product_type]
             if any(k not in crit for k in rule.critical_keys):
                 skip("missing_critical", g)
+                continue
+            if any(is_unspecific(v) for v in crit.values()):
+                skip("unspecific_critical", g)
                 continue
             slug = covered_by(catalog, g.product_type, crit)
             if slug is not None:
