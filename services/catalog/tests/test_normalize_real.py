@@ -47,9 +47,10 @@ def test_a_spelled_out_word_is_left_alone(raw: str) -> None:
 
 
 def test_name_limits_are_the_longest_names_measured_per_chain() -> None:
-    from smartcart_catalog.review_packet import load_real_items
+    from smartcart_catalog.review_packet import AUDIT_SNAPSHOT_DIR, load_real_items
 
-    items = load_real_items()
+    # The limits were measured on the files of 2026-10-08 (the dated snapshot).
+    items = load_real_items(AUDIT_SNAPSHOT_DIR)
     if not items:
         pytest.skip("real fixtures not present")
     longest: dict[str, int] = {}
@@ -59,6 +60,24 @@ def test_name_limits_are_the_longest_names_measured_per_chain() -> None:
         assert longest[chain_id] == limit, chain_id
     # King Store is not cut: its names run past every other chain's width
     assert KING_STORE not in NAME_LIMITS and longest[KING_STORE] > 40
+
+
+def test_name_limits_still_hold_on_the_current_fixtures() -> None:
+    """Newer files of other stores keep the width: names still reach the limit and hardly any run
+    past it (Yohananof store 5, 2026-10-21: 81 of 200 names at 20, one whole name of 22)."""
+    from smartcart_catalog.review_packet import load_real_items
+
+    items = load_real_items()
+    if not items:
+        pytest.skip("real fixtures not present")
+    for chain_id, limit in NAME_LIMITS.items():
+        lengths = [len(it.raw_name.strip()) for it in items if it.chain_id == chain_id]
+        if not lengths:
+            continue
+        at_limit = sum(n == limit for n in lengths)
+        over = sum(n > limit for n in lengths)
+        assert at_limit >= 1, (chain_id, at_limit, len(lengths))
+        assert over <= 0.01 * len(lengths), (chain_id, over, len(lengths))
 
 
 @pytest.mark.parametrize(
