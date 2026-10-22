@@ -27,7 +27,7 @@ rules:
 - product_type: milk_lactose_free
   critical_keys: [fat_pct]
   soft_keys: [pack_size, brand]
-  keywords: [ללא לקטוז, דל לקטוז]
+  keywords: [ללא לקטוז, דל לקטוז, נטול לקטוז]
   exclude: [גבינ, יוגורט, סויה, שקדים, שיבולת, קוקוס, אורז, אוטלי]
 - product_type: chocolate_milk
   critical_keys: []
@@ -125,20 +125,26 @@ rules:
   soft_keys: [pack_size, brand]
   keywords: [מרגרינה]
   exclude: []
+# Eggs: the size is part of the product type (the canonicals eggs-m, eggs-l, eggs-xl and
+# eggs-free-range-l have no critical attribute of their own). The keywords here cover the size word
+# next to "ביצים"; the extractor (extract/rule.py, egg_product_type) reads the whole name, so a size
+# word anywhere ("ביצים 2*30 יח' בינונ"), "גדול", "לארג'", "מידיום", and gives the generic type `eggs`
+# (no canonical, so every egg canonical vetoes it) to an egg whose size is missing or ambiguous,
+# a free-range egg that is not L, and organic, omega-3, quail and hard-boiled eggs.
 - product_type: eggs_m
   critical_keys: []
   soft_keys: [pack_size, brand]
-  keywords: [ביצים M, ביצים גודל M]
+  keywords: [ביצים M, ביצים גודל M, ביצים בינוניות, ביצים בינוני, ביצים מידיום]
   exclude: [חופש]
 - product_type: eggs_l
   critical_keys: []
   soft_keys: [pack_size, brand]
-  keywords: [ביצים L, ביצים גודל L]
+  keywords: [ביצים L, ביצים גודל L, ביצים גדולות, ביצים גדול, ביצים לארג]
   exclude: [חופש]
 - product_type: eggs_xl
   critical_keys: []
   soft_keys: [pack_size, brand]
-  keywords: [ביצים XL, ביצים גודל XL]
+  keywords: [ביצים XL, ביצים גודל XL, ביצים ענק]
   exclude: [חופש]
 - product_type: eggs_free_range_l
   critical_keys: []

@@ -785,6 +785,83 @@ canonical), the correct level. 80 rows changed in the audit file, most of them o
 column, which the audit does not label. The effect of this work is on the **size and unit price** of
 87 items, not on what is served, so the audit cannot show it; the tests above do.
 
+## Real items, eggs (Real day, 2026-10-22)
+
+The first Real day (`real-day-dry-run.md`, finding 5) found that no real egg item reached `eggs-l`,
+`eggs-m` or `eggs-xl`: `ביצים 2*30 יח' בינונ` (Osher Ad) had confidence 0.43 because its product type was
+unknown, which alone left `eggs-l` unpriced and stopped the basket index (#44). The script now logs, for
+every basket line that a chain does not price, the real items that could have been it, with the attributes
+extraction gave them and the judge's own reason (`real_day.py`, `line_candidates`). The 97 egg items of the
+five chains that did not price `eggs-l` (run 39739262262, before any egg rule; names verbatim in
+`services/catalog/tests/test_extract_eggs_real.py`) showed what the names look like.
+
+**What real egg names look like** (measured on those 97 items):
+
+| Feature | Real spellings |
+|---|---|
+| size | the letter (`L`, `M`, `XL`, also `גודל L`), the Hebrew word (`גדול`, `גדולות`, `בינוני`, `ענק`), a typo (`בנוני`), the transliteration (`מידיום`, `לארג'`) |
+| tray | `12 יח`, `18יח`, `2*30 יח'`, `12 יחידות`; Tiv Taam prints a bare `12` (`ביצים אריזון 12 גדול`) with the fields saying 1 unit |
+| position | anywhere: `ביצים 12 יח גדול L`, `12 ביצי משק טריות L לסר`, `L ביצי חופש יולק חלמון כתום 18 יחידות` |
+| cut | Osher Ad, Rami Levy, Yohananof and Mega cut names at 20 characters: `ביצים 2*30 יח' בינונ`, `ביצי חופש 20 יח' גדו` |
+| kind | free range (`חופש`), organic (`אורגני`), omega-3 (`אומגה`), quail (`שליו`), hard-boiled (`קשה`) |
+| not eggs to eat | `איטריות ביצים`, `נודלס ביצים`, `פתיתי ביצים`, `ביצי דג` (fish roe), `חותך ביצים`, `פורס ביצים`, `ביצת קינדר`, `בצק משחק -ביצה` |
+
+**What was wrong before.** Of those 97 items 57 state one of L (23), M (28) or XL (6) and not one was
+mapped: the rule extractor only read `ביצים L` with the letter right after the word, so everything else
+had an unknown product type. The opposite error was worse (precision): the free-range rule had no size, so
+`ביצי חופש 12 יח M` (size M), `ביצי חופש 12 יח בינו` (M, cut) and `ביצי חופש` (no size) were **served** as
+`eggs-free-range-l` at any brand (4 served mappings, 4 more in the review queue).
+
+**The rules** (`extract/rule.py`, `egg_product_type`, and the keywords in `data/product_type_rules.yaml`;
+no canonical was added or changed, and the list stays pending the reviewer's sign-off, #15):
+
+1. The size is the product type (`eggs_l`, `eggs_m`, `eggs_xl`, `eggs_free_range_l`: the canonicals have no
+   critical attribute of their own), read from the whole name, not from the words next to `ביצים`.
+2. **Exactly one size, or no size type.** A name with no size word, two different sizes (`L XL`), a size cut
+   to a stem that could be another word (`גדו`, which may be the start of `גדולות מאוד`, XL) or a size with
+   no canonical (free range of any size but L, small) gets the generic type `eggs`. No canonical has it, so
+   `RuleJudge` vetoes it for every egg canonical (`critical mismatch product_type eggs vs eggs_l`): **an egg
+   of unknown size is never served as a specific size.** A cut stem counts only when it is a whole size stem
+   (`בינונ`, `בינו`, `גדול`, `ענק`), because `בינונ` is only ever `בינוני`.
+3. **Other kinds are not the plain size.** Organic, omega-3, quail, hard-boiled, pasteurized-liquid and small
+   eggs get `eggs` too: a plain `eggs-l` price must not be an organic price. Free range stays its own
+   canonical, only with size L.
+4. **Not eggs to eat.** Noodles, pasta flakes, fish roe, chocolate eggs, mayonnaise, cutters and slicers,
+   dough, baby food and the like get no egg type. Eggs are sold by the piece: a name whose measure is a
+   weight or a volume (`ביצים עלומות 200 גרם`, `פתיתי ביצים 400 גר`) is a jar or a pasta, not a tray.
+5. **Pack count is soft**, as `eggs-l` defines it (`soft_attrs: pack_size 12`): a tray of 12 is `any_brand`,
+   a tray of 18 or 30 or `2*30` is `close` (the unit price is per egg either way). A tray count with no unit
+   (`ביצים אריזון 12 גדול`) is read for eggs only, only for the counts eggs are sold in (6, 10, 12, 15, 18,
+   20, 24, 30) and only when the name states one number (`normalize.py`).
+
+Made-up names were not used for the rules; the tests are the real names (80 cases, `test_extract_eggs_real.py`),
+including the ones that must stay unmapped. One related dairy gap was fixed with a real name: Osher Ad writes
+`חלב נטול לקטוז 2% טר`, which had no product type (`נטול לקטוז` added to `milk_lactose_free`).
+
+**Gold sets (synthetic, `matching-eval.yml`, threshold 0.98), before and after, identical.** The gold items
+carry their own keyword lexicon (`gold_catalog.yaml`), so the real-name rules cannot move them; the run
+confirms that nothing else did:
+
+| Hebrew `evaluate` | Precision before / after | Recall before / after |
+|---|---|---|
+| exact | 1.0000 / 1.0000 | 1.0000 / 1.0000 |
+| any brand | 1.0000 / 1.0000 | 0.8125 / 0.8125 |
+| close | 1.0000 / 1.0000 | 0.7611 / 0.7611 |
+
+Arabic `evaluate-ar`: exact 1.0000 / 1.0000 precision, 0.8889 / 0.8889 recall; any brand 1.0000 / 1.0000 and
+0.9391 / 0.9391; close 1.0000 / 1.0000 and 1.0000 / 1.0000. There is no gold set of real egg names, so **no
+precision figure on real items is claimed**: the one measurement is the Real day's own table of what each
+egg item got (`real-day-dry-run.md`).
+
+**What this does not do.** Most real egg mappings land in the review queue, not in the served set: the
+confidence is `0.4 x similarity + 0.6 x attributes`, and the hash embedder gives a long name like `12 ביצי
+משק טריות L לסר` a similarity of 0.35 to `ביצים L` (a tray of `ביצים 12 יח גדול L` at 0.65 is served). With
+BGE-M3 the similarity differs and has to be re-calibrated (`sim_floor`, `sim_ceil`); a reviewer accepting the
+egg lines (the best-seller review that the launch needs anyway) is what puts them in the basket index.
+Trays that are not 12 stay `close`, so `eggs-l` at `any_brand` is a 12-pack price: whether a tray of 18 or
+30 should count at any brand is a product decision for #15 (making `pack_size` non-soft for the egg types
+would do it), not made here.
+
 ## Fine-tuning trigger
 
 Retrieval is the recall ceiling: the judge can only accept what top-k returns. On the **real**

@@ -237,6 +237,12 @@ _PACK_NAMED = {
 _PACK_NAMED_RE = re.compile(
     _NOT_WORD_BEFORE + "(?:מארז\\s*)?(" + "|".join(_PACK_NAMED) + ")" + _NOT_WORD
 )
+# A tray of eggs named with a bare count and no unit ("ביצים אריזון 12 גדול", Tiv Taam, whose fields
+# say 1 unit): the number is the tray count. Only for an egg name with no other size in it, and only
+# for the counts eggs are sold in, so "ביצים 2 ק"ג" or a barcode-like number is never read.
+_EGG_NAME = re.compile(r"(?<![א-תA-Za-z])[בהולמש]?ביצ(?:ים|י|ה)(?![א-תA-Za-z])")
+_EGG_TRAY_COUNT = re.compile(r"(?<![\d.,/-])(6|10|12|15|18|20|24|30)(?![\d.,%/-])")
+_EGG_NOT_AN_EGG_TRAY = ("דג", "אטריות", "איטריות", "נודלס", "פתיתי", "מגירת", "חותך", "פורס")
 _WEIGHED_WORDS = re.compile(r"במשקל|לפי משקל|לקילוגרם|לקילו" + _NOT_WORD + r"|ל-1 קילוגרם")
 _PLU = re.compile(r"^\d{3,5}$")
 
@@ -389,6 +395,11 @@ def parse_name(name: str) -> NameSize:
         x for x in (_measure(g1, g2) for g1, g2 in _MEASURE.findall(name)) if x and credible(x)
     ]
     counts = [int(n) for n, _ in _COUNT.findall(name) if int(n) > 0]
+    if not counts and not measures and _EGG_NAME.search(name):
+        if not any(w in name for w in _EGG_NOT_AN_EGG_TRAY):
+            trays = _EGG_TRAY_COUNT.findall(name)
+            if len(set(trays)) == 1:
+                counts = [int(trays[0])]
     implausible = "; ".join(dict.fromkeys(dropped)) or None
     ambiguous = None
     if len(set(measures)) > 1:

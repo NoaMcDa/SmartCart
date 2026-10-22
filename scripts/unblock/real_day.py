@@ -60,7 +60,12 @@ from _common import REPO, git_sha, last_json_document, md_escape, venv_bin, writ
 from _common import run as run_cmd
 
 ISRAEL = ZoneInfo("Asia/Jerusalem")
-STALE_HOURS = 36.0  # the stale-date gate's limit (smartcart_ingest.settings)
+STALE_HOURS = (
+    36.0  # the stale-date gate's limit for price and promo files (smartcart_ingest.settings)
+)
+STALE_STORES_HOURS = (
+    240.0  # its own, longer limit for Stores files (settings.DEFAULT_STALE_STORES_HOURS)
+)
 KINDS_ORDER = {"stores": 0, "price_full": 1, "promo_full": 2}
 KIND_FILTERS = {
     "stores": "STORE_FILE",
@@ -379,6 +384,7 @@ class Ingest:
         self.fetcher = portal_probe.OneFileFetcher()
         self.adapters = {getattr(cls, "slug", None): cls for cls in REGISTRY.values()}
         self.clock = {"now": datetime.now(tz=ISRAEL)}
+        self.settings = load_settings()
         self.sched = Scheduler(conn, self.fetcher, LocalRawStore(raw_dir), Alerter([self.sink]),
                                load_settings(), now=lambda: self.clock["now"],
                                sleep=lambda s: None)  # fmt: skip
@@ -404,7 +410,10 @@ class Ingest:
         entry["published_at"] = (info.published_at.isoformat(timespec="minutes")
                                  if info.published_at else None)  # fmt: skip
         real_now = datetime.now(tz=ISRAEL)
-        clock, stale = stale_clock(info.published_at, real_now)
+        limit = (self.settings.stale_stores_max_age_hours if info.kind == "stores"
+                 else self.settings.stale_file_max_age_hours)  # fmt: skip
+        clock, stale = stale_clock(info.published_at, real_now, limit)
+        entry["stale_limit_hours"] = limit
         self.clock["now"] = clock
         entry["stale_on_real_clock"] = stale
         if info.published_at:
@@ -990,8 +999,9 @@ def basket_index_dry_run(work: Path, env: dict, tag: str) -> dict:
             info["checks"] = [{k: c.get(k) for k in ("level", "code", "message")}
                               for c in entry.get("checks", [])]  # fmt: skip
             info["chains"] = [
-                {"chain": c.get("name"), "total": c.get("total"),
+                {"chain": c.get("name"), "chain_id": c.get("chain_id"), "total": c.get("total"),
                  "items_priced": c.get("items_priced"), "missing": len(c.get("missing") or []),
+                 "missing_slugs": list(c.get("missing") or []),
                  "estimated_items": c.get("estimated_items"), "stores": c.get("stores"),
                  "complete": c.get("complete")}
                 for c in entry.get("chains", [])
@@ -999,6 +1009,251 @@ def basket_index_dry_run(work: Path, env: dict, tag: str) -> dict:
             info["price_date"] = entry.get("price_date")
         info["basket_lines"] = (doc.get("basket") or {}).get("item_count")
     return info
+
+
+# --- why a basket line is priced nowhere: the real items that could have been it -------------------------------
+# Words that make a name a candidate for each basket-index line. A candidate is only an item whose
+# name mentions the product; whether it *is* the canonical is the judge's call (its reason is logged).
+LINE_HINTS: dict[str, tuple[str, ...]] = {
+    "eggs-l": ("ביצ", "egg"),
+    "eggs-m": ("ביצ", "egg"),
+    "eggs-xl": ("ביצ", "egg"),
+    "milk-fresh-3": ("חלב",),
+    "cottage-5": ("קוטג",),
+    "white-cheese-5": ("לבנה",),
+    "yellow-cheese-sliced-28": ("צהובה", "עמק", "גאודה", "אמנטל"),
+    "yogurt-plain-3": ("יוגורט",),
+    "butter": ("חמאה",),
+}
+# Egg-line names that are not eggs to eat (a chocolate egg, egg noodles, egg salad, a cake...).
+EGG_NOISE = re.compile(
+    r"קינדר|שוקולד|אטריות|סלט|עוגה|עוגת|עוגי|מיונז|ממרח|פסטה|לחם|חלה|בייגל|"
+    r"צעצוע|פלסטיק|הפתעה|אבקת|חלבון|בואנו|פתיתים|כריך|סנדוויץ|שמפו|סבון|קרם"
+)
+EGG_WORD = re.compile(r"ביצ(?:ים|י|ה|ת)|egg", re.IGNORECASE)
+EGG_SIZE_WORDS: tuple[tuple[str, re.Pattern], ...] = (
+    ("XL", re.compile(r"(?<![A-Za-z])XL(?![A-Za-z])|ענק", re.IGNORECASE)),
+    ("L", re.compile(r"(?<![A-Za-z])L(?![A-Za-z])|גדול", re.IGNORECASE)),
+    ("M", re.compile(r"(?<![A-Za-z])M(?![A-Za-z])|בינונ", re.IGNORECASE)),
+    ("S", re.compile(r"(?<![A-Za-z])S(?![A-Za-z])|קטנ", re.IGNORECASE)),
+)
+_PACK_MULTI = re.compile(r"(\d+)\s*[*xX×]\s*(\d+)")
+_PACK_COUNT = re.compile(r"(?<![\d.,%])(6|10|12|15|18|20|24|30)(?![\d.,%])")
+
+
+def unpriced_basket_lines(info: dict | None) -> list[str]:
+    """Basket slugs that no chain of the index priced (missing from every chain's list)."""
+    chains = (info or {}).get("chains") or []
+    if not chains:
+        return []
+    missing = [set(c.get("missing_slugs") or []) for c in chains]
+    return sorted(set.intersection(*missing))
+
+
+def basket_breakdown(db_url: str, spread: float = 2.0) -> dict:
+    """What each chain pays for each basket line (median store, unit price x amount), and, for the
+    lines whose cost differs by at least ``spread`` between two chains, the items behind it. The
+    index only reports totals; a total that looks implausible needs this to be read."""
+    import psycopg
+
+    from smartcart_catalog import basket_index as bi
+    from smartcart_catalog.export_seo import read_unit_prices
+
+    with psycopg.connect(db_url) as conn:
+        prices = read_unit_prices(conn)
+        results = bi.price_chains(prices, bi.BASKET_V1)
+        amounts = {line.slug: line.amount for line in bi.BASKET_V1}
+        lines: dict[str, dict[str, float]] = {}
+        for r in results:
+            for slug, unit_price in r.lines.items():
+                lines.setdefault(slug, {})[r.chain_id] = round(float(unit_price * amounts[slug]), 2)
+        flagged = [
+            slug for slug, by_chain in lines.items()
+            if len(by_chain) >= 2 and min(by_chain.values()) > 0
+            and max(by_chain.values()) / min(by_chain.values()) >= spread
+        ]  # fmt: skip
+        behind: dict[str, list[dict]] = {}
+        for slug in flagged:
+            rows = conn.execute(
+                "SELECT s.chain_id, i.raw_name, ep.shelf_price, ep.effective_unit_price, ep.uom,"
+                " ep.is_estimated, count(*) OVER (PARTITION BY s.chain_id) AS n"
+                " FROM effective_prices ep JOIN canonical_products cp ON cp.id = ep.canonical_id"
+                " JOIN stores s ON s.id = ep.store_id AND s.channel = 'physical'"
+                " JOIN items i ON i.id = ep.item_id"
+                " WHERE cp.slug = %s AND ep.flex_level = 'any_brand'"
+                " ORDER BY s.chain_id, ep.effective_unit_price",
+                (slug,),
+            ).fetchall()
+            seen: dict[str, int] = defaultdict(int)
+            picked = []
+            for chain_id, name, shelf, eff, uom, est, n in rows:
+                if seen[chain_id] >= 3:
+                    continue
+                seen[chain_id] += 1
+                picked.append({"chain_id": chain_id, "item": name, "shelf_price": float(shelf),
+                               "effective_unit_price": float(eff), "uom": uom,
+                               "estimated": bool(est), "rows": n})  # fmt: skip
+            behind[slug] = picked
+    return {"lines": lines, "amounts": {k: float(v) for k, v in amounts.items()},
+            "flagged": flagged, "behind": behind,
+            "chains": {r.chain_id: r.name for r in results}}  # fmt: skip
+
+
+def lines_to_explain(info: dict | None) -> dict[str, list[str]]:
+    """Basket lines whose candidates the report lists, with the chains to look in: a line no chain
+    prices (every chain), and a line of ``LINE_HINTS`` (eggs, the dairy lines) that some chains
+    price and others do not (the chains that do not)."""
+    chains = (info or {}).get("chains") or []
+    out: dict[str, list[str]] = {}
+    nowhere = set(unpriced_basket_lines(info))
+    slugs = {s for c in chains for s in c.get("missing_slugs") or []}
+    for slug in sorted(slugs):
+        gaps = [c.get("chain_id") for c in chains
+                if slug in (c.get("missing_slugs") or []) and c.get("chain_id")]  # fmt: skip
+        if slug in nowhere or slug in LINE_HINTS:
+            out[slug] = gaps
+    return out
+
+
+def egg_features(name: str) -> dict:
+    """What an egg item's name says about its size class and pack count: a reading aid for the
+    report, not the catalog's rule (that lives in data/product_type_rules.yaml)."""
+    sizes = [label for label, rx in EGG_SIZE_WORDS if rx.search(name)]
+    multi = _PACK_MULTI.search(name)
+    if multi:
+        packs = [int(multi.group(1)) * int(multi.group(2))]
+    else:
+        packs = [int(m.group(1)) for m in _PACK_COUNT.finditer(name)]
+    return {
+        "is_egg": bool(EGG_WORD.search(name)) and not EGG_NOISE.search(name),
+        "sizes": sizes,
+        "packs": packs,
+    }
+
+
+def line_candidates(db_url: str, lines: dict[str, list[str]], cap_per_chain: int = 12) -> dict:
+    """For each basket line priced nowhere: the real items whose names mention the product, with the
+    attributes extraction gave them, the mapping they got (if any) and the rule judge's own reason
+    (the judge is re-run on them with nothing written)."""
+    import psycopg
+
+    from smartcart_catalog.block import configure_session
+    from smartcart_catalog.judge import RuleJudge
+    from smartcart_catalog.match import load_items, load_rules, match_item
+
+    out: dict = {}
+    judge = RuleJudge()
+    with psycopg.connect(db_url) as conn:
+        configure_session(conn)
+        rules = load_rules(conn)
+        for slug, chain_ids in lines.items():
+            hints = LINE_HINTS.get(slug)
+            if not hints:
+                row = conn.execute(
+                    "SELECT display_name_he FROM canonical_products WHERE slug = %s", (slug,)
+                ).fetchone()
+                hints = tuple((row[0] if row else slug).split()[:1])
+            rows = conn.execute(
+                "SELECT i.id, i.chain_id, i.raw_name, i.barcode, i.quantity, i.unit, i.is_weighed,"
+                "       a.attrs"
+                " FROM items i LEFT JOIN item_attributes a ON a.item_id = i.id AND a.status = 'ok'"
+                " WHERE i.raw_name ILIKE ANY(%s) AND (cardinality(%s::text[]) = 0 OR i.chain_id = ANY(%s))"
+                " ORDER BY i.chain_id, i.id",
+                ([f"%{h}%" for h in hints], list(chain_ids), list(chain_ids)),
+            ).fetchall()
+            is_egg_line = slug.startswith("eggs-")
+            kept: list[tuple] = []
+            noise = 0
+            per_chain: dict[str, int] = defaultdict(int)
+            for r in rows:
+                if is_egg_line and not egg_features(r[2])["is_egg"]:
+                    noise += 1
+                    continue
+                if per_chain[r[1]] >= cap_per_chain * (5 if is_egg_line else 1):
+                    continue
+                per_chain[r[1]] += 1
+                kept.append(r)
+            ids = [r[0] for r in kept]
+            contexts = load_items(conn, ids) if ids else {}
+            mapped: dict[int, list] = defaultdict(list)
+            for iid, cslug, level, conf, review, human_rej in conn.execute(
+                "SELECT ic.item_id, c.slug, ic.flex_level, ic.confidence, ic.needs_review,"
+                " ic.human_rejected FROM item_canonical ic"
+                " JOIN canonical_products c ON c.id = ic.canonical_id WHERE ic.item_id = ANY(%s)",
+                (ids,),
+            ).fetchall():
+                if not human_rej:
+                    mapped[iid].append({"canonical": cslug, "level": level,
+                                        "confidence": float(conf), "review": bool(review)})  # fmt: skip
+            items = []
+            for iid, chain_id, raw, barcode, qty, unit, weighed, attrs in kept:
+                a = attrs or {}
+                entry = {
+                    "item_id": iid, "chain_id": chain_id, "name": raw, "barcode": barcode,
+                    "quantity": str(qty) if qty is not None else None, "unit": unit,
+                    "weighed": bool(weighed),
+                    "attrs": {k: a.get(k) for k in ("product_type", "pack_size", "unit", "state",
+                                                    "fat_pct", "variety") if a.get(k) is not None},
+                    "mapped": mapped.get(iid, []),
+                }  # fmt: skip
+                if is_egg_line:
+                    entry["features"] = egg_features(raw)
+                ctx = contexts.get(iid)
+                if ctx is not None:
+                    res = match_item(conn, ctx, judge, rules)
+                    d = res.decision
+                    entry["judge"] = {
+                        "canonical_id": d.canonical_id, "level": d.flex_level,
+                        "confidence": round(d.confidence, 2), "review": d.needs_review,
+                        "reason": d.reason[:420],
+                    }  # fmt: skip
+                    entry["attrs_source"] = res.attrs_source
+                items.append(entry)
+            out[slug] = {"hints": list(hints), "chains": list(chain_ids), "name_hits": len(rows), "noise_skipped": noise,
+                         "listed": len(items), "items": items}  # fmt: skip
+        conn.rollback()
+    return out
+
+
+def promo_effects(conn) -> dict:
+    """Per chain: promos loaded, club-only ones, links to items, and how many effective prices carry
+    a promo, a club requirement and the non-club fallback the API uses for non-members."""
+    rows = conn.execute(
+        "SELECT p.chain_id, count(*), count(*) FILTER (WHERE p.club_only),"
+        " count(*) FILTER (WHERE p.reward_type = 'other'),"
+        " count(*) FILTER (WHERE EXISTS (SELECT 1 FROM promo_items pi WHERE pi.promo_id = p.id))"
+        " FROM promos p GROUP BY 1 ORDER BY 1"
+    ).fetchall()
+    zero = (0, 0, 0, 0)
+    eff = {
+        c: (n, w, cl, nc)
+        for c, n, w, cl, nc in conn.execute(
+            "SELECT s.chain_id, count(*), count(*) FILTER (WHERE ep.promo_id IS NOT NULL),"
+            " count(*) FILTER (WHERE ep.club_required),"
+            " count(*) FILTER (WHERE ep.club_required AND ep.noclub IS NOT NULL)"
+            " FROM effective_prices ep JOIN stores s ON s.id = ep.store_id GROUP BY 1"
+        ).fetchall()
+    }
+    reward: dict[str, dict[str, int]] = defaultdict(dict)
+    for c, rt, n in conn.execute(
+        "SELECT chain_id, reward_type, count(*) FROM promos GROUP BY 1, 2"
+    ).fetchall():
+        reward[c][rt] = n
+    clubs = conn.execute(
+        "SELECT club_name, count(*) FROM promos WHERE club_only GROUP BY 1 ORDER BY 2 DESC LIMIT 12"
+    ).fetchall()
+    return {
+        "chains": {
+            c: {"promos": n, "club_only": co, "reward_other": other, "linked_to_items": linked,
+                "reward_types": dict(reward.get(c, {})),
+                "effective_rows": eff.get(c, zero)[0],
+                "effective_with_promo": eff.get(c, zero)[1],
+                "effective_club_required": eff.get(c, zero)[2],
+                "club_required_with_noclub_fallback": eff.get(c, zero)[3]}
+            for c, n, co, other, linked in rows
+        },
+        "club_rules": [{"rule": r, "promos": n} for r, n in clubs],
+    }  # fmt: skip
 
 
 # --- the run -------------------------------------------------------------------------------------------------
@@ -1010,6 +1265,9 @@ def run_all(args: argparse.Namespace) -> dict:
     from smartcart_ingest import db as dbmod
 
     db_url = os.environ["DATABASE_URL"]
+    # The API's per-client limiter (docs/security-review.md R3) would answer 429 to the repeated
+    # in-process requests of the timing loops; the load tests switch it off the same way.
+    os.environ["API_RATE_LIMIT"] = "0"
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=True)
     run = Run()
@@ -1167,7 +1425,7 @@ def run_all(args: argparse.Namespace) -> dict:
             run.fail(
                 "ingest",
                 f"{len(stale_stores)} Stores files are older than the stale-date gate's "
-                f"{STALE_HOURS:g} h ({ages}); on the real clock the gate would quarantine them and "
+                f"{STALE_STORES_HOURS:g} h limit for Stores files ({ages}); on the real clock the gate would quarantine them and "
                 "no store of those chains would load (this run replayed the clock for them)",
             )
         promo_files = [
@@ -1214,6 +1472,7 @@ def run_all(args: argparse.Namespace) -> dict:
             metrics["wall_seconds"] = round(res.seconds, 2)
             with psycopg.connect(db_url) as c:
                 metrics["table"] = effective_counts(c)
+                metrics["promo_effects"] = promo_effects(c)
             st["note"] = f"{metrics.get('rows_written')} rows"
             return metrics
 
@@ -1238,7 +1497,19 @@ def run_all(args: argparse.Namespace) -> dict:
         st["note"] = f"{result['search_diag']['vector_query_ms']} ms per query"
     with run.stage("basket index dry run (production semantics)") as st:
         result["basket_index"] = basket_index_dry_run(work, env, "production")
+        result["basket_index"]["breakdown"] = basket_breakdown(db_url)
         st["note"] = f"status {result['basket_index'].get('status')}"
+    unpriced = unpriced_basket_lines(result["basket_index"])
+    explain = lines_to_explain(result["basket_index"])
+    result["unpriced_lines"] = unpriced
+    if explain:
+        with run.stage("diagnostic: real items behind the basket lines no chain prices") as st:
+            result["line_candidates"] = line_candidates(db_url, explain)
+            st["note"] = ", ".join(
+                f"{k} {v['listed']} items" for k, v in result["line_candidates"].items()
+            )
+        for slug in unpriced:
+            run.fail("basket index", f"{slug} is priced at no chain (candidates in the report)")
 
     # 7. stress ----------------------------------------------------------------------------------------
     if args.stress:
@@ -1254,6 +1525,7 @@ def run_all(args: argparse.Namespace) -> dict:
         result["api_stress"] = api_run("stress")
         with run.stage("basket index dry run (stress)") as st:
             result["basket_index_stress"] = basket_index_dry_run(work, env, "stress")
+            result["basket_index_stress"]["breakdown"] = basket_breakdown(db_url)
             st["note"] = f"status {result['basket_index_stress'].get('status')}"
 
     with psycopg.connect(db_url) as c:
@@ -1468,6 +1740,31 @@ def render_report(res: dict) -> str:
         for lv, d in sorted(t.get("by_flex", {}).items()):
             a(f"| {lv} | {_n(d['rows'])} | {_n(d['canonicals'])} | {_n(d['stores'])} |")
         a("")
+        pe = p.get("promo_effects")
+        if pe:
+            a(f"Promos per chain, and what reached a price ({title}):")
+            a("")
+            a(
+                "| chain | promos | club-only | linked to items | reward `other` | effective rows | with a promo | club required | of them with a non-club fallback |"
+            )
+            a("|---|---|---|---|---|---|---|---|---|")
+            for cid, d in sorted(pe["chains"].items()):
+                a(
+                    f"| {chains.get(cid, {}).get('slug', cid)} | {_n(d['promos'])} | {_n(d['club_only'])} | "
+                    f"{_n(d['linked_to_items'])} | {_n(d['reward_other'])} | {_n(d['effective_rows'])} | "
+                    f"{_n(d['effective_with_promo'])} | {_n(d['effective_club_required'])} | "
+                    f"{_n(d['club_required_with_noclub_fallback'])} |"
+                )
+            a("")
+            if pe.get("club_rules"):
+                a(
+                    "Club rules of the club-only promos (most frequent): "
+                    + "; ".join(
+                        f"`{md_escape(r['rule'] or '-')}` x {_n(r['promos'])}"
+                        for r in pe["club_rules"][:8]
+                    )
+                )
+                a("")
 
     sd = res.get("search_diag")
     if sd:
@@ -1633,7 +1930,99 @@ def render_report(res: dict) -> str:
                     f"| {md_escape(c['chain'])} | {_n(c['total'])} | {_n(c['items_priced'])} | "
                     f"{_n(c['missing'])} | {_n(c['stores'])} | {'yes' if c['complete'] else 'no'} |"
                 )
+        bd = b.get("breakdown")
+        if bd and bd["lines"]:
+            cids = sorted(bd["chains"])
+            a("")
+            a(
+                "Cost of each line per chain (ILS, median store x amount; the lines two chains price "
+                f"{2:g}x apart or more are marked *):"
+            )
+            a("")
+            a(
+                "| line | amount | "
+                + " | ".join(chains.get(c, {}).get("slug", c) for c in cids)
+                + " |"
+            )
+            a("|---|---|" + "---|" * len(cids))
+            for slug, by_chain in sorted(bd["lines"].items()):
+                mark = "*" if slug in bd["flagged"] else ""
+                a(
+                    f"| {slug}{mark} | {bd['amounts'].get(slug):g} | "
+                    + " | ".join(_n(by_chain.get(c)) if c in by_chain else "-" for c in cids)
+                    + " |"
+                )
+            for slug in bd["flagged"]:
+                a("")
+                a(f"Items behind `{slug}` (up to 3 per chain, cheapest unit price first):")
+                for it in bd["behind"].get(slug, []):
+                    a(
+                        f"- {chains.get(it['chain_id'], {}).get('slug', it['chain_id'])}: "
+                        f"{md_escape(it['item'])}, shelf {it['shelf_price']:g}, unit price "
+                        f"{it['effective_unit_price']:g} per {it['uom']}"
+                        f"{' (estimated)' if it['estimated'] else ''}"
+                    )
         a("")
+
+    lc = res.get("line_candidates")
+    if lc:
+        a("### Basket lines that no chain prices: the real items that could have been them")
+        a("")
+        a(
+            "Items whose names mention the product, with the attributes extraction gave them, the "
+            "mapping they got and the rule judge's own reason (re-run for this report, nothing "
+            "written). The `hint` columns are a reading aid of this script, not the catalog's rules."
+        )
+        a("")
+        for slug, d in lc.items():
+            looked = (
+                ", ".join(chains.get(c, {}).get("slug", c) for c in d.get("chains", [])) or "all"
+            )
+            a(
+                f"#### `{slug}`: {d['listed']} listed of {d['name_hits']} name hits "
+                f"({d['noise_skipped']} skipped as not the food itself; chains looked in: {looked})"
+            )
+            a("")
+            if slug.startswith("eggs-"):
+                tally: dict[tuple[str, str], int] = defaultdict(int)
+                for it in d["items"]:
+                    size = "/".join((it.get("features") or {}).get("sizes", [])) or "?"
+                    served = [m for m in it.get("mapped", []) if not m["review"]]
+                    got = (served[0]["canonical"] + " " + served[0]["level"]) if served else (
+                        "review" if it.get("mapped") else "unmapped")  # fmt: skip
+                    tally[(size, got)] += 1
+                a("Name hint of the size against what the item got (served = no review flag):")
+                a("")
+                a("| size words in the name | result | items |")
+                a("|---|---|---|")
+                for (size, got), n in sorted(tally.items()):
+                    a(f"| {size} | {got} | {n} |")
+                a("")
+            a("| chain | name | hint size / pack | product type | pack | mapped | judge |")
+            a("|---|---|---|---|---|---|---|")
+            for it in d["items"][: 160 if slug.startswith("eggs-") else 30]:
+                f = it.get("features") or {}
+                hint = (
+                    ("/".join(f.get("sizes", [])) or "?")
+                    + " / "
+                    + (",".join(str(x) for x in f.get("packs", [])) or "?")
+                )
+                at = it.get("attrs", {})
+                mp = (
+                    ", ".join(
+                        f"{m['canonical']} {m['level']} {m['confidence']:.2f}{' review' if m['review'] else ''}"
+                        for m in it.get("mapped", [])
+                    )
+                    or "-"
+                )
+                j = it.get("judge") or {}
+                a(
+                    f"| {chains.get(it['chain_id'], {}).get('slug', it['chain_id'])} | "
+                    f"{md_escape(it['name'])} | {hint} | {md_escape(str(at.get('product_type') or '-'))} | "
+                    f"{md_escape(str(at.get('pack_size') or '-'))} {md_escape(str(at.get('unit') or ''))} | "
+                    f"{md_escape(mp)} | {md_escape((j.get('reason') or '-')[:230])} |"
+                )
+            a("")
 
     fails = res.get("failures", [])
     a(f"### Failures and findings the run recorded ({len(fails)})")
