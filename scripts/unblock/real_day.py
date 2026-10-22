@@ -696,6 +696,48 @@ def rows_per_file(conn, records: list[dict]) -> None:
             r["promo_rows"] = promos.get(fid, 0)
 
 
+def proposals_stage(cat: str, env: dict, out: Path, top: int, run: Run) -> dict:
+    """``smartcart-catalog propose-canonicals`` into ``out`` and the run's numbers (the JSON the
+    command wrote: what was excluded and why, the proposals' own signals). A failure is a finding,
+    not a crash: the rest of the run does not depend on it."""
+    out.mkdir(parents=True, exist_ok=True)
+    res = run_cmd([cat, "propose-canonicals", "--out", str(out), "--top", str(top)],
+                  env=env, check=False)  # fmt: skip
+    summary: dict = {"seconds": round(res.seconds, 2), "exit": res.returncode, "out": str(out)}
+    path = out / "canonical-proposals.json"
+    if res.returncode != 0 or not path.exists():
+        summary["error"] = f"exit {res.returncode}: {res.stderr[-300:]}"
+        run.fail("proposals", summary["error"])
+        return summary
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    summary.update(proposals_summary(doc))
+    return summary
+
+
+def proposals_summary(doc: dict) -> dict:
+    """The numbers of a proposals JSON that the report shows (pure; tested)."""
+    st = doc.get("stats", {})
+    props = doc.get("proposals", [])
+    keys = ("source", "items_total", "items_mapped", "items_unmapped", "chains_in_data", "products",
+            "groups", "barcodes_valid", "barcodes_shared_chains", "barcode_conflicts",
+            "matching_gaps", "missing_critical", "unspecific_critical", "same_type_other_unit", "below_min_chains", "low_cohesion",
+            "no_base_unit", "proposals", "proposal_items", "candidate_groups", "candidate_items",
+            "kinds")  # fmt: skip
+    out = {k: st.get(k) for k in keys}
+    out["top"] = [
+        {"rank": p["rank"], "name": p["display_name_he"], "kind": p["kind"],
+         "product_type": p.get("product_type"), "chains": p["chains"], "stores": p["stores"],
+         "items": p["items"], "shared_barcodes": p["shared_barcodes"],
+         "priority": p["priority"]}
+        for p in props[:10]
+    ]  # fmt: skip
+    unmapped = st.get("items_unmapped") or 0
+    out["share_of_unmapped"] = (
+        round(st["proposal_items"] / unmapped, 4) if unmapped and st.get("proposal_items") else None
+    )
+    return out
+
+
 def matching_counts(conn) -> dict:
     """Mapped items per flexibility level, served (no review flag) and in the review queue."""
     items = conn.execute("SELECT count(*) FROM items").fetchone()[0]
@@ -1470,6 +1512,21 @@ def run_all(args: argparse.Namespace) -> dict:
     with psycopg.connect(db_url) as c:
         result["matching"] = matching_counts(c)
 
+    # 4b. proposals for new canonicals from the items nothing maps (issue #52) ---------------------
+    # Read-only on the database and run before the stress variant marks machine suggestions as
+    # accepted, so "unmapped" means what production would see.
+    if args.proposals_out:
+        with run.stage("catalog: proposals for new canonicals (propose-canonicals)") as st:
+            result["proposals"] = proposals_stage(
+                cat, env, args.proposals_out.resolve(), args.proposals_top, run
+            )
+            p = result["proposals"]
+            st["note"] = (
+                f"{p.get('proposals', 0)} proposals over {_n(p.get('proposal_items', 0))} items"
+                if "error" not in p
+                else p["error"]
+            )
+
     # 5. precompute + API -----------------------------------------------------------------------------
     def precompute(tag: str) -> dict:
         with run.stage(f"precompute effective prices ({tag})") as st:
@@ -1737,6 +1794,37 @@ def render_report(res: dict) -> str:
         a("")
         for label, d in res.get("catalog", {}).items():
             a(f"- {label}: {d['seconds']:g} s")
+        a("")
+
+    pr = res.get("proposals")
+    if pr:
+        a("### Proposals for new canonicals (issue #52)")
+        a("")
+        if "error" in pr:
+            a(f"The command failed: {md_escape(pr['error'])}")
+        else:
+            gaps = pr.get("matching_gaps") or {}
+            a(
+                f"{_n(pr.get('items_unmapped'))} of {_n(pr.get('items_total'))} items were not mapped "
+                f"({_n(pr.get('products'))} products by barcode, {_n(pr.get('groups'))} groups). "
+                f"{_n(pr.get('proposals'))} proposals ({pr.get('kinds')}) would cover up to "
+                f"{_n(pr.get('proposal_items'))} of them"
+                + (f" ({pr['share_of_unmapped']:.1%})" if pr.get("share_of_unmapped") else "")
+                + ". The coverage is an upper bound: matching still decides. Not proposed: "
+                f"{_n(gaps.get('groups'))} groups ({_n(gaps.get('items'))} items) that already have a "
+                f"canonical with those critical values (a matching question), "
+                f"{_n((pr.get('missing_critical') or {}).get('groups'))} whose critical value no name "
+                f"states, {_n((pr.get('below_min_chains') or {}).get('groups'))} sold by one chain."
+            )
+            a("")
+            a("| # | proposal | kind | chains | stores | items | shared barcodes |")
+            a("|---|---|---|---|---|---|---|")
+            for t in pr.get("top", []):
+                a(f"| {t['rank']} | {md_escape(t['name'])} | {t['kind']} | {t['chains']} | "
+                  f"{t['stores']} | {t['items']} | {t['shared_barcodes']} |")  # fmt: skip
+            a("")
+            a(f"The packet (HTML, CSV, JSON) is in `{pr.get('out')}` and in the report artifact; "
+              "see `docs/catalog.md` section 10.")  # fmt: skip
         a("")
 
     for key, title in (("precompute", "production semantics"), ("precompute_stress", "stress")):
@@ -2090,6 +2178,9 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--seo-out", type=Path, default=None,
                    help="also export the SEO data and basket index on the loaded prices into "
                    "DIR/production (and DIR/stress); never written under apps/web")  # fmt: skip
+    r.add_argument("--proposals-out", type=Path, default=None,
+                   help="export the canonical proposals packet (HTML, CSV, JSON) here (#52)")  # fmt: skip
+    r.add_argument("--proposals-top", type=int, default=150, help="proposals to export")
     r.add_argument("--out", type=Path, default=None, help="Markdown report (default stdout)")
     r.add_argument("--json-out", type=Path, default=None)
     s = sub.add_parser("_scrape", help=argparse.SUPPRESS)

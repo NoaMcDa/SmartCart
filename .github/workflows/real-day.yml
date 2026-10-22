@@ -6,7 +6,8 @@ name: Real day
 # chain, plus the PriceFull and PromoFull files of the stores nearest to a few city centres
 # (through the same pinned upstream scraper, never a chain's online store), every file through the
 # real Scheduler path (adapters, quality gates, loader, store coordinates from data/geo), the
-# catalog commands on the real items, the effective-price precompute, /compare and /optimize
+# catalog commands on the real items, the proposals for new canonicals from the items nothing maps
+# (#52, packet in the report artifact), the effective-price precompute, /compare and /optimize
 # (heuristic and MILP) for hand-made Hebrew baskets at a few real locations, and the basket index.
 # Every stage is timed. It is a measurement: a stage that fails is reported as a finding and the
 # job stays green; read the job summary. See docs/real-day-dry-run.md.
@@ -143,6 +144,7 @@ jobs:
           uv run --no-sync python scripts/unblock/real_day.py run \
             --work "$RUNNER_TEMP/real-day" \
             --timeout "$TIMEOUT" --anchors "$ANCHORS" --per-chain "$PER_CHAIN" --max-files "$MAX_FILES" \
+            --proposals-out out/proposals --proposals-top 150 \
             --out out/real-day.md --json-out out/real-day.json "${args[@]}"
 
       # The web side of the SEO preview. NEXT_PUBLIC_SITE_URL is a placeholder under .invalid (the
@@ -249,6 +251,14 @@ jobs:
           for f in "$RUNNER_TEMP"/report/seo-web-*.md "$RUNNER_TEMP"/report/seo-web-*.json "$RUNNER_TEMP"/report/vitest-*.json; do
             if [ -f "$f" ]; then cp "$f" real-day-report/; fi
           done
+          # The canonical proposals packet (#52): item names, barcodes and prices of the day, no raw
+          # files. Named files only: the packet folder carries a .gitignore that would hide them.
+          if [ -d "$RUNNER_TEMP/report/proposals" ]; then
+            mkdir -p real-day-report/proposals
+            for f in canonical-proposals.html canonical-proposals.csv canonical-proposals.json; do
+              cp "$RUNNER_TEMP/report/proposals/$f" real-day-report/proposals/ || true
+            done
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
