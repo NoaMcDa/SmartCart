@@ -11,6 +11,12 @@ name: Real day
 # Every stage is timed. It is a measurement: a stage that fails is reported as a finding and the
 # job stays green; read the job summary. See docs/real-day-dry-run.md.
 #
+# With `seo` the loaded real prices are also exported as the static SEO data and
+# the basket index (smartcart-catalog export-seo, basket-index; a draft, never published), the web app is
+# built from that export with a placeholder origin and the SEO checks run against it: offline
+# structured-data validation, the SEO unit tests, a crawl of every generated page and a phone-width
+# browser spec. The export is a workflow artifact, never committed (docs/seo.md, "SEO on real prices").
+#
 # The runner is not an Israeli IP, so some portals may not answer; that is part of the measurement.
 # Run it after about 08:00 Israel time (the laibcatalog listing is empty before that, D13).
 
@@ -51,6 +57,11 @@ on:
         description: "Also run the stress variant (unreviewed mappings counted as accepted; performance only)"
         required: false
         default: true
+        type: boolean
+      seo:
+        description: "Also export the SEO pages and basket index on the real prices and build and check the web app from them (a preview, never deployed)"
+        required: false
+        default: false
         type: boolean
       commit_report:
         description: "Push the report and its JSON to a new branch real-day/report-<run id> (no raw files)"
@@ -95,6 +106,7 @@ jobs:
       TIMEOUT: ${{ inputs.timeout }}
       WITH_PROMOS: ${{ inputs.with_promos }}
       STRESS: ${{ inputs.stress }}
+      SEO: ${{ inputs.seo }}
 
     steps:
       # The code lives on the chosen ref; no schedule, so no default-branch fallback is needed.
@@ -127,16 +139,51 @@ jobs:
           for slug in $CHAINS; do args+=(--chain "$slug"); done
           if [ "$WITH_PROMOS" != "true" ]; then args+=(--no-promos); fi
           if [ "$STRESS" != "true" ]; then args+=(--no-stress); fi
+          if [ "$SEO" = "true" ]; then args+=(--seo-out "$RUNNER_TEMP/seo"); fi
           uv run --no-sync python scripts/unblock/real_day.py run \
             --work "$RUNNER_TEMP/real-day" \
             --timeout "$TIMEOUT" --anchors "$ANCHORS" --per-chain "$PER_CHAIN" --max-files "$MAX_FILES" \
             --out out/real-day.md --json-out out/real-day.json "${args[@]}"
 
+      # The web side of the SEO preview. NEXT_PUBLIC_SITE_URL is a placeholder under .invalid (the
+      # strict site-URL guard refuses it for a deploy build) and NEXT_PUBLIC_INDEX_UNPRICED is 0, so
+      # unpriced product pages are noindex as docs/seo.md recommends until prices are loaded.
+      - uses: actions/setup-node@v7
+        if: always() && env.SEO == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: SEO preview, install the web app
+        if: always() && env.SEO == 'true'
+        working-directory: apps/web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: SEO preview, build and check the pages
+        if: always() && env.SEO == 'true'
+        run: |
+          mkdir -p out
+          for variant in production stress; do
+            if [ -f "$RUNNER_TEMP/seo/$variant/products.json" ]; then
+              uv run --no-sync python scripts/unblock/seo_preview.py web \
+                --export "$RUNNER_TEMP/seo/$variant" --variant "$variant" --out out --e2e || echo "::warning::SEO preview $variant failed to run"
+            else
+              echo "::warning::no SEO export for $variant"
+            fi
+          done
+          for f in out/seo-web-*.md; do [ -f "$f" ] && cat "$f"; done || true
+
       - name: Report (job summary)
         if: always()
         run: |
           if [ -f out/real-day.md ]; then
-            head -c 900000 out/real-day.md >> "$GITHUB_STEP_SUMMARY"
+            head -c 800000 out/real-day.md >> "$GITHUB_STEP_SUMMARY"
+            for f in out/seo-web-*.md; do
+              if [ -f "$f" ]; then { echo; cat "$f"; } >> "$GITHUB_STEP_SUMMARY"; fi
+            done
           else
             echo "no report was written" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
@@ -148,6 +195,16 @@ jobs:
           name: real-day-report
           path: out
           retention-days: 30
+          if-no-files-found: ignore
+
+      # The export is a preview of real prices: kept 7 days, as an artifact only, never in git.
+      - name: Upload the SEO export
+        if: always() && env.SEO == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-export-preview
+          path: ${{ runner.temp }}/seo
+          retention-days: 7
           if-no-files-found: ignore
 
       - name: Upload the downloaded files
@@ -188,6 +245,10 @@ jobs:
           branch="real-day/report-$GITHUB_RUN_ID"
           mkdir -p real-day-report
           cp "$RUNNER_TEMP/report/real-day.md" "$RUNNER_TEMP/report/real-day.json" real-day-report/
+          # The SEO preview's results (counts, findings, check outcomes); never its export.
+          for f in "$RUNNER_TEMP"/report/seo-web-*.md "$RUNNER_TEMP"/report/seo-web-*.json "$RUNNER_TEMP"/report/vitest-*.json; do
+            if [ -f "$f" ]; then cp "$f" real-day-report/; fi
+          done
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"

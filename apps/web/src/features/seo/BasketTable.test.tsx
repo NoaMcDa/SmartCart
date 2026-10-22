@@ -88,6 +88,38 @@ describe("BasketMonthTable", () => {
     expect(link).toHaveAttribute("href", "/seo/reports/basket-index-2026-10.md");
   });
 
+  it("a published month shows no draft label", () => {
+    render(<BasketMonthTable month={month} />);
+    expect(screen.queryByTestId("basket-draft")).toBeNull();
+    expect(screen.queryByText("טיוטה")).toBeNull();
+  });
+
+  it("a draft month (preview build only) is labelled, lists its open errors, and has no press report", () => {
+    const draft: BasketMonth = {
+      ...month,
+      status: "draft",
+      reviewed_by: null,
+      checks: [
+        {
+          level: "error",
+          code: "line_outlier",
+          message: "eggs-l: Rami Levy costs 170.40 against 14.16 at King Store",
+          chain_id: "a",
+        },
+        { level: "warning", code: "missing_items", message: "should not be listed" },
+      ],
+    };
+    render(<BasketMonthTable month={draft} />);
+    const note = screen.getByTestId("basket-draft");
+    expect(note).toHaveTextContent("טיוטה");
+    expect(note).toHaveTextContent("אין לצטט");
+    expect(within(note).getByText("line_outlier")).toBeInTheDocument();
+    expect(within(note).queryByText("missing_items")).toBeNull();
+    // the label is in the heading as well, as text and not as color
+    expect(screen.getByRole("heading", { name: /אוקטובר 2026.*טיוטה/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /הדוח התמציתי לעיתונות/ })).toBeNull();
+  });
+
   it("prices are LTR islands inside the Hebrew table", () => {
     render(<BasketMonthTable month={month} />);
     expect(screen.getByText("₪ 34.20")).toHaveAttribute("dir", "ltr");

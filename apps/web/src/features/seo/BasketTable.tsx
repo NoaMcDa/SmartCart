@@ -4,6 +4,7 @@ import { Price, Tag } from "@/components/ui";
 import { useRich } from "@/i18n/format-2";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { seoMessages } from "@/i18n/messages/seo";
+import { ScrollRegion } from "./components";
 import { formatDate, isoDate, monthLabel, unitLabel } from "./format";
 import type { BasketIndexFile, BasketMonth } from "./types";
 import styles from "./seo.module.css";
@@ -23,12 +24,37 @@ export function BasketMonthTable({
   const ranked = month.chains.filter((c) => c.complete);
   const unranked = month.chains.filter((c) => !c.complete);
   const Heading = headingLevel === 2 ? "h2" : "h3";
+  const draft = month.status !== "published";
   return (
     <section className={styles.month} aria-labelledby={`month-${month.month}`}>
       <Heading id={`month-${month.month}`} className={styles.h2}>
         {monthText}
+        {draft ? (
+          <>
+            {" "}
+            <Tag variant="estimated">{t("biDraftLabel")}</Tag>
+          </>
+        ) : null}
       </Heading>
-      <div className={styles.tableWrap}>
+      {draft ? (
+        <div className={styles.notice} role="note" data-testid="basket-draft">
+          <p>
+            <strong>{t("biDraftLabel")}.</strong> {t("biDraftBody")}
+          </p>
+          {month.checks && month.checks.length > 0 ? (
+            <ul dir="ltr">
+              {month.checks
+                .filter((c) => c.level === "error")
+                .map((c) => (
+                  <li key={`${c.code}-${c.chain_id ?? ""}-${c.message}`}>
+                    <code>{c.code}</code>: {c.message}
+                  </li>
+                ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+      <ScrollRegion label={t("basketCaption", { month: monthText })}>
         <table className={styles.table}>
           <caption>
             {month.price_date
@@ -82,7 +108,7 @@ export function BasketMonthTable({
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
       {unranked.length > 0 ? (
         <p className={styles.muted}>
           {t("unranked", {
@@ -92,11 +118,13 @@ export function BasketMonthTable({
           })}
         </p>
       ) : null}
-      <p className={styles.muted}>
-        <a href={`/seo/reports/basket-index-${month.month}.md`} download>
-          {t("pressReport", { month: monthText })}
-        </a>
-      </p>
+      {draft ? null : (
+        <p className={styles.muted}>
+          <a href={`/seo/reports/basket-index-${month.month}.md`} download>
+            {t("pressReport", { month: monthText })}
+          </a>
+        </p>
+      )}
     </section>
   );
 }

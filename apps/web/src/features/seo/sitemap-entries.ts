@@ -7,7 +7,14 @@ import {
   METHODOLOGY_PATH,
   METHODOLOGY_UPDATED,
 } from "./config";
-import { categoryPages, getBasketIndex, getCategories, getProducts, productPages } from "./data";
+import {
+  basketShowsDraft,
+  categoryPages,
+  getBasketIndex,
+  getCategories,
+  getProducts,
+  productPages,
+} from "./data";
 
 /** Every indexable static page with its last modification date. */
 export function sitemapEntries(): MetadataRoute.Sitemap {
@@ -22,12 +29,16 @@ export function sitemapEntries(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.7,
     },
-    {
-      url: absoluteUrl(BASKET_INDEX_PATH),
-      lastModified: new Date(index.generated_at),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
+    ...(basketShowsDraft(index)
+      ? [] // a preview build that shows a draft month is noindex, so it is not listed
+      : [
+          {
+            url: absoluteUrl(BASKET_INDEX_PATH),
+            lastModified: new Date(index.generated_at),
+            changeFrequency: "monthly" as const,
+            priority: 0.7,
+          },
+        ]),
     { url: absoluteUrl(ACCESSIBILITY_PATH), changeFrequency: "yearly", priority: 0.2 },
   ];
   for (const c of categoryPages()) {

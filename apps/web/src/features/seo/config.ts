@@ -12,6 +12,10 @@
  *                              placeholder or not absolute https. Opt-in, so CI and local builds
  *                              keep working without a domain; set it in the deploy build.
  * SEO_ALLOW_PLACEHOLDER        "1" turns the strict check off again (CI, local builds).
+ * SEO_PREVIEW_DRAFTS           "1" shows the newest basket-index month even when it is a draft, under
+ *                              a visible draft label and `noindex`. For the real-prices preview
+ *                              (docs/seo.md, "SEO on real prices"); a build that sets it can never
+ *                              pass the strict site-URL check, so it cannot be deployed by mistake.
  */
 export const PLACEHOLDER_SITE_URL = "https://smartcart.example";
 
@@ -36,6 +40,12 @@ export function normalizeSiteUrl(value: string | undefined): string {
 export function assertSiteUrl(env: Env): void {
   if (env.NODE_ENV !== "production") return;
   if (env.SEO_STRICT_SITE_URL !== "1" || env.SEO_ALLOW_PLACEHOLDER === "1") return;
+  if (env.SEO_PREVIEW_DRAFTS === "1") {
+    throw new Error(
+      "SEO_PREVIEW_DRAFTS=1 shows the basket index before it is published. It is for the " +
+        "real-prices preview only and cannot be combined with SEO_STRICT_SITE_URL=1 (the deploy build).",
+    );
+  }
   const raw = (env.NEXT_PUBLIC_SITE_URL ?? "").trim();
   const fail = (why: string): never => {
     throw new Error(
@@ -55,6 +65,10 @@ export function assertSiteUrl(env: Env): void {
   if (url.hostname === new URL(PLACEHOLDER_SITE_URL).hostname) {
     return fail(`is still the placeholder ${PLACEHOLDER_SITE_URL}`);
   }
+  // `.invalid` is reserved (RFC 2606): the real-prices preview builds with an origin under it.
+  if (url.hostname === "invalid" || url.hostname.endsWith(".invalid")) {
+    return fail(`is a reserved .invalid name (${url.hostname}), used by preview builds`);
+  }
 }
 
 assertSiteUrl({
@@ -62,11 +76,15 @@ assertSiteUrl({
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   SEO_STRICT_SITE_URL: process.env.SEO_STRICT_SITE_URL,
   SEO_ALLOW_PLACEHOLDER: process.env.SEO_ALLOW_PLACEHOLDER,
+  SEO_PREVIEW_DRAFTS: process.env.SEO_PREVIEW_DRAFTS,
 });
 
 export const SITE_URL = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
 
 export const SITE_NAME = "SmartCart";
+
+/** Whether a draft basket-index month is shown (preview builds only, see above). */
+export const PREVIEW_DRAFTS = process.env.SEO_PREVIEW_DRAFTS === "1";
 
 /**
  * Whether pages for products with no prices yet may be indexed. They are real pages (what the
