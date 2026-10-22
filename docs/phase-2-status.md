@@ -180,6 +180,19 @@ Parallel workstreams in three PRs (#110, #111 and the one after). Besides the ro
 | Eggs (#44) | done with real data | Real egg items map to the egg canonical of their stated size only; ambiguous ones stay generic and unmatched. Gold sets unchanged at 1.00. The basket index is still a draft: it needs reviewed best-seller mappings (#15). |
 | Evaluation (#38) | done by tests | The Hebrew gold-set evaluation gives fresh-database numbers on a used database; before, `evaluate-ar` changed them, and CI's `evaluation.json` carried the polluted figures (PR #117). |
 
+## All-phases round (2026-10-22)
+
+Parallel workstreams in one PR from `phases-round`. Besides the rows above:
+
+| Area | Status | What landed |
+|---|---|---|
+| Exit window (#60) | rehearsal on runners | `exit-window.yml` runs the Phase 0 window's night daily on a GitHub runner with the real clock: probe, download, adapters, quality gates, load, precompute, and a record on the `exit-window/data` branch (`docs/exit-window.md`). It is **not** the VPS window: the exit report stays NO-GO and none of its numbers count as exit evidence. |
+| Reporting schema v2 (#57) | blocked on the spec | Detection is strict and one-sided: any sign of a different model (a declared model version, an XSD, a namespace, an unknown container) makes the file `unknown`, which is never loaded and raises one `unknown_schema` alert. The v2 marker is a provisional placeholder in one constant; there is no v2 field mapping until a spec or a real file exists. The probe counts files per schema per chain (`docs/adapters.md`). |
+| Kosher filter (phase 3 audience) | done by tests | Supervision read only from explicit words in the item name (`docs/matching.md`, "Kosher"), always labelled unverified; a profile level filters compare, optimize, swaps and search and labels every card. On the real fixtures only 0.8% of names state any supervision, so the filter needs a curated certification source to be useful (owner input). |
+| SEO and the basket index on real prices (#35, #44) | done with real data | The Real day workflow builds the SEO pages from the day's prices and checks them (200 pages, 0 structured-data errors, 0 crawl failures, axe at 390 px). The export withholds implausible prices and says so on the page; the basket index flags outlier lines and stays a draft (no chain prices all 25 lines). JSON-LD offers carry `validFrom` (`docs/seo.md`). Open: Rich Results Test and Search Console after the first deploy. |
+| Catalog expansion (#52) | done with real data | `propose-canonicals` groups unmapped real items (barcode first, then type and critical values, then names), ranks them and writes a review packet; `proposals-import` writes an additions file that `seed` accepts, never touching `canonicals.yaml`. One real day: 70,159 unmapped items, the top 150 proposals cover at most 3.4% (an upper bound, the judge still decides). Open: review and sign-off (#15), Arabic names, and whether to raise the 150–300 canonical range. |
+| Personalization (phase 3) | done by tests | "My usual", "buy again", brand-default offers and value packs, computed on the device from the person's own history; signed in, mirrored to `/me/personal` in the owner-only `preferences` table; in the export and in delete-my-data; a switch turns learning off (`docs/personalization.md`). Thresholds are proposals for the beta to tune; the privacy text awaits legal review. |
+
 ## Owner runbook
 
 Do these in order. Each step says where the detail lives. Cost and time figures are estimates from the
