@@ -1,0 +1,51 @@
+{
+  "variant": "production",
+  "origin": "https://preview.invalid",
+  "index_unpriced": false,
+  "steps": {
+    "build": {
+      "exit": 0,
+      "seconds": 23.6,
+      "tail": "fully in 6.9s\n  Running TypeScript ...\n  Finished TypeScript in 12.8s ...\n  Collecting page data using 3 workers ...\n  Generating static pages using 3 workers (0/222) ...\n  Generating static pages using 3 workers (55/222) \n  Generating static pages using 3 workers (110/222) \n  Generating static pages using 3 workers (166/222) \n✓ Generating static pages using 3 workers (222/222) in 2.5s\n  Finalizing page optimization ...\n\nRoute (app)\n┌ ○ /\n├ ○ /_not-found\n├ ○ /accessibility\n├ ○ /alerts\n├ ○ /basket-index\n├ ○ /beta\n├ ƒ /beta/join/[code]\n├   /c/[slug]\n│ ├ ● /c/dairy\n│ ├ ● /c/meat\n│ ├ ● /c/fish\n│ └ ● [+67 more paths]\n├ ○ /compare\n├ ƒ /compare/substitution/[id]\n├ ○ /design-system\n├ ƒ /lists/[id]/share\n├ ƒ /lists/accept/[token]\n├ ○ /locale-test\n├ ƒ /manifest.webmanifest\n├ ○ /map\n├ ○ /methodology\n├ ○ /offline\n├ ○ /onboarding\n├   /p/[slug]\n│ ├ ● /p/milk-fresh-3\n│ ├ ● /p/milk-fresh-1\n│ ├ ● /p/cottage-5\n│ └ ● [+127 more paths]\n├ ○ /privacy\n├ ƒ /product/[id]\n├ ○ /profile\n├ ○ /robots.txt\n├ ○ /scan\n├ ○ /sitemap.xml\n├ ○ /split\n└ ○ /store-mode\n\n\n○  (Static)   prerendered as static content\n●  (SSG)      prerendered as static HTML (uses generateStaticParams)\nƒ  (Dynamic)  server-rendered on demand\n\n"
+    },
+    "vitest": {
+      "exit": 1,
+      "seconds": 9.6,
+      "total": 121,
+      "passed": 118,
+      "failed": 3,
+      "files": 36,
+      "failures": [
+        {
+          "file": "jsonld.test.ts",
+          "test": "structured data Product has no offers while no prices are loaded",
+          "message": "AssertionError: expected { …(8) } to not have property \"offers\"\n    at /home/runner/work/SmartCart/SmartCart/apps/web/src/features/seo/jsonld.test.ts:53:22\n    at file:///home/runner/work/SmartCart/SmartCart/apps/web/node_modules/vitest/dist/chunks/run.BTlFXlnv.js:1628:35\n    at file:///home/runner/work/SmartCart/SmartCart/apps/web/node_modules/vitest/dist/chunks/run.BTlFXlnv.js:2783:26\n    at fil"
+        },
+        {
+          "file": "pages.test.tsx",
+          "test": "category pages (#35) render the Hebrew title, products, update date, methodology link and the checkout line",
+          "message": "TestingLibraryElementError: Unable to find an element with the text: /נתוני הקטלוג עודכנו בתאריך/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.\n\nIgnored nodes: comments, script, style\n\u001b[36m<body>\u001b[39m\n  \u001b[36m<div>\u001b[39m\n    \u001b[36m<div\u001b[39m\n      \u001b[33mclass\u001b[39m=\u001b[32m\"page\"\u001b[39m\n   "
+        },
+        {
+          "file": "pages.test.tsx",
+          "test": "product pages (#35) without prices say so, carry no offers, and keep the trust lines",
+          "message": "TestingLibraryElementError: Unable to find an element with the text: /עדיין לא נטענו מחירים למוצר הזה/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.\n\nIgnored nodes: comments, script, style\n\u001b[36m<body>\u001b[39m\n  \u001b[36m<div>\u001b[39m\n    \u001b[36m<div\u001b[39m\n      \u001b[33mclass\u001b[39m=\u001b[32m\"page\"\u001b[39"
+        }
+      ]
+    },
+    "crawl": {
+      "pages_fetched": 203,
+      "sitemap_urls": 180,
+      "checks": 1870,
+      "failed": [],
+      "largest_html_bytes": 51462,
+      "median_html_bytes": 34752,
+      "seconds": 1.6
+    },
+    "e2e": {
+      "exit": 0,
+      "seconds": 12.0,
+      "tail": "\nRunning 7 tests using 2 workers\n\n[1/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › longest name: /p/potato-chips-salted at 390 px\n[2/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › most chains: /p/onion at 390 px\n[3/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › weighed: /p/chicken-breast-fresh at 390 px\n[4/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › withheld price: /p/mineral-water at 390 px\n[5/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › unpriced: /p/chocolate-milk at 390 px\n[6/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › biggest category: /c/pantry at 390 px\n[7/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › basket index: /basket-index at 390 px\n  7 passed (11.1s)\n"
+    }
+  }
+}
