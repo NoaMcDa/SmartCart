@@ -137,13 +137,17 @@ def audit_products(
                 found.append(_finding("old_price", where, f"{(now - when).days} days old"))
         if len(medians) >= 2:
             for chain, value in medians.items():
-                others = [v for k, v in medians.items() if k != chain]
-                ref = statistics.median(others)
+                # two chains: against each other; three or more: against the median of all
+                ref = (
+                    statistics.median(medians.values())
+                    if len(medians) >= 3
+                    else next(v for k, v in medians.items() if k != chain)
+                )
                 ratio = max(value / ref, ref / value)
                 if ratio >= CHAIN_RATIO:
                     found.append(_finding("chain_outlier", f"{slug} / {chain}",
-                                          f"{value:.2f} per {unit} against {ref:.2f} at the "
-                                          f"other chain(s): {ratio:.1f} times"))  # fmt: skip
+                                          f"{value:.2f} per {unit} against {ref:.2f} (the other "
+                                          f"chain, or the median of all): {ratio:.1f} times"))  # fmt: skip
     for slug, n in seen.items():
         if n > 1:
             found.append(_finding("missing_field", slug, f"slug appears {n} times"))

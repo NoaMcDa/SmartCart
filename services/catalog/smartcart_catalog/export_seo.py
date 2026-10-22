@@ -221,10 +221,12 @@ def screen_prices(
                 why = ("chains_disagree", f"{ma} against {mb}")
                 drop = {a: why, b: why}
         elif len(medians) >= 3:
+            # against the median of all the chains' medians: with three chains, one wild value
+            # would otherwise drag the reference of the two honest ones up with it
+            ref = _median(medians.values())
             for c, m in medians.items():
-                ref = _median(v for k, v in medians.items() if k != c)
                 if m >= ref * CHAIN_RATIO or m * CHAIN_RATIO <= ref:
-                    drop[c] = ("chain_outlier", f"{m} against {ref} at the other chains")
+                    drop[c] = ("chain_outlier", f"{m} against the chains' median {ref}")
         for c, rs in chains.items():
             if c in drop:
                 for r in rs:
