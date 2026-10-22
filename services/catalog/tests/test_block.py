@@ -111,7 +111,7 @@ def test_top_k_query_is_served_by_the_hnsw_index(db) -> None:
     db.execute("ANALYZE canonical_products")
     configure_session(db)
     params = {"item_id": item, "k": 10, "prefix": "dairy", "like": "dairy.%",
-              "base_unit": "100ml"}  # fmt: skip
+              "base_unit": "100ml", "only": None}  # fmt: skip
 
     def plan() -> str:
         return "\n".join(r[0] for r in db.execute("EXPLAIN " + TOP_K_SQL, params).fetchall())

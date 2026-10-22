@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -118,6 +119,7 @@ CROSS JOIN LATERAL (
   FROM canonical_products cp
   WHERE cp.embedding IS NOT NULL
     AND cp.embedding_model = e.model
+    AND (%(only)s::bigint[] IS NULL OR cp.id = ANY(%(only)s::bigint[]))
     AND (%(base_unit)s::text IS NULL OR cp.base_unit = %(base_unit)s::text)
     AND (%(prefix)s::text IS NULL OR cp.taxonomy_id = %(prefix)s::text
          OR cp.taxonomy_id LIKE %(like)s::text)
@@ -152,16 +154,20 @@ def top_k(
     k: int = 10,
     taxonomy_prefix: str | None = None,
     base_unit: str | None = None,
+    canonical_ids: Sequence[int] | None = None,
 ) -> list[Candidate]:
     """The ``k`` nearest canonicals to the item's embedding inside its block, best first, in a
     single SQL statement. ``similarity`` is cosine similarity (1 - cosine distance). Returns an
-    empty list if the item has no embedding."""
+    empty list if the item has no embedding. ``canonical_ids`` restricts the candidates to those
+    canonicals (the evaluation harness uses it to keep the catalog outside the gold set out of
+    the retrieval); ``None`` means the whole catalog."""
     params = {
         "item_id": item_id,
         "k": k,
         "prefix": taxonomy_prefix,
         "like": prefix_like(taxonomy_prefix) if taxonomy_prefix else None,
         "base_unit": base_unit,
+        "only": list(canonical_ids) if canonical_ids is not None else None,
     }
     rows = conn.execute(TOP_K_SQL, params).fetchall()
     return [
