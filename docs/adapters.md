@@ -142,10 +142,61 @@ layout and the new-source `SubChains` layout. Confirm this against a real legacy
 | `ItemRecord.barcode` | `ItemCode` when `ItemType` is not 0 and the code is 8–14 digits; otherwise `None` (internal code) |
 | `ItemRecord.quantity` / `unit` / `is_weighed` | `Quantity` (0 becomes `None`), `UnitQty`, `bIsWeighted`/`BisWeighted` = 1 |
 | `PriceRecord.price` / `unit_price` / `unit_of_measure` / `observed_at` | `ItemPrice`, `UnitOfMeasurePrice`, `UnitOfMeasure` or `UnitMeasure`, `PriceUpdateDate` (falls back to the file's publish time) |
+| `PriceRecord.quantity` / `quantity_unit` | `Quantity` (0 becomes `None`), `UnitQty`: the pack size the loader divides the price by ("Unit prices in real files") |
 | `PromoRecord` | `PromotionId`/`PromotionID`, `PromotionDescription`, the item codes (see "Promotions in real files"), start and end (`PromotionStartDateTime`/`PromotionEndDateTime`, or the older start/end date plus hour), `MinQty`, `MaxQty` (0 becomes `None`), `ClubID`/`Clubs/ClubId` |
 
 The full promo row is always kept in `PromoRecord.raw` (its scalar fields, `club_ids`, `layout`,
 `groups`, `unapplied`, `min_purchase_amount`, `club_expression`, `confidence`).
+
+### Unit prices in real files (measured 2026-10-21 and 2026-10-08)
+
+`UnitOfMeasurePrice` is a chain's own number and its `UnitOfMeasure` label does not always say what
+the number is. Measured on the committed real PriceFull of each chain, 200 rows on 2026-10-21
+(`fixtures/<chain>/real/`) and 200 on 2026-10-08 (`data/audit/real-2026-10-08/`): the published
+value was compared with `ItemPrice / Quantity` scaled to the label's unit (`Quantity` is in the
+unit of `UnitQty`; when that is `לא ידוע`, in the label's own unit: grams for `100 גרם`, kilograms
+for `ק"ג`, liters for `ליטר`, milliliters for `100 מ"ל`). "Agree" is within half a cent plus 2 %
+(the published price is rounded to two decimals); "x100 low" is a published value 100 times smaller
+than its label implies. The table is `tests/test_unit_price_real.py` (`MEASURED`); it runs on every
+build.
+
+| Chain | What it publishes, as measured (400 rows, 2 days) | Reading the loader applies |
+|---|---|---|
+| Rami Levy | `100 גרם` (155 rows) and `100 מיליליטר` (60): **x100 low**, the price of **one gram / one ml**, never per 100. `ליטר` (25), `קילוגרם` (6 + 5 weighed), `יחידות` (147): agree. `2   יחידות` (2 rows, one product): per unit, label wrong. `UnitQty` is `לא ידוע` for weight and volume. | `100 גרם` / `100 מיליליטר` x100 (`PUBLISHED_SCALE`); the rest as labelled |
+| Osher Ad | `100 גרם` (179), `ליטר` (47), `ק"ג` (31): agree. `100 מ"ל` (33): **x100 low**, per ml. `יחידה` (54): `Quantity` 0 and a published 0.00 on 50, no unit price at all. 56 weighed rows are labelled `יחידה` (per unit) but are per kg: the published value equals the shelf price. | `100 מ"ל` x100; weighed = shelf price per kg |
+| Mega | `100 גרם` (201), `100 מיליליטר` (75), `יחידות` (56), `ליטר` (23), `קילוגרם` (17): agree. `מיליליטר` (12): **x100 high**, the value is per 100 ml. `ליטר 1` with `UnitQty` ליטר (16): the pack is grams (`Quantity` 80 to 686 of chips, spices, canned peas) published per gram under a liter label; 14 of 16 have no sane pack. | `מיליליטר` x0.01; `ליטר 1` with an impossible pack: no unit price |
+| King Store | `100 גרם`, `100 מיליליטר`, `1 קילוגרם`, `1 ליטר`, `יחידות`: agree (177 weighed rows `1 קילוגרם`, price per kg, `Quantity` in grams). | as labelled |
+| Shufersal | `100 גרם`, `100 מיליליטר`, `1ליטר`, `יחידות`: agree. `מטרים` (2): no unit this system knows. | as labelled |
+| Tiv Taam | `100 גרם`, `100 מיליליטר`, `יחידות`: agree; weighed `1קילוגרם` (183). | as labelled |
+| Yohananof | `100 גרם`, `100 מיליליטר`, `1ליטר`, `1קילוגרם`, `יחידות`: agree; weighed `1קילוגרם` (130). | as labelled |
+
+Hazi Hinam, Machsanei Hashuk and Victory have no real PriceFull yet (their portals did not answer
+from the runner); they are read as labelled until a real file is measured.
+
+**What the loader does** (`smartcart_ingest/unitprice.py`, called from `loader._insert_prices`):
+
+1. A **weighed** item is `kg` with `is_estimated`, and its value is the shelf price (a weighed
+   price is per kilogram; every weighed row in the 14 files that publishes a per-kg unit price
+   equals it). The published value is only compared.
+2. Otherwise the unit price is **computed**: `price / pack size` per 100 g, per 100 ml or per unit,
+   when `Quantity` is present and sane (positive; at most 50 kg, 50 l or 10,000 units; in a unit
+   that does not contradict the label's dimension). It is `computed` in `LoadResult.unit_price_sources`.
+3. The published value is the **fallback** when there is no sane pack size: the label's reading
+   times the chain's measured factor (`PUBLISHED_SCALE`: Rami Levy `100 גרם` and `100 מיליליטר` x100,
+   Osher Ad `100 מ"ל` x100, Mega `מיליליטר` x0.01), refused (`none`, the shelf price is still
+   stored) when the pack size it implies is not 1 g to 50 kg, 1 ml to 50 l. A published `0.00` is
+   refused.
+4. **Cross-check**: when both exist, the published value is compared with the computed one under
+   the chain's reading and the disagreements are counted per class (`off_x100_low`, `off_x100_high`,
+   `off_x10_*`, `off_x1000_*`, `other`) in `LoadResult.unit_price_disagreements` and a
+   `published unit prices disagree with price / quantity` warning in the log. They are a
+   data-quality signal: the price is stored and the file is never quarantined for them. Measured
+   after the rules above: 2 rows of 2,800 (Rami Levy's `2   יחידות`), all of them `other`.
+
+A chain's factor is added only with a measurement: `test_the_chain_scales_are_what_the_files_measure`
+re-derives `PUBLISHED_SCALE` from the 14 files (the class of at least 90 % of a label's rows, five
+or more rows) and fails when a chain is missing or wrong. When the next real file of a chain shows
+`unit_price_disagreements` in the log, that is the signal to measure again.
 
 ### Promotions in real files (#47, verified 2026-10-21)
 

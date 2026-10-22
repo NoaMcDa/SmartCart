@@ -3,7 +3,9 @@
 Each example is a small random world written to the database (2 chains, 3-5 stores at distinct
 distances, 3-4 canonicals, base prices and store exceptions, items some chains or stores do not
 stock, unit-price / percent / 1+1 / "N for X" promos, club-only promos, one "N for X" promo shared
-by two products, a weighed canonical), priced by the real precompute and served by the real
+by two products, a weighed canonical, items that state their pack count in the name: 2 to 12
+units, with a typical pack of 1 to 6 units per canonical, so a line buys whole packs), priced by
+the real precompute and served by the real
 routes. The expected line of every (store, canonical) is recomputed here from the promo definitions
 (``expected_line``) and the best plan from an exhaustive reference over the expected lines
 (``exhaustive`` from test_api_optimizer_props.py), so neither shares code with basket.py or the
@@ -22,7 +24,7 @@ from __future__ import annotations
 import copy
 import random
 from dataclasses import dataclass, field
-from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 
 import pytest
 from api_world import EMB, World, add_price, add_promo, add_store
@@ -37,6 +39,7 @@ from smartcart_api.settings import get_settings
 D = Decimal
 pytestmark = [pytest.mark.db, pytest.mark.postgis, pytest.mark.pgvector]
 SEEDS = range(18)
+PACK_EFFECT_SEEDS: set[int] = set()  # seeds with a line whose shelf packs differ from the quantity
 CLUBS = ("club-a", "club-b")
 
 
@@ -70,6 +73,8 @@ class Built:
     shelf: dict[tuple[int, int], Decimal] = field(default_factory=dict)  # (store, canon) -> price
     sub_shelf: dict[tuple[int, int], Decimal] = field(default_factory=dict)  # close-level item
     sibling: dict[int, int] = field(default_factory=dict)  # canonical -> its fat_pct sibling
+    per: dict[int, int] = field(default_factory=dict)  # canonical -> units in one requested pack
+    pack_n: dict[tuple[str, int], int] = field(default_factory=dict)  # (chain, canon) -> units/item
     promos: list[Promo] = field(default_factory=list)
     home: int | None = None
 
@@ -160,6 +165,15 @@ class Best:
     shelf: Decimal
     offers: list  # the tied offers of a main item
     extras: list = field(default_factory=list)  # other offers open to the user (club rows)
+    n: int | None = None  # units in one shelf item, when its name states them
+
+
+def packs_of(b: Best, qty: Decimal, per: int | None) -> Decimal:
+    """Shelf items that cover ``qty`` requested packs of ``per`` units each (whole packs), or the
+    quantity itself when the item states no count or the canonical is weighed."""
+    if b.n is None or per is None:
+        return qty
+    return (qty * per / b.n).to_integral_value(rounding=ROUND_CEILING)
 
 
 def level_best(built: Built, store: dict, cid: int, flex: str, clubs: list[str]) -> Best | None:
@@ -171,11 +185,14 @@ def level_best(built: Built, store: dict, cid: int, flex: str, clubs: list[str])
     if (sid, cid) in built.shelf:
         offers = best_offers(built, store, cid, clubs)
         extras = [] if built.canon[cid] else club_extras(built, store, cid, clubs)
-        main = Best(offers[0][0], "main", built.shelf[(sid, cid)], offers, extras)
+        n = built.pack_n.get((store["chain"], cid))
+        main = Best(offers[0][0], "main", built.shelf[(sid, cid)], offers, extras, n)
     sub = None
     if flex == "close" and (sid, cid) in built.sub_shelf:
         price = built.sub_shelf[(sid, cid)]
-        sub = Best(price, "sub", price, [(price, 1, None)])
+        sub = Best(
+            price, "sub", price, [(price, 1, None)], [], built.pack_n.get((store["chain"], cid))
+        )
     if main is not None and (sub is None or main.eff <= sub.eff):
         return main
     return sub
@@ -195,12 +212,14 @@ def expected(built: Built, store: dict, item: dict, clubs: list[str]) -> Exp | N
     """What the line for ``item`` at ``store`` must be, or None when the store cannot supply it."""
     cid, flex = item["canonical_id"], item.get("flex_level", "any_brand")
     qty, weighed = D(item["quantity"]), built.canon[cid]
+    per = built.per.get(cid)
     own = level_best(built, store, cid, flex, clubs)
     src, chosen = cid, own
     sib_cid = built.sibling.get(cid)
 
     def totals_of(b: Best) -> set[Decimal]:
-        return {min(line_price(b.shelf, o, qty, weighed) for o in [d, *b.extras]) for d in b.offers}
+        q = packs_of(b, qty, per)
+        return {min(line_price(b.shelf, o, q, weighed) for o in [d, *b.extras]) for d in b.offers}
 
     if item.get("allow") and sib_cid is not None:
         sib = level_best(built, store, sib_cid, flex, clubs)
@@ -215,16 +234,21 @@ def expected(built: Built, store: dict, item: dict, clubs: list[str]) -> Exp | N
     if sub:
         o = level_best(built, store, cid, "any_brand", clubs)
         if o is not None:
+            q = packs_of(o, qty, per)
             orig = {
-                min(line_price(o.shelf, x, qty, weighed) for x in [d, *o.extras]) for d in o.offers
+                min(line_price(o.shelf, x, q, weighed) for x in [d, *o.extras]) for d in o.offers
             }
+    q = packs_of(chosen, qty, per)
     cheapest = min(
-        [*chosen.offers, *chosen.extras], key=lambda o: line_price(chosen.shelf, o, qty, weighed)
+        [*chosen.offers, *chosen.extras], key=lambda o: line_price(chosen.shelf, o, q, weighed)
     )
     return Exp(totals, sub, src, chosen, orig, cheapest)
 
 
-def build_world(db, rnd: random.Random, w: World) -> Built:
+def build_world(db, rnd: random.Random, w: World, prnd: random.Random | None = None) -> Built:
+    """``prnd`` draws the pack features (typical pack of a canonical, units in a chain's item), so
+    the rest of every world is the same with or without them."""
+    prnd = prnd or random.Random(0)
     n_stores = rnd.randint(3, 5)
     kms = [k / 10 for k in rnd.sample(range(10, 46), n_stores)]
     stores = []
@@ -239,6 +263,23 @@ def build_world(db, rnd: random.Random, w: World) -> Built:
     n_canon = rnd.randint(3, 4)
     built = Built(stores=stores, canon={})
     items: dict[tuple[str, int], int] = {}
+    drawn: dict[tuple[str, int], int | None] = {}
+
+    def units_in(ch: str, cid: int) -> int | None:
+        """Units the chain's item of the canonical states in its name, None when it states none.
+        The main and the substitute item of one chain share it."""
+        if built.canon[cid]:
+            return None
+        if (ch, cid) not in drawn:
+            drawn[(ch, cid)] = prnd.choice([None, None, 2, 3, 4, 6, 12])
+            if drawn[(ch, cid)]:
+                built.pack_n[(ch, cid)] = drawn[(ch, cid)]
+        return drawn[(ch, cid)]
+
+    def item_name(label: str, cid: int, n: int | None) -> str:
+        # A pack count is the only number in these names (digits are read as sizes).
+        return f"{label} {cid}" if n is None else f"{label} {'אבגדהוז'[cid % 7]} {n} יח'"
+
     milk_pair = rnd.random() < 0.5  # canonicals 0 and 1: the same milk at 3 % and at 1 %
     for c in range(n_canon):
         weighed = c == n_canon - 1 and rnd.random() < 0.5
@@ -260,6 +301,14 @@ def build_world(db, rnd: random.Random, w: World) -> Built:
             ),
         ).fetchone()[0]
         built.canon[cid] = weighed
+        if not weighed:
+            built.per[cid] = 1
+            if not milk and prnd.random() < 0.6:
+                built.per[cid] = prnd.choice([2, 3, 4, 6])
+                db.execute(
+                    "UPDATE canonical_products SET soft_attrs = %s WHERE id = %s",
+                    (Jsonb({"pack_size": built.per[cid], "unit": "unit"}), cid),
+                )
         if milk and c == 1:
             first = next(iter(built.canon))
             built.sibling[cid], built.sibling[first] = first, cid
@@ -268,10 +317,11 @@ def build_world(db, rnd: random.Random, w: World) -> Built:
             mine = [s for s in stores if s["chain"] == ch]
             if style == "none" or not mine:
                 continue
+            n = units_in(ch, cid)
             iid = db.execute(
                 "INSERT INTO items (chain_id, item_code, raw_name, quantity, unit, is_weighed)"
                 " VALUES (%s, %s, %s, 1, %s, %s) RETURNING id",
-                (ch, f"r{c}", f"מוצר {c}", 'ק"ג' if weighed else "יחידה", weighed),
+                (ch, f"r{c}", item_name("מוצר", c, n), 'ק"ג' if weighed else "יחידה", weighed),
             ).fetchone()[0]
             items[(ch, cid)] = iid
             db.execute(
@@ -324,10 +374,17 @@ def build_world(db, rnd: random.Random, w: World) -> Built:
             if not mine or rnd.random() < 0.4:
                 continue
             weighed = built.canon[cid]
+            n = units_in(ch, cid)
             iid = db.execute(
                 "INSERT INTO items (chain_id, item_code, raw_name, quantity, unit, is_weighed)"
                 " VALUES (%s, %s, %s, 1, %s, %s) RETURNING id",
-                (ch, f"sub{cid}", f"תחליף {cid}", 'ק"ג' if weighed else "יחידה", weighed),
+                (
+                    ch,
+                    f"sub{cid}",
+                    item_name("תחליף", cid, n),
+                    'ק"ג' if weighed else "יחידה",
+                    weighed,
+                ),
             ).fetchone()[0]
             db.execute(
                 "INSERT INTO item_canonical (item_id, canonical_id, flex_level, confidence, source)"
@@ -456,7 +513,7 @@ def pooled_problem(
                     cid * 1000 + s["id"],
                     next(iter(exp.totals)),
                     exp.best.shelf,
-                    int(q) if key else None,
+                    int(packs_of(exp.best, q, built.per.get(cid))) if key else None,
                     key,
                     exp.sub,
                 )
@@ -516,7 +573,7 @@ def base(db, catalog: World) -> World:
 
 def example(db, base: World, seed: int):
     rnd = random.Random(seed)
-    built = build_world(db, rnd, base)
+    built = build_world(db, rnd, base, random.Random(seed + 7919))
     precompute_effective_prices(db, chains=base.chains)
     cids = list(built.canon)
     items = []
@@ -565,6 +622,12 @@ def test_compare_prices_equal_an_independent_recomputation(
             e = exp[cid]
             assert got in e.totals, (seed, s["id"], cid)
             assert D(li["quantity"]) == qty[cid]
+            # Whole shelf packs cover the quantity asked; the total is built on them.
+            assert D(li["packs"]) == packs_of(e.best, qty[cid], built.per.get(cid)), (seed, cid)
+            assert (li["pack_units"] is None) == (e.best.n is None)
+            assert e.best.n is None or D(li["pack_units"]) == e.best.n
+            if D(li["packs"]) != qty[cid]:
+                PACK_EFFECT_SEEDS.add(seed)
             # Substitutes are labeled, with the original's offer at the same store; others never.
             assert li["is_substitute"] == e.sub, (seed, s["id"], cid)
             assert (li["original_here"] is not None) == (e.orig is not None), (seed, s["id"], cid)
@@ -606,6 +669,14 @@ def test_compare_prices_equal_an_independent_recomputation(
         a = {st["store_id"]: D(st["total"]) for st in resp["stores"]}
         for st in nomember["stores"]:
             assert D(st["total"]) >= a[st["store_id"]], (seed, st["store_id"])
+
+
+def test_the_random_worlds_exercise_pack_rounding() -> None:
+    """The comparison above must really meet lines whose shelf packs differ from the quantity
+    (it runs before this test in the file; run alone it has seen nothing and is skipped)."""
+    if not PACK_EFFECT_SEEDS:
+        pytest.skip("run together with test_compare_prices_equal_an_independent_recomputation")
+    assert len(PACK_EFFECT_SEEDS) >= len(SEEDS) // 3, sorted(PACK_EFFECT_SEEDS)
 
 
 @pytest.mark.parametrize("seed", SEEDS)

@@ -171,7 +171,11 @@ treat it like any other unreviewed copy. Where it appears:
     (mapped to the canonical at exact or any_brand) and is priced live with the same promo
     folding; otherwise the canonical counts as missing at that store;
   - by weight (base unit `kg`): `line_total = quantity (kg) x effective price per kg`, estimated;
-  - by count: full promo bundles at the promo price, the remainder at the shelf price. When the
+  - by count: the quantity is first turned into shelf packs (`packs`): for a canonical counted in
+    units (eggs, pitas, toilet paper) whole packs of the item that cover `quantity x` the
+    canonical's typical count, using `pack_units` (12 eggs from a tray of 30 is 1 pack, from a pack of
+    6 it is 2), else the quantity itself. Then full promo bundles at the promo price, the remainder at
+    the shelf price. When the
     remainder is short of a bundle, `promo_add_qty` and `promo_add_saving` say "add N and save X"
     (`promo_add_saving` = shelf price of quantity + N minus what that quantity costs with the
     promo). `promo_applied` says whether the requested quantity reaches the promo;
@@ -196,6 +200,9 @@ treat it like any other unreviewed copy. Where it appears:
     cheapest line for the quantity asked wins (the requested canonical keeps a tie), and its
     `original_here` is the requested canonical's own offer at that store. Semantics and limits: [matching.md](matching.md#allowed-attributes-sibling-canonicals-31);
   - `price_valid_from` on every line; `prices_updated_at` per store is the newest of its lines.
+- `PricedItem.quantity` is what was asked; `packs` is the shelf items bought (the line total is
+  `packs` at the shelf price, or the promo's bundles), `pack_units` the units in one of them (null
+  for weights, volumes, exact barcodes and items that state no count).
 - `BasketItem.quantity` is between 0.01 and 1000 (packs, or kg for weighed goods): a smaller one
   prices to 0.00 and a huge one overflows the money type, so both are a 422. The same canonical
   asked more than once is one line per store with the summed quantity, priced by the strictest
@@ -259,7 +266,13 @@ one row per (canonical, store, flexibility level):
   `file_id`, written by hand, count too): quarantined or failed files never feed a price.
 - Unit price: the published one, normalized by the loader, else derived from the item's pack
   size, converted to the canonical's base unit (kg and 100 g convert; other mismatches are left
-  out). An item with no size under a per-unit canonical is compared per pack.
+  out). The pack comes from the catalog's reading of the name as well as the chain's fields: a
+  per-unit canonical is priced `shelf price / units in the item` (`12 יח'` is 12, `2*30` is 60,
+  even when the fields say `1 יחידות`), a per-100 g or per-100 ml canonical on the pack's total
+  weight or volume, and when readings disagree the dearer unit price is used and the disagreement
+  is counted in the run's `match_runs` metrics (`pack_reads`, `pack_samples`). `effective_prices.
+  pack_units` keeps the item's unit count. An item that states no count under a per-unit canonical
+  is compared per pack. Rules and examples: [optimizer.md](optimizer.md#packs-the-count-in-the-name-the-unit-price-and-whole-packs-finding-9-of-the-second-real-day).
 - Promo folding, for promos active at `as_of` for the store or chain-wide, from loaded files.
   The reward mapping follows the adapters' mapping (docs/adapters.md: verified on real files for
   the one-group readings and the two-group "buy one, get one at P % off"; the older layouts stay
@@ -644,6 +657,7 @@ item must belong to the list in the path (an item id of another list is a 404).
 | `20261009100000_mvp_followups.sql` | `list_shares.id` (identity, unique), `list_items.checked`, `substitution_feedback.source`, `gap_report_pressure()` and the `quality_gap_reports_7d` view, `quality_warnings` |
 | `20261022090000_list_items_updated_at.sql` | `list_items.updated_at` and its trigger (the item version of the per-item routes); no grant changes |
 | `20261023090000_list_items_client_id_touch.sql` | `list_items.client_id` with its partial unique index (idempotent add), and the `SECURITY DEFINER` trigger that moves `lists.updated_at` when an item changes; no grant changes |
+| `20261023100000_effective_prices_pack_units.sql` | `effective_prices.pack_units`: units in one shelf item, for whole-pack line totals |
 
 ## Events: phase 2 surfaces (#101, #102)
 

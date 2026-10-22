@@ -32,6 +32,12 @@ not applied (phase 2 MILP, with cross-item promos). The effective unit price is 
 price (per 100 g, 100 ml, unit, or kg for weighed goods, converted to the canonical's base unit)
 scaled by effective price / shelf price.
 
+The unit price reads the pack from the item's name as well as the chain's fields (``read_unit_price``,
+docs/optimizer.md "Packs"): a tray of 12 eggs that the chain files as ``1 יחידות`` is ``price / 12`` an
+egg, ``6*1.5 ל'`` is 9000 ml, and when two readings disagree the dearer unit price is used and the
+disagreement is recorded in the run's metrics. ``pack_units`` (units in the item, per-unit canonicals)
+lets ``/compare`` buy whole packs for the quantity asked.
+
 Club promos (``club_only``) can win; the row then has ``club_required``/``club_name`` and the
 best option without any club promo in ``noclub``, which ``/compare`` uses for users who did not
 mark that club. A club promo is never applied for them. ``noclub.clubs`` maps each club whose
@@ -57,8 +63,13 @@ import psycopg
 import structlog
 from psycopg.types.json import Jsonb
 
+from smartcart_catalog.models import NormalizedItem
+from smartcart_catalog.normalize import normalize
+from smartcart_ingest.unitprice import MAX_BASE_AMOUNT
+
 log = structlog.get_logger("smartcart_api.precompute")
 
+MAX_PACK_SAMPLES = 20
 FLEX_ORDER = {"exact": 0, "any_brand": 1, "close": 2}
 LEVELS = ("exact", "any_brand", "close")
 _Q4 = Decimal("0.0001")
@@ -96,6 +107,9 @@ class Option:
     promo_description: str | None = None
     club_required: bool = False
     club_name: str | None = None
+    pack_units: Decimal | None = None
+    """Units in one shelf item, for a per-unit canonical whose item states its count (12 for a
+    tray of 12 eggs); None when the count is not stated or the unit is a weight or a volume."""
 
     def key(self) -> tuple:
         return (self.effective_unit_price, self.effective_price, self.item_id, self.promo_id or 0)
@@ -113,6 +127,7 @@ class Option:
             "promo_min_qty": None if self.promo_min_qty is None else str(self.promo_min_qty),
             "price_valid_from": self.price_valid_from.isoformat(),
             "is_estimated": self.is_estimated,
+            "pack_units": None if self.pack_units is None else str(self.pack_units),
         }
 
 
@@ -171,24 +186,45 @@ _LITER = {"l", "lt", "ltr", "liter", "litre", "ליטר", "ל"}
 _UNIT = {"unit", "units", "יחידה", "יחידות", "יח"}
 
 
+_DIM = {"100g": "mass", "100ml": "volume", "unit": "unit"}
+
+
+def sane_pack(amount: Decimal, base_unit: str) -> bool:
+    """A pack of ``amount`` grams, milliliters or units (``base_unit`` 100g, 100ml or unit) that a
+    real shelf item can be: positive and within the loader's limits (``unitprice.MAX_BASE_AMOUNT``:
+    50 kg, 50 l, 10,000 units)."""
+    dim = _DIM.get(base_unit)
+    return dim is not None and 0 < amount <= MAX_BASE_AMOUNT[dim]
+
+
 def derive_unit_price(
     price: Decimal, quantity: Decimal | None, unit: str | None
 ) -> tuple[Decimal, str] | None:
-    """Unit price from the pack size when the file published none: per 100 g, 100 ml or unit."""
+    """Unit price from the pack size when the file published none: per 100 g, 100 ml or unit.
+
+    None when the pack is not sane (``sane_pack``): at most 50 kg, 50 l or 10,000 units. Mega's
+    ``ליטר 1`` rows carry 80 to 686 "liters" of chips and spices; the loader gives them no unit
+    price and this fallback must not invent one from the same field."""
     if quantity is None or quantity <= 0 or not unit:
         return None
     u = "".join(ch for ch in unit.strip().lower() if ch not in "\"'׳״. ")
     if u in _GRAM:
-        return price * _HUNDRED / quantity, "100g"
-    if u in _KG:
-        return price * _HUNDRED / (quantity * 1000), "100g"
-    if u in _ML:
-        return price * _HUNDRED / quantity, "100ml"
-    if u in _LITER:
-        return price * _HUNDRED / (quantity * 1000), "100ml"
-    if u in _UNIT:
-        return price / quantity, "unit"
-    return None
+        base, dim = quantity, "100g"
+    elif u in _KG:
+        base, dim = quantity * 1000, "100g"
+    elif u in _ML:
+        base, dim = quantity, "100ml"
+    elif u in _LITER:
+        base, dim = quantity * 1000, "100ml"
+    elif u in _UNIT:
+        base, dim = quantity, "unit"
+    else:
+        return None
+    if not sane_pack(base, dim):
+        return None
+    if dim == "unit":
+        return price / base, "unit"
+    return price * _HUNDRED / base, dim
 
 
 def to_base_unit(unit_price: Decimal, uom: str, base_unit: str) -> Decimal | None:
@@ -216,6 +252,9 @@ class PricedItem:
     valid_from: datetime
     quantity: Decimal | None
     unit: str | None
+    name: str | None = None
+    is_weighed: bool = False
+    item_code: str | None = None
 
 
 _PRICES_SQL = """
@@ -238,7 +277,7 @@ SELECT s.id, i.id,
        CASE WHEN sp.item_id IS NOT NULL THEN sp.uom ELSE bp.uom END,
        CASE WHEN sp.item_id IS NOT NULL THEN sp.is_estimated ELSE bp.is_estimated END,
        CASE WHEN sp.item_id IS NOT NULL THEN sp.valid_from ELSE bp.valid_from END,
-       i.quantity, i.unit
+       i.quantity, i.unit, i.raw_name, i.is_weighed, i.item_code
 FROM stores AS s
 JOIN items AS i ON i.chain_id = s.chain_id AND i.id = ANY(%(items)s)
 LEFT JOIN latest AS sp ON sp.item_id = i.id AND sp.store_id = s.id
@@ -277,6 +316,7 @@ def item_options(
     as_of: datetime,
     base_units: dict[int, str] | None = None,
     per_club: dict[tuple[int, int], dict[str, Option]] | None = None,
+    notes: list[dict] | None = None,
 ) -> dict[tuple[int, int], tuple[Option, Option]]:
     """(store_id, item_id) -> (best option overall, best option without a club promo).
 
@@ -284,7 +324,8 @@ def item_options(
     items whose unit cannot be converted are left out. Without it the item's own uom is kept.
     When ``per_club`` is given it receives, per (store_id, item_id), the best option of each club
     named by a club promo, when it beats the no-club option. Club promos without a club name are
-    left out: they never apply (issue #19).
+    left out: they never apply (issue #19). ``notes`` receives one dict per item whose pack was
+    read from the name against the fields, or whose readings disagreed (``UnitReading.note``).
     """
     if not store_ids or not item_ids:
         return {}
@@ -295,12 +336,19 @@ def item_options(
         promos[r[9]].append(PromoTerms(*r[:9]))
 
     out: dict[tuple[int, int], tuple[Option, Option]] = {}
+    noted: set[int] = set()
     for p in priced:
         base = base_units.get(p.item_id) if base_units else None
-        unit = _unit_price(p, base)
-        if unit is None:
+        reading = read_unit_price(p, base)
+        if reading is None:
             continue
-        unit_price, uom = unit
+        unit_price, uom = reading.unit_price, reading.uom
+        if reading.note is not None and notes is not None and p.item_id not in noted:
+            noted.add(p.item_id)
+            notes.append(
+                {"item_id": p.item_id, "name": p.name, "kind": reading.note[0],
+                 "detail": reading.note[1], "price": str(p.price)}
+            )  # fmt: skip
         plain = Option(
             item_id=p.item_id,
             shelf_price=p.price,
@@ -309,6 +357,7 @@ def item_options(
             uom=uom,
             price_valid_from=p.valid_from,
             is_estimated=p.is_estimated,
+            pack_units=reading.pack_units,
         )
         best, best_noclub = plain, plain
         for promo in promos.get(p.item_id, ()):
@@ -353,28 +402,179 @@ def unit_price_in(
     quantity: Decimal | None,
     unit: str | None,
     base_unit: str | None,
+    name: str | None = None,
+    is_weighed: bool = False,
+    item_code: str | None = None,
 ) -> tuple[Decimal, str] | None:
     """The unit price of one price event in ``base_unit``, by the precompute's rules, or None."""
-    p = PricedItem(0, 0, price, unit_price, uom, False, datetime.now(UTC), quantity, unit)
+    p = PricedItem(
+        0, 0, price, unit_price, uom, False, datetime.now(UTC), quantity, unit,
+        name, is_weighed, item_code,
+    )  # fmt: skip
     return _unit_price(p, base_unit)
 
 
-def _unit_price(p: PricedItem, base_unit: str | None) -> tuple[Decimal, str] | None:
+# --- the pack of a shelf item (docs/optimizer.md, "Packs") ------------------------------------
+#
+# Three readings of "how much is in this item" compete, and the first two are the chain's:
+#   published  the unit price the file states (``prices.unit_price`` / ``uom``)
+#   fields     Quantity / UnitQty of the item (``derive_unit_price``)
+#   name       the catalog's normalization of the name (``normalize``: ``12 יח'``, ``2*30``,
+#              ``6*1.5 ל'``, ``32 גלילים``), which itself weighs the fields against the name
+# Rami Levy, Yohananof and Tiv Taam write ``Quantity = 1, UnitQty = יחידות`` for a tray of 12
+# eggs: the fields and the published unit price are the tray's price per "1 unit", and only the
+# name has the count. A stated count above 1 therefore beats a 1. When two readings state different
+# amounts the safer one is used (the larger unit price: a pack is never shown cheaper per unit than
+# the shelf supports) and the disagreement is recorded, not hidden.
+
+CONSISTENT_RATIO = Decimal("1.12")
+"""Two readings of one amount agree when the larger is within 12 % of the smaller (published unit
+prices are rounded to the agora; a chain rounds 187.5 g to 187). A planning choice, not measured."""
+CONSISTENT_ABS = Decimal("0.011")
+"""... or when they differ by at most one agora rounding step (0.005 on each side)."""
+_STATED_COUNT = Decimal("1.5")
+"""A count below this is a 1: what the chains write when they do not know the count."""
+
+
+@dataclass(frozen=True)
+class UnitReading:
+    unit_price: Decimal
+    uom: str
+    pack_units: Decimal | None = None
+    note: tuple[str, str] | None = None
+    """(kind, detail) when the pack was read from the name against the fields, or two readings
+    disagreed: kinds ``count_from_name``, ``count_conflict``, ``measure_conflict``."""
+
+
+def _agree(a: Decimal, b: Decimal) -> bool:
+    lo, hi = (a, b) if a <= b else (b, a)
+    return hi - lo <= CONSISTENT_ABS or hi <= lo * CONSISTENT_RATIO
+
+
+def _normalized(p: PricedItem) -> NormalizedItem | None:
+    """The catalog's reading of the item, or None when the name and fields give no size."""
+    if not p.name:
+        return None
+    n = normalize(
+        {
+            "raw_name": p.name,
+            "quantity": p.quantity,
+            "unit": p.unit,
+            "is_weighed": p.is_weighed,
+            "item_code": p.item_code,
+        }
+    )
+    return n if n.base_unit is not None else None
+
+
+def _plain(n: Decimal) -> Decimal:
+    return n.quantize(Decimal(1)) if n == n.to_integral_value() else n.normalize()
+
+
+def _read_count(p: PricedItem) -> UnitReading | None:
+    """A per-unit canonical: ``price / units in the item`` when some reading states a count
+    above 1, else None (the caller compares per pack, as before)."""
+    norm = _normalized(p)
+    from_name: Decimal | None = None
+    if norm is not None and norm.total_quantity is not None and not norm.is_weighed:
+        if norm.unit == "unit":
+            from_name = norm.total_quantity
+        elif norm.pack_count > 1:  # "6 גלילים 400 גרם": the pieces, not the grams
+            from_name = Decimal(norm.pack_count)
+        if from_name is not None and not sane_pack(from_name, "unit"):
+            from_name = None
+    field = derive_unit_price(p.price, p.quantity, p.unit)
+    from_fields = p.quantity if field is not None and field[1] == "unit" else None
+    from_published = None
+    if p.uom == "unit" and p.unit_price is not None and p.unit_price > 0:
+        implied = p.price / p.unit_price  # 14.20 at 1.18 per unit: 12.03 eggs, i.e. 12
+        whole = implied.quantize(Decimal(1), rounding=ROUND_HALF_UP)
+        if sane_pack(whole, "unit") and abs(implied - whole) <= whole * Decimal("0.06"):
+            from_published = whole
+    readings = (("name", from_name), ("fields", from_fields), ("published", from_published))
+    stated = {k: v for k, v in readings if v is not None and v >= _STATED_COUNT}
+    if not stated:
+        return None
+    count = min(stated.values())  # the smaller count is the larger unit price: the safer one
+    note = None
+    if not all(_agree(count, v) for v in stated.values()):
+        detail = ", ".join(f"{k} {_plain(v):f}" for k, v in stated.items())
+        note = ("count_conflict", f"{detail}; used {_plain(count):f}")
+    elif list(stated) == ["name"]:
+        said = " / ".join(f"{k} {_plain(v):f}" for k, v in readings[1:] if v is not None)
+        note = ("count_from_name", f"name {_plain(count):f}; {said or 'the fields say nothing'}")
+    count = _plain(count)
+    return UnitReading(p.price / count, "unit", count, note)
+
+
+def _read_measure(p: PricedItem, base_unit: str) -> UnitReading | None:
+    """A per-100 g or per-100 ml canonical: the published unit price, the fields' and the name's
+    reading; when they disagree the highest unit price wins (never cheaper than the shelf)."""
+    readings: dict[str, Decimal] = {}
+    if p.unit_price is not None and p.uom:
+        published = to_base_unit(p.unit_price, p.uom, base_unit)
+        if published is not None:
+            readings["published"] = published
+    derived = derive_unit_price(p.price, p.quantity, p.unit)
+    if derived is not None:
+        converted = to_base_unit(derived[0], derived[1], base_unit)
+        if converted is not None:
+            readings["fields"] = converted
+    norm = _normalized(p)
+    if (
+        norm is not None
+        and not norm.is_weighed
+        and norm.base_unit == base_unit
+        and norm.total_quantity
+        and sane_pack(norm.total_quantity, base_unit)
+    ):
+        readings["name"] = p.price * _HUNDRED / norm.total_quantity
+    if not readings:
+        return None
+    values = list(readings.values())
+    if _agree(min(values), max(values)):
+        return UnitReading(values[0], base_unit)  # published, else the fields, else the name
+    chosen = max(values)
+    detail = ", ".join(f"{k} {v:.4f}" for k, v in readings.items())
+    return UnitReading(
+        chosen, base_unit, None, ("measure_conflict", f"{detail}; used {chosen:.4f}")
+    )
+
+
+def read_unit_price(p: PricedItem, base_unit: str | None) -> UnitReading | None:
+    """The unit price of ``p`` in ``base_unit`` (the canonical's), the units in the item for a
+    per-unit canonical, and a note when the name or a disagreement decided it; None when the item
+    cannot be priced in that unit."""
+    got = None
+    if base_unit == "unit":
+        got = _read_count(p)
+    elif base_unit in ("100g", "100ml"):
+        got = _read_measure(p, base_unit)
+    return got if got is not None else _legacy_reading(p, base_unit)
+
+
+def _legacy_reading(p: PricedItem, base_unit: str | None) -> UnitReading | None:
+    """The chain's published unit price, else the one derived from the item's own fields."""
     if p.unit_price is not None and p.uom:
         unit_price, uom = p.unit_price, p.uom
     else:
         derived = derive_unit_price(p.price, p.quantity, p.unit)
         if derived is None:
             if base_unit in (None, "unit"):
-                return p.price, "unit"  # no size known: compared per pack
+                return UnitReading(p.price, "unit")  # no size known: compared per pack
             return None
         unit_price, uom = derived
     if base_unit is None:
-        return unit_price, uom
+        return UnitReading(unit_price, uom)
     converted = to_base_unit(unit_price, uom, base_unit)
     if converted is None:
         return None
-    return converted, base_unit
+    return UnitReading(converted, base_unit)
+
+
+def _unit_price(p: PricedItem, base_unit: str | None) -> tuple[Decimal, str] | None:
+    got = read_unit_price(p, base_unit)
+    return None if got is None else (got.unit_price, got.uom)
 
 
 # --- the job ---------------------------------------------------------------------------------
@@ -393,8 +593,14 @@ class PrecomputeResult:
     rows_with_promo: int = 0
     rows_club_required: int = 0
     seconds: float = 0.0
+    pack_notes: list[dict] | None = None
+    """Items whose pack was read from the name against the fields, or whose readings disagreed."""
 
     def metrics(self) -> dict:
+        notes = self.pack_notes or []
+        kinds: dict[str, int] = defaultdict(int)
+        for n in notes:
+            kinds[n["kind"]] += 1
         return {
             "as_of": self.as_of.isoformat(),
             "chains": self.chains,
@@ -406,11 +612,14 @@ class PrecomputeResult:
             "rows_with_promo": self.rows_with_promo,
             "rows_club_required": self.rows_club_required,
             "seconds": round(self.seconds, 3),
+            "pack_reads": dict(sorted(kinds.items())),
+            "pack_samples": [n for n in notes if n["kind"] != "count_from_name"][:MAX_PACK_SAMPLES]
+            + [n for n in notes if n["kind"] == "count_from_name"][:MAX_PACK_SAMPLES],
         }
 
 
 def _chain_rows(
-    conn: psycopg.Connection, chain_id: str, as_of: datetime
+    conn: psycopg.Connection, chain_id: str, as_of: datetime, notes: list[dict] | None = None
 ) -> tuple[list[tuple], int, int]:
     mappings = conn.execute(
         "SELECT ic.item_id, ic.canonical_id, ic.flex_level, cp.base_unit"
@@ -435,8 +644,9 @@ def _chain_rows(
     for base, items in by_base.items():
         per_club: dict[tuple[int, int], dict[str, Option]] = {}
         got = item_options(
-            conn, chain_id, store_ids, sorted(items), as_of, {i: base for i in items}, per_club
-        )
+            conn, chain_id, store_ids, sorted(items), as_of, {i: base for i in items}, per_club,
+            notes,
+        )  # fmt: skip
         for (sid, iid), opts in got.items():
             options[(base, sid, iid)] = opts
         for (sid, iid), clubs in per_club.items():
@@ -497,6 +707,7 @@ def _chain_rows(
                 opt.promo_min_qty,
                 opt.is_estimated,
                 json.dumps(noclub_js) if noclub_js is not None else None,
+                opt.pack_units,
             )
         )
     return rows, len(store_ids), len({iid for (_b, _s, iid) in options})
@@ -522,13 +733,15 @@ def precompute_effective_prices(
             if chains is not None
             else [r[0] for r in conn.execute("SELECT id FROM chains ORDER BY id")]
         )
-        result = PrecomputeResult(run_id=run_id, as_of=as_of, rows_by_flex=dict.fromkeys(LEVELS, 0))
+        result = PrecomputeResult(
+            run_id=run_id, as_of=as_of, rows_by_flex=dict.fromkeys(LEVELS, 0), pack_notes=[]
+        )
         conn.execute(
             "CREATE TEMP TABLE IF NOT EXISTS _ep (LIKE effective_prices INCLUDING DEFAULTS)"
             " ON COMMIT DROP"
         )
         for chain_id in chain_ids:
-            rows, n_stores, n_items = _chain_rows(conn, chain_id, as_of)
+            rows, n_stores, n_items = _chain_rows(conn, chain_id, as_of, result.pack_notes)
             result.chains += 1
             result.stores += n_stores
             result.items_priced += n_items
@@ -536,7 +749,8 @@ def precompute_effective_prices(
             with conn.cursor().copy(
                 "COPY _ep (canonical_id, store_id, item_id, flex_level, shelf_price,"
                 " effective_unit_price, uom, promo_id, club_required, club_name,"
-                " price_valid_from, effective_price, promo_min_qty, is_estimated, noclub)"
+                " price_valid_from, effective_price, promo_min_qty, is_estimated, noclub,"
+                " pack_units)"
                 " FROM STDIN"
             ) as copy:
                 for r in rows:
@@ -545,10 +759,11 @@ def precompute_effective_prices(
                 "INSERT INTO effective_prices (canonical_id, store_id, item_id, flex_level,"
                 "   shelf_price, effective_unit_price, uom, promo_id, club_required, club_name,"
                 "   price_valid_from, computed_at, effective_price, promo_min_qty, is_estimated,"
-                "   noclub)"
+                "   noclub, pack_units)"
                 " SELECT canonical_id, store_id, item_id, flex_level, shelf_price,"
                 "   effective_unit_price, uom, promo_id, club_required, club_name,"
-                "   price_valid_from, %s, effective_price, promo_min_qty, is_estimated, noclub"
+                "   price_valid_from, %s, effective_price, promo_min_qty, is_estimated, noclub,"
+                "   pack_units"
                 " FROM _ep"
                 " ON CONFLICT (canonical_id, store_id, flex_level) DO UPDATE SET"
                 "   item_id = EXCLUDED.item_id, shelf_price = EXCLUDED.shelf_price,"
@@ -557,7 +772,7 @@ def precompute_effective_prices(
                 "   club_name = EXCLUDED.club_name, price_valid_from = EXCLUDED.price_valid_from,"
                 "   computed_at = EXCLUDED.computed_at, effective_price = EXCLUDED.effective_price,"
                 "   promo_min_qty = EXCLUDED.promo_min_qty, is_estimated = EXCLUDED.is_estimated,"
-                "   noclub = EXCLUDED.noclub",
+                "   noclub = EXCLUDED.noclub, pack_units = EXCLUDED.pack_units",
                 (computed_at,),
             )
             result.rows_deleted += conn.execute(

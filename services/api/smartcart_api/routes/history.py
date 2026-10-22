@@ -170,8 +170,9 @@ def price_history(
     )
     if item_id is None:
         return resp
-    chain_id, name, qty, unit = conn.execute(
-        "SELECT chain_id, raw_name, quantity, unit FROM items WHERE id = %s", (item_id,)
+    chain_id, name, qty, unit, weighed, code = conn.execute(
+        "SELECT chain_id, raw_name, quantity, unit, is_weighed, item_code FROM items WHERE id = %s",
+        (item_id,),
     ).fetchone()
     params = {"item": item_id, "start": start, "now": now}
     events = conn.execute(_BASE_EVENTS, params).fetchall()
@@ -179,7 +180,7 @@ def price_history(
         events += conn.execute(_STORE_EVENTS, {**params, "sid": store_id}).fetchall()
 
     def unit_of(ev: tuple) -> Decimal:
-        got = unit_price_in(ev[1], ev[2], ev[3], qty, unit, canon[0])
+        got = unit_price_in(ev[1], ev[2], ev[3], qty, unit, canon[0], name, weighed, code)
         return got[0].quantize(_Q4) if got else ev[1]
 
     points = daily_series(events, start, now, unit_of)

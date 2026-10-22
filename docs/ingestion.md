@@ -198,11 +198,19 @@ price events runs just before, in its own transaction: creating a partition lock
   file is per store), so today every event is a store event, which `current_price()` handles.
   Deriving base prices (for example the modal price across a chain's stores) is a phase 1
   compaction job.
-- **Unit prices** are normalized to `100g`, `100ml`, `unit` or `kg`: per gram and per 100 g to
-  `100g`, per kg to `100g` (divide by 10) unless the item is weighed, per ml, per 100 ml and per
-  liter to `100ml`, units to `unit`. Weighed produce is `kg` with `is_estimated = true`; if it has
-  no unit price, its shelf price (published per kg) is used. An unknown unit stores the shelf price
-  with no unit price.
+- **Unit prices** are normalized to `100g`, `100ml`, `unit` or `kg` and are **computed from the
+  price and the pack size** (`Quantity` in the unit of `UnitQty`), not read from the chain's
+  `UnitOfMeasurePrice`: a published value is not always what its label says (Rami Levy publishes the
+  price of one gram under `100 גרם`, 100 times too small; measured on 2026-10-21 and 2026-10-08,
+  docs/adapters.md "Unit prices in real files"). Weighed produce is `kg` with `is_estimated = true`
+  and the shelf price (per kg). The published value is the fallback only when there is no sane pack
+  size, scaled by the chain's measured factor (`unitprice.PUBLISHED_SCALE`), and is otherwise a
+  cross-check: a disagreement is counted per class in `LoadResult.unit_price_disagreements` and
+  logged, never a quarantine. `LoadResult.unit_price_sources` counts `computed`, `weighed`,
+  `published`, `published_scaled` and `none` (nothing usable; the shelf price is still stored). The
+  precompute and `/compare` read `prices.unit_price` as stored, so they get the corrected value
+  with no change; rows stored before this rule are rewritten by the next load of the same
+  observation (same event key, different unit price).
 - **Stores not yet in a Stores file** get a placeholder row (name = store code) so a price file can
   load; the next Stores file fills in name, address and city.
 - **Promos** upsert on `promos_source_key`; rows with the same promotion id in one file are merged.

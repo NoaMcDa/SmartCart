@@ -193,7 +193,8 @@ integer bundle variables natively. It stays the fallback if a platform lacks the
   shared promo; the swap suggestions below cover product changes.
 - A shared promo is found only when it is the promo basket.py chose for each line. A product
   whose best deal is another promo does not join the group.
-- Weighed goods and fractional quantities never join bundles.
+- Weighed goods and fractional shelf-pack counts never join bundles (a counted canonical's
+  quantity is rounded up to whole shelf packs first, see "Packs").
 - Daily `hours` windows of promos are not applied (as in the precompute).
 - Promos restricted to some weekdays (`PromotionDays`) are never applied: the adapters read them as
   unapplied (`weekday_restricted`), so neither the precompute, /compare nor the MILP sees them.
@@ -206,6 +207,102 @@ integer bundle variables natively. It stays the fallback if a platform lacks the
 - Store sets grow as N choose K; the schema caps them at 575.
 - The fallback to the heuristic is per request, not per plan.
 
+## Packs: the count in the name, the unit price and whole packs (finding 9 of the second real day)
+
+The first real-day run priced a tray of 12 eggs at 14.20 **per egg**. This section is the rule for
+"how many base units are in one shelf item" and how the quantity of a request becomes shelf items.
+
+### How the quantity flows
+
+| Step | Where | What it does |
+|---|---|---|
+| 1. The chain's fields | `items.quantity`, `items.unit` (`Quantity`, `UnitQty`, `bIsWeighted`, `QtyInPackage`), `prices.unit_price`, `prices.uom` | Rami Levy, Yohananof and Tiv Taam write `Quantity = 1, UnitQty = יחידות` for a tray of 12 eggs and publish the tray's price as the price of "1 unit"; King Store and Osher Ad write the count (`12`, `60`) |
+| 2. The catalog's reading | `normalize.normalize` (`services/catalog/smartcart_catalog/normalize.py`) | Parses the name (`12 יח'`, `18יח`, `2*30 יח'` = 60, `6*1.5 ל'` = 9000 ml, `32 גלילים`), weighs it against the fields and returns `quantity x pack_count = total_quantity` in g, ml or units |
+| 3. The canonical's base unit | `canonical_products.base_unit` | `unit` for eggs, pitas, toilet paper and the other counted goods; `100g` / `100ml`; `kg` for weighed goods |
+| 4. The unit price of an item | `precompute.read_unit_price` | **`shelf price / units in the item`** for a `unit` canonical; per 100 g or 100 ml on the pack's total weight or volume otherwise (rules below) |
+| 5. The effective price per canonical and store | `effective_prices.effective_unit_price`, `pack_units` | Ranked by that unit price (D4); `pack_units` is the item's unit count, NULL when the item states none (migration `20261023100000`) |
+| 6. The quantity of a request | `BasketItem.quantity` | "Packs": for a counted canonical a pack is the canonical's typical count (`soft_attrs.pack_size`: 12 eggs, 10 pitas, 32 rolls); for every other canonical it counts shelf items |
+| 7. The line | `basket.shelf_packs`, `basket.line_total` | `packs = ceil(quantity x typical count / pack_units)` shelf items; promo bundles, the "add N" hint and `line_total` count those shelf items. `PricedItem.packs` and `pack_units` say what was bought |
+| 8. The optimizer | `milp._join` | Reads `PricedItem.packs`, not the quantity asked: bundles are made of shelf items |
+
+**The rule for "units in one shelf item"** (`precompute._read_count`, per-unit canonicals only):
+
+1. Three readings: the catalog's (`normalize`: the name, weighed against the fields), the item's own
+   fields (`Quantity` with a unit word for units), and the published unit price (`price / unit price`
+   when its `uom` is `unit`, rounded to a whole number within 6 %).
+2. A reading below 1.5 is a **1**: what the chains write when they do not know the count. It never
+   outvotes a stated count. (`Quantity = 1` on `ביצים 12 יח גדול L` is why the old code priced 14.20
+   per egg.)
+3. If at least one reading states a count above 1, the item holds the **smallest stated count**: the
+   larger unit price, the safer one. A unit price is never cheaper than the shelf supports.
+4. Readings that differ by more than 12 % are recorded in the precompute's `match_runs` metrics:
+   `pack_reads` (`count_from_name`: the name stated it and the fields said 1 or nothing;
+   `count_conflict`: two stated counts differed, the smaller was used; `measure_conflict`, below)
+   and `pack_samples` (up to 20 of each, with the item id, the name and what each reading said).
+5. **Sanity cap** (`precompute.sane_pack`, the limits of the loader's `unitprice.MAX_BASE_AMOUNT`): a
+   pack above 50 kg, 50 l or 10,000 units is no reading, in the fields' fallback (`derive_unit_price`)
+   as in the name's. Mega's `ליטר 1` rows (80 to 686 "liters" of chips, spices and canned peas, really
+   grams) get no unit price from the loader and none from the precompute either; a dimension the
+   canonical does not have (liters under a per-100 g canonical) is no reading. The item is left out of
+   that canonical, or, under a per-unit canonical with no stated count, compared per pack.
+6. If no reading states a count the item is compared per pack as before (`pack_units` NULL, the
+   quantity counts shelf items). A single loose roll under `toilet-paper` (typical 32) is therefore
+   priced as one roll per pack: not detectable without a stated count.
+
+**Per 100 g and per 100 ml** (`precompute._read_measure`): the published unit price, the fields'
+unit price and the name's (`price x 100 / normalized total`). When they agree (within 12 %, or one
+agora of rounding) the first of published, fields, name is used: a per-100 g item with a consistent
+published price is unchanged. When they disagree **the highest unit price wins** and the
+disagreement is recorded as `measure_conflict` (a published price a hundred times too small, a
+multi-pack whose fields say `1 יחידות`). A multi-pack drink `6*1.5 ל'` at 27.00 is 9000 ml, 0.30 per
+100 ml, whatever its fields say. `pack_units` is NULL: the quantity counts shelf items, exactly as
+before.
+
+**Whole packs.** The requested amount is `quantity x typical count` units; the line buys the
+fewest whole shelf items that cover it (`shelf_packs`). Promo bundles then count shelf items
+("2 for 14" on a pack of 6 eggs is reached by one pack of 12 eggs asked: two packs). An exact
+barcode and a weight or volume canonical keep counting shelf items; a row with no `pack_units`
+(an older run, an item that states no count) too.
+
+| Item (shelf price) | Units | Quantity 1 (12 eggs) | Quantity 2 (24) | Quantity 3 (36) |
+|---|---|---|---|---|
+| `ביצים 12 יח גדול L` (14.20) | 12 | 1 pack, 14.20 | 2, 28.40 | 3, 42.60 |
+| 30-tray (29.90) | 30 | 1 pack, 29.90 | 1, 29.90 | 2, 59.80 |
+| `ביצים 18 יח' בינוני` (21.50) | 18 | 1, 21.50 | 2, 43.00 | 2, 43.00 |
+| pack of 6 (8.40) | 6 | 2, 16.80 | 4, 33.60 | 6, 50.40 |
+| `ביצים 2*30 יח' בינונ` (28.90) | 60 | 1, 28.90 | 1, 28.90 | 1, 28.90 |
+
+The consequences, stated so they are not surprises:
+
+- The nightly pick per (canonical, store, level) is still **by unit price**, which does not know the
+  quantity (known limit 4 below). At `close`, a tray of 30 at 1.00 an egg beats a 12-pack at 1.18, and
+  the line for 12 eggs is then the whole tray, 29.90. The line is honest; it is not the cheapest
+  purchase of 12 eggs. At `any_brand` only the typical pack (12) competes (`matching.md`, "Real items,
+  eggs").
+- A pack smaller than the typical count costs more packs (toilet paper of 24 rolls for a typical
+  32: two packs for quantity 1). The match labels such an item a substitute (`pack_size` differs).
+- A fractional quantity of a counted canonical is rounded up to a whole pack (0.5 of a 12-pack of
+  eggs is one pack); for other canonicals fractional quantities are priced as before.
+
+Real examples (the second real day, `real-day-dry-run.md` finding 9; shelf prices from that report; the pita line assumes a basket amount of 10, the report does not state it):
+
+| Item | Shelf | Unit price before | Unit price after | 12 eggs / 10 pitas / 24 rolls before (basket index: unit price x amount) | after |
+|---|---|---|---|---|---|
+| Rami Levy `ביצים 12 יח גדול L` | 14.20 | 14.20 per unit | 1.1833 per egg | 170.40 | 14.20 |
+| Yohananof 10 pitas | 9.90 | 9.90 per unit | 0.99 per pita | 99.00 | 9.90 |
+| Tiv Taam 10 pitas | 16.90 | 16.90 per unit | 1.69 per pita | 169.00 | 16.90 |
+| Rami Levy 24 rolls | 27.90 | 27.90 per unit | 1.1625 per roll | 669.60 | 27.90 |
+| Tiv Taam 24 rolls | 32.90 | 32.90 per unit | 1.3708 per roll | 789.60 | 32.90 |
+
+`/compare`'s own `line_total` multiplied the shelf price by the quantity before and does now; what the
+old reading broke was the unit price (what the ranking, `/search`, the history chart and the basket
+index use) and the choice between a store's items. The new unit prices are in the test data below;
+the report is regenerated by the next real-day run.
+
+Tests: `test_api_packs.py` (real names: eggs 12/18/30, `2*30`, pitas, toilet paper, the `6*1.5 ל'` drink;
+the reading, `effective_prices`, `/compare` for several quantities, promos, `/optimize`, the history
+chart, a per-100 g item unchanged) and the pack features of `test_api_optimizer_props_db.py`.
+
 ## Invariants covered by tests
 
 Randomized tests (`test_api_optimizer_props.py`, `test_api_optimizer_props_db.py`; seeded
@@ -216,7 +313,8 @@ travel and extra-stop costs) and checks against an exhaustive search over every 
 assignment and every way of putting units into a bundle. The DB half writes a random world to the
 tables (2 chains, 3 to 5 stores at distinct distances, 3 to 4 canonicals one of which may be
 weighed, store exceptions, products a chain or store does not stock, close-level substitutes, two
-sibling milks, unit price / percent / 1+1 / "second at P %" / "N for X" promos with and without a minimum quantity,
+sibling milks, items that state a pack count in the name and canonicals with a typical pack,
+unit price / percent / 1+1 / "second at P %" / "N for X" promos with and without a minimum quantity,
 club-only promos, one promo shared by two products), runs the real precompute and calls the
 real routes. `expected()` in that file recomputes every line from the promo definitions.
 
@@ -235,6 +333,7 @@ real routes. `expected()` in that file recomputes every line from the promo defi
 | `/optimize` with the heuristic: `single` is the best one-store plan; with `min_split_saving = 0` the plan shown is the exhaustive optimum (unless the optimum completes a list no single store completes, see "Plans"); a split saves at least `min_split_saving` over `single` | props_db |
 | `/optimize` with the MILP equals the pooled exhaustive optimum, including promos two needs share (two products, or two needs that map to the same item) | props_db |
 | `breakdown`: `net_saving = basket_saving - travel_cost - extra_stop_cost` exactly; `travel_cost` is the plan's travel minus the home store's, floored at 0; `extra_stop_cost = extra_stop_value x (stores - 1)`; the basket saving is recomputed from the home and plan lines over the canonicals both supply, so a plan never shows a positive net saving the lines do not support; the assignments' `saving_vs_home` add up to `basket_saving`; `minimum_effort` saves exactly 0 | props_db |
+| A line of a counted canonical buys whole shelf packs: `packs = ceil(quantity x typical count / pack_units)`, `line_total` and the MILP's bundles are built on `packs`; items with different unit counts, close-level substitutes and promo bundles over packs (random pack counts of 2 to 12 per chain item, typical packs of 1 to 6 per canonical) | props_db |
 | `allow: []` equals omitting it; `flex_level` spelled out equals its default; the response does not depend on the order of the list (items and `missing` compared as sets), nor on one quantity split over two entries | props_db |
 
 ### Bugs these tests found (each has a regression in `test_api_optimizer_props_regress.py`)
