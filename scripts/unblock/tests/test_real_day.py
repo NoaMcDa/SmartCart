@@ -180,6 +180,29 @@ def test_unpriced_basket_lines_is_the_intersection_of_what_chains_miss() -> None
     assert real_day.unpriced_basket_lines(None) == []
 
 
+def test_lines_to_explain_lists_hinted_lines_by_the_chains_that_miss_them() -> None:
+    info = {
+        "chains": [
+            {"chain": "a", "chain_id": "1", "missing_slugs": ["eggs-l", "bamba", "pita"]},
+            {"chain": "b", "chain_id": "2", "missing_slugs": ["bamba", "butter"]},
+            {"chain": "c", "chain_id": "3", "missing_slugs": ["bamba"]},
+        ]
+    }
+    got = real_day.lines_to_explain(info)
+    # eggs and butter are hinted lines some chains price: only the chains that do not
+    assert got["eggs-l"] == ["1"] and got["butter"] == ["2"]
+    # bamba is priced nowhere: every chain; pita is neither hinted nor missing everywhere
+    assert got["bamba"] == ["1", "2", "3"] and "pita" not in got
+    assert real_day.lines_to_explain(None) == {}
+
+
+def test_stale_stores_limit_is_longer_than_the_price_limit() -> None:
+    now = datetime(2026, 10, 22, 12, 0, tzinfo=ISRAEL)
+    stores_file = now - timedelta(hours=57)  # a Cerberus Stores file on 2026-10-22
+    assert real_day.stale_clock(stores_file, now, real_day.STALE_HOURS)[1] is True
+    assert real_day.stale_clock(stores_file, now, real_day.STALE_STORES_HOURS) == (now, False)
+
+
 def test_egg_features_read_size_and_pack_from_the_name() -> None:
     f = real_day.egg_features("ביצים 2*30 יח' בינונ")
     assert f["is_egg"] and f["sizes"] == ["M"] and f["packs"] == [60]

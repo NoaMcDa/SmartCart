@@ -90,7 +90,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       PYTHONUNBUFFERED: "1"
-      CHAINS: ${{ inputs.chains || '' }}
+      CHAINS: ${{ github.event_name == 'push' && 'king_store mega osherad ramilevy shufersal tivtaam yohananof' || inputs.chains || '' }}
       ANCHORS: ${{ inputs.anchors || 3 }}
       PER_CHAIN: ${{ inputs.per_chain || 2 }}
       MAX_FILES: ${{ inputs.max_files || 40 }}

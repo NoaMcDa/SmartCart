@@ -60,7 +60,12 @@ from _common import REPO, git_sha, last_json_document, md_escape, venv_bin, writ
 from _common import run as run_cmd
 
 ISRAEL = ZoneInfo("Asia/Jerusalem")
-STALE_HOURS = 36.0  # the stale-date gate's limit (smartcart_ingest.settings)
+STALE_HOURS = (
+    36.0  # the stale-date gate's limit for price and promo files (smartcart_ingest.settings)
+)
+STALE_STORES_HOURS = (
+    240.0  # its own, longer limit for Stores files (settings.DEFAULT_STALE_STORES_HOURS)
+)
 KINDS_ORDER = {"stores": 0, "price_full": 1, "promo_full": 2}
 KIND_FILTERS = {
     "stores": "STORE_FILE",
@@ -379,6 +384,7 @@ class Ingest:
         self.fetcher = portal_probe.OneFileFetcher()
         self.adapters = {getattr(cls, "slug", None): cls for cls in REGISTRY.values()}
         self.clock = {"now": datetime.now(tz=ISRAEL)}
+        self.settings = load_settings()
         self.sched = Scheduler(conn, self.fetcher, LocalRawStore(raw_dir), Alerter([self.sink]),
                                load_settings(), now=lambda: self.clock["now"],
                                sleep=lambda s: None)  # fmt: skip
@@ -404,7 +410,10 @@ class Ingest:
         entry["published_at"] = (info.published_at.isoformat(timespec="minutes")
                                  if info.published_at else None)  # fmt: skip
         real_now = datetime.now(tz=ISRAEL)
-        clock, stale = stale_clock(info.published_at, real_now)
+        limit = (self.settings.stale_stores_max_age_hours if info.kind == "stores"
+                 else self.settings.stale_file_max_age_hours)  # fmt: skip
+        clock, stale = stale_clock(info.published_at, real_now, limit)
+        entry["stale_limit_hours"] = limit
         self.clock["now"] = clock
         entry["stale_on_real_clock"] = stale
         if info.published_at:
@@ -990,7 +999,7 @@ def basket_index_dry_run(work: Path, env: dict, tag: str) -> dict:
             info["checks"] = [{k: c.get(k) for k in ("level", "code", "message")}
                               for c in entry.get("checks", [])]  # fmt: skip
             info["chains"] = [
-                {"chain": c.get("name"), "total": c.get("total"),
+                {"chain": c.get("name"), "chain_id": c.get("chain_id"), "total": c.get("total"),
                  "items_priced": c.get("items_priced"), "missing": len(c.get("missing") or []),
                  "missing_slugs": list(c.get("missing") or []),
                  "estimated_items": c.get("estimated_items"), "stores": c.get("stores"),
@@ -1041,6 +1050,22 @@ def unpriced_basket_lines(info: dict | None) -> list[str]:
     return sorted(set.intersection(*missing))
 
 
+def lines_to_explain(info: dict | None) -> dict[str, list[str]]:
+    """Basket lines whose candidates the report lists, with the chains to look in: a line no chain
+    prices (every chain), and a line of ``LINE_HINTS`` (eggs, the dairy lines) that some chains
+    price and others do not (the chains that do not)."""
+    chains = (info or {}).get("chains") or []
+    out: dict[str, list[str]] = {}
+    nowhere = set(unpriced_basket_lines(info))
+    slugs = {s for c in chains for s in c.get("missing_slugs") or []}
+    for slug in sorted(slugs):
+        gaps = [c.get("chain_id") for c in chains
+                if slug in (c.get("missing_slugs") or []) and c.get("chain_id")]  # fmt: skip
+        if slug in nowhere or slug in LINE_HINTS:
+            out[slug] = gaps
+    return out
+
+
 def egg_features(name: str) -> dict:
     """What an egg item's name says about its size class and pack count: a reading aid for the
     report, not the catalog's rule (that lives in data/product_type_rules.yaml)."""
@@ -1057,7 +1082,7 @@ def egg_features(name: str) -> dict:
     }
 
 
-def line_candidates(db_url: str, slugs: Sequence[str], cap_per_chain: int = 12) -> dict:
+def line_candidates(db_url: str, lines: dict[str, list[str]], cap_per_chain: int = 12) -> dict:
     """For each basket line priced nowhere: the real items whose names mention the product, with the
     attributes extraction gave them, the mapping they got (if any) and the rule judge's own reason
     (the judge is re-run on them with nothing written)."""
@@ -1072,7 +1097,7 @@ def line_candidates(db_url: str, slugs: Sequence[str], cap_per_chain: int = 12) 
     with psycopg.connect(db_url) as conn:
         configure_session(conn)
         rules = load_rules(conn)
-        for slug in slugs:
+        for slug, chain_ids in lines.items():
             hints = LINE_HINTS.get(slug)
             if not hints:
                 row = conn.execute(
@@ -1083,8 +1108,9 @@ def line_candidates(db_url: str, slugs: Sequence[str], cap_per_chain: int = 12) 
                 "SELECT i.id, i.chain_id, i.raw_name, i.barcode, i.quantity, i.unit, i.is_weighed,"
                 "       a.attrs"
                 " FROM items i LEFT JOIN item_attributes a ON a.item_id = i.id AND a.status = 'ok'"
-                " WHERE i.raw_name ILIKE ANY(%s) ORDER BY i.chain_id, i.id",
-                ([f"%{h}%" for h in hints],),
+                " WHERE i.raw_name ILIKE ANY(%s) AND (cardinality(%s::text[]) = 0 OR i.chain_id = ANY(%s))"
+                " ORDER BY i.chain_id, i.id",
+                ([f"%{h}%" for h in hints], list(chain_ids), list(chain_ids)),
             ).fetchall()
             is_egg_line = slug.startswith("eggs-")
             kept: list[tuple] = []
@@ -1094,7 +1120,7 @@ def line_candidates(db_url: str, slugs: Sequence[str], cap_per_chain: int = 12) 
                 if is_egg_line and not egg_features(r[2])["is_egg"]:
                     noise += 1
                     continue
-                if per_chain[r[1]] >= cap_per_chain * (4 if is_egg_line else 1):
+                if per_chain[r[1]] >= cap_per_chain * (5 if is_egg_line else 1):
                     continue
                 per_chain[r[1]] += 1
                 kept.append(r)
@@ -1134,7 +1160,7 @@ def line_candidates(db_url: str, slugs: Sequence[str], cap_per_chain: int = 12) 
                     }  # fmt: skip
                     entry["attrs_source"] = res.attrs_source
                 items.append(entry)
-            out[slug] = {"hints": list(hints), "name_hits": len(rows), "noise_skipped": noise,
+            out[slug] = {"hints": list(hints), "chains": list(chain_ids), "name_hits": len(rows), "noise_skipped": noise,
                          "listed": len(items), "items": items}  # fmt: skip
         conn.rollback()
     return out
@@ -1190,6 +1216,9 @@ def run_all(args: argparse.Namespace) -> dict:
     from smartcart_ingest import db as dbmod
 
     db_url = os.environ["DATABASE_URL"]
+    # The API's per-client limiter (docs/security-review.md R3) would answer 429 to the repeated
+    # in-process requests of the timing loops; the load tests switch it off the same way.
+    os.environ["API_RATE_LIMIT"] = "0"
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=True)
     run = Run()
@@ -1347,7 +1376,7 @@ def run_all(args: argparse.Namespace) -> dict:
             run.fail(
                 "ingest",
                 f"{len(stale_stores)} Stores files are older than the stale-date gate's "
-                f"{STALE_HOURS:g} h ({ages}); on the real clock the gate would quarantine them and "
+                f"{STALE_STORES_HOURS:g} h limit for Stores files ({ages}); on the real clock the gate would quarantine them and "
                 "no store of those chains would load (this run replayed the clock for them)",
             )
         promo_files = [
@@ -1421,10 +1450,11 @@ def run_all(args: argparse.Namespace) -> dict:
         result["basket_index"] = basket_index_dry_run(work, env, "production")
         st["note"] = f"status {result['basket_index'].get('status')}"
     unpriced = unpriced_basket_lines(result["basket_index"])
+    explain = lines_to_explain(result["basket_index"])
     result["unpriced_lines"] = unpriced
-    if unpriced:
+    if explain:
         with run.stage("diagnostic: real items behind the basket lines no chain prices") as st:
-            result["line_candidates"] = line_candidates(db_url, unpriced)
+            result["line_candidates"] = line_candidates(db_url, explain)
             st["note"] = ", ".join(
                 f"{k} {v['listed']} items" for k, v in result["line_candidates"].items()
             )
@@ -1862,11 +1892,29 @@ def render_report(res: dict) -> str:
         )
         a("")
         for slug, d in lc.items():
+            looked = (
+                ", ".join(chains.get(c, {}).get("slug", c) for c in d.get("chains", [])) or "all"
+            )
             a(
                 f"#### `{slug}`: {d['listed']} listed of {d['name_hits']} name hits "
-                f"({d['noise_skipped']} skipped as not the food itself)"
+                f"({d['noise_skipped']} skipped as not the food itself; chains looked in: {looked})"
             )
             a("")
+            if slug.startswith("eggs-"):
+                tally: dict[tuple[str, str], int] = defaultdict(int)
+                for it in d["items"]:
+                    size = "/".join((it.get("features") or {}).get("sizes", [])) or "?"
+                    served = [m for m in it.get("mapped", []) if not m["review"]]
+                    got = (served[0]["canonical"] + " " + served[0]["level"]) if served else (
+                        "review" if it.get("mapped") else "unmapped")  # fmt: skip
+                    tally[(size, got)] += 1
+                a("Name hint of the size against what the item got (served = no review flag):")
+                a("")
+                a("| size words in the name | result | items |")
+                a("|---|---|---|")
+                for (size, got), n in sorted(tally.items()):
+                    a(f"| {size} | {got} | {n} |")
+                a("")
             a("| chain | name | hint size / pack | product type | pack | mapped | judge |")
             a("|---|---|---|---|---|---|---|")
             for it in d["items"][: 160 if slug.startswith("eggs-") else 30]:
