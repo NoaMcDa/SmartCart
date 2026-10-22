@@ -746,6 +746,104 @@ def result_line(slug: str, kind: str, entry: dict) -> str:
                                   ensure_ascii=False)  # fmt: skip
 
 
+SCHEMAS = ("v1", "v2", "unknown", "unreadable")
+
+
+def schema_counts(results: dict) -> dict:
+    """Files per detected schema for one chain (#57), from each entry's ``schema_check`` (the
+    adapter's ``inspect_schema``, which sees the file before any gate): how many were ``v1``,
+    ``v2``, ``unknown`` (a schema the adapter refuses) or ``unreadable`` (not XML at all), the
+    schema per kind, the version fields the headers declared and the union of header field
+    names. ``not_v1`` lists the files that are not v1, with the adapter's reason: the first
+    real new-model file shows up here the day it appears."""
+    counted: Counter = Counter()
+    by_kind: dict[str, str] = {}
+    declared: dict[str, set[str]] = {}
+    header_fields: set[str] = set()
+    namespaces: set[str] = set()
+    not_v1: list[dict] = []
+    for kind, entry in results.items():
+        check = entry.get("schema_check") if isinstance(entry, dict) else None
+        if not check:
+            continue
+        schema = check.get("schema") if check.get("schema") in SCHEMAS else "unreadable"
+        counted[schema] += 1
+        by_kind[kind] = schema
+        sig = check.get("signature") or {}
+        header_fields |= set(sig.get("header_fields") or [])
+        namespaces |= set(sig.get("namespaces") or [])
+        for name, value in (sig.get("declared_versions") or {}).items():
+            declared.setdefault(name, set()).add(value)
+        if schema != "v1":
+            not_v1.append({"kind": kind, "file": entry.get("file"), "schema": schema,
+                           "reason": check.get("reason") or check.get("error")})  # fmt: skip
+    return {
+        "files": sum(counted.values()),
+        **{name: counted[name] for name in SCHEMAS},
+        "by_kind": by_kind,
+        "declared_versions": {k: sorted(v) for k, v in sorted(declared.items())},
+        "namespaces": sorted(namespaces),
+        "header_fields": sorted(header_fields),
+        "not_v1": not_v1,
+    }
+
+
+def schema_line(slug: str, counts: dict) -> str:
+    """One untruncated ``SCHEMA`` log line per chain: files per detected schema."""
+    fields = {"chain": slug,
+              **{k: counts.get(k) for k in ("files", *SCHEMAS)},
+              "declared_versions": counts.get("declared_versions") or None,
+              "namespaces": counts.get("namespaces") or None,
+              "not_v1": counts.get("not_v1") or None}  # fmt: skip
+    return "SCHEMA " + json.dumps({k: v for k, v in fields.items() if v is not None},
+                                  ensure_ascii=False)  # fmt: skip
+
+
+def schema_total_line(per_chain: dict[str, dict]) -> str:
+    """``SCHEMA_TOTAL``: the same counts over every chain, plus the chains that are not all v1."""
+    total = {name: sum(c.get(name, 0) for c in per_chain.values()) for name in ("files", *SCHEMAS)}
+    mixed = sorted(slug for slug, c in per_chain.items() if c.get("files", 0) != c.get("v1", 0))
+    return "SCHEMA_TOTAL " + json.dumps({**total, "chains_not_all_v1": mixed},
+                                        ensure_ascii=False)  # fmt: skip
+
+
+def _schema_section(gate_result: dict, slugs: Sequence[str]) -> list[str]:
+    """The report table of ``schema_counts`` (empty when the gate result predates it)."""
+    per_chain = gate_result.get("schema_counts") or {}
+    rows = []
+    flagged: list[str] = []
+    for slug in slugs:
+        c = per_chain.get(slug)
+        if not c:
+            continue
+        declared = "; ".join(f"{k}={'/'.join(v)}" for k, v in
+                             (c.get("declared_versions") or {}).items())  # fmt: skip
+        notes = "; ".join(f"{n['kind']}: {n['schema']}" + (f" ({n['reason']})" if n.get("reason")
+                                                           else "") for n in c.get("not_v1", []))  # fmt: skip
+        if c.get("v2") or c.get("unknown"):  # a corrupt download is not a new model
+            flagged.append(BY_SLUG[slug].name if slug in BY_SLUG else slug)
+        cells = [BY_SLUG[slug].name if slug in BY_SLUG else slug, c.get("files", 0),
+                 *(c.get(k, 0) for k in SCHEMAS), declared or "-", notes or "-"]  # fmt: skip
+        rows.append("| " + " | ".join(md_escape(str(x)) for x in cells) + " |")
+    if not rows:
+        return []
+    lines = ["", "### Files per detected schema (#57)", ""]
+    if flagged:
+        lines += [
+            "**A file that is not `v1` appeared for: " + ", ".join(flagged) + ".** Keep it (it "
+            "is untrusted data: it is in the `portal-probe-files` artifact, 7 days; do not open it outside the adapter), read the reason below and "
+            'follow `docs/adapters.md`, "Schema versions", to turn it into the first '
+            "new-model fixture.",
+            "",
+        ]
+    lines += [
+        "| chain | files | v1 | v2 | unknown | unreadable | declared versions | not v1 |",
+        "|---|---|---|---|---|---|---|---|",
+        *rows,
+    ]
+    return lines
+
+
 def _logs_to_stderr() -> None:
     """Pipeline logs (structlog) at warning level on stderr, so stdout carries the report."""
     import logging
@@ -867,6 +965,7 @@ def gate(files: Path, slugs: Sequence[str], now: datetime | None) -> dict:
     fetcher = OneFileFetcher()
     sink = _Sink()
     out: dict = {}
+    counts: dict[str, dict] = {}
     clock = (lambda: now) if now else (lambda: datetime.now(tz=ISRAEL))
     raw_dir = Path(tempfile.mkdtemp(prefix="portal-probe-raw-"))
     try:
@@ -895,6 +994,7 @@ def gate(files: Path, slugs: Sequence[str], now: datetime | None) -> dict:
                             else None
                         ),
                         "parse": parse_summary(adapter, path, picked.get("price_full")),
+                        "schema_check": adapter.inspect_schema(data),
                     }
                     fetcher.current = _OneFile(adapter.chain_id, path.name, kind, data)
                     report = sched.run_full([adapter.chain_id]).chains[0]
@@ -919,10 +1019,14 @@ def gate(files: Path, slugs: Sequence[str], now: datetime | None) -> dict:
                     print(result_line(slug, kind, entry), file=sys.stderr, flush=True)
                     _print_promo_profile(slug, entry)
                 out[slug] = results
+                counts[slug] = schema_counts(results)
+                print(schema_line(slug, counts[slug]), file=sys.stderr, flush=True)
     finally:
         shutil.rmtree(raw_dir, ignore_errors=True)
-    return {"files": out, "alerts": [{"chain_id": a.chain_id, "kind": a.kind,
-                                      "message": a.message} for a in sink.alerts]}  # fmt: skip
+    print(schema_total_line(counts), file=sys.stderr, flush=True)
+    return {"files": out, "schema_counts": counts,
+            "alerts": [{"chain_id": a.chain_id, "kind": a.kind,
+                        "message": a.message} for a in sink.alerts]}  # fmt: skip
 
 
 # --- report --------------------------------------------------------------------------------------------
@@ -1130,6 +1234,7 @@ def render(probe_result: dict | None, gate_result: dict, slugs: Sequence[str]) -
             ", ".join(schemas) or "-",
         ]
         lines.append("| " + " | ".join(md_escape(x) for x in cells) + " |")
+    lines += _schema_section(gate_result, slugs)
     lines += _promo_section(files, slugs)
     lines += _shelf_section(files, slugs)
     lines += [
