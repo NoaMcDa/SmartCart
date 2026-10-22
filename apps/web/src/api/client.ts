@@ -150,8 +150,23 @@ export async function optimize(body: OptimizeInput): Promise<OptimizeResponse> {
   return unwrap(await api.POST("/optimize", { body: body as OptimizeRequest }));
 }
 
-export async function search(q: string, limit = 10): Promise<SearchResponse> {
-  return unwrap(await api.GET("/search", { params: { query: { q, limit } } }));
+/**
+ * `GET /search`. With the person's kosher filter each hit carries a `kosher` label and a hit with
+ * no item that can be offered under it comes after the others (see `KosherHitLabel`).
+ */
+export async function search(
+  q: string,
+  limit = 10,
+  kosher?: Schemas["KosherFilter"] | null,
+): Promise<SearchResponse> {
+  const query = {
+    q,
+    limit,
+    ...(kosher?.level ? { kosher: kosher.level } : {}),
+    ...(kosher?.passover ? { kosher_passover: true } : {}),
+    ...(kosher?.only_stated ? { kosher_only_stated: true } : {}),
+  };
+  return unwrap(await api.GET("/search", { params: { query } }));
 }
 
 export async function reportGap(body: GapReportRequest): Promise<Ack> {
@@ -429,6 +444,25 @@ export async function updateSpend(id: number, entry: SpendEntryInput): Promise<S
 /** `DELETE /me/spend/{id}` (204): removes one entry of the signed-in user (#70). */
 export async function deleteSpend(id: number): Promise<void> {
   expectOk(await api.DELETE("/me/spend/{entry_id}", { params: { path: { entry_id: id } } }));
+}
+
+// --- personalization (phase 3) ---------------------------------------------------------------
+export type PersonalState = Schemas["PersonalState"];
+export type PersonalData = Schemas["PersonalData"];
+
+/** `GET /me/personal`: the signed-in person's own habits, or the defaults with `exists: false`. */
+export async function getPersonal(): Promise<PersonalState> {
+  return unwrap(await api.GET("/me/personal"));
+}
+
+/** `PUT /me/personal`: replaces the whole document (owner only; nothing else reads it). */
+export async function putPersonal(body: PersonalData): Promise<PersonalState> {
+  return unwrap(await api.PUT("/me/personal", { body }));
+}
+
+/** `DELETE /me/personal` (204): erases the stored habits ("clear what you learned", delete my data). */
+export async function deletePersonal(): Promise<void> {
+  expectOk(await api.DELETE("/me/personal"));
 }
 
 /** `GET /me/spend?month=YYYY-MM`: the signed-in user's entries for one month. */

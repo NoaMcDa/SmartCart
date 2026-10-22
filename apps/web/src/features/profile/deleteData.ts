@@ -1,8 +1,9 @@
 /**
  * "מחקי את הנתונים שלי" (issues #30 and #55, D11).
  *
- * Signed in, it erases on the server first: every saved list (DELETE /me/lists/{id}) and the
- * profile content (PUT /me/profile with the defaults, no location and consent off). Only when the
+ * Signed in, it erases on the server first: every saved list (DELETE /me/lists/{id}), the
+ * profile content (PUT /me/profile with the defaults, no location and consent off) and the habits
+ * learned from the person's lists and trips (DELETE /me/personal). Only when the
  * server confirms does it clear the device (profile, last result, shopping session, savings
  * history, list inbox), and then it calls `DELETE /me`, which removes the `profiles` row and the
  * Supabase auth user (the email address). If the first step fails, local data is kept so the user
@@ -12,7 +13,8 @@
  * result reports `accountRowRemains` so the UI shows the hosted-account notice, and only then. In
  * every case that reaches the device step the person is signed out afterwards.
  */
-import { api, ApiError, deleteMe } from "@/api/client";
+import { api, ApiError, deleteMe, deletePersonal } from "@/api/client";
+import { personalActions } from "@/features/personal/personalState";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import { translate } from "@/i18n/messages";
@@ -52,6 +54,8 @@ export async function deleteMyData(options: {
       if (reset.data === undefined || !reset.response.ok) {
         throw new ApiError(reset.response.status, reset.error);
       }
+      // The habits learned from the person's own lists and trips (phase 3).
+      await deletePersonal();
     } catch {
       return {
         ok: false,
@@ -61,6 +65,7 @@ export async function deleteMyData(options: {
   }
   clearLocalData();
   resetProfileCache();
+  personalActions.wipe(); // the in-memory copy follows the removed key even when no screen listens
   let accountRowRemains = false;
   if (options.signedIn) {
     // Needs the token, so before signing out.

@@ -3,21 +3,8 @@ import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import { translate } from "@/i18n/messages";
 import { profileMessages, type ProfileMessageKey } from "@/i18n/messages/profile";
 import { SMART_DEFAULTS, lookupDefault } from "@/state/flex";
-import type { KosherLevel } from "./profileState";
 
 const he = (key: ProfileMessageKey) => translate(profileMessages, DEFAULT_LOCALE, key);
-
-/** `label` is Hebrew; use `kosherLabel(value, locale)` where the locale can be Arabic. */
-export const KOSHER_OPTIONS: ReadonlyArray<{ value: KosherLevel | "none"; label: string }> = [
-  { value: "none", label: he("kosher_none") },
-  { value: "regular", label: he("kosher_regular") },
-  { value: "mehadrin", label: he("kosher_mehadrin") },
-  { value: "badatz", label: he("kosher_badatz") },
-];
-
-export function kosherLabel(value: KosherLevel | "none", locale: Locale = DEFAULT_LOCALE): string {
-  return translate(profileMessages, locale, `kosher_${value}` as ProfileMessageKey);
-}
 
 /** `label` is Hebrew; use `allergenLabel(key, locale)` where the locale can be Arabic. */
 export const ALLERGENS: ReadonlyArray<{ key: string; label: string }> = [

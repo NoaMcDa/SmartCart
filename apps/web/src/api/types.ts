@@ -490,6 +490,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/personal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Personal */
+        get: operations["get_personal_me_personal_get"];
+        /** Put Personal */
+        put: operations["put_personal_me_personal_put"];
+        post?: never;
+        /** Delete Personal */
+        delete: operations["delete_personal_me_personal_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/profile": {
         parameters: {
             query?: never;
@@ -959,6 +978,8 @@ export interface components {
             include_online: boolean;
             /** Items */
             items: components["schemas"]["BasketItem"][];
+            /** @description The person's kosher preference. With it, no line is an item whose name rules the level out, every line carries a ``kosher`` label, and a store that cannot meet the basket under the filter lists the item as missing (and in ``kosher_excluded``): the filter is never relaxed. Applies to /compare, /optimize and /optimize/swaps. */
+            kosher?: components["schemas"]["KosherFilter"] | null;
             location: components["schemas"]["Location"];
         };
         /** CompareResponse */
@@ -978,6 +999,12 @@ export interface components {
             /** Home Store Total */
             home_store_total: string | null;
             /**
+             * Kosher Hidden Stores
+             * @description Under a kosher filter: stores in the radius left out because every item they sell of the basket is ruled out. Without it they would be listed with lines.
+             * @default 0
+             */
+            kosher_hidden_stores: number;
+            /**
              * Stores
              * @description Sorted: complete baskets first, then by total
              */
@@ -989,7 +1016,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted" | "voice_started" | "voice_completed" | "pwa_installed" | "push_prompt_shown" | "push_opt_in" | "push_opened" | "store_mode_used" | "image_parsed" | "cart_handoff" | "locale_changed";
+            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted" | "voice_started" | "voice_completed" | "pwa_installed" | "push_prompt_shown" | "push_opt_in" | "push_opened" | "store_mode_used" | "image_parsed" | "cart_handoff" | "locale_changed" | "personalization";
             /**
              * Props
              * @description Allowlisted keys per event name, values are integers or members of a fixed set; anything else is rejected with 422 (no free text, no personal data). See docs/beta-plan.md.
@@ -1047,6 +1074,72 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /**
+         * KosherFilter
+         * @description The person's kosher preference. Transparency files have no kosher field: what an item states
+         *     comes from its name alone, and an item whose name states nothing is "unknown" (labelled, and
+         *     left out only with ``only_stated``). An item whose name rules the level out is never offered.
+         */
+        KosherFilter: {
+            /**
+             * Level
+             * @description null: no preference (only ``passover`` can still filter)
+             */
+            level?: ("regular" | "mehadrin" | "badatz" | "badatz_eida" | "badatz_beit_yosef" | "badatz_chatam_sofer" | "badatz_agudat" | "landau" | "rabbanut_mehadrin") | null;
+            /**
+             * Only Stated
+             * @description Offer only items whose name states a certification that meets the level (and, with ``passover``, kosher for Passover); items that state nothing are left out instead of labelled. This is not a check by a person.
+             * @default false
+             */
+            only_stated: boolean;
+            /**
+             * Passover
+             * @description Kosher for Passover as a separate filter: an item that says it is not is never offered; one that says nothing is labelled unknown (or left out with ``only_stated``)
+             * @default false
+             */
+            passover: boolean;
+        };
+        /**
+         * KosherHitLabel
+         * @description A search hit under a kosher filter, from the items the catalog maps to it (any brand or
+         *     exact, not under review), in every chain: the search has no location.
+         */
+        KosherHitLabel: {
+            /** Fails */
+            fails: number;
+            /** Meets */
+            meets: number;
+            /**
+             * Status
+             * @description meets: at least one item states a certification that meets the filter; unknown: none does but some state nothing (the warning applies); none: every item is ruled out (or, with only_stated, none states enough)
+             * @enum {string}
+             */
+            status: "meets" | "unknown" | "none";
+            /** Unknown */
+            unknown: number;
+        };
+        /**
+         * KosherLabel
+         * @description What the filter knows about one offered item. Present on a line only when a filter is set;
+         *     an item that does not meet it is never on a line, so there is no "fails" here.
+         */
+        KosherLabel: {
+            /**
+             * Level
+             * @description Against the chosen level: meets (the name states a certification that meets it) or unknown (the name states nothing that decides it: show the warning). null when no level was set.
+             */
+            level?: ("meets" | "unknown") | null;
+            /**
+             * Passover
+             * @description Against kosher for Passover; null when it was not asked for
+             */
+            passover?: ("meets" | "unknown") | null;
+            /**
+             * Stated
+             * @description The marks the item's name states (``smartcart_catalog.kosher.MARKS`` codes, for example mehadrin, badatz, badatz_eida, passover, dairy), empty when it states none
+             */
+            stated?: string[];
         };
         /** ListItem */
         ListItem: {
@@ -1222,6 +1315,8 @@ export interface components {
             include_online: boolean;
             /** Items */
             items: components["schemas"]["BasketItem"][];
+            /** @description The person's kosher preference. With it, no line is an item whose name rules the level out, every line carries a ``kosher`` label, and a store that cannot meet the basket under the filter lists the item as missing (and in ``kosher_excluded``): the filter is never relaxed. Applies to /compare, /optimize and /optimize/swaps. */
+            kosher?: components["schemas"]["KosherFilter"] | null;
             location: components["schemas"]["Location"];
             /**
              * Max Stores
@@ -1299,6 +1394,8 @@ export interface components {
             is_estimated: boolean;
             /** Item Id */
             item_id: number;
+            /** @description Only under a kosher filter */
+            kosher?: components["schemas"]["KosherLabel"] | null;
             /**
              * Line Total
              * @description The original at the line's quantity, promo folded
@@ -1461,6 +1558,152 @@ export interface components {
              */
             unit?: "kg" | null;
         };
+        /**
+         * PersonalData
+         * @description ``PUT /me/personal`` replaces the whole document. Bounded in every list, and overall to
+         *     256 KB; it is read back only by its owner (row-level security) and by nothing else.
+         */
+        PersonalData: {
+            /** Dismissals */
+            dismissals?: components["schemas"]["PersonalDismissal"][];
+            prefs?: components["schemas"]["PersonalPrefs"];
+            /** Refs */
+            refs?: components["schemas"]["PersonalRef"][];
+            /** Signals */
+            signals?: components["schemas"]["PersonalSignal"][];
+            /** Trips */
+            trips?: components["schemas"]["PersonalTrip"][];
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+        };
+        /** PersonalDismissal */
+        PersonalDismissal: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "buy_again" | "brand_default" | "value_pack";
+        };
+        /** PersonalLine */
+        PersonalLine: {
+            /** Canonical Id */
+            canonical_id: number;
+            /** Quantity */
+            quantity: number;
+        };
+        /** PersonalPrefs */
+        PersonalPrefs: {
+            /**
+             * Learn
+             * @description Learn from this person's own lists and finished shopping trips (device and account). Off: nothing new is recorded.
+             * @default true
+             */
+            learn: boolean;
+            /**
+             * Updated At
+             * @description When the preferences were last changed; the newer side wins
+             */
+            updated_at?: string | null;
+            /**
+             * Value Packs
+             * @description Prefer value packs: the list builder suggests the larger pack where its unit price is lower. Off by default.
+             * @default false
+             */
+            value_packs: boolean;
+        };
+        /**
+         * PersonalRef
+         * @description A product as the person's lists named it, so a device that did not see it can still draw it.
+         */
+        PersonalRef: {
+            /**
+             * Base Unit
+             * @enum {string}
+             */
+            base_unit: "100g" | "100ml" | "unit" | "kg";
+            /** Canonical Id */
+            canonical_id: number;
+            /** Category Path He */
+            category_path_he?: string[];
+            /** Display Name Ar */
+            display_name_ar?: string | null;
+            /** Display Name He */
+            display_name_he: string;
+            /** Taxonomy Id */
+            taxonomy_id: string;
+        };
+        /**
+         * PersonalSignal
+         * @description One time the person kept an exact brand or turned a substitute down, per category.
+         */
+        PersonalSignal: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "kept_brand" | "rejected_substitute";
+            /** Taxonomy Id */
+            taxonomy_id: string;
+        };
+        /** PersonalState */
+        PersonalState: {
+            /** Dismissals */
+            dismissals?: components["schemas"]["PersonalDismissal"][];
+            /**
+             * Exists
+             * @description false when nothing is stored yet and these are the defaults
+             */
+            exists: boolean;
+            prefs?: components["schemas"]["PersonalPrefs"];
+            /** Refs */
+            refs?: components["schemas"]["PersonalRef"][];
+            /** Signals */
+            signals?: components["schemas"]["PersonalSignal"][];
+            /** Trips */
+            trips?: components["schemas"]["PersonalTrip"][];
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+        };
+        /** PersonalTrip */
+        PersonalTrip: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @description finished: the lines ticked off in store mode; list: a list the person cleared
+             * @enum {string}
+             */
+            kind: "finished" | "list";
+            /** Lines */
+            lines: components["schemas"]["PersonalLine"][];
+        };
         /** Plan */
         Plan: {
             /** @description null when there is no home store to compare with */
@@ -1475,6 +1718,11 @@ export interface components {
              * @enum {string}
              */
             kind: "single" | "split" | "minimum_effort";
+            /**
+             * Kosher Excluded
+             * @description Under a kosher filter: the canonical_ids in ``missing`` that a store of this plan sells but only in items the filter rules out
+             */
+            kosher_excluded?: number[];
             /** Missing */
             missing?: number[];
             /**
@@ -1650,6 +1898,8 @@ export interface components {
             is_substitute: boolean;
             /** Item Id */
             item_id: number;
+            /** @description Under a kosher filter: what the item's name states. Same weight as the substitute tags: show it on the line, and the warning when a level is unknown. */
+            kosher?: components["schemas"]["KosherLabel"] | null;
             /** Line Total */
             line_total: string;
             /** @description Substitutes only: the original's offer at this same store (the one original_item_id names), for an apples-to-apples comparison. null when the line is not a substitute or this store does not sell the original. Display only. */
@@ -2006,6 +2256,8 @@ export interface components {
              * @description Evidence for this hit; the parser's thresholds use it
              */
             confidence?: number | null;
+            /** @description Only when a kosher filter was sent and the canonical has mapped items. A hit with status none is listed after the others (never first). */
+            kosher?: components["schemas"]["KosherHitLabel"] | null;
             /** Matched By */
             matched_by: ("trigram" | "fts" | "vector")[];
             /**
@@ -2307,6 +2559,11 @@ export interface components {
             /** Items */
             items: components["schemas"]["PricedItem"][];
             /**
+             * Kosher Excluded
+             * @description Under a kosher filter: the canonical_ids in ``missing`` that this store sells but only in items the filter rules out. Empty without a filter.
+             */
+            kosher_excluded?: number[];
+            /**
              * Lat
              * @description Store latitude when known (phase 2)
              */
@@ -2385,6 +2642,8 @@ export interface components {
             flex_level: "exact" | "any_brand" | "close";
             /** From Item Id */
             from_item_id: number;
+            /** @description Only under a kosher filter: the suggested item's label */
+            kosher?: components["schemas"]["KosherLabel"] | null;
             /**
              * Saving
              * @description For the requested quantity, ILS
@@ -3588,6 +3847,101 @@ export interface operations {
             };
         };
     };
+    get_personal_me_personal_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_personal_me_personal_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalData"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_personal_me_personal_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_profile_me_profile_get: {
         parameters: {
             query?: never;
@@ -4137,6 +4491,12 @@ export interface operations {
             query: {
                 q: string;
                 limit?: number;
+                /** @description The person's kosher level; hits then carry a kosher label (see KosherHitLabel) */
+                kosher?: ("regular" | "mehadrin" | "badatz" | "badatz_eida" | "badatz_beit_yosef" | "badatz_chatam_sofer" | "badatz_agudat" | "landau" | "rabbanut_mehadrin") | null;
+                /** @description Kosher for Passover as a filter */
+                kosher_passover?: boolean;
+                /** @description Only items whose name states a certification that meets the filter */
+                kosher_only_stated?: boolean;
             };
             header?: {
                 authorization?: string | null;

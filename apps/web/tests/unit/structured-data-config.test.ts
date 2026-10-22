@@ -216,6 +216,30 @@ describe("assertSiteUrl (SEO_STRICT_SITE_URL)", () => {
     );
   });
 
+  it("refuses the reserved .invalid origin of the real-prices preview build", async () => {
+    const { assertSiteUrl } = (await load()).config;
+    for (const host of ["https://preview.invalid", "https://a.b.invalid", "https://invalid"]) {
+      expect(() => assertSiteUrl({ ...strict, NEXT_PUBLIC_SITE_URL: host })).toThrow(
+        /reserved \.invalid name/,
+      );
+    }
+    // a host that only contains the word is a real name
+    expect(() =>
+      assertSiteUrl({ ...strict, NEXT_PUBLIC_SITE_URL: "https://invalid-prices.co.il" }),
+    ).not.toThrow();
+  });
+
+  it("a deploy build (strict) cannot show the draft basket index", async () => {
+    const { assertSiteUrl } = (await load()).config;
+    const env = { ...strict, NEXT_PUBLIC_SITE_URL: "https://www.shop.co.il" };
+    expect(() => assertSiteUrl({ ...env, SEO_PREVIEW_DRAFTS: "1" })).toThrow(
+      /SEO_PREVIEW_DRAFTS=1 shows the basket index before it is published/,
+    );
+    expect(() => assertSiteUrl({ ...env, SEO_PREVIEW_DRAFTS: "0" })).not.toThrow();
+    // without the strict flag (CI, the preview) the switch is allowed
+    expect(() => assertSiteUrl({ NODE_ENV: "production", SEO_PREVIEW_DRAFTS: "1" })).not.toThrow();
+  });
+
   it("accepts a real https origin, and SEO_ALLOW_PLACEHOLDER=1 switches the check off", async () => {
     const { assertSiteUrl } = (await load()).config;
     expect(() =>

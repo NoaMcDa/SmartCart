@@ -159,9 +159,12 @@ published, for a different reason: the totals are not credible.** The new per-li
    (9.90 at Yohananof and 16.90 at Tiv Taam per unit against 1.19 to 1.49) and to 24 rolls of toilet paper (₪669.60
    at Rami Levy and ₪789.60 at Tiv Taam against ₪20.88 at King Store). Matching eggs correctly **unmasks** this: Rami
    Levy's 12-pack of L is served now, at 12 times its price. Every `unit`-based canonical whose pack count is only
-   in the name is affected, not only eggs.
+   in the name is affected, not only eggs. *The eggs, pitas and `32 גלילים` were fixed by the pack counts (precompute);
+   a pack whose count no reading states, and the names the normalizer did not read (`32 גליל`, `32גל`), were still
+   priced per pack in run 39804455160 (toilet paper at 813.60). Fixed on 2026-10-22: "Unit-price outliers" below.*
 10. **Lines that cost ₪0.0** in the table (`toilet-paper`, `sugar-white`, `cucumber` at Osher Ad; `mineral-water` at
-    Rami Levy): unit prices that round to nothing. Rami Levy's is cause 8; Osher Ad's was not analysed.
+    Rami Levy): unit prices that round to nothing. Rami Levy's is cause 8; Osher Ad's was not analysed. (Osher Ad's
+    toilet paper is `Quantity 0.00`, a pack of unknown count: see "Unit-price outliers".)
 
 The stress spread check (`implausible_spread`) fired on exactly this, which is what it is for. Nothing in the
 index can be trusted until 8 and 9 are fixed and a reviewer has accepted the best-seller mappings (the launch
@@ -176,6 +179,92 @@ line of the egg and dairy hints that some chains price and others do not, the re
 mapping, judge reason, and for eggs the size and tray count read from the name); and the per-line cost table of
 the basket index with the items behind the lines that two chains price 2x apart or more. The temporary `push`
 trigger that was used to run the workflow from the branch (the workflow is not on the default branch) is removed.
+
+## SEO on real prices (2026-10-22)
+
+The workflow's `seo` input (`scripts/unblock/seo_preview.py`, `real_day.py --seo-out`) takes the prices the real day loaded
+through `smartcart-catalog export-seo`, `basket-index` and `seo-audit`, builds the static SEO pages from that export with a
+placeholder origin (`https://preview.invalid`, `NEXT_PUBLIC_INDEX_UNPRICED=0`), and runs the offline structured-data
+validation, the SEO unit tests, a crawl of every generated page and a 390 px browser spec against them. The export is an
+artifact (7 days), never committed; the basket index stays a draft. Method, the fixes it led to and the full table are in
+`seo.md`, "SEO on real prices". Run 39804455160 (six chains, one day):
+
+| | Production semantics | Stress |
+|---|---|---|
+| Pages generated | 200 (70 category, 130 product) | 200 |
+| Canonicals priced / unpriced | 190 / 55 | 237 / 8 |
+| Product pages priced / unpriced | 107 / 23 | 128 / 2 |
+| Price rows kept off the pages as implausible | 41 rows (14 chain entries on 8 products) | 37 (14 on 10) |
+| Structured-data errors (121 tests, every page's JSON-LD) | 0 | 0 |
+| Crawl of all 203 pages | 0 failed of 1,870 checks | 0 of 1,891 |
+| Basket index | draft, no chain prices all 25 lines, `line_outlier` x2 | draft, 5 chains rank, spread 226.8%, `line_outlier` x2 |
+
+What the real prices did to the pages: unit prices that cannot be true (toilet paper 24 rolls at 813.60 against 20.93, mineral
+water at 6.8 times, garbage bags and paper towels at 9.90 against 1 to 2, sunflower oil 10.90 per 100 ml) reach
+`effective_prices` and so would have reached public pages; the export now withholds them (it does not correct them: the
+unit-price work is the precompute's) and the basket index names the line (`line_outlier`). Toilet paper (24 rolls) is the pack-count problem of finding 9 again, still present in this run's prices; mineral water is
+not analysed here (Osher Ad's unit price is 6 times the others'). **Both were analysed and the unit-price ones fixed
+the same day: "Unit-price outliers", below.**
+
+## Unit-price outliers (2026-10-22)
+
+The five outliers of run 39804455160 (the export withheld them; the prices were still in `effective_prices`) were taken
+apart on the real rows. The Real day workflow was run from the branch three times (39812688285 to dump the rows,
+39819821065 and 39827158427 on the fixed code; GitHub-hosted runner, the same six chains, one day each; the Rami Levy
+store the run happened to download differs between runs, so numbers differ a little for reasons that are not the fix).
+Every row below is committed verbatim in `services/api/tests/real_unit_rows.py` (48 rows, the file name says the store)
+and each case is a test (`services/api/tests/test_unit_outliers_real.py`, 68 tests: the chain's adapter parses the row,
+the loader's `resolve_unit_price` stores it, the precompute reads it for its canonical). The loader was **not** the
+cause in any of the five: it divides the price by the size the file states, and each file states something the
+loader cannot know to be wrong (`adapters.md`, "What the real day's rows showed the loader cannot know").
+
+| Outlier | The real rows (verbatim fields) | Root cause | Fix | Before, after (per unit; the basket line) |
+|---|---|---|---|---|
+| **Toilet paper**, Shufersal 813.60 against 20.93 | Shufersal `נייר טואלט מולט 32 גליל`: `UnitQty` `מטרים`, `Quantity` 528.00, `UnitOfMeasure` `מטרים`, `ItemPrice` 33.90, `UnitOfMeasurePrice` 0.06 (per metre). Also `…פסטל32גל`, `…"יש" 48גלילים`, Tiv Taam `…סילק  32 גל`, Yohananof `…מולט 30 ג`. King Store (right): `32 גלילים`, `Quantity` 32 `יחידות` | The chain publishes the paper's **length**, so the fields give no count and the loader has no unit price (correct); the count is only in the name, in words `normalize` did not read (singular `גליל`, `32גל`, one-letter `30 ג`). The count was then "unknown" and the shelf price became the price of **one roll**: 24 x 33.90 = 813.60. The same rows at Osher Ad (`Quantity 0.00`, `חתוך הנמל`, no count anywhere) and Yohananof (`עבים במיו`) were priced 16.90 and 19.90 a roll | `normalize` reads `גליל`, `32גל`, `ג` on toilet paper and paper towels (not wet wipes); a per-unit canonical sold in packs (typical 6 or more) gives an item that states no count **no unit price** (`count_unknown`) | Shufersal 33.90 to **1.0594**; Rami Levy 24.90 / 37.90 to 1.1844 or none; Osher Ad 16.90 and Yohananof 19.90 to **none**. The 24-roll line: Shufersal 813.60 to **25.43**, Rami Levy 597.60 to **28.43**, Osher Ad 405.60 and Yohananof 420.00 to **unpriced**, King Store 20.93 and Tiv Taam 24.67 unchanged |
+| **Paper towels and garbage bags** at 9.90 against 1 to 2 | Yohananof `מגבות נייר דו שכבתי`: `מטרים` 63.48, 9.90, no count; `מגבות נייר שישיה סוש`: 9.90, `שישיה`. Osher Ad `שקיות אשפה סקיי עם י`: `Quantity 0.00` `יחידה`, 9.90. Rami Levy `שקיות אשפה 75*90 50`: `Quantity 1.00`, 19.00. Tiv Taam `פלי 12 שקיות אשפה ריחניות 35 ל`: `Quantity 1.00` `יחידות`, UoMPrice 9.90 (a roll of 12) | The same: a count that is missing (Osher Ad `0.00`, `מטרים`), written `שישיה` (one yod), or only in the name of a chain that cuts names at 20 characters. The effective rows of the run: Osher Ad `שקיות אשפה סקיי עם י` 9.90, `שקיות אשפה עם ידיות` 9.90 and 10.00, Yohananof `מגבות נייר דו שכבתי` and `ניקול שיש` 9.90, Osher Ad `מגבות נייר סנו סושי` 17.90, each as the price of one roll or bag | `שישיה`, `שישית` read as 6; no count: no unit price. (The Tiv Taam row above was already read as 12 from the name: 0.825; the Tiv Taam 9.90 of the export's withheld list was not found among the rows dumped) | Those seven effective rows to **none**; Yohananof `שישיה סוש` 9.90 to **1.65**; Rami Levy `75*90 50` to **none** (it was 19.00 a bag). Counted bags at the chains: 0.10 to 1.3 a bag, towels 1.5 to 4.0 a roll, unchanged |
+| **Mineral water**, Osher Ad 6.8 times | Osher Ad `מארז מים מינרלים מוג`: `Quantity` 1.32 `ליטר`, 14.90, UoMPrice 11.29 (a liter) | **Not a unit-price error.** It is 4 x 330 ml of sparkling water at 14.90: 1.1288 per 100 ml, what the chain itself publishes. The basket line asks for 6 liters of the cheapest mineral water, and in the stores that run downloaded this is the only one Osher Ad has mapped | None in the unit price (nothing is wrong with it). The export still withholds it and the basket index still says `line_outlier` (that is the check doing its job): the fix is in matching (carbonated and bottle size are not critical attributes of `mineral-water`) | unchanged 1.1288 per 100 ml, line 67.73 against 9.94. **Open** |
+| **Sunflower oil**, Tiv Taam 10.90 per 100 ml | Tiv Taam `שמן חמניות 1 ליטר`: `UnitQty` `מיליליטר`, **`Quantity` 100.00**, `UnitOfMeasure` `100 מיליליטר`, 10.90, UoMPrice 10.90. The same barcode at Rami Levy and Osher Ad: `Quantity 1.00` `ליטר`, 9.90 | The chain's file says 100 ml for a 1 liter bottle (a decimal slip); the loader computed 10.90 per 100 ml from it and the chain's published 10.90 agrees, so two readings of one wrong number. The old "dearest reading wins" kept it | Chain size 10, 100 or 1000 times smaller than the name's explicit size: the name's size (`measure_name_over_chain`) | **1.09** (the others 0.70 to 1.49 per 100 ml). 8 more such rows in the stress variant, all with the name right: quinoa 1 kg at 3790 per 100 g, oat drink 1 L at 1590, burger 1 kg at 83.90, shower gel, chocolate, fabric softener |
+| **Soda water**, Rami Levy 0.03 per 100 ml | Rami Levy `סודה מי עדן 1.5 לי` (cut): `Quantity` **9.00** `ליטר`, 2.70, UoMPrice 0.30 | The file gives a six-pack's 9 liters for one 1.5 liter bottle; 2.70 / 9 L is 0.03 per 100 ml, the chain's own published 0.30 a liter | The name says 1.5 liters (0.18) and `normalize` now reads the cut `לי`; a chain's size 6 times the name's is **ambiguous**: it is also what a name that left out the six-pack looks like (`מי עדן סודה 500מל שי`, 3000 ml, right at 0.46). Two readings far apart that no rule can tell apart give **no unit price** (`measure_unknown`) | 0.03 to **none**. The other soda rows are unchanged (0.19 to 0.64) |
+
+**What changed in the code.** `precompute.read_unit` / `read_unit_price` (new `Unreadable`, `typical_pack`, `MULTIPACK_MIN`
+= 6, `CONFLICT_MAX_RATIO` = 3, `_resolve_measure`; docs/optimizer.md "Packs" and matching.md have the rules),
+`item_options` and `_chain_rows` pass the canonical's typical pack (the live `/compare` and barcode paths look it up),
+`normalize.py` (words listed above; the gold-set evaluation is unchanged: Hebrew any brand 1.0000 precision / 0.8125 recall,
+close 1.0000 / 0.7611, exact 1.0000 / 1.0000; Arabic any brand 1.0000 / 0.9391). The loader is unchanged.
+
+**Before and after on the real day** (run 39804455160, commit `32f596f`, against run 39819821065 on the fixed code,
+six chains):
+
+| | Before | After |
+|---|---|---|
+| SEO export, production semantics: price rows withheld as implausible | 41 rows, 14 chain entries on 8 products | **11 rows, 4 entries on 4 products** (`mineral-water`, `salt`, `soup-powder-chicken`, `rice-brown`) |
+| SEO export, stress | 37 rows, 14 entries on 10 products | **17 rows, 8 entries on 7 products** |
+| Basket index, production semantics | draft, `line_outlier` x2 (`toilet-paper` 38.9x, `mineral-water` 6.8x) | draft, `line_outlier` x1 (`mineral-water`); toilet paper 25.43 / 20.93 / 28.43 / 24.67 |
+| Basket index, stress | 5 chains rank, **`implausible_spread` 226.8 %**, `line_outlier` x2 | 3 chains rank (Rami Levy 275.55, Shufersal 343.89, Tiv Taam 346.36), **spread 25.7 %**, `line_outlier` x1 (`chicken-breast-fresh`, 4.5x, already there before and **not analysed**) |
+| Precompute, production: items priced / rows | 4,923 / 6,792 | 4,726 / 6,682 |
+| Precompute notes, production | `count_from_name` 122, `count_conflict` 2, `measure_conflict` 16 | `count_from_name` 135, `count_conflict` 2, **`count_unknown` 201**, `measure_conflict` 8, `measure_unknown` 5, `measure_name_over_chain` 1 |
+| Precompute notes, stress | `count_from_name` 409, `count_conflict` 24, `measure_conflict` 172 | `count_from_name` 427, `count_conflict` 25, **`count_unknown` 400**, `measure_conflict` 93, `measure_unknown` 64, `measure_name_over_chain` 8, `measure_outvoted` 1 |
+
+**What the precision costs** (recall; measured on the stress variant's 18.3 thousand priced items, run 39827158427 dumped
+every note): 400 items (2 %; 201 of 4.9 thousand, 4 %, in the production variant) have no unit price because no
+reading states a count, by the canonical's typical pack: 98 at 72 (wet wipes), 68 at 30 (garbage bags), 65 at 32 (toilet
+paper), 63 at 100 (tea bags, disposable cups), 59 at 6 (paper towels, bread rolls), 29 at 10 (pitas), 19 at 40
+(dishwasher tablets). 126 of them have a digit in the name that no rule reads (`XPO32`,
+`48XPO`, `L+שרוך100`, `6*72`, `56*4`, bare `10` after `פיתות`); they are candidates for more name rules, one at a
+time, each with its real names. 64 items have two sizes that cannot be told apart. By my reading of the names (an estimate,
+not verified with the chains) about 50 of those are packs whose name leaves out a word the normalizer does not read
+(`רביעיה`, `רבעיית`, `תריסר`, `12 בקבוקים`, `6 פחיות *330 מ"ל`) and the chain's size is right, and about a dozen have the
+name right and the chain wrong (`סודה מי עדן 1.5 לי` at 3.20, `מיץ תפוזים סחוט 2 ל`). The 8 decimal slips and the one
+two-against-one vote were all right on reading the names. A price of an item that is left out is not a wrong price:
+the canonical is priced by the other items of the chain, or at the next store.
+
+**Open.** (1) Osher Ad's mineral water (above): carbonation and bottle size at `mineral-water`, which is matching.
+(2) Toilet paper at `close` still holds wet toilet paper (`נייר טואלט לח`, 0.07 per sheet: `toilet-paper` per roll), which
+the export does not show but a stress basket at `close` could; matching again. (3) `chicken-breast-fresh` 39.90 against
+8.90 per kg in the stress basket index: not analysed. (4) `unit_price_in` (the price-history series) is not given the
+canonical's typical pack, so an item with an unknown count shows its shelf price there, as before. (5) The three chains
+that never answered the runner (Hazi Hinam, Victory, Machsanei Hashuk) have no rows here; a chain's other quirks (a
+size in metres, a quantity of 0.00) are found only on its real files.
 
 ## First run (2026-10-21), kept as history
 

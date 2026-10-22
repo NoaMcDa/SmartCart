@@ -1,4 +1,10 @@
-"""GET /search and POST /parse-list (issues #54, #51)."""
+"""GET /search and POST /parse-list (issues #54, #51).
+
+``GET /search`` takes the person's kosher preference (``kosher``, ``kosher_passover``,
+``kosher_only_stated``): each hit then says what the catalog's items for it state
+(``SearchHit.kosher``, from the item names only; ``smartcart_api/kosher.py``) and a hit with no item
+that can be offered under the filter is listed after the others. Hits are canonicals, not items, so
+none is hidden: /compare and /optimize are where the filter removes items."""
 
 from __future__ import annotations
 
@@ -8,6 +14,7 @@ from typing import Annotated
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from smartcart_api import kosher as kosher_mod
 from smartcart_api import schemas
 from smartcart_api.db import get_conn
 from smartcart_api.listparse import Fragment, parse_fragment, split_items, split_vav
@@ -49,8 +56,31 @@ def search(
     q: Annotated[str, Query(min_length=1, max_length=200, pattern=_STORABLE)],
     conn: Annotated[psycopg.Connection, Depends(get_conn, scope="function")],
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
+    kosher: Annotated[
+        schemas.KosherLevel | None,
+        Query(
+            description="The person's kosher level; hits then carry a kosher label (see KosherHitLabel)"
+        ),
+    ] = None,
+    kosher_passover: Annotated[bool, Query(description="Kosher for Passover as a filter")] = False,
+    kosher_only_stated: Annotated[
+        bool,
+        Query(description="Only items whose name states a certification that meets the filter"),
+    ] = False,
 ) -> schemas.SearchResponse:
     hits = hybrid_search(conn, q, limit=limit)
+    kfilter = schemas.KosherFilter(
+        level=kosher, passover=kosher_passover, only_stated=kosher_only_stated
+    )
+    kosher_of = kosher_mod.hit_labels(conn, [h.canonical_id for h in hits], kfilter)
+    # A hit whose every item the filter rules out is not the first answer: it goes after the others
+    # (stable, so the order of the rest is the search's own). It is still listed and labelled.
+    hits = sorted(
+        hits,
+        key=lambda h: (
+            kosher_of[h.canonical_id].status == "none" if h.canonical_id in kosher_of else False
+        ),
+    )
     best = max((h.confidence for h in hits), default=0.0)
     if best < NOT_FOUND_BELOW:
         # Nothing the parser would accept: a demand signal for the catalog (issue #52).
@@ -63,6 +93,7 @@ def search(
                 score=h.score,
                 matched_by=h.matched_by,
                 confidence=h.confidence,
+                kosher=kosher_of.get(h.canonical_id),
             )
             for h in hits
         ],

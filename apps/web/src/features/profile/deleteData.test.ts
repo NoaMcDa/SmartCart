@@ -25,7 +25,14 @@ async function seedAccount() {
   updateProfile({
     homeStoreId: 103,
     clubs: ["ramilevy:club"],
-    diet: { vegan: true, glutenFree: false, kosherLevel: "mehadrin", allergens: ["sesame"] },
+    diet: {
+      vegan: true,
+      glutenFree: false,
+      kosherLevel: "mehadrin",
+      kosherOnlyStated: false,
+      kosherPassover: false,
+      allergens: ["sesame"],
+    },
   });
   await pushServerProfile(toProfileUpdate(getProfile(), "system", { "dairy.milk": "exact" }));
   for (const name of ["הקנייה השבועית", "סופ״ש"]) {

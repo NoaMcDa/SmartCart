@@ -186,7 +186,8 @@ treat it like any other unreviewed copy. Where it appears:
   - a line whose item is mapped at `close` is a substitute: `is_substitute`, the mapping
     `confidence`, `tags` comparing the item's extracted attributes with the canonical's critical
     and soft attributes (`matched`, `differs`, `unverified`; kosher and diet flags stay
-    unverified unless a human verified them), and `original_item_id`, the store's non-substitute
+    unverified unless a human verified them; the kosher label of a filtered request is the separate `kosher` field, see
+    "Kosher filter"), and `original_item_id`, the store's non-substitute
     item when it has one, with that item's offer at the same store as `original_here`
     (`OriginalOffer`: `item_id`, `display_name_he`, `canonical_name_ar`, `shelf_price`,
     `effective_unit_price`, `uom`, `line_total`, `is_estimated`, the promo and club fields of the
@@ -216,6 +217,55 @@ treat it like any other unreviewed copy. Where it appears:
 - `missing` lists the canonical ids a store cannot supply; `found_count` the others. Never
   dropped, never priced as zero.
 - Sorting: fewer missing items first (complete baskets first), then total, then distance.
+
+### Kosher filter
+
+The person's kosher preference, applied to every route that picks an item for them
+([matching.md](matching.md#kosher-what-a-name-states-and-a-filter-that-never-guesses) has the rules
+and the measured coverage). The transparency files have no kosher field, so the API reads
+certification from the item's **name** only and answers "unknown" for the rest; it never infers
+kashrut from a brand or a manufacturer.
+
+**Request** (`CompareRequest.kosher`, so `/compare`, `/optimize` and `/optimize/swaps`; absent or
+null means no filter and the response is what it was before):
+
+| Field | Meaning |
+|---|---|
+| `level` | `regular`, `mehadrin`, `badatz`, `badatz_eida`, `badatz_beit_yosef`, `badatz_chatam_sofer`, `badatz_agudat`, `landau`, `rabbanut_mehadrin`, or null (no level; only `passover` filters) |
+| `only_stated` | default false. true: offer only items whose name **states** a certification that meets the level (and Passover when asked); items that state nothing are left out instead of labelled. Not a check by a person |
+| `passover` | default false. Kosher for Passover as a filter of its own: an item that says it is not is never offered, one that says nothing is unknown |
+
+Unknown values and extra keys are a 422. The profile stores the same preference in `kosher_level` and
+two `diet_flags` entries (`kosher:only_stated`, `kosher:passover`); the API's profile routes keep them
+as plain strings and the web app builds the request from them.
+
+**Response**:
+
+- `PricedItem.kosher` (also `OriginalOffer.kosher`, `SwapSuggestion.kosher`): `{level, passover,
+  stated}`, present only under a filter. `level` is `meets` (the name states a certification that
+  meets it) or `unknown` (show "כשרות לא ידועה — בדקו על האריזה"); `passover` likewise, null when not
+  asked; `stated` lists the mark codes the name states (`mehadrin`, `badatz`, `badatz_eida`, `passover`,
+  `dairy`...). There is no "fails": an item that fails is never on a line.
+- `StoreResult.kosher_excluded` and `Plan.kosher_excluded`: the canonicals in `missing` that the store
+  sells but only in items the filter rules out (so "missing because of your filter" is told apart from
+  "not sold here"). `CompareResponse.kosher_hidden_stores`: stores in the radius left out because
+  nothing they sell of the basket passes. A filter is never relaxed to fill a basket.
+- Totals, `saving_vs_home`, `basket_saving` and `net_saving` are computed with the same filter on the
+  home store and on every other store.
+
+**`GET /search`** takes `kosher` (a level), `kosher_passover` and `kosher_only_stated` and adds
+`SearchHit.kosher` = `{status, meets, unknown, fails}` counted over the items the catalog maps to the
+canonical (any brand or exact, not under review, in every chain: the search has no location).
+`status` is `meets`, `unknown` or `none` (every item ruled out, or with `only_stated` none states
+enough); a `none` hit is listed after the others, never first. Hits are never hidden: they are
+canonicals, not items.
+
+Implementation: `smartcart_api/kosher.py` (assessment, labels, search) and `basket._kosher_gate`
+(called by `price_baskets` before the exact barcodes): an offer whose item fails is dropped; a key whose
+best item fails is priced again from the chain's other items that pass (live, with the club gate and
+`offers.choose_extras`); a key with none is removed, so the canonical is missing. Cost: one query for
+the names of the items on the lines, and, only for a key whose best item fails, the mapped items, their
+prices and promos for that chain. Tests: `services/api/tests/test_api_kosher.py`.
 
 ### Saving semantics (D7)
 
@@ -699,6 +749,7 @@ The contract additions are new routes and optional fields, so older clients keep
 | `PUT`, `DELETE /me/spend/{id}` | required | correct an entry (the actual checkout total replaces the estimate), or remove it (204) |
 | `GET /me/spend/export` | required | every spend entry and the budget: the user's copy of their spend data |
 | `GET /promo-cycles/{canonical_id}?clubs=` | none | when a promo is likely to return, per chain (#69) |
+| `GET`, `PUT`, `DELETE /me/personal` | required | the person's own habits (personalization): read, replace, erase. See [personalization.md](personalization.md) |
 
 `PUT /me/profile` gains `monthly_budget` (ILS, 2 decimals, at least 0). It is written only when
 the request names it: a client that omits the field keeps the stored budget (the existing
@@ -825,6 +876,38 @@ means a promo is running or none is expected soon. Club-only promos count only f
 in `clubs` (repeatable), with the /compare club rule (`basket.club_member`; the same callback,
 `club_filter`, serves `smartcart-catalog promo-cycles --club`). It reads `promos` per
 request and is not on the compare or optimize path.
+
+### Personalization (/me/personal)
+
+`GET` returns `{version, prefs, refs, trips, signals, dismissals, exists}` (the defaults with
+`exists: false` when nothing is stored, or when the stored document is one the schema no longer
+reads); `PUT` takes the same document without `exists` and **replaces** the stored one; `DELETE`
+erases it (204, also when there is none).
+
+- Typed and bounded (`schemas.PersonalData`): `prefs {learn, value_packs, updated_at}`; at most 200
+  `refs` (canonical id, Hebrew and Arabic name up to 120 characters, taxonomy id, base unit, category
+  path of up to 4 names), 40 `trips` (`id`, `at`, `kind` finished or list, at most 60 `lines` of
+  canonical id and a quantity above 0 and up to 1000), 100 `signals` (`id`, `at`, `taxonomy_id`, `kind`
+  kept_brand or rejected_substitute), 200 `dismissals` (`kind` buy_again, brand_default or value_pack, a
+  `key`, `at`). Unknown keys are 422 (the models forbid extras), so there is no free-text field; the
+  body limit (256 KB) still applies, and the web app trims its document to 200 KB.
+- Storage: `preferences.data -> 'personal'` (the table existed since the first user-tables migration:
+  one row per user, forced RLS, owner only). A `PUT` or `DELETE` changes only that key of `data`.
+  No migration. `DELETE /me` removes the whole row, as before.
+- Privacy: read only by its owner, for the suggestions the web app computes on the device; never
+  joined to another table, never used for ranking, never in `events`, never sold.
+- Tests (`test_api_personal.py`): empty read, replace and read back, another user cannot see or change
+  it, other keys of the row survive, deletion with and without a document, `DELETE /me`, a document the
+  schema cannot read, every malformed field and every bound, the largest allowed document (200 or a 413,
+  never a 500), the event allowlist.
+
+### Events: personalization
+
+`POST /events` accepts one more name. No product, category, count or date.
+
+| Event | Props |
+|---|---|
+| `personalization` | `kind` (required): `usual`, `buy_again`, `brand_default`, `value_pack`; `action` (required): `shown`, `accepted`, `dismissed`, `undone` |
 
 ### Events: voice list
 

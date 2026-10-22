@@ -14,7 +14,7 @@ import ProductPage, {
   generateStaticParams as productParams,
 } from "@/app/(seo)/p/[slug]/page";
 import { GET as robots } from "@/app/(seo)/robots.txt/route";
-import { getQuality } from "./data";
+import { getProduct, getQuality } from "./data";
 import { percentDown } from "./format";
 
 async function violations(container: Element) {
@@ -65,8 +65,12 @@ describe("methodology page (#21)", () => {
   it("shows the quality metric from quality.json, not hand-typed text", () => {
     render(<MethodologyPage />);
     const q = getQuality();
-    expect(q.available).toBe(true);
-    if (!q.available) return;
+    if (!q.available) {
+      // an export without an evaluation (a real day) shows no number instead of a stale one
+      expect(screen.getByText("איכות ההתאמה טרם נמדדה.")).toBeInTheDocument();
+      expect(screen.queryByTestId("quality-metric")).toBeNull();
+      return;
+    }
     const metric = screen.getByTestId("quality-metric");
     expect(metric.textContent).toContain(percentDown(q.precision.any_brand ?? 0));
     expect(metric.textContent).toContain("מההחלפות נכונות בסט ההערכה");
@@ -108,7 +112,11 @@ describe("category pages (#35)", () => {
       "href",
       "/p/milk-fresh-3",
     );
-    expect(screen.getByText(/נתוני הקטלוג עודכנו בתאריך/).querySelector("time")).not.toBeNull();
+    // the date line says which kind of date it is: prices when the category has any (a real
+    // export), the catalog snapshot otherwise (the committed one)
+    expect(
+      screen.getByText(/נתוני הקטלוג עודכנו בתאריך|המחירים נכונים לתאריך/).querySelector("time"),
+    ).not.toBeNull();
     expect(screen.getByRole("link", { name: "איך אנחנו משווים מחירים" })).toHaveAttribute(
       "href",
       "/methodology",
@@ -144,17 +152,25 @@ describe("product pages (#35)", () => {
     expect(params.length + categoryParams().length).toBeLessThanOrEqual(200);
   });
 
-  it("without prices say so, carry no offers, and keep the trust lines", async () => {
+  it("say whether they have prices, claim offers only with prices, and keep the trust lines", async () => {
     const element = (await ProductPage({
       params: Promise.resolve({ slug: "milk-fresh-3" }),
     })) as ReactElement;
     const { container } = render(element);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("חלב טרי 3%");
-    expect(screen.getByText(/עדיין לא נטענו מחירים למוצר הזה/)).toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
     const product = jsonLd(container).find((d) => d["@type"] === "Product")!;
-    expect(product).not.toHaveProperty("offers");
-    expect(screen.getByText(/נתוני הקטלוג עודכנו בתאריך/).querySelector("time")).not.toBeNull();
+    // the committed snapshot has no prices; a real export may. Either way the page agrees with
+    // its data: no prices, no table and no offers; prices, a dated table and offers.
+    if (getProduct("milk-fresh-3")!.prices?.length) {
+      expect(screen.getByRole("table")).toBeInTheDocument();
+      expect(product).toHaveProperty("offers");
+      expect(screen.getByText(/המחירים נכונים לתאריך/).querySelector("time")).not.toBeNull();
+    } else {
+      expect(screen.getByText(/עדיין לא נטענו מחירים למוצר הזה/)).toBeInTheDocument();
+      expect(screen.queryByRole("table")).not.toBeInTheDocument();
+      expect(product).not.toHaveProperty("offers");
+      expect(screen.getByText(/נתוני הקטלוג עודכנו בתאריך/).querySelector("time")).not.toBeNull();
+    }
     expect(screen.getByRole("link", { name: "איך אנחנו משווים מחירים" })).toHaveAttribute(
       "href",
       "/methodology",

@@ -6,7 +6,14 @@
 import { http, HttpResponse } from "msw";
 import { API_BASE_URL } from "@/api/config";
 import type { Schemas } from "@/api/client";
-import { CATALOG, canonicalRef, HOME_STORE_ID, PRICES_UPDATED_AT } from "./fixtures";
+import {
+  CATALOG,
+  canonicalRef,
+  compareFixture,
+  HOME_STORE_ID,
+  PRICES_UPDATED_AT,
+} from "./fixtures";
+import { kosherSwap } from "./kosher";
 
 type StoreRef = Schemas["StoreRef"];
 type PriceAlert = Schemas["PriceAlert"];
@@ -320,8 +327,12 @@ export const phase2Handlers = [
     return HttpResponse.json(body);
   }),
 
-  http.post(url("/optimize/swaps"), ({ request }) => {
+  http.post(url("/optimize/swaps"), async ({ request }) => {
     const storeId = Number(new URL(request.url).searchParams.get("store_id") ?? 101);
+    const asked = (await request.json().catch(() => null)) as {
+      kosher?: Schemas["KosherFilter"] | null;
+    } | null;
+    const chain = compareFixture(null).stores.find((s) => s.store_id === storeId)?.chain_id ?? "";
     const raw: SwapSuggestionResponse["swaps"] = [
       {
         canonical_id: 1004,
@@ -365,7 +376,16 @@ export const phase2Handlers = [
       },
     ];
     const swaps = raw
-      .map((s) => ({ ...s, canonical_name_ar: CATALOG[s.canonical_id]?.display_name_ar ?? null }))
+      .map((s) => ({
+        s,
+        k: kosherSwap(chain, s.canonical_id, asked?.kosher),
+      }))
+      .filter(({ k }) => k.allowed)
+      .map(({ s, k }) => ({
+        ...s,
+        canonical_name_ar: CATALOG[s.canonical_id]?.display_name_ar ?? null,
+        ...(k.label ? { kosher: k.label } : {}),
+      }))
       .sort((a, b) => Number(b.saving) - Number(a.saving));
     const total = swaps.reduce((s, x) => s + Number(x.saving), 0);
     const body: SwapSuggestionResponse = {

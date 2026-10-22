@@ -16,6 +16,7 @@ from decimal import Decimal
 from functools import lru_cache
 
 from smartcart_catalog.extract.base import Result
+from smartcart_catalog.kosher import read_marks, render
 from smartcart_catalog.models import Attributes, ExtractionError, NormalizedItem
 from smartcart_catalog.normalize import is_full_width, is_truncated
 from smartcart_catalog.seed import Catalog, load_catalog
@@ -232,13 +233,6 @@ _VARIETY_WORDS: tuple[tuple[str, str], ...] = (
     ("protein", "protein"),
 )
 
-_KOSHER_WORDS: tuple[tuple[str, str], ...] = (
-    ("כשר לפסח", "כשר לפסח"),
-    ('בד"ץ', 'בד"ץ'),
-    ('בד"צ', 'בד"ץ'),
-    ("בדץ", 'בד"ץ'),
-    ("מהדרין", "מהדרין"),
-)
 _DIET_WORDS: tuple[tuple[str, str], ...] = (
     ("ללא גלוטן", "gluten_free"),
     ("ללא לקטוז", "lactose_free"),
@@ -443,10 +437,9 @@ class RuleExtractor:
 
     @staticmethod
     def kosher(name: str) -> str | None:
-        for word, value in _KOSHER_WORDS:
-            if word in name:
-                return value
-        return None
+        """What the name states about kashrut, explicit words only (``smartcart_catalog.kosher``):
+        the stated marks as text ('בד"ץ, כשר לפסח'), or None. Never inferred from a brand."""
+        return render(read_marks(name))
 
     @staticmethod
     def diet_flags(name: str) -> tuple[str, ...]:

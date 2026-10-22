@@ -208,8 +208,10 @@ price events runs just before, in its own transaction: creating a partition lock
   cross-check: a disagreement is counted per class in `LoadResult.unit_price_disagreements` and
   logged, never a quarantine. `LoadResult.unit_price_sources` counts `computed`, `weighed`,
   `published`, `published_scaled` and `none` (nothing usable; the shelf price is still stored). The
-  precompute and `/compare` read `prices.unit_price` as stored, so they get the corrected value
-  with no change; rows stored before this rule are rewritten by the next load of the same
+  precompute and `/compare` read `prices.unit_price` as stored (the loader never reads names; a pack
+  count or size that only the name states, or that the file gets wrong, is settled by the precompute:
+  docs/optimizer.md "Packs", and the rows in docs/adapters.md "What the real day's rows showed the loader
+  cannot know"), so they get the corrected value with no change; rows stored before this rule are rewritten by the next load of the same
   observation (same event key, different unit price).
 - **Stores not yet in a Stores file** get a placeholder row (name = store code) so a price file can
   load; the next Stores file fills in name, address and city.

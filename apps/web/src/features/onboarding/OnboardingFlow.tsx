@@ -13,13 +13,15 @@ import { onboardingMessages } from "@/i18n/messages/onboarding";
 import { ChainControls } from "@/features/profile/controls/ChainControls";
 import { LocationControls } from "@/features/profile/controls/LocationControls";
 import { TravelControls } from "@/features/profile/controls/TravelControls";
+import { KosherControls } from "@/features/kosher/KosherControls";
+import { useBetaMembership } from "@/features/beta/useBetaMembership";
 import { updateProfile } from "@/features/profile/profileState";
 import styles from "./Onboarding.module.css";
 
 type StepDef = {
-  titleKey: "step1Title" | "step2Title" | "step3Title";
+  titleKey: "step1Title" | "step2Title" | "step3Title" | "step4Title";
   /** The "why we ask" text; the first step ends with a link to the privacy policy. */
-  whyKey: "step1Why" | "step2Why" | "step3Why";
+  whyKey: "step1Why" | "step2Why" | "step3Why" | "step4Why";
   privacyLink?: boolean;
   body: ReactNode;
 };
@@ -30,8 +32,15 @@ const STEPS: ReadonlyArray<StepDef> = [
   { titleKey: "step3Title", whyKey: "step3Why", body: <TravelControls /> },
 ];
 
+/** Offered only to the kosher beta segment (docs/beta-plan.md); everyone else sets it in Profile. */
+const KOSHER_STEP: StepDef = {
+  titleKey: "step4Title",
+  whyKey: "step4Why",
+  body: <KosherControls />,
+};
+
 /**
- * First-run flow (issue #18): three skippable steps, each with a visible "why we ask". Answers are
+ * First-run flow (issue #18): three skippable steps (four for the kosher beta segment), each with a visible "why we ask". Answers are
  * saved as they change (the local profile; `ProfileSync` mirrors it when signed in), so skipping or
  * leaving halfway keeps what was entered and skipping leaves the documented defaults.
  */
@@ -39,8 +48,10 @@ export function OnboardingFlow() {
   const t = useT(onboardingMessages);
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const last = STEPS.length - 1;
-  const current = STEPS[step]!;
+  const { segment } = useBetaMembership({ askWithoutSession: true });
+  const steps = segment === "kosher" ? [...STEPS, KOSHER_STEP] : STEPS;
+  const last = steps.length - 1;
+  const current = steps[Math.min(step, last)]!;
   const titleRef = useRef<HTMLHeadingElement>(null);
   const firstStep = useRef(true);
 
@@ -70,12 +81,12 @@ export function OnboardingFlow() {
       <DocumentTitle text={t("welcome")} />
       <header className={styles.header}>
         <h1 className={styles.title}>{t("welcome")}</h1>
-        <p className={styles.lead}>{t("lead")}</p>
+        <p className={styles.lead}>{t(steps.length > STEPS.length ? "leadFour" : "lead")}</p>
       </header>
 
       <nav aria-label={t("progress")}>
         <ol className={styles.progress}>
-          {STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <li
               key={s.titleKey}
               className={styles.dot}
@@ -83,7 +94,7 @@ export function OnboardingFlow() {
               aria-current={i === step ? "step" : undefined}
             >
               <span className="sr-only">
-                {t("stepSpoken", { n: i + 1, total: STEPS.length, title: t(s.titleKey) })}
+                {t("stepSpoken", { n: i + 1, total: steps.length, title: t(s.titleKey) })}
               </span>
             </li>
           ))}
@@ -91,7 +102,7 @@ export function OnboardingFlow() {
         <p className={styles.stepCount} data-testid="step-count">
           {formatRich(t("stepCount"), {
             n: <span dir="ltr">{step + 1}</span>,
-            total: <span dir="ltr">{STEPS.length}</span>,
+            total: <span dir="ltr">{steps.length}</span>,
           })}
         </p>
       </nav>

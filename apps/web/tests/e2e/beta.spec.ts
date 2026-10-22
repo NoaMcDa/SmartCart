@@ -19,6 +19,12 @@ test.beforeEach(async ({ page }) => {
   calls = await mockApi(page);
 });
 
+// The mock's membership lives in this worker's memory: a member left behind would be a member of
+// the next spec this worker runs (the onboarding has a step for the kosher segment).
+test.afterEach(() => {
+  resetBetaMock();
+});
+
 const beta = () => calls.filter((c) => /\/beta|\/me\/beta/.test(c.path));
 
 async function axe(page: Page, context: string) {

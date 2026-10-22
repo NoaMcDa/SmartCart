@@ -9,12 +9,15 @@ import {
   sharedWithMe,
   type CanonicalRef,
   type ListMember,
+  type SearchHit,
   type ShoppingList,
 } from "@/api/client";
 import { Button, Card, FlexChip, Skeleton, Stepper } from "@/components/ui";
 import { IconClock, IconClose, IconInfo } from "@/components/ui/icons";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { kosherFilter } from "@/features/kosher/kosher";
+import { KosherHitNote } from "@/features/kosher/KosherHitNote";
 import controls from "@/features/profile/controls/controls.module.css";
 import { useRich } from "@/i18n/format-2";
 import { rescueFocus } from "@/lib/focus";
@@ -23,6 +26,7 @@ import type { Locale } from "@/i18n/locales";
 import { translate } from "@/i18n/messages";
 import { shareMessages } from "@/i18n/messages/share";
 import { useList } from "@/state/list";
+import { readShopper } from "@/state/shopper";
 import { sharedItemName, type SharedItem } from "./listSync";
 import { ROLE_KEY, ShareSheet, shareError } from "./ShareSheet";
 import { localListToServer, readRegistry, rememberJoined, setOwnedListId } from "./sharedLists";
@@ -104,6 +108,7 @@ function AddItem({ onAdd }: { onAdd: (c: CanonicalRef) => void }) {
   const t = useT(shareMessages);
   const [text, setText] = useState("");
   const [hits, setHits] = useState<CanonicalRef[] | null>(null);
+  const [kosherLabels, setKosherLabels] = useState<Map<number, SearchHit["kosher"]>>(new Map());
   const [busy, setBusy] = useState(false);
   const id = useId();
 
@@ -113,8 +118,9 @@ function AddItem({ onAdd }: { onAdd: (c: CanonicalRef) => void }) {
     if (!q) return;
     setBusy(true);
     try {
-      const res = await search(q, 5);
+      const res = await search(q, 5, kosherFilter(readShopper().kosher));
       setHits(res.hits.map((h) => h.canonical));
+      setKosherLabels(new Map(res.hits.map((h) => [h.canonical.canonical_id, h.kosher])));
     } catch {
       setHits([]);
     } finally {
@@ -159,6 +165,7 @@ function AddItem({ onAdd }: { onAdd: (c: CanonicalRef) => void }) {
                 >
                   {t("addHit", { name: h.display_name_he })}
                 </Button>
+                <KosherHitNote label={kosherLabels.get(h.canonical_id)} />
               </li>
             ))}
           </ul>

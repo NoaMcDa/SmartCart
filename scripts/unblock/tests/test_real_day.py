@@ -213,3 +213,30 @@ def test_egg_features_read_size_and_pack_from_the_name() -> None:
     # a chocolate egg and egg noodles are not eggs to eat
     assert not real_day.egg_features("ביצת קינדר ג'וי 20 ג'")["is_egg"]
     assert not real_day.egg_features("אטריות ביצים 500 גרם")["is_egg"]
+
+
+def test_proposals_summary_keeps_the_numbers_the_report_shows() -> None:
+    doc = {
+        "stats": {
+            "items_total": 100, "items_mapped": 20, "items_unmapped": 80, "proposals": 2,
+            "proposal_items": 16, "kinds": {"variant": 1, "new_type": 1},
+            "matching_gaps": {"groups": 3, "items": 9},
+        },
+        "proposals": [
+            {"rank": n, "display_name_he": f"מוצר {n}", "kind": "new_type", "product_type": None,
+             "chains": 3, "stores": 9, "items": 8, "shared_barcodes": 1, "priority": 0.5}
+            for n in range(1, 13)
+        ],
+    }  # fmt: skip
+    s = real_day.proposals_summary(doc)
+    assert s["items_unmapped"] == 80 and s["proposals"] == 2 and s["share_of_unmapped"] == 0.2
+    assert len(s["top"]) == 10 and s["top"][0]["name"] == "מוצר 1"
+    assert s["matching_gaps"]["items"] == 9
+    assert real_day.proposals_summary({})["share_of_unmapped"] is None
+
+
+def test_the_proposals_option_is_declared_and_the_workflow_passes_it() -> None:
+    src = (HERE / "real_day.py").read_text(encoding="utf-8")
+    assert '"--proposals-out"' in src and '"--proposals-top"' in src
+    workflow = (HERE.parents[1] / ".github" / "workflows" / "real-day.yml").read_text()
+    assert "--proposals-out out/proposals" in workflow

@@ -17,8 +17,16 @@ import type {
 import { CATALOG, canonicalRef, compareFixture, HOME_STORE_ID, optimizeFixture } from "./fixtures";
 import { applyAllowToCompare, applyAllowToOptimize } from "./allow";
 import { betaHandlers } from "./handlers.beta";
+import {
+  applyKosherToCompare,
+  applyKosherToOptimize,
+  kosherActive,
+  kosherHitLabel,
+} from "./kosher";
 import { phase2Handlers } from "./handlers.phase2";
+import { personalHandlers } from "./handlers.personal";
 import { phase3Handlers } from "./handlers.phase3";
+import { applyPacksToCompare } from "./packs";
 import { parseRow } from "./parseRow";
 
 export { parseRow };
@@ -40,6 +48,7 @@ export const handlers = [
   ...betaHandlers,
   ...phase2Handlers,
   ...phase3Handlers,
+  ...personalHandlers,
   http.get(url("/health"), () =>
     HttpResponse.json({ status: "ok" as const, version: "0.1.0-mock" }),
   ),
@@ -70,9 +79,15 @@ export const handlers = [
       );
     }
     return HttpResponse.json(
-      applyAllowToCompare(
-        compareFixture(body.home_store_id === undefined ? HOME_STORE_ID : body.home_store_id),
-        body.items,
+      applyKosherToCompare(
+        applyPacksToCompare(
+          applyAllowToCompare(
+            compareFixture(body.home_store_id === undefined ? HOME_STORE_ID : body.home_store_id),
+            body.items,
+          ),
+          body.items,
+        ),
+        body.kosher,
       ),
     );
   }),
@@ -91,17 +106,20 @@ export const handlers = [
       );
     }
     return HttpResponse.json(
-      applyAllowToOptimize(
-        optimizeFixture({
-          homeStoreId: body.home_store_id === undefined ? HOME_STORE_ID : body.home_store_id,
-          extraStopValue:
-            body.travel?.extra_stop_value === undefined
-              ? undefined
-              : Number(body.travel.extra_stop_value),
-          minSplitSaving:
-            body.min_split_saving === undefined ? undefined : Number(body.min_split_saving),
-        }),
-        body.items,
+      applyKosherToOptimize(
+        applyAllowToOptimize(
+          optimizeFixture({
+            homeStoreId: body.home_store_id === undefined ? HOME_STORE_ID : body.home_store_id,
+            extraStopValue:
+              body.travel?.extra_stop_value === undefined
+                ? undefined
+                : Number(body.travel.extra_stop_value),
+            minSplitSaving:
+              body.min_split_saving === undefined ? undefined : Number(body.min_split_saving),
+          }),
+          body.items,
+        ),
+        body.kosher,
       ),
     );
   }),
@@ -126,9 +144,36 @@ export const handlers = [
         score,
         matched_by: exact ? (["trigram", "fts"] as const) : (["vector"] as const),
       }));
+    // The kosher filter (docs/api.md): a label per hit; a hit nothing can be offered for goes last
+    const kosher: Schemas["KosherFilter"] = {
+      level: (params.get("kosher") as Schemas["KosherFilter"]["level"]) ?? null,
+      passover: params.get("kosher_passover") === "true",
+      only_stated: params.get("kosher_only_stated") === "true",
+    };
+    const chains = compareFixture(null).stores;
+    const labelled = hits.map((h) => ({
+      ...h,
+      matched_by: [...h.matched_by],
+      ...(kosherActive(kosher)
+        ? {
+            kosher: kosherHitLabel(
+              h.canonical.canonical_id,
+              chains
+                .filter((s) => s.items.some((i) => i.canonical_id === h.canonical.canonical_id))
+                .map((s) => s.chain_id),
+              kosher,
+            ),
+          }
+        : {}),
+    }));
     const res: SearchResponse = {
       query: q,
-      hits: hits.map((h) => ({ ...h, matched_by: [...h.matched_by] })),
+      hits: kosherActive(kosher)
+        ? [
+            ...labelled.filter((h) => h.kosher?.status !== "none"),
+            ...labelled.filter((h) => h.kosher?.status === "none"),
+          ]
+        : labelled,
     };
     return HttpResponse.json(res);
   }),

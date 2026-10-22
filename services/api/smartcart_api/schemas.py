@@ -237,6 +237,78 @@ class ChainClubs(_Model):
     clubs: list[ClubChoice]
 
 
+# --- kosher filter (docs/matching.md, "Kosher") -----------------------------------------------------
+
+KosherLevel = Literal[
+    "regular",
+    "mehadrin",
+    "badatz",
+    "badatz_eida",
+    "badatz_beit_yosef",
+    "badatz_chatam_sofer",
+    "badatz_agudat",
+    "landau",
+    "rabbanut_mehadrin",
+]
+"""The kosher levels a person can choose (``smartcart_catalog.kosher.LEVELS``; the profile's
+``kosher_level``). No preference is the absence of a level."""
+
+
+class KosherFilter(_Model):
+    """The person's kosher preference. Transparency files have no kosher field: what an item states
+    comes from its name alone, and an item whose name states nothing is "unknown" (labelled, and
+    left out only with ``only_stated``). An item whose name rules the level out is never offered."""
+
+    level: KosherLevel | None = Field(
+        default=None, description="null: no preference (only ``passover`` can still filter)"
+    )
+    only_stated: bool = Field(
+        default=False,
+        description="Offer only items whose name states a certification that meets the level "
+        "(and, with ``passover``, kosher for Passover); items that state nothing are left out "
+        "instead of labelled. This is not a check by a person.",
+    )
+    passover: bool = Field(
+        default=False,
+        description="Kosher for Passover as a separate filter: an item that says it is not is never "
+        "offered; one that says nothing is labelled unknown (or left out with ``only_stated``)",
+    )
+
+
+class KosherLabel(_Model):
+    """What the filter knows about one offered item. Present on a line only when a filter is set;
+    an item that does not meet it is never on a line, so there is no "fails" here."""
+
+    level: Literal["meets", "unknown"] | None = Field(
+        default=None,
+        description="Against the chosen level: meets (the name states a certification that meets "
+        "it) or unknown (the name states nothing that decides it: show the warning). null when no "
+        "level was set.",
+    )
+    passover: Literal["meets", "unknown"] | None = Field(
+        default=None, description="Against kosher for Passover; null when it was not asked for"
+    )
+    stated: list[str] = Field(
+        default_factory=list,
+        description="The marks the item's name states (``smartcart_catalog.kosher.MARKS`` codes, "
+        "for example mehadrin, badatz, badatz_eida, passover, dairy), empty when it states none",
+    )
+
+
+class KosherHitLabel(_Model):
+    """A search hit under a kosher filter, from the items the catalog maps to it (any brand or
+    exact, not under review), in every chain: the search has no location."""
+
+    status: Literal["meets", "unknown", "none"] = Field(
+        description="meets: at least one item states a certification that meets the filter; "
+        "unknown: none does but some state nothing (the warning applies); none: every item is "
+        "ruled out (or, with only_stated, none states enough)"
+    )
+    meets: int = Field(ge=0)
+    unknown: int = Field(ge=0)
+    fails: int = Field(ge=0)
+
+
 # --- search ----------------------------------------------------------------------------------
 
 
@@ -249,6 +321,11 @@ class SearchHit(_Model):
         ge=0,
         le=1,
         description="Evidence for this hit; the parser's thresholds use it",
+    )
+    kosher: KosherHitLabel | None = Field(
+        default=None,
+        description="Only when a kosher filter was sent and the canonical has mapped items. A hit "
+        "with status none is listed after the others (never first).",
     )
 
 
@@ -296,6 +373,13 @@ class CompareRequest(_Model):
         default=None, description="The user's usual store; savings are measured against it only"
     )
     include_online: bool = False
+    kosher: KosherFilter | None = Field(
+        default=None,
+        description="The person's kosher preference. With it, no line is an item whose name rules "
+        "the level out, every line carries a ``kosher`` label, and a store that cannot meet the "
+        "basket under the filter lists the item as missing (and in ``kosher_excluded``): the "
+        "filter is never relaxed. Applies to /compare, /optimize and /optimize/swaps.",
+    )
 
 
 class AttributeTag(_Model):
@@ -325,6 +409,7 @@ class OriginalOffer(_Model):
     club_name: str | None = None
     price_valid_from: datetime
     promo_confidence: float | None = Field(default=None, ge=0, le=1)
+    kosher: KosherLabel | None = Field(default=None, description="Only under a kosher filter")
 
 
 class PricedItem(_Model):
@@ -396,6 +481,11 @@ class PricedItem(_Model):
         default=None,
         description="What club_offer_name would save on this line, ILS; information only",
     )
+    kosher: KosherLabel | None = Field(
+        default=None,
+        description="Under a kosher filter: what the item's name states. Same weight as the "
+        "substitute tags: show it on the line, and the warning when a level is unknown.",
+    )
 
 
 GeoPrecision = Literal["address", "street", "locality"]
@@ -433,6 +523,11 @@ class StoreResult(_Model):
     )
     lat: float | None = Field(default=None, description="Store latitude when known (phase 2)")
     lon: float | None = Field(default=None, description="Store longitude when known (phase 2)")
+    kosher_excluded: list[int] = Field(
+        default_factory=list,
+        description="Under a kosher filter: the canonical_ids in ``missing`` that this store sells "
+        "but only in items the filter rules out. Empty without a filter.",
+    )
 
 
 class CompareResponse(_Model):
@@ -441,6 +536,11 @@ class CompareResponse(_Model):
     home_store_total: Decimal | None
     generated_at: datetime
     disclaimer_he: str = "המחיר הקובע הוא בקופה."
+    kosher_hidden_stores: int = Field(
+        default=0,
+        description="Under a kosher filter: stores in the radius left out because every item they "
+        "sell of the basket is ruled out. Without it they would be listed with lines.",
+    )
 
 
 # --- optimize --------------------------------------------------------------------------------
@@ -511,6 +611,11 @@ class Plan(_Model):
     substituted_count: int = 0
     promo_bundles: list[PromoBundle] = Field(
         default_factory=list, description="Cross-item promos the MILP solver exploited"
+    )
+    kosher_excluded: list[int] = Field(
+        default_factory=list,
+        description="Under a kosher filter: the canonical_ids in ``missing`` that a store of this "
+        "plan sells but only in items the filter rules out",
     )
 
 
@@ -724,6 +829,8 @@ EventName = Literal[
     "image_parsed",
     "cart_handoff",
     "locale_changed",
+    # personalization
+    "personalization",
 ]
 
 
@@ -909,6 +1016,9 @@ class SwapSuggestion(_Model):
     saving: Decimal = Field(description="For the requested quantity, ILS")
     confidence: float | None = None
     tags: list[AttributeTag] = Field(default_factory=list)
+    kosher: KosherLabel | None = Field(
+        default=None, description="Only under a kosher filter: the suggested item's label"
+    )
 
 
 class SwapSuggestionResponse(_Model):
@@ -955,6 +1065,86 @@ class SpendExport(_Model):
     budget: Decimal | None
     entries: list[SpendEntry] = Field(description="Every entry of the user, oldest first")
     generated_at: datetime
+
+
+# --- personalization (phase 3): habits, kept on the account only when signed in ---------------
+
+_PERSONAL_ID = r"^[A-Za-z0-9_-]{6,64}$"
+PersonalText = Annotated[str, StringConstraints(max_length=120)]
+
+
+class PersonalPrefs(_Model):
+    learn: bool = Field(
+        default=True,
+        description="Learn from this person's own lists and finished shopping trips (device and "
+        "account). Off: nothing new is recorded.",
+    )
+    value_packs: bool = Field(
+        default=False,
+        description="Prefer value packs: the list builder suggests the larger pack where its unit "
+        "price is lower. Off by default.",
+    )
+    updated_at: AwareDatetime | None = Field(
+        default=None, description="When the preferences were last changed; the newer side wins"
+    )
+
+
+class PersonalRef(_Model):
+    """A product as the person's lists named it, so a device that did not see it can still draw it."""
+
+    canonical_id: int
+    display_name_he: PersonalText
+    display_name_ar: PersonalText | None = None
+    taxonomy_id: ShortText
+    base_unit: Literal["100g", "100ml", "unit", "kg"]
+    category_path_he: Annotated[
+        list[Annotated[str, StringConstraints(max_length=80)]], Field(max_length=4)
+    ] = Field(default_factory=list)
+
+
+class PersonalLine(_Model):
+    canonical_id: int
+    quantity: float = Field(gt=0, le=1000)
+
+
+class PersonalTrip(_Model):
+    id: str = Field(pattern=_PERSONAL_ID)
+    at: AwareDatetime
+    kind: Literal["finished", "list"] = Field(
+        description="finished: the lines ticked off in store mode; list: a list the person cleared"
+    )
+    lines: list[PersonalLine] = Field(max_length=60)
+
+
+class PersonalSignal(_Model):
+    """One time the person kept an exact brand or turned a substitute down, per category."""
+
+    id: str = Field(pattern=_PERSONAL_ID)
+    at: AwareDatetime
+    taxonomy_id: ShortText
+    kind: Literal["kept_brand", "rejected_substitute"]
+
+
+class PersonalDismissal(_Model):
+    kind: Literal["buy_again", "brand_default", "value_pack"]
+    key: ShortText
+    at: AwareDatetime
+
+
+class PersonalData(_Model):
+    """``PUT /me/personal`` replaces the whole document. Bounded in every list, and overall to
+    256 KB; it is read back only by its owner (row-level security) and by nothing else."""
+
+    version: Literal[1] = 1
+    prefs: PersonalPrefs = Field(default_factory=PersonalPrefs)
+    refs: list[PersonalRef] = Field(default_factory=list, max_length=200)
+    trips: list[PersonalTrip] = Field(default_factory=list, max_length=40)
+    signals: list[PersonalSignal] = Field(default_factory=list, max_length=100)
+    dismissals: list[PersonalDismissal] = Field(default_factory=list, max_length=200)
+
+
+class PersonalState(PersonalData):
+    exists: bool = Field(description="false when nothing is stored yet and these are the defaults")
 
 
 # --- promo cycles (phase 3, issue #69) -------------------------------------------------------

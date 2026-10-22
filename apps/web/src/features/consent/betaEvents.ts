@@ -161,7 +161,29 @@ export function reportVoiceCompleted(info: {
   });
 }
 
+// ---------------------------------------------------------------------------------------------
+// Personalization (phase 3). Which suggestion and what the person did with it, nothing else: no
+// product, no category, no size of history.
+
+export type PersonalizationKind = "usual" | "buy_again" | "brand_default" | "value_pack";
+export type PersonalizationAction = "shown" | "accepted" | "dismissed" | "undone";
+
+const shownKinds = new Set<PersonalizationKind>();
+
+/** `shown` is sent once per kind per page session (the denominator of the acceptance rate). */
+export function reportPersonalization(
+  kind: PersonalizationKind,
+  action: PersonalizationAction,
+): void {
+  if (action === "shown") {
+    if (shownKinds.has(kind)) return;
+    shownKinds.add(kind);
+  }
+  trackEvent("personalization", { kind, action });
+}
+
 /** Test hook: forget the paste clock. */
 export function resetBetaEventsForTests(): void {
   pastedAt = null;
+  shownKinds.clear();
 }

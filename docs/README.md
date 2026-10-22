@@ -27,6 +27,8 @@ discussions. Phases 0, 1 and 2 are built (see phase-2-status.md). Read in this o
 22. [web-review-2026-10.md](web-review-2026-10.md): the October 2026 correctness review of `apps/web`: what was checked, the 32 defects found (storage fallbacks, cancel races, sync, Arabic digits, focus) with their tests, and what was left.
 23. [security-review.md](security-review.md): the pre-beta security review of the API and the web app: findings by severity, the fixes with their tests, what remains and why, and the new settings.
 24. [real-day-dry-run.md](real-day-dry-run.md): one real day through ingestion, matching, the precompute, `/compare` and `/optimize` and the basket index on a GitHub runner (`real-day.yml`), with timings next to the synthetic ones.
+25. [exit-window.md](exit-window.md): the nightly runner rehearsal of the Phase 0 exit window (`exit-window.yml`): one real file per kind per chain through the real Scheduler with the real clock, one JSON record per day on the `exit-window/data` branch, and the generated report. Not the VPS window.
+26. [personalization.md](personalization.md): phase 3 personalization on synthetic data: my usual, buy again, brand-default offers and large-family value packs, computed from the person's own history on the device, what is stored, the rules and thresholds (proposals), the account copy (`/me/personal`), controls, privacy and the tests.
 
 ## Facts versus estimates
 
@@ -40,7 +42,7 @@ here keep that distinction. When you see "estimate", it is not a measured number
 |---|---|
 | Canonical product | A product concept independent of brand and chain, e.g. "fresh milk 3%, 1 liter". Chain-specific items map to it. |
 | Flexibility level | Per-item user setting: exact (barcode), any brand (same critical attributes), close substitute (soft attributes may differ). |
-| Critical attribute | An attribute that must match at "any brand" level: fat percentage, fresh/frozen/chilled, size class. Kosher is never critical because it cannot be verified from chain data. |
+| Critical attribute | An attribute that must match at "any brand" level: fat percentage, fresh/frozen/chilled, size class. Kosher is never critical because it cannot be verified from chain data; it is a per-person filter read from item names (see [matching.md](matching.md#kosher-what-a-name-states-and-a-filter-that-never-guesses)). |
 | Soft attribute | An attribute that may differ at "close substitute" level: pack size, packaging type, nearby fat percentage. |
 | Effective price | Shelf price after applying promos the user is eligible for, precomputed nightly per (canonical, store). |
 | Unit price | Price per 100 g, 100 ml, or unit. The basis for all "cheaper" decisions. |

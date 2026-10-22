@@ -160,7 +160,7 @@ test.describe("profile", () => {
     await page.getByRole("button", { name: "הסופר שלי: ויקטורי" }).click();
     await page.getByRole("button", { name: "המועדון החדש" }).click();
     await page.getByRole("slider", { name: "כמה שווה לך עצירה נוספת?" }).fill("40");
-    await page.getByRole("radio", { name: 'בד"צ' }).click();
+    await page.getByRole("radio", { name: 'בד"ץ' }).click();
     await page.getByRole("switch", { name: "טבעוני" }).click();
     await page.getByRole("button", { name: "אגוזים" }).click();
     await page.getByLabel("מוצרי חלב וביצים").selectOption("close");
@@ -179,7 +179,7 @@ test.describe("profile", () => {
     );
     await expect(page.getByRole("slider", { name: "כמה שווה לך עצירה נוספת?" })).toHaveValue("40");
     await expect(page.getByRole("slider", { name: "רדיוס חיפוש" })).toHaveValue("12");
-    await expect(page.getByRole("radio", { name: 'בד"צ' })).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByRole("radio", { name: 'בד"ץ' })).toHaveAttribute("aria-checked", "true");
     await expect(page.getByRole("switch", { name: "טבעוני" })).toHaveAttribute(
       "aria-checked",
       "true",

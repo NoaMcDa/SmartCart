@@ -47,7 +47,13 @@ describe("structured data", () => {
   });
 
   it("Product has no offers while no prices are loaded", () => {
-    const data = productJsonLd(getProduct("milk-fresh-3")!, "https://x.example/p/milk-fresh-3");
+    const unpriced: Product = {
+      ...getProduct("milk-fresh-3")!,
+      no_prices_yet: true,
+      prices: null,
+      price_valid_from: null,
+    };
+    const data = productJsonLd(unpriced, "https://x.example/p/milk-fresh-3");
     expect(data["@type"]).toBe("Product");
     expect(data.name).toBe("חלב טרי 3%");
     expect(data).not.toHaveProperty("offers");
@@ -68,7 +74,13 @@ describe("structured data", () => {
     };
     expect(data.offers).toHaveLength(2);
     const [first] = data.offers;
-    expect(first).toMatchObject({ "@type": "Offer", price: 0.5, priceCurrency: "ILS" });
+    expect(first).toMatchObject({
+      "@type": "Offer",
+      price: 0.5,
+      priceCurrency: "ILS",
+      validFrom: "2026-10-07",
+    });
+    expect((data.offers[1] as { validFrom?: string }).validFrom).toBe("2026-10-06");
     expect(first?.seller.name).toBe("רמי לוי");
     expect(first?.priceSpecification["@type"]).toBe("UnitPriceSpecification");
     expect(first?.priceSpecification.referenceQuantity).toEqual({

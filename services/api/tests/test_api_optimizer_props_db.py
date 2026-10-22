@@ -33,7 +33,7 @@ from test_api_optimizer_props import exhaustive
 
 from smartcart_api import milp
 from smartcart_api.embedding import to_pgvector
-from smartcart_api.precompute import precompute_effective_prices
+from smartcart_api.precompute import MULTIPACK_MIN, precompute_effective_prices
 from smartcart_api.settings import get_settings
 
 D = Decimal
@@ -263,7 +263,13 @@ def build_world(
         if built.canon[cid]:
             return None
         if (ch, cid) not in drawn:
-            drawn[(ch, cid)] = prnd.choice([None, None, 2, 3, 4, 6, 12])
+            # A canonical sold in packs of 6 or more has no unit price for an item that states no
+            # count (precompute.MULTIPACK_MIN): its items always state one.
+            stated = [2, 3, 4, 6, 12]
+            if built.per[cid] >= MULTIPACK_MIN:
+                drawn[(ch, cid)] = prnd.choice(stated)
+            else:
+                drawn[(ch, cid)] = prnd.choice([None, None, *stated])
             if drawn[(ch, cid)]:
                 built.pack_n[(ch, cid)] = drawn[(ch, cid)]
         return drawn[(ch, cid)]

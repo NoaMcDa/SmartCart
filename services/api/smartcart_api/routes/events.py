@@ -152,6 +152,12 @@ EVENT_PROPS: dict[str, dict[str, Key]] = {
     "cart_handoff": {"action": _choices("copy", "share", "open_site", "open_item", required=True)},
     # The UI language was switched (#73).
     "locale_changed": {"locale": _choices("he", "ar", required=True)},
+    # --- personalization (phase 3). A suggestion's kind and what the person did with it: never a
+    # product, a category, a size of history or a date.
+    "personalization": {
+        "kind": _choices("usual", "buy_again", "brand_default", "value_pack", required=True),
+        "action": _choices("shown", "accepted", "dismissed", "undone", required=True),
+    },
 }
 
 

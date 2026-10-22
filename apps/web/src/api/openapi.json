@@ -514,6 +514,17 @@
             "title": "Items",
             "type": "array"
           },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherFilter"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The person's kosher preference. With it, no line is an item whose name rules the level out, every line carries a ``kosher`` label, and a store that cannot meet the basket under the filter lists the item as missing (and in ``kosher_excluded``): the filter is never relaxed. Applies to /compare, /optimize and /optimize/swaps."
+          },
           "location": {
             "$ref": "#/components/schemas/Location"
           }
@@ -559,6 +570,12 @@
               }
             ],
             "title": "Home Store Total"
+          },
+          "kosher_hidden_stores": {
+            "default": 0,
+            "description": "Under a kosher filter: stores in the radius left out because every item they sell of the basket is ruled out. Without it they would be listed with lines.",
+            "title": "Kosher Hidden Stores",
+            "type": "integer"
           },
           "stores": {
             "description": "Sorted: complete baskets first, then by total",
@@ -609,7 +626,8 @@
               "store_mode_used",
               "image_parsed",
               "cart_handoff",
-              "locale_changed"
+              "locale_changed",
+              "personalization"
             ],
             "title": "Name",
             "type": "string"
@@ -792,6 +810,136 @@
           "version"
         ],
         "title": "Health",
+        "type": "object"
+      },
+      "KosherFilter": {
+        "additionalProperties": false,
+        "description": "The person's kosher preference. Transparency files have no kosher field: what an item states\ncomes from its name alone, and an item whose name states nothing is \"unknown\" (labelled, and\nleft out only with ``only_stated``). An item whose name rules the level out is never offered.",
+        "properties": {
+          "level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "regular",
+                  "mehadrin",
+                  "badatz",
+                  "badatz_eida",
+                  "badatz_beit_yosef",
+                  "badatz_chatam_sofer",
+                  "badatz_agudat",
+                  "landau",
+                  "rabbanut_mehadrin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: no preference (only ``passover`` can still filter)",
+            "title": "Level"
+          },
+          "only_stated": {
+            "default": false,
+            "description": "Offer only items whose name states a certification that meets the level (and, with ``passover``, kosher for Passover); items that state nothing are left out instead of labelled. This is not a check by a person.",
+            "title": "Only Stated",
+            "type": "boolean"
+          },
+          "passover": {
+            "default": false,
+            "description": "Kosher for Passover as a separate filter: an item that says it is not is never offered; one that says nothing is labelled unknown (or left out with ``only_stated``)",
+            "title": "Passover",
+            "type": "boolean"
+          }
+        },
+        "title": "KosherFilter",
+        "type": "object"
+      },
+      "KosherHitLabel": {
+        "additionalProperties": false,
+        "description": "A search hit under a kosher filter, from the items the catalog maps to it (any brand or\nexact, not under review), in every chain: the search has no location.",
+        "properties": {
+          "fails": {
+            "minimum": 0.0,
+            "title": "Fails",
+            "type": "integer"
+          },
+          "meets": {
+            "minimum": 0.0,
+            "title": "Meets",
+            "type": "integer"
+          },
+          "status": {
+            "description": "meets: at least one item states a certification that meets the filter; unknown: none does but some state nothing (the warning applies); none: every item is ruled out (or, with only_stated, none states enough)",
+            "enum": [
+              "meets",
+              "unknown",
+              "none"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "unknown": {
+            "minimum": 0.0,
+            "title": "Unknown",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "meets",
+          "unknown",
+          "fails"
+        ],
+        "title": "KosherHitLabel",
+        "type": "object"
+      },
+      "KosherLabel": {
+        "additionalProperties": false,
+        "description": "What the filter knows about one offered item. Present on a line only when a filter is set;\nan item that does not meet it is never on a line, so there is no \"fails\" here.",
+        "properties": {
+          "level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "meets",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Against the chosen level: meets (the name states a certification that meets it) or unknown (the name states nothing that decides it: show the warning). null when no level was set.",
+            "title": "Level"
+          },
+          "passover": {
+            "anyOf": [
+              {
+                "enum": [
+                  "meets",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Against kosher for Passover; null when it was not asked for",
+            "title": "Passover"
+          },
+          "stated": {
+            "description": "The marks the item's name states (``smartcart_catalog.kosher.MARKS`` codes, for example mehadrin, badatz, badatz_eida, passover, dairy), empty when it states none",
+            "items": {
+              "type": "string"
+            },
+            "title": "Stated",
+            "type": "array"
+          }
+        },
+        "title": "KosherLabel",
         "type": "object"
       },
       "ListItem": {
@@ -1224,6 +1372,17 @@
             "title": "Items",
             "type": "array"
           },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherFilter"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The person's kosher preference. With it, no line is an item whose name rules the level out, every line carries a ``kosher`` label, and a store that cannot meet the basket under the filter lists the item as missing (and in ``kosher_excluded``): the filter is never relaxed. Applies to /compare, /optimize and /optimize/swaps."
+          },
           "location": {
             "$ref": "#/components/schemas/Location"
           },
@@ -1379,6 +1538,17 @@
           "item_id": {
             "title": "Item Id",
             "type": "integer"
+          },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherLabel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only under a kosher filter"
           },
           "line_total": {
             "description": "The original at the line's quantity, promo folded",
@@ -1751,6 +1921,331 @@
         "title": "ParsedRow",
         "type": "object"
       },
+      "PersonalData": {
+        "additionalProperties": false,
+        "description": "``PUT /me/personal`` replaces the whole document. Bounded in every list, and overall to\n256 KB; it is read back only by its owner (row-level security) and by nothing else.",
+        "properties": {
+          "dismissals": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalDismissal"
+            },
+            "maxItems": 200,
+            "title": "Dismissals",
+            "type": "array"
+          },
+          "prefs": {
+            "$ref": "#/components/schemas/PersonalPrefs"
+          },
+          "refs": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalRef"
+            },
+            "maxItems": 200,
+            "title": "Refs",
+            "type": "array"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalSignal"
+            },
+            "maxItems": 100,
+            "title": "Signals",
+            "type": "array"
+          },
+          "trips": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalTrip"
+            },
+            "maxItems": 40,
+            "title": "Trips",
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "title": "PersonalData",
+        "type": "object"
+      },
+      "PersonalDismissal": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 60,
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "buy_again",
+              "brand_default",
+              "value_pack"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "key",
+          "at"
+        ],
+        "title": "PersonalDismissal",
+        "type": "object"
+      },
+      "PersonalLine": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_id": {
+            "title": "Canonical Id",
+            "type": "integer"
+          },
+          "quantity": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000.0,
+            "title": "Quantity",
+            "type": "number"
+          }
+        },
+        "required": [
+          "canonical_id",
+          "quantity"
+        ],
+        "title": "PersonalLine",
+        "type": "object"
+      },
+      "PersonalPrefs": {
+        "additionalProperties": false,
+        "properties": {
+          "learn": {
+            "default": true,
+            "description": "Learn from this person's own lists and finished shopping trips (device and account). Off: nothing new is recorded.",
+            "title": "Learn",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the preferences were last changed; the newer side wins",
+            "title": "Updated At"
+          },
+          "value_packs": {
+            "default": false,
+            "description": "Prefer value packs: the list builder suggests the larger pack where its unit price is lower. Off by default.",
+            "title": "Value Packs",
+            "type": "boolean"
+          }
+        },
+        "title": "PersonalPrefs",
+        "type": "object"
+      },
+      "PersonalRef": {
+        "additionalProperties": false,
+        "description": "A product as the person's lists named it, so a device that did not see it can still draw it.",
+        "properties": {
+          "base_unit": {
+            "enum": [
+              "100g",
+              "100ml",
+              "unit",
+              "kg"
+            ],
+            "title": "Base Unit",
+            "type": "string"
+          },
+          "canonical_id": {
+            "title": "Canonical Id",
+            "type": "integer"
+          },
+          "category_path_he": {
+            "items": {
+              "maxLength": 80,
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Category Path He",
+            "type": "array"
+          },
+          "display_name_ar": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name Ar"
+          },
+          "display_name_he": {
+            "maxLength": 120,
+            "title": "Display Name He",
+            "type": "string"
+          },
+          "taxonomy_id": {
+            "maxLength": 60,
+            "title": "Taxonomy Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "canonical_id",
+          "display_name_he",
+          "taxonomy_id",
+          "base_unit"
+        ],
+        "title": "PersonalRef",
+        "type": "object"
+      },
+      "PersonalSignal": {
+        "additionalProperties": false,
+        "description": "One time the person kept an exact brand or turned a substitute down, per category.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_-]{6,64}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "kept_brand",
+              "rejected_substitute"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "taxonomy_id": {
+            "maxLength": 60,
+            "title": "Taxonomy Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "taxonomy_id",
+          "kind"
+        ],
+        "title": "PersonalSignal",
+        "type": "object"
+      },
+      "PersonalState": {
+        "additionalProperties": false,
+        "properties": {
+          "dismissals": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalDismissal"
+            },
+            "maxItems": 200,
+            "title": "Dismissals",
+            "type": "array"
+          },
+          "exists": {
+            "description": "false when nothing is stored yet and these are the defaults",
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "prefs": {
+            "$ref": "#/components/schemas/PersonalPrefs"
+          },
+          "refs": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalRef"
+            },
+            "maxItems": 200,
+            "title": "Refs",
+            "type": "array"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalSignal"
+            },
+            "maxItems": 100,
+            "title": "Signals",
+            "type": "array"
+          },
+          "trips": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalTrip"
+            },
+            "maxItems": 40,
+            "title": "Trips",
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "exists"
+        ],
+        "title": "PersonalState",
+        "type": "object"
+      },
+      "PersonalTrip": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_-]{6,64}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "finished: the lines ticked off in store mode; list: a list the person cleared",
+            "enum": [
+              "finished",
+              "list"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalLine"
+            },
+            "maxItems": 60,
+            "title": "Lines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "kind",
+          "lines"
+        ],
+        "title": "PersonalTrip",
+        "type": "object"
+      },
       "Plan": {
         "additionalProperties": false,
         "properties": {
@@ -1778,6 +2273,14 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "kosher_excluded": {
+            "description": "Under a kosher filter: the canonical_ids in ``missing`` that a store of this plan sells but only in items the filter rules out",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Kosher Excluded",
+            "type": "array"
           },
           "missing": {
             "items": {
@@ -2178,6 +2681,17 @@
           "item_id": {
             "title": "Item Id",
             "type": "integer"
+          },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherLabel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Under a kosher filter: what the item's name states. Same weight as the substitute tags: show it on the line, and the warning when a level is unknown."
           },
           "line_total": {
             "title": "Line Total",
@@ -3103,6 +3617,17 @@
             "description": "Evidence for this hit; the parser's thresholds use it",
             "title": "Confidence"
           },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherHitLabel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only when a kosher filter was sent and the canonical has mapped items. A hit with status none is listed after the others (never first)."
+          },
           "matched_by": {
             "items": {
               "enum": [
@@ -3820,6 +4345,14 @@
             "title": "Items",
             "type": "array"
           },
+          "kosher_excluded": {
+            "description": "Under a kosher filter: the canonical_ids in ``missing`` that this store sells but only in items the filter rules out. Empty without a filter.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Kosher Excluded",
+            "type": "array"
+          },
           "lat": {
             "anyOf": [
               {
@@ -4035,6 +4568,17 @@
           "from_item_id": {
             "title": "From Item Id",
             "type": "integer"
+          },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherLabel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only under a kosher filter: the suggested item's label"
           },
           "saving": {
             "description": "For the requested quantity, ILS",
@@ -6230,6 +6774,152 @@
         ]
       }
     },
+    "/me/personal": {
+      "delete": {
+        "operationId": "delete_personal_me_personal_delete",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Personal",
+        "tags": [
+          "me"
+        ]
+      },
+      "get": {
+        "operationId": "get_personal_me_personal_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Personal",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "put_personal_me_personal_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonalData"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Personal",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/me/profile": {
       "get": {
         "operationId": "get_profile_me_profile_get",
@@ -7203,6 +7893,59 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "The person's kosher level; hits then carry a kosher label (see KosherHitLabel)",
+            "in": "query",
+            "name": "kosher",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "regular",
+                    "mehadrin",
+                    "badatz",
+                    "badatz_eida",
+                    "badatz_beit_yosef",
+                    "badatz_chatam_sofer",
+                    "badatz_agudat",
+                    "landau",
+                    "rabbanut_mehadrin"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The person's kosher level; hits then carry a kosher label (see KosherHitLabel)",
+              "title": "Kosher"
+            }
+          },
+          {
+            "description": "Kosher for Passover as a filter",
+            "in": "query",
+            "name": "kosher_passover",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Kosher for Passover as a filter",
+              "title": "Kosher Passover",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only items whose name states a certification that meets the filter",
+            "in": "query",
+            "name": "kosher_only_stated",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only items whose name states a certification that meets the filter",
+              "title": "Kosher Only Stated",
+              "type": "boolean"
             }
           },
           {

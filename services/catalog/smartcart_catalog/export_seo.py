@@ -20,6 +20,12 @@ stores only, promos included unless they need a club (then the row's ``noclub`` 
 or the store is left out). The unit is the canonical's base unit (per 100 g, 100 ml, unit, or kg
 for weighed goods, which are flagged estimated).
 
+Rows that cannot be a price are kept off the pages (``screen_prices``): a zero or negative unit
+price, one above the sanity cap of its unit, a store far from its own chain's other stores, a
+chain far from the other chains. They are not deleted from the database and not corrected: the
+export lists them in ``products[].withheld`` (only when there is one) so the audit and the page
+can say a price is being checked instead of showing it. Thresholds are proposals.
+
 Everything except reading the database is pure, so the same builders also run from the seed files
 (``--from-files``): categories and products without prices, no database needed.
 """
@@ -45,6 +51,18 @@ MAX_PAGES = 200
 MIN_PAGES = 50
 PRICE_LEVEL = "any_brand"
 CENT = Decimal("0.01")
+
+UNIT_CAPS: dict[str, Decimal] = {
+    "100g": Decimal(150), "100ml": Decimal(100), "unit": Decimal(300), "kg": Decimal(1000),
+}  # fmt: skip
+"""Proposal: the most a staple's unit price can plausibly be per base unit, in shekels."""
+CHAIN_RATIO = Decimal(4)
+"""Proposal: a chain's median this many times above or below the other chains' median is withheld
+(the old egg tray read as one egg was 12 times its price)."""
+STORE_RATIO = Decimal(5)
+"""Proposal: a store this many times above or below its own chain's median, in a chain with at
+least three priced stores, is withheld."""
+MIN_STORES_FOR_STORE_SCREEN = 3
 
 QUALITY_FILE = "quality.json"
 CATEGORIES_FILE = "categories.json"
@@ -82,6 +100,17 @@ class PriceRow:
     is_estimated: bool
     price_valid_from: datetime
     computed_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class Withheld:
+    """A price the export kept off the pages, and why (``reason`` is a stable code)."""
+
+    canonical_slug: str
+    chain_id: str
+    chain_name: str
+    reason: str
+    detail: str
 
 
 def category_slug(taxonomy_id: str) -> str:
@@ -139,6 +168,89 @@ def build_categories(
     }
 
 
+def _median(values: Iterable[Decimal]) -> Decimal:
+    return Decimal(statistics.median(list(values)))
+
+
+def screen_prices(
+    rows: Iterable[PriceRow], base_units: Mapping[str, str] | None = None
+) -> tuple[list[PriceRow], list[Withheld]]:
+    """Keep the rows a page may show; return the rest with the reason.
+
+    Order: a row that is not a positive finite number (``bad_price``), one above the cap of its
+    unit (``above_cap``; ``base_units`` maps a canonical slug to its unit, an unknown unit has no
+    cap), a store far from its chain's median (``store_outlier``), then a chain far from the other
+    chains (``chain_outlier``). With exactly two chains that differ by ``CHAIN_RATIO`` or more
+    nobody can tell which is right, so both are withheld (``chains_disagree``).
+    """
+    base_units = base_units or {}
+    withheld: list[Withheld] = []
+
+    def hold(r: PriceRow, reason: str, detail: str) -> None:
+        withheld.append(Withheld(r.canonical_slug, r.chain_id, r.chain_name, reason, detail))
+
+    # row level
+    cells: dict[tuple[str, str], list[PriceRow]] = defaultdict(list)
+    for r in rows:
+        unit = base_units.get(r.canonical_slug, "")
+        cap = UNIT_CAPS.get(unit)
+        if not r.unit_price.is_finite() or r.unit_price < CENT / 2:
+            hold(r, "bad_price", f"store {r.store_id}: {r.unit_price}")
+        elif cap is not None and r.unit_price > cap:
+            hold(r, "above_cap", f"store {r.store_id}: {r.unit_price} above {cap} per {unit}")
+        else:
+            cells[(r.canonical_slug, r.chain_id)].append(r)
+    # store level, within (canonical, chain)
+    by_product: dict[str, dict[str, list[PriceRow]]] = defaultdict(lambda: defaultdict(list))
+    for (slug, chain), rs in cells.items():
+        mid = _median(r.unit_price for r in rs)
+        screen = len({r.store_id for r in rs}) >= MIN_STORES_FOR_STORE_SCREEN
+        for r in rs:
+            if screen and (r.unit_price >= mid * STORE_RATIO or r.unit_price * STORE_RATIO <= mid):
+                hold(r, "store_outlier", f"store {r.store_id}: {r.unit_price} against {mid}")
+            else:
+                by_product[slug][chain].append(r)
+    # chain level, within a canonical
+    kept: list[PriceRow] = []
+    for chains in by_product.values():
+        medians = {c: _median(r.unit_price for r in rs) for c, rs in chains.items()}
+        drop: dict[str, tuple[str, str]] = {}
+        if len(medians) == 2:
+            (a, ma), (b, mb) = medians.items()
+            if max(ma, mb) >= min(ma, mb) * CHAIN_RATIO:
+                why = ("chains_disagree", f"{ma} against {mb}")
+                drop = {a: why, b: why}
+        elif len(medians) >= 3:
+            # against the median of all the chains' medians: with three chains, one wild value
+            # would otherwise drag the reference of the two honest ones up with it
+            ref = _median(medians.values())
+            for c, m in medians.items():
+                if m >= ref * CHAIN_RATIO or m * CHAIN_RATIO <= ref:
+                    drop[c] = ("chain_outlier", f"{m} against the chains' median {ref}")
+        for c, rs in chains.items():
+            if c in drop:
+                for r in rs:
+                    hold(r, *drop[c])
+            else:
+                kept += rs
+    kept.sort(key=lambda r: (r.canonical_slug, r.chain_id, r.store_id))
+    return kept, withheld
+
+
+def aggregate_withheld(items: Iterable[Withheld]) -> dict[str, list[dict[str, Any]]]:
+    """Per canonical slug, one entry per (chain, reason): what the page cannot show and why."""
+    out: dict[str, dict[tuple[str, str], dict[str, Any]]] = defaultdict(dict)
+    for w in items:
+        entry = out[w.canonical_slug].setdefault(
+            (w.chain_id, w.reason),
+            {"chain_id": w.chain_id, "chain_name": w.chain_name, "reason": w.reason,
+             "detail": w.detail, "rows": 0},
+        )  # fmt: skip
+        entry["rows"] += 1
+    return {slug: sorted(d.values(), key=lambda e: (e["chain_id"], e["reason"]))
+            for slug, d in out.items()}  # fmt: skip
+
+
 def aggregate_prices(rows: Iterable[PriceRow]) -> dict[str, dict[str, Any]]:
     """Per canonical slug: ``{"prices": [per chain], "price_valid_from": iso}``.
 
@@ -181,6 +293,7 @@ def build_products(
     categories: Mapping[str, Any],
     generated_at: datetime,
     max_pages: int = MAX_PAGES,
+    withheld: Mapping[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     names = {n.id: n.name_he for n in taxonomy}
     ordered = sorted(canonicals, key=lambda c: (c.rank is None, c.rank or 0, c.slug))
@@ -202,6 +315,7 @@ def build_products(
                 }
             )
         priced = prices.get(c.slug)
+        held = (withheld or {}).get(c.slug)
         products.append(
             {
                 "slug": c.slug,
@@ -216,12 +330,14 @@ def build_products(
                 "no_prices_yet": priced is None,
                 "prices": priced["prices"] if priced else None,
                 "price_valid_from": priced["price_valid_from"] if priced else None,
+                **({"withheld": held} if held else {}),
             }
         )
     return {
         "generated_at": _iso(generated_at),
         "count": len(products),
         "page_count": len(with_page),
+        **({"withheld_count": sum(len(v) for v in withheld.values())} if withheld else {}),
         "priced_count": sum(1 for p in products if not p["no_prices_yet"]),
         "products": products,
     }
@@ -342,6 +458,7 @@ class ExportResult:
     categories: dict[str, Any]
     products: dict[str, Any]
     quality: dict[str, Any] | None
+    withheld: tuple[Withheld, ...] = ()
 
     @property
     def pages(self) -> int:
@@ -363,9 +480,11 @@ def export_seo(
     (the seed-file mode has no ``match_runs``)."""
     now = now or datetime.now(UTC)
     categories = build_categories(taxonomy, canonicals, now)
+    kept, held = screen_prices(prices, {c.slug: c.base_unit for c in canonicals})
     products = build_products(
-        canonicals, taxonomy, aggregate_prices(prices),
+        canonicals, taxonomy, aggregate_prices(kept),
         categories=categories, generated_at=now, max_pages=max_pages,
+        withheld=aggregate_withheld(held),
     )  # fmt: skip
     write_json(out / CATEGORIES_FILE, categories)
     write_json(out / PRODUCTS_FILE, products)
@@ -373,7 +492,7 @@ def export_seo(
     if write_quality:
         quality = build_quality(quality_row, now)
         write_json(out / QUALITY_FILE, quality)
-    return ExportResult(categories, products, quality)
+    return ExportResult(categories, products, quality, tuple(held))
 
 
 def export_from_db(

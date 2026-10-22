@@ -18,6 +18,7 @@ import { PlanHandoff } from "@/features/handoff/PlanHandoff";
 import { formatRich } from "@/i18n/format";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { compareMessages } from "@/i18n/messages/compare";
+import { kosherMessages } from "@/i18n/messages/kosher";
 import { sharedMessages } from "@/i18n/messages/shared";
 import { formatStoreDistance } from "@/lib/format";
 import { chainLabel, storeLabel } from "@/lib/storeName";
@@ -43,6 +44,7 @@ function chainList(plan: Plan, locale: Locale) {
  */
 export function PlanCard({ plan, home, names }: PlanCardProps) {
   const t = useT(compareMessages);
+  const kosher = useT(kosherMessages);
   const shared = useT(sharedMessages);
   const { locale } = useLocale();
   const [showMissing, setShowMissing] = useState(false);
@@ -239,7 +241,10 @@ export function PlanCard({ plan, home, names }: PlanCardProps) {
             <li key={id}>
               <IconClose size={13} />
               {names.get(id) ?? t("missingFallback", { id })}
-              <span className={styles.missingNote}> · {t("missingNote")}</span>
+              <span className={styles.missingNote}>
+                {" · "}
+                {plan.kosher_excluded?.includes(id) ? kosher("missingNote") : t("missingNote")}
+              </span>
             </li>
           ))}
         </ul>

@@ -115,6 +115,8 @@ describe("profile", () => {
       vegan: true,
       glutenFree: false,
       kosherLevel: "mehadrin",
+      kosherOnlyStated: false,
+      kosherPassover: false,
       allergens: ["sesame"],
     });
   });

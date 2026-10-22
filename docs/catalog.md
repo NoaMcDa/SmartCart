@@ -26,6 +26,7 @@ data/canonicals.yaml ─┘
 | Command line | `smartcart-catalog` (`cli.py`) |
 | Recipe parser (phase 3, #71) | `services/catalog/smartcart_catalog/recipe.py`, section 7 |
 | Expansion backlog and active learning (#52) | `services/catalog/smartcart_catalog/active.py`, `cli_growth.py`, `supabase/queries/catalog_backlog.sql`, section 9 |
+| Proposals for new canonicals (#52) | `services/catalog/smartcart_catalog/proposals.py`, `proposals_packet.py`, `data/proposals/`, section 10 |
 | Promo cycles (phase 3, #69) | `services/catalog/smartcart_catalog/promo_cycles.py`, `cli_promo.py`, section 8 and [promo-cycles.md](promo-cycles.md) |
 | Tables | `supabase/migrations/20261007100000_catalog_v1.sql` |
 
@@ -191,7 +192,10 @@ appear as rows on `/c/beverages-plant_drinks`, not as pages of their own.
 
 Kosher and diet flags are **not** critical keys: the chain files do not carry them
 structurally, so extracted values are always unverified (`ALWAYS_UNVERIFIED`) and cannot gate a
-match. They are user preference filters (features.md) instead. This differs from the glossary in
+match. They are user preference filters (features.md) instead. Kosher is read from
+explicit words in the name only and filtered per item at price time, never at match time:
+[matching.md](matching.md#kosher-what-a-name-states-and-a-filter-that-never-guesses) and
+`smartcart_catalog/kosher.py`. This differs from the glossary in
 `docs/README.md`, which lists "kosher level" among critical attributes.
 
 **Validation** (`seed.py`): critical attributes name exactly the type's critical keys, values pass the
@@ -372,7 +376,8 @@ manufacturer and raw name from each `NormalizedItem`):
 - `RuleExtractor` (`extract/rule.py`), the default (`EXTRACTOR=rule`): keyword tables from
   `product_type_rules.yaml` pick the product type (whole-word match, longest keyword wins, excludes
   veto), regexes read the fat percentage (not cocoa or juice percentages), keyword lists give state,
-  flavor, kosher text and diet flags, a brand list and per-chain private-label lists give brand and
+  flavor, kosher text (the marks the name states, `kosher.py`: 'בד"ץ, כשר לפסח') and diet flags, a
+  brand list and per-chain private-label lists give brand and
   `is_private_label`. For plant drink types it fills `base` from the name (סויה or סוייה,
   שקדים, שיבולת שועל, אורז, קוקוס; the first one wins, and one right after "בטעם" is a flavor,
   not a base) or from the type itself; an untyped name that says it is a drink, a "milk" or a
@@ -429,6 +434,8 @@ uv run smartcart-catalog promo-cycles CANONICAL [--club NAME ...] [--as-of YYYY-
 uv run smartcart-catalog promo-backtest [--synthetic] [--min-windows N] [--days N]
 uv run smartcart-catalog backlog [--top N] [--days N] [--min-similarity X]   # what to add next (section 9)
 uv run smartcart-catalog native-report [--weeks N] [--out FILE]              # decision D15 numbers (#56)
+uv run smartcart-catalog propose-canonicals [--out DIR] [--top N] [--source db|fixtures]   # new canonicals (section 10)
+uv run smartcart-catalog proposals-import FILLED.csv --reviewer NAME [--date D]            # the reviewer's answers
 ```
 
 | Variable | Default | |
@@ -580,7 +587,8 @@ units differ.
    carry them (a chain base price counts every physical store of the chain, a per-store price
    counts that store; one chain counts once per product), then by number of chains.
 
-Use: take the top of both lists weekly, write the next batch of canonicals into
+Use: take the top of both lists weekly (the uncovered products also feed `propose-canonicals`,
+section 10, which drafts the canonical definitions from them), write the next batch of canonicals into
 `data/canonicals.yaml` (and `data/taxonomy.yaml` if a category is missing), run `seed`,
 `extract`, `embed`, `judge`, then the gold-set evaluation (`docs/matching.md`) before the batch
 goes live. The cut line (how many rows per batch) is the owner's: the query ranks, it does not
@@ -624,3 +632,186 @@ Regression gate unchanged: the gold-set evaluation (`docs/matching.md`) decides 
 ships, and "any brand" precision under 98% blocks it. Selection changes which pairs a human sees,
 not what the judge writes, so it cannot move the evaluation numbers (verified: identical after
 this change).
+
+## 10. Proposals for new canonicals from real unmapped items (#52)
+
+On one real day about 99,600 items were loaded and about 21,500 mapped to the 245 canonicals
+(`real-day-dry-run.md`). The backlog (section 9) ranks the unmapped products but proposes nothing.
+`smartcart-catalog propose-canonicals` finds the frequent unmapped products across chains and drafts a
+canonical for each top group **from the members' own data and the existing rule extractor**, as a
+review packet like the one for #15 (`review-packet.md`). It is read-only and a proposal is a machine
+suggestion: **no precision is measured**, nothing edits `data/canonicals.yaml`, and a reviewer signs off
+(#15). Labels follow `docs/README.md`: **measured** is read from data, **estimate** is a judgement.
+
+```bash
+uv run smartcart-catalog propose-canonicals --out dist/proposals --top 150     # the items of $DATABASE_URL
+uv run smartcart-catalog propose-canonicals --source fixtures --out /tmp/p     # the committed real files, no database
+uv run smartcart-catalog proposals-import filled.csv --reviewer "Dana Cohen"   # the reviewer's answers
+```
+
+Options: `--min-chains 2`, `--min-cohesion 0.5`, `--near-duplicate 0.90`, `--per-chain 2` (examples per
+chain), `--date`. It writes `canonical-proposals.html`, `.csv` (UTF-8 with a BOM) and `.json`.
+
+### Method (all deterministic, no network; code in `proposals.py`)
+
+1. **Items.** Unmapped means no `item_canonical` row that a human has not rejected (the backlog's
+   definition); the synthetic `gold` chain is skipped. Each item carries the stores that sell it (a chain
+   base price counts every physical store of the chain, as in the backlog, so with few downloaded files
+   per chain this overstates the stores; it is a relative signal), its latest price and its number of
+   price events. `--source fixtures` reads the 200-row real files instead (one store each).
+2. **Prepare.** `normalize` and the rule extractor (the code of `normalize` and `extract --extractor
+   rule`). The *core name* is the cleaned name without sizes, units, packaging words, the brand and the
+   chain's own name; a percentage stays. The brand lexicon is built from the data: the first word of a
+   manufacturer that at least three items share, the extractor's known brands and the private labels,
+   minus every product-type keyword and taxonomy word (so "מים" is never taken for a brand). The last
+   word of a name a chain cut at its fixed width (`normalize.NAME_LIMITS`) is dropped as a fragment.
+3. **Barcode first.** Items with the same valid barcode form one product across chains. Valid means 8, 12,
+   13 or 14 digits with a correct GS1 check digit (a chain-internal code is not a barcode; leading zeros
+   are ignored). A member whose name shares almost nothing with the others (hash-embedding cosine under
+   0.20) is split off and counted (`barcode_conflicts`): a wrong barcode in one chain's file must not merge
+   two products.
+4. **Concept groups.** A canonical is a concept, not an SKU. Products the extractor typed with the same
+   product type, the same critical values and the same base unit are one group (the catalog's definition
+   of "same at any brand"). Untyped products are grouped by their exact core name (word order ignored),
+   then near duplicates are merged: hash-embedding cosine at least 0.90, or a name that is the cut prefix
+   of another. Attributes keyed for an untyped group are only state and plant base: a flavor word or a percentage in an
+   untyped name stays in the name, because for an unknown type a percentage can be sugar, tomato or alcohol.
+5. **Not proposed** (and counted, with samples, in the JSON): a typed group whose product type already has a
+   canonical with those critical values (`matching_gaps`: the items are unmapped because of the judge or
+   blocking, a matching question, not a catalog gap); a typed group whose critical value no name states
+   (`missing_critical`: a canonical needs it), or says only "something else" (`unspecific_critical`: a flavor
+   `other` or `milk+other`); a group with the same type and critical values as a wider one in another unit
+   (`same_type_other_unit`: `seed` allows one canonical, the other unit is named in the notes); a group sold by one chain (`below_min_chains`, default
+   `--min-chains 2`: a canonical exists to compare prices across chains); a group whose names are not alike
+   enough (`low_cohesion`); a group with no base unit. Precision over recall.
+6. **Rank.** `priority` = 0.30 chains selling it (share of the chains in the data) + 0.15 barcodes sold at two
+   or more chains (capped at 5) + 0.20 stores (share of the largest candidate) + 0.15 basket weight of its
+   department + 0.10 price events (log scale) + 0.10 search misses naming it (capped at 10; the words of a
+   missed query must all be among the group's words). The components are measured and printed per proposal
+   in the JSON; **the weights and the department weights (dairy, meat, produce, bakery, pantry 1.0 down to
+   0.3 for health, pets, alcohol, holiday and unknown) are an estimate**, a judgement, not fitted to anything.
+7. **Derive the definition.** Name: the core name most widely sold in the group (for a typed group, the words
+   at least half of its products share). Taxonomy node, product type and base unit: the extractor's output by
+   majority (at least 60 % of the members that state one). Critical attributes: the group's key, i.e. what the
+   names state. Soft attributes: the typical pack size, only when at least 35 % of the members share one size
+   and the type's soft keys allow it. **A value no member states is left empty and listed under `uncertain`
+   with the reason; nothing is invented** (no Arabic name, brand, kosher flag or critical value).
+
+A proposal is a **variant** (an existing product type, critical values no canonical has yet; `seed`-valid once
+an Arabic name is added) or a **new type** (the extractor knows no product type: the packet shows a suggested
+slug from a rough transliteration, taxonomy candidates by node-name words, and the observed critical values;
+the reviewer chooses the node, the type and which attributes are critical).
+
+### The packet and what each row shows
+
+Per proposal: rank and `priority` (estimate), the Hebrew name, slug, taxonomy node (or candidates), product
+type, base unit, critical and soft attributes with the uncertain fields marked, the **coverage gain**
+(chains, stores, unmapped items, products, products with a barcode at two or more chains, price events,
+search misses, share of all unmapped items), up to two real items per chain (name, barcode, size, shekel
+price; items with a shared barcode first), and `decision` (accept, edit or reject; the Hebrew words and a
+leading tick box are read), `comment`, `edit_*` columns and `names_ar`. **The coverage gain is an upper
+bound**: it is how many items would have a canonical to be compared with, but whether each maps is still the
+judge's decision, so after a batch is accepted run `seed`, `extract`, `embed`, `judge` and
+`evaluate --fail-below 0.98` (`matching.md`) and report precision per flexibility level.
+
+### Import: additions in a separate file, never merged
+
+`proposals-import` validates the filled CSV (every problem at once: an unreadable decision, an `edit` with
+nothing edited, `edit_*` values on an `accept`, a proposal column changed instead of its `edit_*` column,
+detected by `row_hash`; rows with no decision are *pending*, a reviewer may stop early) and writes
+`data/proposals/canonicals-additions-<date>.yaml`: the accepted and edited rows as `canonicals` (ranks
+appended after the current last rank), a rule stub under `product_type_rules` for each new type (critical keys
+= the reviewer's critical attributes, soft keys pack size and brand, keyword = the name), and `rejected` rows
+with their comments so they are not proposed again. It refuses to overwrite without `--force`. **It never
+edits `canonicals.yaml`, the rules or the taxonomy.** Then it applies the additions to a scratch copy of the
+three seed files and runs the real `seed` loader (`seed.load_catalog`), printing every problem. What `seed`
+requires of an addition, and what this means in practice:
+
+- **`names_ar` (1 to 3 Arabic names) is mandatory and cannot be derived from chain data**; the reviewer or a
+  native speaker supplies it (column `names_ar`, names separated by `|`). Each name must state the critical
+  attributes (`seed.validate_names_ar`). The Arabic lexicon (`normalize._AR_FLAVOR_WORDS`) has no word for
+  most new flavors (banana, mango, ...): a new-flavor variant fails with "must state the flavor" until that
+  lexicon is extended (the Arabic matching owner's file; not changed here).
+- **The MVP range is 150 to 300 canonicals** (`seed.MAX_CANONICALS`; the research's plan, not a measurement).
+  With 245 today, 56 accepted additions fail the check. Raising the limit is the owner's decision.
+- The taxonomy node must exist and be a product-type node (level 3 or 4); a new node is added to
+  `taxonomy.yaml` by hand. Two canonicals of one type need different critical values.
+- A person applies the file by hand, then `seed --check`, `seed`, `evaluate`, `export-seo --from-files`
+  (`review-packet.md`, section 4).
+
+### Real data
+
+`scripts/unblock/real_day.py run ... --proposals-out DIR --proposals-top 150` runs the command after the
+catalog stage, before the stress variant marks machine suggestions accepted (so "unmapped" is what production
+would see), adds a section to the report and keeps the packet in the `real-day-report` artifact;
+`.github/workflows/real-day.yml` passes it, and `commit_report` also pushes the packet to
+`real-day/report-<run id>`.
+
+#### The run on real data (2026-10-22, measured)
+
+Real day run [39806015065](https://github.com/NoaMcDa/SmartCart/actions/runs/39806015065) (commit `e2ee65d`,
+dispatched on this branch with `commit_report`; the packet is on `real-day/report-39806015065`). Six
+chains had files (King Store 8,396 items, Yohananof 13,721, Shufersal 14,437, Tiv Taam 25,925, Rami Levy
+18,315, Osher Ad 8,679). The stage took 102 s on the runner (after `judge`, 210 s, and `embed`, 280 s).
+
+| | Items | Groups |
+|---|---|---|
+| Loaded | 89,473 | |
+| Mapped by the rule judge (any level, review queue included) | 19,314 (21.6 %) | |
+| Not mapped | 70,159 | |
+| Of them with a valid GS1 barcode | 66,437 (11,262 barcodes at two or more chains; 1,664 members split off as a wrong barcode) | 46,904 products |
+| After grouping | | 28,985 groups |
+| Not a catalog gap: the type already has a canonical with those values | 9,009 | 441 |
+| Critical value no name states | 5,093 | 296 |
+| Critical value "other" or "milk+other" | 264 | 20 |
+| Same type and values as a kept group, other unit | 108 | 13 |
+| Sold by one chain | 24,206 | 20,405 |
+| Names not alike (cohesion under 0.5) | 1,595 | 12 |
+| No base unit | 1,005 | 336 |
+| **Candidates** (two or more chains, well formed) | 28,469 (40.6 % of the unmapped) | 7,475 |
+| **Top 150 proposed** (50 variants, 100 new types) | up to 2,356 items (3.4 %), 3,891 stores | 150 |
+
+Reading the numbers (the reading is mine; none is a precision):
+
+- **The catalog gap is large and long-tailed.** 7,475 candidate groups cover 41 % of the unmapped items;
+  150 proposals cover only 3.4 %, because each real group is small (a product at six chains is a handful of
+  items). A reviewer is the bottleneck: the top 150 is about an hour of reading at 30 seconds a row
+  (an estimate), and the proposals follow the same order the packet ranks them in.
+- **Most unmapped items are sold by one chain** (24,206 of 70,159): non-food, clothing and house goods that a
+  cross-chain canonical does not help. The default `--min-chains 2` leaves them out on purpose.
+- **A matching question, not a catalog gap, hides behind 9,009 items** (441 groups): the extractor gave them a
+  product type that has a canonical, and the judge did not map them. Many are keyword mistakes (a cheese
+  spread with garlic typed as `garlic`, a herbal tea typed as `tea_black`; the biggest group is 304 items typed
+  `chocolate_milk`). That list (`stats.matching_gaps` in the JSON, first ten) is input for the matching work, not for
+  this packet.
+- **The top of the list is plausible to a non-reviewer's eye**: cooking cream 15 %, bulgarian cheese 16 %,
+  Gouda, frozen strawberries and mango, white chocolate (211 items, 56 barcodes at several chains), spicy
+  hummus, plain yogurt 0 % and 4 %, cottage cheese 9 %, almond flour, cornflour, chili and teriyaki sauce,
+  sesame. Weaker ones are named in the notes of the row: a name from a single product may carry its brand
+  ("דניאלה תות"), a flavor the extractor misread (`דניאלה תות` has `flavor: cheese`), diapers (a category section 2 left out on purpose because size classes need their own
+  attributes) and a few types whose keyword is too loose. The reviewer rejects those; the import keeps the
+  reason.
+- **Two defects were found by the first real run and fixed**: flavors `other` and `milk+other` became proposals no
+  canonical can be (now excluded: `unspecific_critical`); a percentage in an untyped name was read as fat
+  ("20 % פחות סוכר", tomato content 22 %), now it stays in the name only. Answering the first packet found a third: bulgarian cheese
+  16 % was proposed twice (packed, per 100 g, and weighed, per kg), which `seed` rejects as indistinguishable
+  at any brand; now one proposal per type and critical values, with the other unit named in its notes.
+- **End to end on the real packet**: accepting the cooking cream and the bulgarian cheese, and editing the
+  almond flour into a new type, with Arabic names filled in, gives a file that the scratch `seed` check accepts
+  (248 canonicals). The same check with a new banana-flavored yogurt fails with "must state the flavor": the
+  Arabic lexicon has no banana.
+
+A trimmed sample of the real packet (top 30, the full columns, importable) is
+`data/proposals/proposals-real-2026-10-22-top30.csv`, so a reviewer can start; the whole 150 rows, the HTML
+page and the JSON with the excluded samples are on the report branch above and in the artifact for 30 days.
+**It is real chain data of one day from six chains, a measurement of the catalog gap and not a sample of
+anything**; the stores column uses the backlog's definition (a base price counts every physical store of the
+chain) over the few store files that run downloaded.
+
+### Tests
+
+`services/catalog/tests/test_proposals_engine.py` (barcode grouping across chains and its guards, core names,
+variants and gaps, nothing invented, ranking, determinism, invariants on the committed real fixtures),
+`test_proposals_packet.py` (CSV and HTML, the import, the seed check in a scratch copy, the CLI) and
+`test_proposals_db.py` (unmapped items, stores, price events and misses from a database);
+`scripts/unblock/tests/test_real_day.py` for the report summary.
