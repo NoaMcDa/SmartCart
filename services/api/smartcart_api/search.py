@@ -173,6 +173,74 @@ def _fts(conn: psycopg.Connection, q: str, k: int) -> Ranked:
     return scored[:k]
 
 
+HNSW_EF_SEARCH_MIN = 100
+"""``hnsw.ef_search`` for the nearest-neighbour steps: the size of the candidate list the HNSW scan
+keeps. pgvector's default (40) is below the steps' LIMIT (80), and an index scan returns at most
+``ef_search`` rows unless iterative scans are on, so the steps would silently return half."""
+
+
+def _vector_sql(lang: str | None = None) -> str:
+    """The vector retriever's one statement (named parameters ``v``, ``model``, ``k``, ``k4``, ``min``).
+
+    Every nearest-neighbour step is ``ORDER BY <column> <=> %(v)s::vector LIMIT n`` straight on its
+    table, with the query vector as a bind parameter: that is the shape an HNSW index can serve
+    (the planner needs a constant on the right of ``<=>``; pgvector's operator is only an index
+    ordering when it is). The vector used to come from a ``WITH qv AS (SELECT %(v)s::vector)`` CTE
+    joined to the table; a CTE used twice is materialized, so the vector was a column of another
+    relation, the index could not order by it, and every row of ``item_embeddings`` was read and
+    top-N sorted (0.5 to 0.9 s a query at 100k items, docs/real-day-dry-run.md). The nearest items
+    are limited in their own subquery, before the join to ``item_canonical`` that maps them to
+    canonicals. ``tests/test_api_search_plan.py`` fails if a step loses its index.
+    """
+    ar = lang == "ar"
+    return (
+        "WITH direct AS ("
+        "   SELECT c.id AS canonical_id, 1 - (c.embedding <=> %(v)s::vector) AS s"
+        "   FROM canonical_products AS c WHERE c.embedding IS NOT NULL"
+        "     AND c.embedding_model = %(model)s"
+        "   ORDER BY c.embedding <=> %(v)s::vector LIMIT %(k)s),"
+        + (
+            " names_ar AS ("
+            "   SELECT canonical_id, max(s) AS s FROM ("
+            "     SELECT n.canonical_id, 1 - (n.embedding <=> %(v)s::vector) AS s"
+            "     FROM canonical_name_embeddings AS n"
+            "     WHERE n.lang = 'ar' AND n.embedding_model = %(model)s"
+            "     ORDER BY n.embedding <=> %(v)s::vector LIMIT %(k4)s) AS near_names"
+            "   GROUP BY canonical_id ORDER BY s DESC LIMIT %(k)s),"
+            if ar
+            else ""
+        )
+        + " via_items AS ("
+        "   SELECT ic.canonical_id, max(n.s) AS s FROM ("
+        "     SELECT e.item_id, 1 - (e.embedding <=> %(v)s::vector) AS s"
+        "     FROM item_embeddings AS e WHERE e.model = %(model)s"
+        "     ORDER BY e.embedding <=> %(v)s::vector LIMIT %(k4)s) AS n"
+        "   JOIN item_canonical AS ic ON ic.item_id = n.item_id"
+        "   WHERE ic.flex_level IN ('exact', 'any_brand') AND NOT ic.human_rejected"
+        "     AND NOT ic.needs_review GROUP BY ic.canonical_id)"
+        " SELECT canonical_id, max(s) AS s FROM (SELECT * FROM direct UNION ALL"
+        + ("   SELECT * FROM names_ar UNION ALL" if ar else "")
+        + "   SELECT * FROM via_items) AS u"
+        " WHERE s >= %(min)s GROUP BY canonical_id ORDER BY s DESC, canonical_id LIMIT %(k)s"
+    )
+
+
+_HNSW_SETTINGS_SQL = (
+    "SELECT set_config('hnsw.ef_search', %s, true),"
+    # Iterative scans (pgvector 0.8+) keep scanning until the LIMIT is met after the ``model``
+    # filter (``relaxed_order``: rows within one batch may be slightly out of distance order, every
+    # consumer sorts; ``strict_order`` is several times slower); older versions lack the setting.
+    "  (SELECT set_config('hnsw.iterative_scan', 'relaxed_order', true) FROM pg_extension"
+    "   WHERE extname = 'vector' AND string_to_array(extversion, '.')::int[] >= '{0,8}')"
+)
+
+
+def hnsw_settings(conn: psycopg.Connection, k: int) -> None:
+    """Transaction-local HNSW settings for the retriever's nearest-neighbour steps (``SET LOCAL``
+    semantics, so they also hold behind a transaction pooler and never leak to other requests)."""
+    conn.execute(_HNSW_SETTINGS_SQL, (str(max(HNSW_EF_SEARCH_MIN, k * 8)),))
+
+
 def _vector(conn: psycopg.Connection, q: str, k: int, lang: str | None = None) -> Ranked:
     """Cosine similarity, only against vectors made by the query embedder's model.
 
@@ -186,38 +254,15 @@ def _vector(conn: psycopg.Connection, q: str, k: int, lang: str | None = None) -
     canonicals whose ``embedding_model`` and items whose ``item_embeddings.model`` equal its
     ``model_name`` are compared. A canonical with a NULL ``embedding_model`` is skipped: its
     model is unknown; the catalog's ``embed`` job fills the column (it re-embeds such rows).
+
+    The nearest-neighbour steps are served by the HNSW indexes where the planner finds that
+    cheaper (``_vector_sql``); on a few thousand rows a sequential scan is exact and as fast.
     """
     embedder = query_embedder()
     vec = to_pgvector(embedder.embed_one(q))
+    hnsw_settings(conn, k)
     rows = conn.execute(
-        "WITH qv AS (SELECT %(v)s::vector AS v),"
-        " direct AS ("
-        "   SELECT c.id AS canonical_id, 1 - (c.embedding <=> qv.v) AS s"
-        "   FROM canonical_products AS c, qv WHERE c.embedding IS NOT NULL"
-        "     AND c.embedding_model = %(model)s"
-        "   ORDER BY c.embedding <=> qv.v LIMIT %(k)s),"
-        " near_items AS ("
-        "   SELECT e.item_id, 1 - (e.embedding <=> qv.v) AS s"
-        "   FROM item_embeddings AS e, qv WHERE e.model = %(model)s"
-        "   ORDER BY e.embedding <=> qv.v LIMIT %(k4)s),"
-        + (
-            " names_ar AS ("
-            "   SELECT n.canonical_id, max(1 - (n.embedding <=> qv.v)) AS s"
-            "   FROM canonical_name_embeddings AS n, qv"
-            "   WHERE n.lang = 'ar' AND n.embedding_model = %(model)s"
-            "   GROUP BY n.canonical_id ORDER BY s DESC LIMIT %(k)s),"
-            if lang == "ar"
-            else ""
-        )
-        + " via_items AS ("
-        "   SELECT ic.canonical_id, max(n.s) AS s FROM near_items AS n"
-        "   JOIN item_canonical AS ic ON ic.item_id = n.item_id"
-        "   WHERE ic.flex_level IN ('exact', 'any_brand') AND NOT ic.human_rejected"
-        "     AND NOT ic.needs_review GROUP BY ic.canonical_id)"
-        " SELECT canonical_id, max(s) AS s FROM (SELECT * FROM direct UNION ALL"
-        + ("   SELECT * FROM names_ar UNION ALL" if lang == "ar" else "")
-        + "   SELECT * FROM via_items) AS u"
-        " WHERE s >= %(min)s GROUP BY canonical_id ORDER BY s DESC, canonical_id LIMIT %(k)s",
+        _vector_sql(lang),
         {"v": vec, "k": k, "k4": k * 4, "min": VECTOR_MIN, "model": embedder.model_name},
     ).fetchall()
     return [(r[0], float(r[1]), float(r[1])) for r in rows]
