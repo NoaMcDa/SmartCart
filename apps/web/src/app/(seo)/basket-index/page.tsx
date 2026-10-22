@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { JsonLd } from "@/features/seo/components";
 import { absoluteUrl, BASKET_INDEX_PATH } from "@/features/seo/config";
-import { getBasketIndex, publishedMonths } from "@/features/seo/data";
+import { basketShowsDraft, getBasketIndex, shownMonths } from "@/features/seo/data";
 import { isoDate } from "@/features/seo/format";
 import { breadcrumbList, webPageJsonLd } from "@/features/seo/jsonld";
 import { BasketIndexContent } from "@/features/seo/PageContents";
@@ -12,16 +12,21 @@ const TITLE = "מדד הסל החודשי";
 const DESCRIPTION =
   "כמה עולה סל קבוע של מוצרי יסוד בכל רשת סופר בישראל, מדי חודש. הסל מפורסם, השיטה מתועדת, והמספרים נבדקים לפני הפרסום.";
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  alternates: { canonical: absoluteUrl(BASKET_INDEX_PATH) },
-  openGraph: { title: TITLE, description: DESCRIPTION, type: "article", locale: "he_IL" },
-};
+export function generateMetadata(): Metadata {
+  // A preview build that shows a draft month must never be indexed.
+  const showsDraft = basketShowsDraft();
+  return {
+    title: TITLE,
+    description: DESCRIPTION,
+    alternates: { canonical: absoluteUrl(BASKET_INDEX_PATH) },
+    openGraph: { title: TITLE, description: DESCRIPTION, type: "article", locale: "he_IL" },
+    robots: showsDraft ? { index: false, follow: false } : undefined,
+  };
+}
 
 export default function Page() {
   const index = getBasketIndex();
-  const months = publishedMonths(index);
+  const months = shownMonths(index);
   const [latest, ...history] = months;
   const updatedAt = latest?.price_date ?? latest?.computed_at ?? index.generated_at;
   const crumbs = [

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { PREVIEW_DRAFTS } from "./config";
 import { sitemapEntries } from "./sitemap-entries";
 import {
+  basketShowsDraft,
   categoryPages,
   childCategories,
   getBasketIndex,
@@ -11,6 +13,7 @@ import {
   productPages,
   productsIn,
   publishedMonths,
+  shownMonths,
 } from "./data";
 
 describe("generated SEO data (public/seo)", () => {
@@ -66,6 +69,21 @@ describe("generated SEO data (public/seo)", () => {
     expect(index.basket.items).toHaveLength(25);
     expect(publishedMonths({ ...index, months: [{ ...fakeMonth, status: "draft" }] })).toEqual([]);
     expect(publishedMonths({ ...index, months: [fakeMonth] })).toHaveLength(1);
+  });
+
+  it("a draft month is shown only in a preview build, which is then noindex and unlisted", () => {
+    const index = getBasketIndex();
+    const draft = { ...index, months: [{ ...fakeMonth, status: "draft" as const }] };
+    const published = { ...index, months: [fakeMonth] };
+    expect(shownMonths(draft, false)).toEqual([]);
+    expect(shownMonths(draft, true)).toHaveLength(1);
+    expect(basketShowsDraft(draft, false)).toBe(false);
+    expect(basketShowsDraft(draft, true)).toBe(true);
+    // a published month is never a draft, with the preview on or off
+    expect(basketShowsDraft(published, true)).toBe(false);
+    expect(shownMonths(published, false)).toHaveLength(1);
+    // the build that ran this test is not a preview build
+    expect(PREVIEW_DRAFTS).toBe(false);
   });
 
   it("quality.json says whether a measurement exists", () => {

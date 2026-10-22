@@ -65,8 +65,12 @@ describe("methodology page (#21)", () => {
   it("shows the quality metric from quality.json, not hand-typed text", () => {
     render(<MethodologyPage />);
     const q = getQuality();
-    expect(q.available).toBe(true);
-    if (!q.available) return;
+    if (!q.available) {
+      // an export without an evaluation (a real day) shows no number instead of a stale one
+      expect(screen.getByText("איכות ההתאמה טרם נמדדה.")).toBeInTheDocument();
+      expect(screen.queryByTestId("quality-metric")).toBeNull();
+      return;
+    }
     const metric = screen.getByTestId("quality-metric");
     expect(metric.textContent).toContain(percentDown(q.precision.any_brand ?? 0));
     expect(metric.textContent).toContain("מההחלפות נכונות בסט ההערכה");

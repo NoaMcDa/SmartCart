@@ -1,5 +1,5 @@
 import { absoluteUrl, SITE_NAME } from "./config";
-import { PER_UNIT } from "./format";
+import { isoDate, PER_UNIT } from "./format";
 import type { BaseUnit, Category, Product } from "./types";
 
 /** schema.org structured data builders. Every URL is absolute (NEXT_PUBLIC_SITE_URL). */
@@ -52,6 +52,7 @@ export function productJsonLd(product: Product, url: string): JsonLd {
       "@type": "Offer",
       price: p.median_unit_price,
       priceCurrency: "ILS",
+      validFrom: isoDate(p.price_valid_from),
       description: `מחיר ${PER_UNIT[product.base_unit]}, חציון בין סניפי הרשת`,
       priceSpecification: {
         "@type": "UnitPriceSpecification",

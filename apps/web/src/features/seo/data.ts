@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { PREVIEW_DRAFTS } from "./config";
 import type {
   BasketIndexFile,
   BasketMonth,
@@ -63,4 +64,24 @@ export function productsIn(category: Category): Product[] {
 /** Months the reviewer published, newest first. Drafts are never shown. */
 export function publishedMonths(index: BasketIndexFile = getBasketIndex()): BasketMonth[] {
   return index.months.filter((m) => m.status === "published");
+}
+
+/**
+ * The months the basket-index page shows: the published ones, and only in a preview build
+ * (`SEO_PREVIEW_DRAFTS=1`, never a deploy build: config.ts) the drafts too, which the page then
+ * labels as drafts. Newest first.
+ */
+export function shownMonths(
+  index: BasketIndexFile = getBasketIndex(),
+  previewDrafts: boolean = PREVIEW_DRAFTS,
+): BasketMonth[] {
+  return previewDrafts ? index.months : publishedMonths(index);
+}
+
+/** True when the basket-index page would show a draft month: it is then `noindex` and not in the sitemap. */
+export function basketShowsDraft(
+  index: BasketIndexFile = getBasketIndex(),
+  previewDrafts: boolean = PREVIEW_DRAFTS,
+): boolean {
+  return shownMonths(index, previewDrafts).some((m) => m.status !== "published");
 }

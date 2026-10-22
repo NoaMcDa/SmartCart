@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, FlexChip, IconChevronNext, IconInfo, Price, Tag } from "@/components/ui";
 import type { FlexLevel } from "@/components/ui";
 import { useRich } from "@/i18n/format-2";
@@ -128,13 +128,43 @@ export function ListBuilderCta({
   );
 }
 
+/**
+ * Wrapper of a table that may be wider than the screen. Real data decides that (a long chain name,
+ * a weighed-goods tag, a date column on a 390 px phone), so it is measured: when the table scrolls
+ * sideways the wrapper becomes a focusable named region, which keyboard users need to scroll it
+ * (WCAG 2.1.1; axe `scrollable-region-focusable`). A table that fits adds no tab stop.
+ */
+export function ScrollRegion({ label, children }: { label: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setScrolls(el.scrollWidth > el.clientWidth + 1);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className={styles.tableWrap}
+      {...(scrolls ? { tabIndex: 0, role: "region", "aria-label": label } : {})}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** Per-chain unit prices of one product. */
 export function PriceTable({ prices, unit }: { prices: ChainPrice[]; unit: BaseUnit }) {
   const t = useT(seoMessages);
   const { locale } = useLocale();
   const unitText = perUnit(unit, locale);
   return (
-    <div className={styles.tableWrap}>
+    <ScrollRegion label={t("priceCaption", { unit: unitText })}>
       <table className={styles.table}>
         <caption>{t("priceCaption", { unit: unitText })}</caption>
         <thead>
@@ -143,6 +173,7 @@ export function PriceTable({ prices, unit }: { prices: ChainPrice[]; unit: BaseU
             <th scope="col">{t("colMedian")}</th>
             <th scope="col">{t("colCheapest")}</th>
             <th scope="col">{t("colStores")}</th>
+            <th scope="col">{t("colUpdated")}</th>
           </tr>
         </thead>
         <tbody>
@@ -164,11 +195,16 @@ export function PriceTable({ prices, unit }: { prices: ChainPrice[]; unit: BaseU
                 <Price amount={p.min_unit_price} fractionDigits={2} />
               </td>
               <td className={styles.num}>{p.stores}</td>
+              <td>
+                <time dateTime={isoDate(p.price_valid_from)}>
+                  {formatDate(p.price_valid_from, locale)}
+                </time>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollRegion>
   );
 }
 
@@ -192,12 +228,13 @@ export function FlexLevelsExplained() {
   );
 }
 
-export function NoPricesNotice() {
+/** `withheld`: the export holds prices back for this product (a gap between chains too large to be true). */
+export function NoPricesNotice({ withheld = false }: { withheld?: boolean }) {
   const t = useT(seoMessages);
   return (
     <div className={styles.notice} role="note">
       <IconInfo size={18} />
-      <p>{t("noPrices")}</p>
+      <p>{t(withheld ? "noPricesWithheld" : "noPrices")}</p>
     </div>
   );
 }

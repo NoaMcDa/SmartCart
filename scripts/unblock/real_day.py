@@ -56,6 +56,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import seo_preview  # the SEO export on real prices (docs/seo.md); kept in its own module
 from _common import REPO, git_sha, last_json_document, md_escape, venv_bin, write_text
 from _common import run as run_cmd
 
@@ -1259,6 +1260,14 @@ def promo_effects(conn) -> dict:
 # --- the run -------------------------------------------------------------------------------------------------
 
 
+def _seo_note(info: dict) -> str:
+    a = info.get("audit")
+    if not a:
+        return info.get("error", "no audit")
+    return (f"{a['pages']['total']} pages, {a['priced']} of {a['canonicals']} canonicals priced, "
+            f"{a['errors']} error findings")  # fmt: skip
+
+
 def run_all(args: argparse.Namespace) -> dict:
     import psycopg
 
@@ -1499,6 +1508,12 @@ def run_all(args: argparse.Namespace) -> dict:
         result["basket_index"] = basket_index_dry_run(work, env, "production")
         result["basket_index"]["breakdown"] = basket_breakdown(db_url)
         st["note"] = f"status {result['basket_index'].get('status')}"
+    if args.seo_out:
+        with run.stage("SEO export and basket index on real prices (production semantics)") as st:
+            result["seo_production"] = seo_preview.export_variant(
+                env, args.seo_out / "production", "production"
+            )
+            st["note"] = _seo_note(result["seo_production"])
     unpriced = unpriced_basket_lines(result["basket_index"])
     explain = lines_to_explain(result["basket_index"])
     result["unpriced_lines"] = unpriced
@@ -1527,6 +1542,12 @@ def run_all(args: argparse.Namespace) -> dict:
             result["basket_index_stress"] = basket_index_dry_run(work, env, "stress")
             result["basket_index_stress"]["breakdown"] = basket_breakdown(db_url)
             st["note"] = f"status {result['basket_index_stress'].get('status')}"
+        if args.seo_out:
+            with run.stage("SEO export and basket index on real prices (stress)") as st:
+                result["seo_stress"] = seo_preview.export_variant(
+                    env, args.seo_out / "stress", "stress"
+                )
+                st["note"] = _seo_note(result["seo_stress"])
 
     with psycopg.connect(db_url) as c:
         result["pg_version"] = c.execute("SHOW server_version").fetchone()[0]
@@ -1964,6 +1985,10 @@ def render_report(res: dict) -> str:
                     )
         a("")
 
+    for key, title in (("seo_production", "production semantics"), ("seo_stress", "stress")):
+        for line in seo_preview.render_export(res.get(key), title):
+            a(line)
+
     lc = res.get("line_candidates")
     if lc:
         a("### Basket lines that no chain prices: the real items that could have been them")
@@ -2062,6 +2087,9 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--locations", type=int, default=3, help="API locations")
     r.add_argument("--repeats", type=int, default=5, help="repeats per timed request")
     r.add_argument("--seed", type=int, default=20261021, help="seed of the drawn baskets")
+    r.add_argument("--seo-out", type=Path, default=None,
+                   help="also export the SEO data and basket index on the loaded prices into "
+                   "DIR/production (and DIR/stress); never written under apps/web")  # fmt: skip
     r.add_argument("--out", type=Path, default=None, help="Markdown report (default stdout)")
     r.add_argument("--json-out", type=Path, default=None)
     s = sub.add_parser("_scrape", help=argparse.SUPPRESS)

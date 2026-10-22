@@ -7,6 +7,7 @@
 * ``export-seo``    categories.json, products.json and quality.json for the static SEO pages and
   the methodology page (issues #35, #21). ``--from-files`` needs no database (no prices, and
   quality.json is left alone).
+* ``seo-audit``     page counts and implausible numbers in an export directory, from its files.
 * ``basket-index``  prices the fixed basket per chain, writes ``basket-index.json`` and the press
   report ``docs/reports/basket-index-YYYY-MM.md`` (issue #44).
 * ``beta-report``   the closed beta's three metrics from the ``events`` table against the
@@ -77,6 +78,11 @@ def export_seo_cmd(
         f" product pages = {result.pages} pages;"
         f" {result.products['count']} canonicals, {result.products['priced_count']} with prices"
     )
+    if result.withheld:
+        typer.echo(
+            f"{len(result.withheld)} price rows kept off the pages "
+            "(products[].withheld, see seo-audit)"
+        )
     if result.quality is not None:
         q = result.quality
         typer.echo(
@@ -84,6 +90,34 @@ def export_seo_cmd(
             + (f"run {q['run_id']} of {q['measured_at']}" if q["available"] else "no evaluate run")
         )
     typer.echo(f"written to {out}")
+
+
+def seo_audit_cmd(
+    directory: Annotated[Path, typer.Option("--dir", help="Export directory.")] = DEFAULT_OUT,
+    json_out: Annotated[Path | None, typer.Option(help="Write the full audit as JSON.")] = None,
+    md_out: Annotated[Path | None, typer.Option(help="Write the tables as Markdown.")] = None,
+    fail_on_error: Annotated[
+        bool, typer.Option("--fail-on-error", help="Exit 1 when an error-level finding exists.")
+    ] = False,
+) -> None:
+    """Count pages, priced against unpriced, and list the numbers that look implausible."""
+    import json
+
+    from smartcart_catalog.seo_audit import audit_dir, render_audit
+
+    audit = audit_dir(directory)
+    text = render_audit(audit)
+    typer.echo(text)
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(
+            json.dumps(audit, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+    if md_out:
+        md_out.parent.mkdir(parents=True, exist_ok=True)
+        md_out.write_text(text, encoding="utf-8")
+    if fail_on_error and audit["errors"]:
+        raise typer.Exit(1)
 
 
 def basket_index_cmd(
@@ -329,6 +363,7 @@ def beta_report_cmd(
 def register(app: typer.Typer) -> None:
     """Add the SEO and growth commands to the catalog CLI."""
     app.command("export-seo")(export_seo_cmd)
+    app.command("seo-audit")(seo_audit_cmd)
     app.command("basket-index")(basket_index_cmd)
     app.command("beta-report")(beta_report_cmd)
 

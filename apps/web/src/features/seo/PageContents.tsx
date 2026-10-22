@@ -66,9 +66,12 @@ export function ProductContent({
           <>
             <PriceTable prices={product.prices} unit={product.base_unit} />
             <p className={styles.muted}>{t("medianNote")}</p>
+            {product.withheld && product.withheld.length > 0 ? (
+              <p className={styles.muted}>{t("pricesWithheldSome")}</p>
+            ) : null}
           </>
         ) : (
-          <NoPricesNotice />
+          <NoPricesNotice withheld={Boolean(product.withheld && product.withheld.length > 0)} />
         )}
       </section>
 

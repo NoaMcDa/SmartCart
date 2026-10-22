@@ -31,6 +31,15 @@ export type ChainPrice = {
   price_valid_from: string;
 };
 
+/** A price the export kept off the page (`screen_prices`), with the reason. */
+export type WithheldPrice = {
+  chain_id: string;
+  chain_name: string;
+  reason: string;
+  detail: string;
+  rows: number;
+};
+
 export type Product = {
   slug: string;
   name_he: string;
@@ -45,6 +54,8 @@ export type Product = {
   no_prices_yet: boolean;
   prices: ChainPrice[] | null;
   price_valid_from: string | null;
+  /** Present only when the export held back at least one price of this product. */
+  withheld?: WithheldPrice[];
 };
 
 export type ProductsFile = {
@@ -92,6 +103,8 @@ export type BasketChainRow = {
   stores: number;
   complete: boolean;
   missing: string[];
+  /** Cost of each basket line at this chain (median store x amount), by canonical slug. */
+  line_costs?: Record<string, number>;
 };
 
 export type BasketMonth = {
@@ -104,6 +117,7 @@ export type BasketMonth = {
   chains: BasketChainRow[];
   status: "draft" | "published";
   reviewed_by: string | null;
+  checks?: { level: string; code: string; message: string; chain_id?: string }[];
 };
 
 export type BasketIndexFile = {

@@ -51,6 +51,10 @@ between Rami Levy and Tiv Taam was 26%)."""
 MAX_PRECOMPUTE_AGE = timedelta(hours=48)
 """Proposal: effective prices older than two days mean the nightly job is not running."""
 MIN_CHAINS = 2
+MAX_LINE_RATIO = Decimal(4)
+"""Proposal: one basket line costing 4 times or more at one chain than at another is a data
+problem, not a price difference (the egg line at 170 against 14 was a pack count read as a unit
+price; real shelf gaps between chains are tens of percent, not multiples)."""
 
 
 @dataclass(frozen=True)
@@ -208,6 +212,12 @@ def month_document(
                 "missing": list(c.missing),
             }
         )
+    amounts = {line.slug: line.amount for line in basket}
+    for row in rows:
+        by_chain = next(c for c in chains if c.chain_id == row["chain_id"]).lines
+        row["line_costs"] = {
+            slug: float(_money(unit * amounts[slug])) for slug, unit in by_chain.items()
+        }
     in_basket = {b.slug for b in basket}
     used = [p for p in prices if p.canonical_slug in in_basket]
     dates = [p.price_valid_from for p in used]
@@ -234,6 +244,31 @@ def month_document(
 
 
 # --- pre-publication checks ----------------------------------------------------------------------
+
+
+def line_outliers(
+    chains: Sequence[dict[str, Any]],
+) -> list[tuple[str, tuple[float, str, str], tuple[float, str, str]]]:
+    """Lines whose cost differs by ``MAX_LINE_RATIO`` or more between two chains, or is zero.
+
+    Returns ``(slug, (cost, chain name, chain id) of the cheapest, same of the dearest)``. A zero
+    line cost (a unit price that rounds to nothing) is reported against the dearest chain. Rows
+    without ``line_costs`` (months stored before they existed) are skipped.
+    """
+    by_line: dict[str, list[tuple[float, str, str]]] = defaultdict(list)
+    for c in chains:
+        for slug, cost in (c.get("line_costs") or {}).items():
+            by_line[slug].append((float(cost), c["name"], c["chain_id"]))
+    flagged = []
+    for slug, costs in sorted(by_line.items()):
+        if len(costs) < 2:
+            continue
+        low, high = min(costs), max(costs)
+        if high[0] <= 0:
+            continue
+        if low[0] <= 0 or Decimal(str(high[0])) / Decimal(str(low[0])) >= MAX_LINE_RATIO:
+            flagged.append((slug, low, high))
+    return flagged
 
 
 def run_checks(
@@ -271,6 +306,16 @@ def run_checks(
                 f"{c['name']}: {c['estimated_items']} lines use estimated weighed-goods prices",
                 c["chain_id"],
             )
+    for slug, low, high in line_outliers(current["chains"]):
+        times = f"{high[0] / low[0]:.1f} times" if low[0] > 0 else "an unpriced line"
+        flag(
+            "error",
+            "line_outlier",
+            f"{slug}: {high[1]} costs {high[0]:.2f} against {low[0]:.2f} at {low[1]}, "
+            f"{times} (limit {MAX_LINE_RATIO}); read the unit prices and "
+            "pack counts of the items behind it",
+            high[2],
+        )
     if len(ranked) < MIN_CHAINS:
         flag(
             "error",
