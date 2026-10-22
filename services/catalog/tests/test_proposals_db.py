@@ -52,9 +52,7 @@ def test_unmapped_items_stores_prices_and_events(shelves) -> None:
     db, ids, stores, item = shelves
     code = gtin("729000555666")
     a = item("pd-a", "1", "רוטב טבסקו חריף", code, base=12, qty=60, unit="מל")  # base: 3 stores
-    b = item(
-        "pd-b", "1", "רוטב טבסקו חריף", code, at=[(stores["pd-b"][0], 11.5)], qty=60, unit="מל"
-    )
+    item("pd-b", "1", "רוטב טבסקו חריף", code, at=[(stores["pd-b"][0], 11.5)], qty=60, unit="מל")
     db.execute("INSERT INTO prices (item_id, store_id, price, valid_from)"
                " VALUES (%s, NULL, 13, now() - interval '1 day')", (a,))  # fmt: skip
     mapped = item("pd-a", "2", "חלב טרי 3%", base=6)
