@@ -117,6 +117,39 @@ disabled), so the index takes over as the catalog grows. `configure_session` rai
 `hnsw.ef_search` and, on pgvector 0.8+ (the Supabase image), turns on iterative index scans so a
 selective block still returns k rows.
 
+**Query-time vector search** (`smartcart_api.search._vector`, not the catalog's top-k) must also be
+served by the HNSW indexes at real size. At 99,612 real items it was not: its first version took
+the query vector from a `WITH qv AS (SELECT $1::vector)` CTE used by several steps, which
+PostgreSQL materializes, so `ORDER BY e.embedding <=> qv.v` ordered by a column of another
+relation and no index could serve it (`Seq Scan on item_embeddings` + top-N sort, 775,000 buffer
+hits, 0.5 to 0.9 s a query). Rules that keep it fast, all checked by
+`services/api/tests/test_api_search_plan.py` and `scripts/bench/search_scale.py`:
+
+- The query vector is a bind parameter on the `ORDER BY embedding <=> $v LIMIT n` of each step, and
+  the LIMIT is applied in a subquery before the join to `item_canonical`.
+- `hnsw.ef_search` is set above the LIMIT (the default, 40, returns at most 41 rows for a LIMIT of
+  80, silently), transaction-locally.
+- The `model = ...` filter is a post-filter on the one HNSW index per table. On pgvector 0.8+
+  `hnsw.iterative_scan = relaxed_order` keeps scanning until the LIMIT is met, which matters only
+  while two models share the table (a re-embedding). `strict_order` was tried and is 3 to 10 times
+  slower on some queries for no gain here. A partial index per model was not needed and would
+  double the index memory; if an unusual mix (a model that is a tiny share of the table) ever
+  returns too few rows, add `CREATE INDEX ... WHERE model = '<name>'` for it.
+- The planner still chooses by cost: up to a few thousand vectors it scans the table in full
+  (exact), from about 6,000 (measured, with `ef_search` 160) it takes the index. The regression
+  test loads 8,000 vectors for that reason; the smaller tables' steps (canonicals, Arabic names)
+  are checked with sequential scans and sorts disabled.
+  HNSW is approximate: on 100k synthetic hash vectors, 33 list lines, the top vector hit was the
+  same as the exact scan's for 33 of 33, and 94 to 99 % of the top-20 canonicals were the same
+  (the rest sit at the tail, near the 0.25 minimum, and the hash embedder has many exact
+  duplicates, which makes ties); `ef_search` 160 (8 x k) was the best of 40/100/160/320/640 on
+  recall per millisecond. The gold-set evaluation does not call this code for Hebrew (it uses
+  `block.top_k`); Arabic (`evaluate-ar`) does, and its numbers are unchanged. Real BGE-M3 recall
+  is not yet measured.
+
+Timings, measured on synthetic data (100,000 hash embeddings, shared CPU): 1 / 6 / 33 list lines
+took 792 ms / 4.9 s / 27.9 s before and 48 ms / 0.23 s / 1.5 s after (`docs/api.md`, GET /search).
+
 ## Step D: the judge (#33)
 
 Embeddings never decide a match. The judge does, with hard rules that similarity cannot override.

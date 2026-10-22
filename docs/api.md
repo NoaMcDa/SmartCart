@@ -98,6 +98,28 @@ Three retrievers over `canonical_products.display_name_he`, merged with reciproc
 - Latency: a 30-item `/parse-list` (90 retriever queries) took 0.14 s on the test database with
   the test catalog (measured locally). The target on the MVP catalog (a few hundred canonicals) is
   under 50 ms per query; not yet measured on real data.
+- Latency at catalog size (issue: slow vector statement, `docs/real-day-dry-run.md` finding 3). On
+  the first real day (99,612 items, ~97k vectors) a list line took 0.5 to 0.9 s, all of it in the
+  vector statement: the query vector came from a CTE joined to the table, so the planner could not
+  order by the HNSW index and read every row of `item_embeddings`. The vector is now a bind
+  parameter on each nearest-neighbour step (`search._vector_sql`), the steps carry
+  transaction-local `hnsw.ef_search` and, on pgvector 0.8+, `hnsw.iterative_scan = relaxed_order`
+  (`search.hnsw_settings`, `set_config(..., true)`, so it holds behind a transaction pooler), and
+  `tests/test_api_search_plan.py` fails if a step loses its index. Measured with
+  `scripts/bench/search_scale.py` on **synthetic** data (100,000 hash embeddings of made-up
+  Hebrew names, 3,000 canonicals, 35 % of items mapped, pgvector 0.8.2 in the CI image, a shared
+  CPU; whole `hybrid_search` per line, local database, not HTTP; medians of 3 to 5 runs):
+
+  | list lines | before | after |
+  |---|---|---|
+  | 1 | 792 ms | 48 ms |
+  | 6 | 4.9 s | 0.23 s |
+  | 33 | 27.9 s | 1.5 s |
+
+  Of the ~45 ms a line takes now, about 15 ms is the vector statement (all three scans on
+  indexes), 6 ms each trigram and full text. The first query after a restart reads index pages
+  from disk and is slower. These are synthetic vectors: real BGE-M3 timings and recall are not yet
+  measured.
 
 ### Arabic display names (#73)
 
