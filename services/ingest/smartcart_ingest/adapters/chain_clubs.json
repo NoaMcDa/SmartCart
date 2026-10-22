@@ -1,6 +1,16 @@
 {
-  "_comment": "Which clubs a person can be a member of, per chain, and which ClubID texts of the transparency files mean each (docs/adapters.md, 'Club promotions'). A club has a stable id '<slug>:<name>' that the profile stores, a Hebrew label (also the club_name of a promo, so it never contains | & ( ) or a double quote), a kind (club, card, staff, other) and the exact ClubID names ('texts', compared after trimming, collapsing spaces and case-folding; the label counts as a text too). Only texts seen in real files are listed (the 2026-10-21 probe); a text that is not listed here matches nobody. Chains with no club text in their real files (Shufersal, Osher Ad, Victory, Machsanei Hashuk, Hazi Hinam) have no entry.",
+  "_comment": "Which clubs a person can be a member of, per chain, and which ClubID texts of the transparency files mean each (docs/adapters.md, 'Club promotions'). A club has a stable id '<slug>:<name>' that the profile stores, a Hebrew label (also the club_name of a promo, so it never contains | & ( ) or a double quote), a kind (club, card, staff, other) and the exact ClubID names ('texts', compared after trimming, collapsing spaces and case-folding; the label counts as a text too). Only texts seen in real files are listed (the 2026-10-21 probe); a text that is not listed here matches nobody. Shufersal writes '3 - <club> & <club> & ...' (a list read as any of, label_separator; inferred): only the card clubs whose meaning is plain are mapped, the rest of its list is not. Chains with no club text in their real files (Osher Ad, Victory, Machsanei Hashuk, Hazi Hinam) have no entry. The 2026-10-22 probe added Shufersal and the Multipass voucher of Rami Levy.",
   "chains": [
+    {
+      "chain_id": "7290027600007",
+      "slug": "shufersal",
+      "name": "שופרסל",
+      "label_separator": "&",
+      "clubs": [
+        {"id": "shufersal:credit", "label": "מועדון לקוחות אשראי", "kind": "card", "texts": ["מועדון לקוחות אשראי", "מועדון לקוחות-אשראי"]},
+        {"id": "shufersal:staff_credit", "label": "מועדון עובדים אשראי", "kind": "card", "texts": ["מועדון עובדים אשראי"]}
+      ]
+    },
     {
       "chain_id": "7290058108879",
       "slug": "king_store",
@@ -22,7 +32,8 @@
         {"id": "ramilevy:topup", "label": "מועדון נטען", "kind": "card", "texts": ["מועדון נטען"]},
         {"id": "ramilevy:wallet", "label": "לקוחות ארנק", "kind": "card", "texts": ["לקוחות ארנק"]},
         {"id": "ramilevy:isracard", "label": "ישראכרט מגנטי", "kind": "card", "texts": ["ישראכרט מגנטי"]},
-        {"id": "ramilevy:vouchers", "label": "תווי זיכוי מימוש", "kind": "card", "texts": ["תווי זיכוי מימוש"]}
+        {"id": "ramilevy:vouchers", "label": "תווי זיכוי מימוש", "kind": "card", "texts": ["תווי זיכוי מימוש"]},
+        {"id": "ramilevy:multipass", "label": "מולטיפס תו רמי לוי", "kind": "card", "texts": ["מולטיפס תו רמי לוי"]}
       ]
     },
     {

@@ -1,15 +1,18 @@
 """Club promotions reach the people who are members (docs/adapters.md, "Club promotions").
 
 The ClubID values below are the real ones of the transparency files the Portal probe fetched on
-2026-10-21 (``fixtures/<chain>/real/PromoFull*``, read here through the adapters), plus the two
-expressions the probe's full-file profile listed for Mega and Shufersal that the trimmed fixtures
-do not contain. What is checked:
+2026-10-21 (``fixtures/<chain>/real/PromoFull*``, read here through the adapters), plus the
+expressions of the whole files that the trimmed fixtures do not contain: Mega's, Rami Levy's
+Multipass and Shufersal's list of card clubs (copied verbatim from the probe's log of 2026-10-22,
+store 39: 1 of its 1408 promotions). What is checked:
 
 * a member of a club gets the promos that name it, a non-member never does;
 * ``0 - כלל הלקוחות`` is everyone (not a club promo at all);
 * ``A | B`` is satisfied by either side, ``(A | B) & (C | D)`` needs one of each;
+* Shufersal's ``3 - <club> & <club> & ...`` is a list read as any of (inferred), of which only the
+  card clubs with a plain meaning are mapped;
 * a text that is not in ``chain_clubs.json`` matches nobody, and a chain that has no club table
-  (Shufersal) can never match, whatever the text says.
+  (Osher Ad) can never match, whatever the text says.
 """
 
 from __future__ import annotations
@@ -40,6 +43,19 @@ RAMI_OR = (
 )
 MEGA_OR = "(2=מועדון קרפור אשראי|2=מועדון אפליקציה)"
 EVERYONE = ("0", "0 - כלל הלקוחות")
+OSHER = "7290103152017"
+RAMI_MULTIPASS = (
+    "((2=מועדון לקוחות אשראי))&(3=תווי זיכוי מימוש|3=עיגול אגורות|3=מולטיפס תו רמי לוי)"
+)
+MEGA_GOODI = "(3=Goodi)"
+SHUFERSAL_CARDS = (
+    "3 - מועדון לקוחות & עמותת לשובע-אשראי & מועדון עובדים אשראי & מועדון לקוחות אשראי & "
+    'מועדון עובדים אשראי & מועדון לקוחות פ משולב & עובדי בי"ח תה"ש-משולב & '
+    'בי"ח משולב(בלנס/השרון/שנ & ארגון עובדים משולב & מועדון לקוחות אשראי & '
+    "מועדון לקוחות אשראי & הקרן לידידות-אשראי & מועדון לקוחות-אשראי & אקים-משולב & "
+    "מועדון לקוחות & מועדון לקוחות & מועדון לקוחות & הקרן לרווחה-אשראי & מועדון לקוחות & "
+    "מועדון לקוחות & מועדון לקוחות & מועדון לקוחות & מועדון לקוחות"
+)
 
 
 def rule(chain: str, *values: str) -> str | None:
@@ -89,6 +105,21 @@ def test_every_text_of_a_real_file_is_known_or_deliberately_not() -> None:
                         if cl.norm_text(atom) not in known:
                             unmapped.setdefault(slug, set()).add(atom)
     assert unmapped == {}, unmapped
+
+
+def test_what_the_table_leaves_out_of_shufersals_list_is_reported() -> None:
+    """``clubs-report --unmapped`` lists the names of the list that are in no club: nine of the
+    twelve, among them the generic "מועדון לקוחות" and the organisation groups."""
+    from smartcart_ingest.clubs_report import unmapped_names
+
+    left = unmapped_names(SHUFERSAL, SHUFERSAL_CARDS)
+    assert set(left) == {
+        "מועדון לקוחות", "עמותת לשובע-אשראי", "מועדון לקוחות פ משולב", 'עובדי בי"ח תה"ש-משולב',
+        'בי"ח משולב(בלנס/השרון/שנ', "ארגון עובדים משולב", "הקרן לידידות-אשראי", "אקים-משולב",
+        "הקרן לרווחה-אשראי",
+    }  # fmt: skip
+    assert unmapped_names(RAMI, RAMI_MULTIPASS) == ("עיגול אגורות",)
+    assert unmapped_names(MEGA, MEGA_GOODI) == ("Goodi",)
 
 
 # --------------------------------------------------------------------------- resolving texts
@@ -163,6 +194,9 @@ def test_an_unknown_text_matches_nobody() -> None:
         (YOH, "3 - כרטיס לא ידוע"),
         (SHUFERSAL, "3 - כרטיס אשראי א&כרטיס אשראי ב"),
         (SHUFERSAL, "1 - מועדון שופרסל"),
+        (SHUFERSAL, "3 - מועדון לקוחות & מועדון לקוחות"),  # the generic name alone: unclear
+        (SHUFERSAL, "3 - עמותת לשובע-אשראי & הקרן לרווחה-אשראי & אקים-משולב"),
+        (MEGA, MEGA_GOODI),
         (KING, '("טסט הנחות=3" | "לקוח גדול=3")'),
         (RAMI, "((1=מועדון לא מוכר))&(3=ישראכרט מגנטי)"),
         (MEGA, "(2=אחד|2=שניים)"),
@@ -184,12 +218,51 @@ def test_an_unknown_and_group_makes_the_whole_rule_unknown() -> None:
 
 
 def test_a_chain_without_a_club_table_never_matches() -> None:
-    assert cl.chain_clubs_for(SHUFERSAL) is None
-    for value in ("3 - ויזה", "1 - מועדון שופרסל יורס", MEGA_OR, RAMI_AND):
-        name = rule(SHUFERSAL, value)
-        assert not member(SHUFERSAL, ["tivtaam:new", "mega:app", "ramilevy:club"], name)
+    assert cl.chain_clubs_for(OSHER) is None
+    for value in ("3 - ויזה", "1 - מועדון אושר עד", MEGA_OR, RAMI_AND, SHUFERSAL_CARDS):
+        name = rule(OSHER, value)
+        assert not member(OSHER, ["tivtaam:new", "mega:app", "ramilevy:club"], name)
         if name == cl.UNKNOWN_CLUB:
             assert not cl.satisfied(name, lambda n: True)  # not even for "everything held"
+
+
+def test_shufersals_list_of_card_clubs_is_any_of_the_known_ones() -> None:
+    """The real text of the whole file (store 39): 23 entries, 12 distinct names. Only the two
+    card clubs with a plain meaning are in the table (inferred, docs/adapters.md); the rest of
+    the list (the generic "מועדון לקוחות", organisation groups, ...) matches nobody on its own."""
+    name = rule(SHUFERSAL, SHUFERSAL_CARDS)
+    assert name == "מועדון עובדים אשראי | מועדון לקוחות אשראי"  # in the order of the text
+    assert member(SHUFERSAL, ["shufersal:credit"], name)
+    assert member(SHUFERSAL, ["shufersal:staff_credit"], name)
+    assert not member(SHUFERSAL, [], name)
+    others = [c.id for chain in cl.load_chain_clubs().values() for c in chain.clubs]
+    assert not member(SHUFERSAL, [i for i in others if not i.startswith("shufersal:")], name)
+    # the older picker's "I marked the chain itself" must not satisfy a card list
+    assert not marked_only_the_chain(name)
+    # the hyphenated spelling of the same club is the same club
+    assert rule(SHUFERSAL, "3 - מועדון לקוחות-אשראי") == "מועדון לקוחות אשראי"
+    names = cl.value_names(SHUFERSAL_CARDS, SHUFERSAL)
+    assert len(names) == 12 and names[0] == "מועדון לקוחות" and "מועדון לקוחות אשראי" in names
+    # without the chain the label is one name, as for any chain without a list separator
+    assert cl.value_names(SHUFERSAL_CARDS) == [SHUFERSAL_CARDS[4:]]
+
+
+def marked_only_the_chain(name: str) -> bool:
+    """The API's membership test for someone who marked only the chain ("שופרסל")."""
+    from smartcart_api.basket import club_member
+
+    return club_member(name, ["שופרסל"], "שופרסל", ["מועדון לקוחות"])
+
+
+def test_rami_levy_multipass_is_a_payment_option_like_the_others() -> None:
+    name = rule(RAMI, RAMI_MULTIPASS)
+    # "עיגול אגורות" (rounding) is not a club; the credit club is under type 2 here, 1 elsewhere
+    assert name == "מועדון לקוחות אשראי & (תווי זיכוי מימוש | מולטיפס תו רמי לוי)"
+    assert member(RAMI, ["ramilevy:credit", "ramilevy:multipass"], name)
+    assert member(RAMI, ["ramilevy:credit", "ramilevy:vouchers"], name)
+    assert not member(RAMI, ["ramilevy:multipass"], name)
+    assert not member(RAMI, ["ramilevy:credit"], name)
+    assert cl.chain_clubs_for(RAMI).label_of("ramilevy:multipass") == "מולטיפס תו רמי לוי"
 
 
 def test_a_label_that_looks_like_an_expression_stays_one_name() -> None:
