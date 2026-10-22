@@ -23,6 +23,19 @@ Metric definitions. Levels nest: an item that qualifies at ``exact`` also qualif
 
 A level with no served predictions has no precision (printed n/a); the ``--fail-below`` gate
 treats a missing any_brand precision as a failure.
+
+Repeatable by construction. The evaluation measures the matcher on the gold set's own world, not
+on whatever else the database holds, so a rerun on a used database equals a run on a fresh one.
+``run_evaluation`` therefore (1) loads only the gold *inputs* for good (chain ``gold``, its
+items, taxonomy nodes, canonicals that are missing, ``gold_pairs``, and the item embeddings,
+a pure function of the item name and the model); (2) does everything else inside a transaction
+that is rolled back: the gold catalog's definitions of its canonicals and rules are written over
+the rows the database has (``seed`` and ``evaluate-ar`` change shared slugs such as ``banana``),
+the gold items lose stored extractions, quantities, manufacturers and human rejections, the
+canonicals are re-embedded from those names, and retrieval is restricted to the gold canonicals
+(``canonical_ids``), so catalog rows from ``seed`` never compete as candidates; (3) writes the
+result to ``match_runs`` after the rollback. Nothing the evaluation computes (canonical
+vectors, decisions, ``item_canonical`` rows) survives to be read by the next run.
 """
 
 from __future__ import annotations
@@ -38,9 +51,10 @@ from typing import Any
 
 import psycopg
 import yaml
+from psycopg import Rollback
 
 from smartcart_catalog.block import configure_session
-from smartcart_catalog.embed import embed_canonicals, embed_items
+from smartcart_catalog.embed import embed_items, to_pgvector
 from smartcart_catalog.match import (
     Lexicon,
     finish_run,
@@ -250,6 +264,81 @@ def gold_labels(conn: psycopg.Connection) -> dict[tuple[int, int], str]:
 # --- the harness --------------------------------------------------------------------------------
 
 
+def gold_universe(
+    conn: psycopg.Connection,
+    gold: Mapping[tuple[int, int], str],
+    catalog: Mapping[str, Any] | None,
+) -> list[int]:
+    """Ids of the canonicals the evaluation may retrieve: the gold catalog's slugs (when a gold
+    directory is given) plus every canonical a ``gold_pairs`` row refers to."""
+    ids = {canon for _, canon in gold}
+    if catalog is not None:
+        slugs = [c["slug"] for c in catalog["canonicals"]]
+        ids.update(r[0] for r in conn.execute(
+            "SELECT id FROM canonical_products WHERE slug = ANY(%s)", (slugs,)).fetchall())  # fmt: skip
+    return sorted(ids)
+
+
+def isolate_gold_world(
+    conn: psycopg.Connection,
+    catalog: Mapping[str, Any] | None,
+    item_ids: Sequence[int],
+    canonical_ids: Sequence[int],
+    embedder: EmbedderProtocol,
+) -> None:
+    """Make the database look, for this transaction, like a fresh one that only loaded the gold
+    set. The caller rolls the transaction back, so nothing here is kept.
+
+    * The gold catalog's rules and canonicals overwrite the rows with the same key. ``load_gold``
+      leaves an existing canonical alone, and ``seed`` / ``evaluate-ar`` rewrite 11 of the 58
+      gold slugs (name, taxonomy node, base unit, attributes), so without this the numbers
+      depend on which command ran last.
+    * The gold items drop what other jobs attach to them: ``item_attributes`` (extraction),
+      ``item_canonical`` (auto mappings and human rejections, which the matcher honors) and the
+      ``manufacturer``/``quantity``/``unit`` columns a normalization job may fill. The harness
+      judges the raw names with the gold lexicon, the same input on every run.
+    * The universe's canonicals are embedded again from their names in this transaction.
+    """
+    with conn.cursor() as cur:
+        if catalog is not None:
+            cur.executemany(
+                "INSERT INTO product_type_rules (product_type, critical_keys, soft_keys)"
+                " VALUES (%s, %s, %s) ON CONFLICT (product_type) DO UPDATE SET"
+                " critical_keys = EXCLUDED.critical_keys, soft_keys = EXCLUDED.soft_keys",
+                [(r["product_type"], r["critical_keys"], r["soft_keys"])
+                 for r in catalog["product_type_rules"]],
+            )  # fmt: skip
+            cur.executemany(
+                "UPDATE canonical_products SET taxonomy_id = %s, display_name_he = %s,"
+                " product_type = %s, base_unit = %s, critical_attrs = %s::jsonb,"
+                " soft_attrs = %s::jsonb, reference_barcodes = %s WHERE slug = %s",
+                [(c["taxonomy_id"], c["display_name_he"], c["product_type"], c["base_unit"],
+                  json.dumps(c["critical_attrs"], ensure_ascii=False),
+                  json.dumps(c["soft_attrs"], ensure_ascii=False),
+                  [str(b) for b in c.get("reference_barcodes") or []], c["slug"])
+                 for c in catalog["canonicals"]],
+            )  # fmt: skip
+        ids = list(item_ids)
+        cur.execute("DELETE FROM item_attributes WHERE item_id = ANY(%s)", (ids,))
+        cur.execute("DELETE FROM item_canonical WHERE item_id = ANY(%s)", (ids,))
+        cur.execute(
+            "UPDATE items SET manufacturer = NULL, quantity = NULL, unit = NULL"
+            " WHERE id = ANY(%s) AND (manufacturer IS NOT NULL OR quantity IS NOT NULL OR unit IS NOT NULL)",
+            (ids,),
+        )
+        rows = cur.execute(
+            "SELECT id, display_name_he FROM canonical_products WHERE id = ANY(%s) ORDER BY id",
+            (list(canonical_ids),),
+        ).fetchall()
+        vectors = embedder.embed([name for _, name in rows])
+        cur.executemany(
+            "UPDATE canonical_products SET embedding = %s::vector, embedding_model = %s"
+            " WHERE id = %s",
+            [(to_pgvector(v), embedder.model_name, cid)
+             for (cid, _), v in zip(rows, vectors, strict=True)],
+        )  # fmt: skip
+
+
 def run_evaluation(
     conn: psycopg.Connection,
     judge: Judge,
@@ -261,32 +350,40 @@ def run_evaluation(
     lexicon: Lexicon | None = None,
     depth: int = 1,
 ) -> Report:
-    """Run retrieval and the judge over every item in ``gold_pairs`` and store the metrics."""
+    """Run retrieval and the judge over every item in ``gold_pairs`` and store the metrics.
+
+    Repeatable: the result does not depend on what else is in the database or on earlier runs
+    (see the module docstring). Only the gold inputs, the item embeddings and the ``match_runs``
+    row are written for good; the rest runs in a transaction that is rolled back.
+    """
     if load and gold_dir is not None:
         load_gold(conn, gold_dir)
     if lexicon is None and gold_dir is not None:
         lexicon = gold_lexicon(gold_dir)
+    catalog = read_gold(gold_dir)[0] if gold_dir is not None else None
     configure_session(conn)
     gold = gold_labels(conn)
     item_ids = sorted({i for i, _ in gold})
-    embed_canonicals(conn, embedder)
     embed_items(conn, embedder, item_ids)
+    universe = gold_universe(conn, gold, catalog)
     run_id = start_run(conn, "evaluate")
-    rules = load_rules(conn)
-    contexts = load_items(conn, item_ids, lexicon)
     predictions: list[Prediction] = []
     retrieved: dict[int, list[int]] = {}
     sources: Counter[str] = Counter()
-    for iid in item_ids:
-        ctx = contexts[iid]
-        res = match_item(conn, ctx, judge, rules, k=k, depth=depth)
-        sources[res.attrs_source] += 1
-        retrieved[iid] = [c.canonical_id for c in res.candidates]
-        d = res.decision
-        predictions.append(Prediction(iid, d.canonical_id, d.flex_level, d.needs_review))
+    with conn.transaction():
+        isolate_gold_world(conn, catalog, item_ids, universe, embedder)
+        rules = load_rules(conn)
+        contexts = load_items(conn, item_ids, lexicon)
+        for iid in item_ids:
+            ctx = contexts[iid]
+            res = match_item(conn, ctx, judge, rules, k=k, depth=depth, canonical_ids=universe)
+            sources[res.attrs_source] += 1
+            retrieved[iid] = [c.canonical_id for c in res.candidates]
+            d = res.decision
+            predictions.append(Prediction(iid, d.canonical_id, d.flex_level, d.needs_review))
+        categories = _per_category(conn, gold, predictions)
+        raise Rollback
     report = compute_metrics(gold, predictions, retrieved)
-
-    categories = _per_category(conn, gold, predictions)
     report.extra.update({
         "judge": getattr(judge, "name", type(judge).__name__),
         "embedder": embedder.model_name,
