@@ -1,0 +1,35 @@
+{
+  "variant": "stress",
+  "origin": "https://preview.invalid",
+  "index_unpriced": false,
+  "steps": {
+    "build": {
+      "exit": 0,
+      "seconds": 7.2,
+      "tail": "fully in 298ms\n  Running TypeScript ...\n  Finished TypeScript in 3.0s ...\n  Collecting page data using 3 workers ...\n  Generating static pages using 3 workers (0/222) ...\n  Generating static pages using 3 workers (55/222) \n  Generating static pages using 3 workers (110/222) \n  Generating static pages using 3 workers (166/222) \n✓ Generating static pages using 3 workers (222/222) in 2.4s\n  Finalizing page optimization ...\n\nRoute (app)\n┌ ○ /\n├ ○ /_not-found\n├ ○ /accessibility\n├ ○ /alerts\n├ ○ /basket-index\n├ ○ /beta\n├ ƒ /beta/join/[code]\n├   /c/[slug]\n│ ├ ● /c/dairy\n│ ├ ● /c/meat\n│ ├ ● /c/fish\n│ └ ● [+67 more paths]\n├ ○ /compare\n├ ƒ /compare/substitution/[id]\n├ ○ /design-system\n├ ƒ /lists/[id]/share\n├ ƒ /lists/accept/[token]\n├ ○ /locale-test\n├ ƒ /manifest.webmanifest\n├ ○ /map\n├ ○ /methodology\n├ ○ /offline\n├ ○ /onboarding\n├   /p/[slug]\n│ ├ ● /p/milk-fresh-3\n│ ├ ● /p/milk-fresh-1\n│ ├ ● /p/cottage-5\n│ └ ● [+127 more paths]\n├ ○ /privacy\n├ ƒ /product/[id]\n├ ○ /profile\n├ ○ /robots.txt\n├ ○ /scan\n├ ○ /sitemap.xml\n├ ○ /split\n└ ○ /store-mode\n\n\n○  (Static)   prerendered as static content\n●  (SSG)      prerendered as static HTML (uses generateStaticParams)\nƒ  (Dynamic)  server-rendered on demand\n\n"
+    },
+    "vitest": {
+      "exit": 0,
+      "seconds": 8.7,
+      "total": 121,
+      "passed": 121,
+      "failed": 0,
+      "files": 36,
+      "failures": []
+    },
+    "crawl": {
+      "pages_fetched": 203,
+      "sitemap_urls": 201,
+      "checks": 1891,
+      "failed": [],
+      "largest_html_bytes": 56800,
+      "median_html_bytes": 37372,
+      "seconds": 1.5
+    },
+    "e2e": {
+      "exit": 0,
+      "seconds": 9.8,
+      "tail": "\nRunning 7 tests using 2 workers\n\n[1/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › most chains: /p/milk-fresh-3 at 390 px\n[2/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › longest name: /p/potato-chips-salted at 390 px\n[3/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › weighed: /p/chicken-breast-fresh at 390 px\n[4/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › withheld price: /p/toilet-paper at 390 px\n[5/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › unpriced: /p/sour-cream-15 at 390 px\n[6/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › biggest category: /c/pantry at 390 px\n[7/7] [chromium] › tests/e2e/seo-preview.spec.ts:62:3 › basket index: /basket-index at 390 px\n  7 passed (9.1s)\n"
+    }
+  }
+}
