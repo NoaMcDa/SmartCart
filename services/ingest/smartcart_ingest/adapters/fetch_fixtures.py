@@ -258,7 +258,11 @@ def promo_layout(data: bytes, sample: int = 3) -> dict:
             "nested": dict(nested), "samples": samples}  # fmt: skip
 
 
-async def _download(scraper_name: str, kind: str, workdir: Path, limit: int = 1) -> list[Path]:
+async def _download(
+    scraper_name: str, kind: str, workdir: Path, limit: int = 1, store_id: int | None = None
+) -> list[Path]:
+    """``limit`` files of ``kind``, of one store when ``store_id`` is given (the upstream
+    scraper's own filter: the store code in the file name, leading zeros ignored)."""
     from smartcart_ingest.download import quiet_upstream_loggers
 
     quiet_upstream_loggers()
@@ -268,7 +272,8 @@ async def _download(scraper_name: str, kind: str, workdir: Path, limit: int = 1)
     scraper_cls = ScraperFactory[scraper_name].value
     scraper = scraper_cls(file_output=DiskFileOutput(str(workdir / "files"), extract_gz=False))
     file_type = FileTypesFilters[KIND_FILTERS[kind]].name
-    async for _result in scraper.scrape(limit=limit, files_types=[file_type]):
+    options: dict = {"store_id": store_id} if store_id else {}
+    async for _result in scraper.scrape(limit=limit, files_types=[file_type], **options):
         pass
     return sorted(p for p in (workdir / "files").rglob("*") if p.is_file())
 
@@ -283,11 +288,24 @@ def _usable(adapter: RegulationAdapter, filename: str, kind: str) -> bool:
 
 
 def fetch(
-    slug: str, scraper_name: str, kind: str, out_dir: Path, timeout: float | None = None
+    slug: str,
+    scraper_name: str,
+    kind: str,
+    out_dir: Path,
+    timeout: float | None = None,
+    store_id: int | None = None,
+    candidates: int = 1,
 ) -> dict:
     """Download one file of ``kind`` for the chain into ``out_dir/<slug>/`` and describe it.
     ``timeout`` (seconds) bounds the upstream scrape; when it expires ``TimeoutError`` is
-    raised (``main`` records it as that chain's error and carries on)."""
+    raised (``main`` records it as that chain's error and carries on).
+
+    ``store_id`` asks the portal for files of that store only (the same store's PriceFull as a
+    PromoFull already fetched, so promo prices can be checked against its shelf prices).
+    ``candidates`` above 1 downloads that many files (the first ones the portal lists) and keeps
+    the **largest** usable one: a store's promotion file can hold one promotion or thousands, and
+    the club texts and promotion shapes the probe is after are in the large ones."""
+    options: dict = {"store_id": store_id} if store_id else {}
     adapter = adapters_by_slug()[slug]()
     target = out_dir / slug
     target.mkdir(parents=True, exist_ok=True)
@@ -298,10 +316,10 @@ def fetch(
         # the newest usable one.
         files: list[Path] = []
         usable: list[Path] = []
-        for limit in (1, 10):
+        for limit in dict.fromkeys((max(1, candidates), 10)):
             work = Path(tmp) / f"limit{limit}"
             files = asyncio.run(
-                asyncio.wait_for(_download(scraper_name, kind, work, limit), timeout)
+                asyncio.wait_for(_download(scraper_name, kind, work, limit, **options), timeout)
             )
             usable = [p for p in files if _usable(adapter, p.name, kind)]
             if usable:
@@ -309,6 +327,8 @@ def fetch(
         usable.sort(
             key=lambda p: parse_filename(p.name).published_at or datetime.min.replace(tzinfo=UTC)
         )
+        if candidates > 1:  # the largest (the newest of equal sizes, as the sort is stable)
+            usable.sort(key=lambda p: p.stat().st_size)
         for path in [*usable[-1:], *files]:
             try:
                 info = parse_filename(path.name)
@@ -346,7 +366,11 @@ def fetch(
             except AdapterError as exc:
                 entry["parse_error"] = f"{type(exc).__name__}: {exc}"
             return entry
-    return {"kind": kind, "scraper": scraper_name, "error": "no file downloaded"}
+    return {
+        "kind": kind,
+        "scraper": scraper_name,
+        "error": "no file downloaded" + (f" for store {store_id}" if store_id else ""),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -358,6 +382,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="only this file kind (repeatable; default: all three)")  # fmt: skip
     parser.add_argument("--timeout", type=float, default=None,
                         help="seconds allowed per download (default: no limit)")  # fmt: skip
+    parser.add_argument("--store", type=int, default=None,
+                        help="only files of this store (the code in the file name)")  # fmt: skip
+    parser.add_argument("--candidates", type=int, default=1,
+                        help="download this many files per kind and keep the largest")  # fmt: skip
     args = parser.parse_args(argv)
 
     steps = plan(args.chains or None, args.kind)
@@ -371,7 +399,15 @@ def main(argv: list[str] | None = None) -> int:
     for slug, scraper, kind in steps:
         print(f"fetching {slug} {kind} via {scraper} ...", flush=True)
         try:
-            entry = fetch(slug, scraper, kind, args.out, timeout=args.timeout)
+            entry = fetch(
+                slug,
+                scraper,
+                kind,
+                args.out,
+                timeout=args.timeout,
+                store_id=args.store,
+                candidates=args.candidates,
+            )
         except Exception as exc:  # noqa: BLE001 - report every chain, keep going
             entry = {"kind": kind, "scraper": scraper, "error": f"{type(exc).__name__}: {exc}"}
         failures += int("error" in entry or "parse_error" in entry)

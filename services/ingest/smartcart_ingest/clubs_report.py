@@ -39,7 +39,7 @@ def unmapped_names(chain_id: str, text: str) -> tuple[str, ...]:
     """The club names of a ClubID text that the chain's table does not know."""
     defs = cl.chain_clubs_for(chain_id)
     known = defs.by_text() if defs else {}
-    names = cl.value_names(text)
+    names = cl.value_names(text, chain_id)
     out: list[str] = []
     for name in names:
         if cl.norm_text(name) not in known and name not in out:
