@@ -177,6 +177,31 @@ mapping, judge reason, and for eggs the size and tray count read from the name);
 the basket index with the items behind the lines that two chains price 2x apart or more. The temporary `push`
 trigger that was used to run the workflow from the branch (the workflow is not on the default branch) is removed.
 
+## SEO on real prices (2026-10-22)
+
+The workflow's `seo` input (`scripts/unblock/seo_preview.py`, `real_day.py --seo-out`) takes the prices the real day loaded
+through `smartcart-catalog export-seo`, `basket-index` and `seo-audit`, builds the static SEO pages from that export with a
+placeholder origin (`https://preview.invalid`, `NEXT_PUBLIC_INDEX_UNPRICED=0`), and runs the offline structured-data
+validation, the SEO unit tests, a crawl of every generated page and a 390 px browser spec against them. The export is an
+artifact (7 days), never committed; the basket index stays a draft. Method, the fixes it led to and the full table are in
+`seo.md`, "SEO on real prices". Run 39804455160 (six chains, one day):
+
+| | Production semantics | Stress |
+|---|---|---|
+| Pages generated | 200 (70 category, 130 product) | 200 |
+| Canonicals priced / unpriced | 190 / 55 | 237 / 8 |
+| Product pages priced / unpriced | 107 / 23 | 128 / 2 |
+| Price rows kept off the pages as implausible | 41 rows (14 chain entries on 8 products) | 37 (14 on 10) |
+| Structured-data errors (121 tests, every page's JSON-LD) | 0 | 0 |
+| Crawl of all 203 pages | 0 failed of 1,870 checks | 0 of 1,891 |
+| Basket index | draft, no chain prices all 25 lines, `line_outlier` x2 | draft, 5 chains rank, spread 226.8%, `line_outlier` x2 |
+
+What the real prices did to the pages: unit prices that cannot be true (toilet paper 24 rolls at 813.60 against 20.93, mineral
+water at 6.8 times, garbage bags and paper towels at 9.90 against 1 to 2, sunflower oil 10.90 per 100 ml) reach
+`effective_prices` and so would have reached public pages; the export now withholds them (it does not correct them: the
+unit-price work is the precompute's) and the basket index names the line (`line_outlier`). Toilet paper (24 rolls) is the pack-count problem of finding 9 again, still present in this run's prices; mineral water is
+not analysed here (Osher Ad's unit price is 6 times the others').
+
 ## First run (2026-10-21), kept as history
 
 All numbers in the sections from here to "Re-running" are from run

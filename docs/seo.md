@@ -203,6 +203,7 @@ are the record.
 | `implausible_spread` | error | cheapest and dearest differ by more than 50% (the verified 67-item gap between Rami Levy and Tiv Taam was 26%) |
 | `stale_prices` | error | effective prices computed more than 48 hours before the run |
 | `implausible_change` | error | a chain's total moved more than 15% against the previous published month |
+| `line_outlier` | error | one basket line costs 4 times or more at one chain than at another, or costs nothing (the first real day: a 24-roll pack read as a unit, 38.9x). Named by line; each month's chain rows carry `line_costs` |
 | `missing_items` | warning | a chain lacks prices for some basket items (it is not ranked) |
 | `estimated_items`, `new_chain`, `chain_dropped`, `basket_version_changed`, `no_computed_at` | warning | listed in the report |
 
@@ -215,6 +216,11 @@ month. A published month also gets a public copy of the press report at
 lines against a chain's own site (shelf prices; never copy content). (3) Run again with
 `--reviewed-by`. (4) Commit `basket-index.json`, `public/seo/reports/`, `docs/reports/`, rebuild and
 deploy. The first month needs real prices: none are loaded, so `months` is empty and the page says so.
+
+The page never shows a draft in a normal build. A preview build (`SEO_PREVIEW_DRAFTS=1`, see "SEO on real prices")
+shows the newest month under a **draft label** (a tag in the heading and a note that it must not be quoted, with the open
+error checks listed), `noindex`, out of the sitemap, and without the press-report link; the methodology section keeps its
+`measured`/`estimate` markers either way (the basket's composition is marked an estimate).
 
 ## Prices the export keeps off the pages
 
@@ -250,7 +256,93 @@ published must not turn into a 404 the day a price disappears. Priced products b
 
 ## SEO on real prices (preview)
 
-PLACEHOLDER_REAL_SECTION
+The static pages and the basket index were built from synthetic data only. The **Real day** workflow
+(`.github/workflows/real-day.yml`, `docs/real-day-dry-run.md`) now also runs them on the prices it loaded, as a
+**validated preview**: nothing is deployed (no domain), the export is a workflow artifact kept 7 days, never
+committed, and the committed snapshot in `apps/web/public/seo` stays the seeded synthetic one.
+
+**What runs** (input `seo`, always on in a push run; `real_day.py run --seo-out DIR`, `scripts/unblock/seo_preview.py`):
+
+1. After the production precompute (reviewed mappings only) and again after the stress precompute (unreviewed
+   mappings counted, a performance variant, not product behaviour): `export-seo` and `basket-index` into `DIR/<variant>`
+   (a draft: no `--reviewed-by`, so it can never be published from here), then `seo-audit`.
+2. In the same job, the web app is built from that export (`npm run build`) with
+   `NEXT_PUBLIC_SITE_URL=https://preview.invalid`, `NEXT_PUBLIC_INDEX_UNPRICED=0` and `SEO_PREVIEW_DRAFTS=1` (the
+   draft basket month is shown under its draft label). The committed snapshot is put back afterwards.
+3. Against that build: the offline structured-data validation and the SEO unit tests (`structured-data*.test.ts`,
+   `src/features/seo`, run without the build's preview switches); a crawl of **every** generated page from `next start`
+   (the checks of `seo-check.yml` instead of a sample: status, `lang`/`dir`, one `h1`, canonical on the preview origin,
+   robots meta equal to the sitemap, JSON-LD parses with URLs on the origin, offers equal to the exported prices, a visible
+   update date, the checkout line and the methodology link, no `NaN`/`undefined`/`null` and no `₪ 0` in the visible text,
+   and the sitemap equal to the set of indexable pages); and `tests/e2e/seo-preview.spec.ts` in Chromium at 390 px (the
+   product with the most chains, the longest name, a weighed one, one with a withheld price, an unpriced one, the biggest
+   category, the basket index: no horizontal scroll, no console error, no serious or critical WCAG 2.0 AA violation).
+   The spec is skipped in a normal `npm run e2e` (it reads whatever export is in `public/seo`).
+4. The job summary has both tables; the report branch `real-day/report-<run id>` (workflow input `commit_report`, always on a
+   push run) gets the Markdown and JSON of the audit and the checks, never the export itself.
+
+The crawler and the audit have their own tests on hand-made pages and real-shaped rows
+(`scripts/unblock/tests/test_seo_preview.py`, `services/catalog/tests/test_export_seo_screen.py`,
+`apps/web/src/features/seo/real-shaped.test.tsx`).
+
+**What the first real prices showed, and what was changed** (runs 39797274019 and 39804455160, 2026-10-22; the second ran the final code, the first failed 3 unit tests that assumed an unpriced milk):
+
+| Found | Change |
+|---|---|
+| Unit prices that cannot be true reach `effective_prices`: toilet paper 24 rolls at 813.60 (Shufersal) against 20.93 (King Store), mineral water at 6.8 times, paper towels and garbage bags at 9.90 where the others say 1 to 2, sunflower oil 10.90 per 100 ml, soda water 0.03 | The export keeps them off the pages (`screen_prices`, above) and says so; pricing is not touched (the packs and unit-price work is the precompute's) |
+| The cross-chain check first compared each chain with the median of the *other* chains; with three chains one wild value pulled the two honest ones into "outliers" (found on a seeded test) | It compares with the median of all the chains' medians (two chains: with each other) |
+| A tray read as one unit shows in the basket as a line costing 38.9 times more at one chain | New `line_outlier` check of the basket index (error: blocks publication until acknowledged) and `line_costs` per chain in each month |
+| Prices have one page-level date; chains' own dates differ | A dated column per chain (`<time>`) in the price table and `validFrom` in each `Offer` (the known JSON-LD gap is closed) |
+| The new date column made the price table wider than a 390 px screen for a weighed product: axe `scrollable-region-focusable` (serious) on the preview spec | `ScrollRegion`: when a table scrolls sideways its wrapper becomes a focusable named region; a table that fits adds no tab stop |
+| A preview build that shows a draft basket month would be `noindex` yet listed in the sitemap (the crawl check) | The page is out of the sitemap whenever it shows a draft (`basketShowsDraft`, one function for the metadata and the sitemap) |
+| `https://preview.invalid` passes the strict site-URL guard (it is https, not the placeholder) | The guard refuses `.invalid` hosts and a strict build with `SEO_PREVIEW_DRAFTS=1` |
+| Three unit tests assumed the committed snapshot's milk has no prices; a real export has them | They follow the data |
+| The real export has no evaluation, so `quality.json` says `available: false` | The methodology page shows "not yet measured" instead of a number (already the behaviour; its test now covers both) |
+
+Hebrew edge cases the preview exercises and found no defect in: chain names with quotes, brackets and a stray `<b>`
+(escaped in the page and in the JSON-LD, `real-shaped.test.tsx`), the 21 October evening UTC dates that are already 22
+October in Jerusalem (dates are Israel dates), weighed goods (155 of 697 price cells in the first run carry the
+estimate label, in the table and in the heading), single-store single-chain prices (38 cells), and chains without store
+coordinates (the page never uses coordinates). Product and category names are our own catalog names (none over 80
+characters; the audit's `bad_name` would say), chain names are the six chains' short names.
+
+**Numbers** (run 39804455160, 2026-10-22, commit 32f596f; six of the ten chains answered the runner; each run is one day and differs by the files the portals return):
+
+| | Production semantics (reviewed mappings only) | Stress (unreviewed counted; performance variant) |
+|---|---|---|
+| Pages generated | **200** (70 category, 130 product) | 200 (70, 130) |
+| Canonicals priced / unpriced (of 245) | **190 / 55** | 237 / 8 |
+| Product pages priced / unpriced | **107 / 23** | 128 / 2 |
+| Price cells (chain x product), estimated among them | 697, 155 | 1,141, 234 |
+| Chains per priced product (1, 2, 3, 4, 5, 6) | 32, 27, 27, 25, 44, 35 | 13, 18, 19, 20, 47, 120 |
+| Price rows kept off the pages (entries) | 41 (14) | 37 (14) |
+| Audit error-level findings left after the screen | **0** | 0 |
+| Dates of the prices on the pages | 21 and 22 October (464 cells on the 22nd, 233 on the 21st) | |
+| Sitemap URLs (unpriced product pages are `noindex`) | 180 of 203 pages | 201 |
+| `next build` | passed, 24 s | passed, 7 s |
+| **Structured-data errors** (offline validation of every page's JSON-LD, plus the SEO unit tests: 121 tests) | **0** | 0 |
+| Crawl of every generated page (203 pages, 1,870 / 1,891 checks) | **0 failed** | 0 failed |
+| Playwright at 390 px with axe (the pages the spec picks) | passed | passed |
+| Basket index 2026-10 | **draft**; no chain prices all 25 lines (18, 17, 13, 13, 13, 10 lines); errors `too_few_chains`, `line_outlier` x2 (toilet paper 38.9x, mineral water 6.8x) | draft; 5 chains rank (346.36 at Tiv Taam to 1,132.06 at Shufersal, spread 226.8%, `implausible_spread`); `line_outlier` x2 (toilet paper, chicken breast 4.5x) |
+| Pages whose price looked implausible before the screen | 14 entries on 8 products: toilet paper (3), mineral water, garbage bags (2), paper towels (3), sunflower oil (2), salt, chicken soup powder, brown rice | 14 entries on 10 products (soda water 0.03, wet wipes, whole frozen chicken 99.90, cauliflower 85.00 per kg, ...) |
+
+Per-line outliers in the unscreened basket (the old 170 egg line has become): toilet paper at Shufersal 813.60 for 24 rolls
+against 20.93 (a pack read as a unit again), mineral water at Osher Ad 67.73 against 9.94 for 6 liters. These are in the
+precompute's unit prices, not in the pages: the pages no longer show them.
+
+**Reading.** These are counts on one day's files and one hand-made basket, not a price survey, and nothing here is a
+publishable index: the basket stays a draft (no chain prices all 25 lines in the production variant, and the stress
+variant's totals are not credible, see the withheld rows and `line_outlier` above). The thresholds (4x between chains,
+5x within a chain, the per-unit caps) are **proposals**: in the production export no priced product with three or more
+chains had a chain at 3x its median or more (largest 2.86x, peanut butter), so 4x does not cut real shelf competition; in
+the stress export 12 of 206 were at 3x or more (up to 3.84x), where the unreviewed mappings add genuine mismatches
+that the 4x line lets through (chicken breast 8.90 against 27.90 per kg is a 3.4x gap that only the basket check names).
+Google's Rich Results Test and the Schema.org validator remain a one-time manual check after the first deploy.
+
+**To run it again:** Actions, "Real day", `seo` on (after about 08:00 Israel time, as for the real day itself); or offline on
+any database that has been through the real day: `smartcart-catalog export-seo --out DIR`, `basket-index --out DIR
+--reports DIR/reports-draft`, `seo-audit --dir DIR`, then `scripts/unblock/seo_preview.py web --export DIR --variant NAME
+--out OUT [--e2e]` (it replaces `apps/web/public/seo` for the build and puts the committed snapshot back).
 
 ## Arabic UI and the indexed Hebrew (#73)
 
@@ -268,7 +360,7 @@ are Hebrew data and are not translated; Arabic canonical display names are a cat
 
 ## What is still synthetic or not done
 
-- **No prices.** The committed snapshot has none: `effective_prices` is empty in seeded data, so every
+- **No prices in the committed snapshot** (the real-prices preview above has 190 of 245 canonicals priced, in a workflow artifact): `effective_prices` is empty in seeded data, so every
   product page says so, no `offers` data exists, and the basket index has no month. All of it fills in on
   regeneration once ingestion and the precompute run.
 - **The quality metric is synthetic.** It comes from the template-generated gold set. The page says so.

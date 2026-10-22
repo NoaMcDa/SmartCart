@@ -11,7 +11,7 @@ name: Real day
 # Every stage is timed. It is a measurement: a stage that fails is reported as a finding and the
 # job stays green; read the job summary. See docs/real-day-dry-run.md.
 #
-# With `seo` (always on a push run) the loaded real prices are also exported as the static SEO data and
+# With `seo` the loaded real prices are also exported as the static SEO data and
 # the basket index (smartcart-catalog export-seo, basket-index; a draft, never published), the web app is
 # built from that export with a placeholder origin and the SEO checks run against it: offline
 # structured-data validation, the SEO unit tests, a crawl of every generated page and a phone-width
@@ -21,9 +21,6 @@ name: Real day
 # Run it after about 08:00 Israel time (the laibcatalog listing is empty before that, D13).
 
 on:
-  # Temporary, to run the workflow from its branch (removed in the final commit).
-  push:
-    branches: [phase/seo-real]
   workflow_dispatch:
     inputs:
       chains:
@@ -102,14 +99,14 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       PYTHONUNBUFFERED: "1"
-      CHAINS: ${{ github.event_name == 'push' && 'king_store mega osherad ramilevy shufersal tivtaam yohananof' || inputs.chains || '' }}
-      ANCHORS: ${{ inputs.anchors || 3 }}
-      PER_CHAIN: ${{ inputs.per_chain || 2 }}
-      MAX_FILES: ${{ inputs.max_files || 40 }}
-      TIMEOUT: ${{ inputs.timeout || 240 }}
-      WITH_PROMOS: ${{ github.event_name == 'push' && 'true' || inputs.with_promos }}
-      STRESS: ${{ github.event_name == 'push' && 'true' || inputs.stress }}
-      SEO: ${{ github.event_name == 'push' && 'true' || inputs.seo }}
+      CHAINS: ${{ inputs.chains || '' }}
+      ANCHORS: ${{ inputs.anchors }}
+      PER_CHAIN: ${{ inputs.per_chain }}
+      MAX_FILES: ${{ inputs.max_files }}
+      TIMEOUT: ${{ inputs.timeout }}
+      WITH_PROMOS: ${{ inputs.with_promos }}
+      STRESS: ${{ inputs.stress }}
+      SEO: ${{ inputs.seo }}
 
     steps:
       # The code lives on the chosen ref; no schedule, so no default-branch fallback is needed.
@@ -227,7 +224,7 @@ jobs:
   commit-report:
     name: commit the report to real-day/report-<run id>
     needs: real-day
-    if: always() && (inputs.commit_report || github.event_name == 'push')
+    if: always() && inputs.commit_report
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
