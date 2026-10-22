@@ -238,7 +238,7 @@ BAGS = [
     ("king_store", "7290000189536", "19.90", "0.4975"),  # "40 יח'", Quantity 40
     ("ramilevy", "7290108271430", "14.90", "0.7450"),  # Quantity 20
     ("ramilevy", "7290001713464", "14.90", "0.1490"),  # "100 יח", Quantity 1.25 ליטר
-    ("tivtaam", "4007519035369", "9.90", "0.8250"),  # "12 שקיות", Quantity 1: was 9.90 a bag
+    ("tivtaam", "4007519035369", "9.90", "0.8250"),  # "12 שקיות", Quantity 1: 9.90 is a roll of 12
     ("osherad", "7290011969042", "9.90", None),  # Quantity 0.00, cut name: was 9.90 a bag
     ("ramilevy", "7290005033230", "19.00", None),  # "75*90 50" cut: no unit word, 19.00 a bag
     ("yohananof", "7290000289472", "17.90", "0.3580"),  # "סושי 50 י" (cut): 50 bags, Quantity 1
