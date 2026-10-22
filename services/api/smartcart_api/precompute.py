@@ -317,6 +317,24 @@ WHERE p.chain_id = %(chain)s
 """
 
 
+def typical_pack_counts(conn: psycopg.Connection, item_ids: list[int]) -> dict[int, Decimal]:
+    """item_id -> the largest typical count of the per-unit canonicals it is mapped to
+    (``offers.units_per_pack``); items of no counted canonical are left out."""
+    if not item_ids:
+        return {}
+    out: dict[int, Decimal] = {}
+    for item_id, base, soft in conn.execute(
+        "SELECT ic.item_id, cp.base_unit, cp.soft_attrs FROM item_canonical AS ic"
+        " JOIN canonical_products AS cp ON cp.id = ic.canonical_id"
+        " WHERE ic.item_id = ANY(%s) AND cp.base_unit = 'unit' AND NOT ic.human_rejected",
+        (item_ids,),
+    ):
+        per = units_per_pack(base, soft)
+        if per is not None:
+            out[item_id] = max(per, out.get(item_id, per))
+    return out
+
+
 def item_options(
     conn: psycopg.Connection,
     chain_id: str,
@@ -327,6 +345,7 @@ def item_options(
     per_club: dict[tuple[int, int], dict[str, Option]] | None = None,
     notes: list[dict] | None = None,
     every: dict[tuple[int, int], list[Option]] | None = None,
+    typical_packs: dict[int, Decimal] | None = None,
 ) -> dict[tuple[int, int], tuple[Option, Option]]:
     """(store_id, item_id) -> (best option overall, best option without a club promo).
 
@@ -338,9 +357,13 @@ def item_options(
     read from the name against the fields, or whose readings disagreed (``UnitReading.note``).
     ``every`` receives, per (store_id, item_id), every way to buy the item: the shelf price and each
     promo that lowers it, whichever is best (``offers.choose_extras`` picks from these).
+    ``typical_packs`` maps item_id to the typical count of the per-unit canonical it is mapped to:
+    an item of a multi-pack canonical that states no count is left out (``count_is_unknown``).
     """
     if not store_ids or not item_ids:
         return {}
+    if typical_packs is None and base_units:
+        typical_packs = typical_pack_counts(conn, [i for i, b in base_units.items() if b == "unit"])
     params = {"items": item_ids, "stores": store_ids, "as_of": as_of, "chain": chain_id}
     priced = [PricedItem(*r) for r in conn.execute(_PRICES_SQL, params).fetchall()]
     promos: dict[int, list[PromoTerms]] = defaultdict(list)
@@ -351,7 +374,16 @@ def item_options(
     noted: set[int] = set()
     for p in priced:
         base = base_units.get(p.item_id) if base_units else None
-        reading = read_unit_price(p, base)
+        typical = typical_packs.get(p.item_id) if typical_packs else None
+        reading = read_unit(p, base, typical)
+        if isinstance(reading, Unreadable):
+            if notes is not None and p.item_id not in noted:
+                noted.add(p.item_id)
+                notes.append(
+                    {"item_id": p.item_id, "name": p.name, "kind": reading.note[0],
+                     "detail": reading.note[1], "price": str(p.price)}
+                )  # fmt: skip
+            continue
         if reading is None:
             continue
         unit_price, uom = reading.unit_price, reading.uom
@@ -451,6 +483,13 @@ CONSISTENT_ABS = Decimal("0.011")
 """... or when they differ by at most one agora rounding step (0.005 on each side)."""
 _STATED_COUNT = Decimal("1.5")
 """A count below this is a 1: what the chains write when they do not know the count."""
+MULTIPACK_MIN = Decimal(6)
+"""A per-unit canonical whose typical shelf item holds at least this many units (``soft_attrs.pack_size``:
+32 rolls, 30 bags, 12 eggs, 10 pitas, 6 paper towels) is sold in packs. An item mapped to it that
+states no count anywhere (the name, the fields, the published unit price) has an unknown count, and
+its shelf price is the price of an unknown number of units, not of one: it gets no unit price. A planning
+choice (the real day's outliers were canonicals of 6 and above; a canonical of 4 such as sponges is
+sold singly as often as in packs), not a measurement."""
 
 
 @dataclass(frozen=True)
@@ -524,9 +563,81 @@ def _read_count(p: PricedItem) -> UnitReading | None:
     return UnitReading(p.price / count, "unit", count, note)
 
 
-def _read_measure(p: PricedItem, base_unit: str) -> UnitReading | None:
+@dataclass(frozen=True)
+class Unreadable:
+    """An item whose unit price cannot be told confidently: it gets none (docs/optimizer.md,
+    "Packs"), never a guess. ``note`` is (kind, detail), recorded in the run's metrics."""
+
+    note: tuple[str, str]
+
+
+CONFLICT_MAX_RATIO = Decimal(3)
+"""Readings of one pack that differ by more than this, with nothing to say which is right, are no
+reading. Within it the dearer one is used (never cheaper than the shelf supports). A planning
+choice: the real day's conflicts below 3x were 1.5x and 2x sizes (a 600 g pack stated as 400 g)."""
+_DECIMAL_SLIPS = (Decimal(10), Decimal(100), Decimal(1000))
+_SLIP_TOLERANCE = Decimal("0.06")
+
+
+def _is_decimal_slip(ratio: Decimal) -> bool:
+    """``ratio`` is 10, 100 or 1000 within 6 %: a chain that wrote 100 for 1000 ml."""
+    return any(abs(ratio - slip) <= slip * _SLIP_TOLERANCE for slip in _DECIMAL_SLIPS)
+
+
+def _resolve_measure(readings: dict[str, Decimal], base_unit: str) -> UnitReading | Unreadable:
+    """Disagreeing readings (published, fields, name; per 100 g or 100 ml) of one item, in order:
+
+    1. Two readings agree and the third does not, and the name is one of the two: the pair wins
+       (``measure_outvoted``: Tiv Taam's sunflower oil, where the file says 100 ml in one store and
+       1000 ml in another).
+    2. The chain's readings agree with each other and only the name differs (``chain`` below):
+       within ``CONFLICT_MAX_RATIO`` the dearer wins (``measure_conflict``); when the name's size is
+       10, 100 or 1000 times the chain's, the chain slipped a decimal and the name's explicit size is
+       used (``measure_name_over_chain``); otherwise it is unknown (``measure_unknown``): a chain
+       that says 9 liters of a 1.5 liter bottle looks exactly like a name that left out the six-pack
+       (Rami Levy's soda at 0.03 per 100 ml, its mineral water 500 ml at 14.90 for 6 liters), and
+       the data cannot say which.
+    3. Anything else: the dearest reading, as before (a published price a hundred times too small).
+    """
+    detail = ", ".join(f"{k} {v:.4f}" for k, v in readings.items())
+    name = readings.get("name")
+    chain = [readings[k] for k in ("published", "fields") if k in readings]
+    if name is not None:
+        for k in ("published", "fields"):
+            others = [v for kk, v in readings.items() if kk not in (k, "name")]
+            if (
+                k in readings
+                and _agree(readings[k], name)
+                and not any(_agree(readings[k], o) for o in others)
+            ):
+                return UnitReading(
+                    readings[k], base_unit, None,
+                    ("measure_outvoted", f"{detail}; used {readings[k]:.4f} ({k} and name agree)"),
+                )  # fmt: skip
+    if name is not None and chain and _agree(min(chain), max(chain)):
+        c = chain[0]
+        hi, lo = max(c, name), min(c, name)
+        if hi <= lo * CONFLICT_MAX_RATIO:
+            return UnitReading(
+                hi, base_unit, None, ("measure_conflict", f"{detail}; used {hi:.4f}")
+            )
+        if name < c and _is_decimal_slip(c / name):
+            return UnitReading(
+                name, base_unit, None,
+                ("measure_name_over_chain", f"{detail}; the chain's size is {c / name:.0f}x"
+                 f" smaller than the name's: used {name:.4f}"),
+            )  # fmt: skip
+        return Unreadable(("measure_unknown", f"{detail}; no way to tell which is right"))
+    chosen = max(readings.values())
+    return UnitReading(
+        chosen, base_unit, None, ("measure_conflict", f"{detail}; used {chosen:.4f}")
+    )
+
+
+def _read_measure(p: PricedItem, base_unit: str) -> UnitReading | Unreadable | None:
     """A per-100 g or per-100 ml canonical: the published unit price, the fields' and the name's
-    reading; when they disagree the highest unit price wins (never cheaper than the shelf)."""
+    reading. Consistent readings keep the first; disagreeing ones are resolved by
+    ``_resolve_measure`` (the dearest unless the data says better, or nothing)."""
     readings: dict[str, Decimal] = {}
     if p.unit_price is not None and p.uom:
         published = to_base_unit(p.unit_price, p.uom, base_unit)
@@ -551,23 +662,53 @@ def _read_measure(p: PricedItem, base_unit: str) -> UnitReading | None:
     values = list(readings.values())
     if _agree(min(values), max(values)):
         return UnitReading(values[0], base_unit)  # published, else the fields, else the name
-    chosen = max(values)
-    detail = ", ".join(f"{k} {v:.4f}" for k, v in readings.items())
-    return UnitReading(
-        chosen, base_unit, None, ("measure_conflict", f"{detail}; used {chosen:.4f}")
+    return _resolve_measure(readings, base_unit)
+
+
+def count_is_unknown(p: PricedItem, base_unit: str | None, typical_pack: Decimal | None) -> bool:
+    """True when ``p`` is a shelf item of a per-unit canonical that is sold in packs
+    (``MULTIPACK_MIN``) and no reading states how many units it holds."""
+    return (
+        base_unit == "unit"
+        and typical_pack is not None
+        and typical_pack >= MULTIPACK_MIN
+        and _read_count(p) is None
     )
 
 
-def read_unit_price(p: PricedItem, base_unit: str | None) -> UnitReading | None:
-    """The unit price of ``p`` in ``base_unit`` (the canonical's), the units in the item for a
-    per-unit canonical, and a note when the name or a disagreement decided it; None when the item
-    cannot be priced in that unit."""
-    got = None
+def read_unit(
+    p: PricedItem, base_unit: str | None, typical_pack: Decimal | None = None
+) -> UnitReading | Unreadable | None:
+    """``read_unit_price`` with the reason when an item is refused: ``Unreadable`` (its note says
+    why), None when the item simply cannot be priced in ``base_unit``."""
+    got: UnitReading | Unreadable | None = None
     if base_unit == "unit":
         got = _read_count(p)
+        if got is None and count_is_unknown(p, base_unit, typical_pack):
+            return Unreadable(
+                (
+                    "count_unknown",
+                    "no count in the name, the fields or the published price; the canonical is"
+                    f" sold in packs of about {_plain(typical_pack or _ONE):f}",
+                )
+            )
     elif base_unit in ("100g", "100ml"):
         got = _read_measure(p, base_unit)
     return got if got is not None else _legacy_reading(p, base_unit)
+
+
+def read_unit_price(
+    p: PricedItem, base_unit: str | None, typical_pack: Decimal | None = None
+) -> UnitReading | None:
+    """The unit price of ``p`` in ``base_unit`` (the canonical's), the units in the item for a
+    per-unit canonical, and a note when the name or a disagreement decided it; None when the item
+    cannot be priced in that unit, or its unit price cannot be told confidently.
+
+    ``typical_pack`` is the canonical's typical count (``offers.units_per_pack``). Where it is a
+    multi-pack (``MULTIPACK_MIN``) and the item states no count, the answer is None: a pack of 24
+    rolls that says ``1 יחידה`` is not a roll at the pack's price (``count_is_unknown``)."""
+    got = read_unit(p, base_unit, typical_pack)
+    return None if isinstance(got, Unreadable) else got
 
 
 def _legacy_reading(p: PricedItem, base_unit: str | None) -> UnitReading | None:
@@ -674,9 +815,14 @@ def _chain_rows(
     # base units is priced once per base unit.
     by_base: dict[str, set[int]] = defaultdict(set)
     per: dict[int, Decimal | None] = {}  # units one requested pack holds, counted canonicals only
+    typical: dict[
+        int, Decimal
+    ] = {}  # per item: the largest typical count of its counted canonicals
     for item_id, cid, _lvl, base, soft in mappings:
         by_base[base].add(item_id)
         per[cid] = units_per_pack(base, soft)
+        if per[cid] is not None:
+            typical[item_id] = max(per[cid], typical.get(item_id, per[cid]))
     options: dict[tuple[str, int, int], tuple[Option, Option]] = {}
     club_opts: dict[tuple[str, int, int], dict[str, Option]] = {}
     every: dict[tuple[str, int, int], list[Option]] = {}
@@ -685,7 +831,7 @@ def _chain_rows(
         ways: dict[tuple[int, int], list[Option]] = {}
         got = item_options(
             conn, chain_id, store_ids, sorted(items), as_of, {i: base for i in items}, per_club,
-            notes, ways,
+            notes, ways, typical,
         )  # fmt: skip
         for (sid, iid), opts in got.items():
             options[(base, sid, iid)] = opts

@@ -239,7 +239,8 @@ The first real-day run priced a tray of 12 eggs at 14.20 **per egg**. This secti
    larger unit price, the safer one. A unit price is never cheaper than the shelf supports.
 4. Readings that differ by more than 12 % are recorded in the precompute's `match_runs` metrics:
    `pack_reads` (`count_from_name`: the name stated it and the fields said 1 or nothing;
-   `count_conflict`: two stated counts differed, the smaller was used; `measure_conflict`, below)
+   `count_conflict`: two stated counts differed, the smaller was used; `count_unknown`, `measure_conflict`,
+   `measure_outvoted`, `measure_name_over_chain` and `measure_unknown`, below)
    and `pack_samples` (up to 20 of each, with the item id, the name and what each reading said).
 5. **Sanity cap** (`precompute.sane_pack`, the limits of the loader's `unitprice.MAX_BASE_AMOUNT`): a
    pack above 50 kg, 50 l or 10,000 units is no reading, in the fields' fallback (`derive_unit_price`)
@@ -247,18 +248,37 @@ The first real-day run priced a tray of 12 eggs at 14.20 **per egg**. This secti
    grams) get no unit price from the loader and none from the precompute either; a dimension the
    canonical does not have (liters under a per-100 g canonical) is no reading. The item is left out of
    that canonical, or, under a per-unit canonical with no stated count, compared per pack.
-6. If no reading states a count the item is compared per pack as before (`pack_units` NULL, the
-   quantity counts shelf items). A single loose roll under `toilet-paper` (typical 32) is therefore
-   priced as one roll per pack: not detectable without a stated count.
+6. If no reading states a count, the item of a **canonical sold in packs** (`soft_attrs.pack_size` of 6 or
+   more units: 32 rolls, 30 bags, 12 eggs, 10 pitas, 6 paper towels; `precompute.MULTIPACK_MIN`, a planning
+   choice) gets **no unit price**: its shelf price is the price of an unknown number of units, not of one, and
+   the item is left out of the canonical's prices at that store (`count_unknown` in the run's metrics). It used
+   to be "compared per pack", which priced a pack of 32 rolls as one roll (the 813.60 of 24 rolls; the real
+   rows are in `services/api/tests/real_unit_rows.py`). A canonical of 1 to 5 units (lettuce, a baguette,
+   a sponge, a facial tissue box) keeps the per-pack reading: a single item is the usual case there.
+   The count is read from the name as well as the fields: `32 גליל` (singular), `32גל` and `48גלילים`
+   (cut), a one-letter `30 ג` on toilet paper or paper towels, `שישיה`/`שישית` and `שמיניית` are counts
+   (`normalize`); Shufersal, Tiv Taam, Rami Levy and Yohananof publish the paper's *length* in `מטרים`
+   (528 for 32 rolls), which is never a count.
 
-**Per 100 g and per 100 ml** (`precompute._read_measure`): the published unit price, the fields'
-unit price and the name's (`price x 100 / normalized total`). When they agree (within 12 %, or one
+**Per 100 g and per 100 ml** (`precompute._read_measure`, `_resolve_measure`): the published unit price, the
+fields' unit price and the name's (`price x 100 / normalized total`). When they agree (within 12 %, or one
 agora of rounding) the first of published, fields, name is used: a per-100 g item with a consistent
-published price is unchanged. When they disagree **the highest unit price wins** and the
-disagreement is recorded as `measure_conflict` (a published price a hundred times too small, a
-multi-pack whose fields say `1 יחידות`). A multi-pack drink `6*1.5 ל'` at 27.00 is 9000 ml, 0.30 per
-100 ml, whatever its fields say. `pack_units` is NULL: the quantity counts shelf items, exactly as
-before.
+published price is unchanged. When they disagree, in this order:
+
+1. **Two against one, the name among the two**: the pair wins (`measure_outvoted`). A published price a
+   hundred times too small (finding 8) is outvoted by the fields and the name; Tiv Taam's file says 100 ml
+   in one store and 1000 ml in another for the same bottle of oil.
+2. **The chain's readings agree and only the name differs**: within 3 times the **dearer** reading wins
+   (`measure_conflict`: 1.5 liters by the chain against 1 liter by the name, 3.39 not 2.26); when the name's
+   size is **10, 100 or 1000 times the chain's** the chain slipped a decimal and the name's size is used
+   (`measure_name_over_chain`: Quantity 100 for `שמן חמניות 1 ליטר` at 10.90 is 1.09, not 10.90 per 100 ml);
+   otherwise the item has **no unit price** (`measure_unknown`). 12 bottles of 500 ml under the name
+   `500 מ"ל` (the chain is right) and 9 liters published for a 1.5 liter bottle (the name is right, 0.03
+   per 100 ml) have the same shape, and a wrong guess is either a false cheapest or a false dearest.
+3. Anything else (published against fields with no name, all three apart): the dearest, as before.
+
+`pack_units` is NULL: the quantity counts shelf items, exactly as before. A multi-pack drink `6*1.5 ל'`
+at 27.00 is 9000 ml, 0.30 per 100 ml, whatever its fields say.
 
 **Whole packs.** The requested amount is `quantity x typical count` units; the line buys the
 fewest whole shelf items that cover it (`shelf_packs`). Promo bundles then count shelf items
