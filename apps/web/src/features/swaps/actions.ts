@@ -10,6 +10,7 @@ import {
   reportSwapDismissed,
   reportSwapUndone,
 } from "@/features/consent/betaEvents";
+import { recordBrandSignal } from "@/features/personal/record";
 import { getListState, listActions } from "@/state/list";
 import {
   getSwapsState,
@@ -99,7 +100,10 @@ export function undoSwap(key: string): boolean {
     }
   }
   removeApplied(key);
-  if (entry.origin) signal(entry.origin, "kept_original");
+  if (entry.origin) {
+    signal(entry.origin, "kept_original");
+    recordBrandSignal(entry.origin.canonicalId, "kept_brand");
+  }
   reportSwapUndone(entry.origin?.flexLevel ?? null);
   return true;
 }
@@ -108,5 +112,6 @@ export function undoSwap(key: string): boolean {
 export function dismissSwap(swap: SwapSuggestion): void {
   recordDismissed(swap);
   signal(originOf(swap), "not_good");
+  recordBrandSignal(swap.canonical_id, "rejected_substitute");
   reportSwapDismissed(swap.flex_level);
 }

@@ -44,6 +44,9 @@ export const CORE_DATA_KEYS: ReadonlyArray<string> = [
   "sc-scan-store-v1",
   // Dismissed swap suggestions (features/swaps/swapState.ts).
   "sc-swaps-v1",
+  // What the app learned from the person's own lists and finished trips, and the two
+  // personalization preferences (features/personal/personalState.ts).
+  "sc-personal-v1",
   // The random id that ties usage events to one browser (features/seo/track.ts): deleting the data
   // starts a new one. The yes or no answer about events (`sc-events-consent`) is a setting and stays.
   "sc-session",

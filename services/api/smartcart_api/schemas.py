@@ -724,6 +724,8 @@ EventName = Literal[
     "image_parsed",
     "cart_handoff",
     "locale_changed",
+    # personalization
+    "personalization",
 ]
 
 
@@ -955,6 +957,86 @@ class SpendExport(_Model):
     budget: Decimal | None
     entries: list[SpendEntry] = Field(description="Every entry of the user, oldest first")
     generated_at: datetime
+
+
+# --- personalization (phase 3): habits, kept on the account only when signed in ---------------
+
+_PERSONAL_ID = r"^[A-Za-z0-9_-]{6,64}$"
+PersonalText = Annotated[str, StringConstraints(max_length=120)]
+
+
+class PersonalPrefs(_Model):
+    learn: bool = Field(
+        default=True,
+        description="Learn from this person's own lists and finished shopping trips (device and "
+        "account). Off: nothing new is recorded.",
+    )
+    value_packs: bool = Field(
+        default=False,
+        description="Prefer value packs: the list builder suggests the larger pack where its unit "
+        "price is lower. Off by default.",
+    )
+    updated_at: AwareDatetime | None = Field(
+        default=None, description="When the preferences were last changed; the newer side wins"
+    )
+
+
+class PersonalRef(_Model):
+    """A product as the person's lists named it, so a device that did not see it can still draw it."""
+
+    canonical_id: int
+    display_name_he: PersonalText
+    display_name_ar: PersonalText | None = None
+    taxonomy_id: ShortText
+    base_unit: Literal["100g", "100ml", "unit", "kg"]
+    category_path_he: Annotated[
+        list[Annotated[str, StringConstraints(max_length=80)]], Field(max_length=4)
+    ] = Field(default_factory=list)
+
+
+class PersonalLine(_Model):
+    canonical_id: int
+    quantity: float = Field(gt=0, le=1000)
+
+
+class PersonalTrip(_Model):
+    id: str = Field(pattern=_PERSONAL_ID)
+    at: AwareDatetime
+    kind: Literal["finished", "list"] = Field(
+        description="finished: the lines ticked off in store mode; list: a list the person cleared"
+    )
+    lines: list[PersonalLine] = Field(max_length=60)
+
+
+class PersonalSignal(_Model):
+    """One time the person kept an exact brand or turned a substitute down, per category."""
+
+    id: str = Field(pattern=_PERSONAL_ID)
+    at: AwareDatetime
+    taxonomy_id: ShortText
+    kind: Literal["kept_brand", "rejected_substitute"]
+
+
+class PersonalDismissal(_Model):
+    kind: Literal["buy_again", "brand_default", "value_pack"]
+    key: ShortText
+    at: AwareDatetime
+
+
+class PersonalData(_Model):
+    """``PUT /me/personal`` replaces the whole document. Bounded in every list, and overall to
+    256 KB; it is read back only by its owner (row-level security) and by nothing else."""
+
+    version: Literal[1] = 1
+    prefs: PersonalPrefs = Field(default_factory=PersonalPrefs)
+    refs: list[PersonalRef] = Field(default_factory=list, max_length=200)
+    trips: list[PersonalTrip] = Field(default_factory=list, max_length=40)
+    signals: list[PersonalSignal] = Field(default_factory=list, max_length=100)
+    dismissals: list[PersonalDismissal] = Field(default_factory=list, max_length=200)
+
+
+class PersonalState(PersonalData):
+    exists: bool = Field(description="false when nothing is stored yet and these are the defaults")
 
 
 # --- promo cycles (phase 3, issue #69) -------------------------------------------------------

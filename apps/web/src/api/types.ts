@@ -490,6 +490,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/personal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Personal */
+        get: operations["get_personal_me_personal_get"];
+        /** Put Personal */
+        put: operations["put_personal_me_personal_put"];
+        post?: never;
+        /** Delete Personal */
+        delete: operations["delete_personal_me_personal_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/profile": {
         parameters: {
             query?: never;
@@ -989,7 +1008,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted" | "voice_started" | "voice_completed" | "pwa_installed" | "push_prompt_shown" | "push_opt_in" | "push_opened" | "store_mode_used" | "image_parsed" | "cart_handoff" | "locale_changed";
+            name: "app_opened" | "page_viewed" | "list_pasted" | "results_shown" | "substitutions_shown" | "substitution_verdict" | "flex_changed" | "split_viewed" | "gap_reported" | "scan_started" | "scan_completed" | "alert_created" | "swap_applied" | "swap_undone" | "swap_dismissed" | "list_shared" | "share_accepted" | "voice_started" | "voice_completed" | "pwa_installed" | "push_prompt_shown" | "push_opt_in" | "push_opened" | "store_mode_used" | "image_parsed" | "cart_handoff" | "locale_changed" | "personalization";
             /**
              * Props
              * @description Allowlisted keys per event name, values are integers or members of a fixed set; anything else is rejected with 422 (no free text, no personal data). See docs/beta-plan.md.
@@ -1460,6 +1479,152 @@ export interface components {
              * @description "kg" when the user gave a weight; quantity is then in kg
              */
             unit?: "kg" | null;
+        };
+        /**
+         * PersonalData
+         * @description ``PUT /me/personal`` replaces the whole document. Bounded in every list, and overall to
+         *     256 KB; it is read back only by its owner (row-level security) and by nothing else.
+         */
+        PersonalData: {
+            /** Dismissals */
+            dismissals?: components["schemas"]["PersonalDismissal"][];
+            prefs?: components["schemas"]["PersonalPrefs"];
+            /** Refs */
+            refs?: components["schemas"]["PersonalRef"][];
+            /** Signals */
+            signals?: components["schemas"]["PersonalSignal"][];
+            /** Trips */
+            trips?: components["schemas"]["PersonalTrip"][];
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+        };
+        /** PersonalDismissal */
+        PersonalDismissal: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "buy_again" | "brand_default" | "value_pack";
+        };
+        /** PersonalLine */
+        PersonalLine: {
+            /** Canonical Id */
+            canonical_id: number;
+            /** Quantity */
+            quantity: number;
+        };
+        /** PersonalPrefs */
+        PersonalPrefs: {
+            /**
+             * Learn
+             * @description Learn from this person's own lists and finished shopping trips (device and account). Off: nothing new is recorded.
+             * @default true
+             */
+            learn: boolean;
+            /**
+             * Updated At
+             * @description When the preferences were last changed; the newer side wins
+             */
+            updated_at?: string | null;
+            /**
+             * Value Packs
+             * @description Prefer value packs: the list builder suggests the larger pack where its unit price is lower. Off by default.
+             * @default false
+             */
+            value_packs: boolean;
+        };
+        /**
+         * PersonalRef
+         * @description A product as the person's lists named it, so a device that did not see it can still draw it.
+         */
+        PersonalRef: {
+            /**
+             * Base Unit
+             * @enum {string}
+             */
+            base_unit: "100g" | "100ml" | "unit" | "kg";
+            /** Canonical Id */
+            canonical_id: number;
+            /** Category Path He */
+            category_path_he?: string[];
+            /** Display Name Ar */
+            display_name_ar?: string | null;
+            /** Display Name He */
+            display_name_he: string;
+            /** Taxonomy Id */
+            taxonomy_id: string;
+        };
+        /**
+         * PersonalSignal
+         * @description One time the person kept an exact brand or turned a substitute down, per category.
+         */
+        PersonalSignal: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "kept_brand" | "rejected_substitute";
+            /** Taxonomy Id */
+            taxonomy_id: string;
+        };
+        /** PersonalState */
+        PersonalState: {
+            /** Dismissals */
+            dismissals?: components["schemas"]["PersonalDismissal"][];
+            /**
+             * Exists
+             * @description false when nothing is stored yet and these are the defaults
+             */
+            exists: boolean;
+            prefs?: components["schemas"]["PersonalPrefs"];
+            /** Refs */
+            refs?: components["schemas"]["PersonalRef"][];
+            /** Signals */
+            signals?: components["schemas"]["PersonalSignal"][];
+            /** Trips */
+            trips?: components["schemas"]["PersonalTrip"][];
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+        };
+        /** PersonalTrip */
+        PersonalTrip: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @description finished: the lines ticked off in store mode; list: a list the person cleared
+             * @enum {string}
+             */
+            kind: "finished" | "list";
+            /** Lines */
+            lines: components["schemas"]["PersonalLine"][];
         };
         /** Plan */
         Plan: {
@@ -3566,6 +3731,101 @@ export interface operations {
                 list_id: number;
                 share_id: number;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_personal_me_personal_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_personal_me_personal_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalData"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_personal_me_personal_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;

@@ -14,6 +14,9 @@ import {
   UpdatedAt,
 } from "@/components/ui";
 import { reportListPasted } from "@/features/consent/betaEvents";
+import { PersonalSuggestions } from "@/features/personal/PersonalSuggestions";
+import { recordClearedList } from "@/features/personal/record";
+import { ValuePackSuggestions } from "@/features/personal/ValuePackSuggestions";
 import { PhotoEntry } from "@/features/photo/PhotoEntry";
 import { RecipeSheet } from "@/features/recipe/RecipeSheet";
 import { VoiceSheet } from "@/features/voice/VoiceSheet";
@@ -281,6 +284,9 @@ export function ListBuilder() {
             ) : null}
           </div>
 
+          {/* Buy again, my usual, the exact-brand offer: from this person's own history only. */}
+          <PersonalSuggestions />
+
           {!hydrated ? (
             <Card padding="none" aria-hidden="true">
               {[0, 1, 2].map((i) => (
@@ -355,6 +361,8 @@ export function ListBuilder() {
             </section>
           ) : null}
 
+          <ValuePackSuggestions />
+
           {state.items.length ? (
             <div className={styles.listActions}>
               <Button
@@ -362,6 +370,8 @@ export function ListBuilder() {
                 size="sm"
                 onClick={(e) => {
                   rescueFocus(e.currentTarget);
+                  // A cleared list is a past list for "my usual" (on this device).
+                  recordClearedList(state.items);
                   listActions.clear();
                 }}
               >

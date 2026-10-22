@@ -10,6 +10,7 @@ import { translate } from "@/i18n/messages";
 import { substitutionMessages } from "@/i18n/messages/substitution";
 import { levelForCanonical } from "@/features/compare/substitutionLevels";
 import { reportSubstitutionVerdict } from "@/features/consent/betaEvents";
+import { recordBrandSignal } from "@/features/personal/record";
 import { getListState, listActions } from "@/state/list";
 import { setFlash } from "@/state/flash";
 
@@ -41,6 +42,7 @@ export function keepOriginal(
   locale: Locale = DEFAULT_LOCALE,
 ): void {
   reportVerdict(item, "kept_original");
+  recordBrandSignal(item.canonical_id, "kept_brand");
   listActions.keepOriginal(item.canonical_id, item.original_item_id ?? null);
   substitutionFeedback(feedbackBody(item, "kept_original")).catch(() => {});
   setFlash(
@@ -58,6 +60,7 @@ export async function rejectSubstitute(
   locale: Locale = DEFAULT_LOCALE,
 ): Promise<boolean> {
   reportVerdict(item, "not_good");
+  recordBrandSignal(item.canonical_id, "rejected_substitute");
   let sent = true;
   try {
     await substitutionFeedback(feedbackBody(item, "not_good"));

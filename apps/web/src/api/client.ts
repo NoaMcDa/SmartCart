@@ -431,6 +431,25 @@ export async function deleteSpend(id: number): Promise<void> {
   expectOk(await api.DELETE("/me/spend/{entry_id}", { params: { path: { entry_id: id } } }));
 }
 
+// --- personalization (phase 3) ---------------------------------------------------------------
+export type PersonalState = Schemas["PersonalState"];
+export type PersonalData = Schemas["PersonalData"];
+
+/** `GET /me/personal`: the signed-in person's own habits, or the defaults with `exists: false`. */
+export async function getPersonal(): Promise<PersonalState> {
+  return unwrap(await api.GET("/me/personal"));
+}
+
+/** `PUT /me/personal`: replaces the whole document (owner only; nothing else reads it). */
+export async function putPersonal(body: PersonalData): Promise<PersonalState> {
+  return unwrap(await api.PUT("/me/personal", { body }));
+}
+
+/** `DELETE /me/personal` (204): erases the stored habits ("clear what you learned", delete my data). */
+export async function deletePersonal(): Promise<void> {
+  expectOk(await api.DELETE("/me/personal"));
+}
+
 /** `GET /me/spend?month=YYYY-MM`: the signed-in user's entries for one month. */
 export async function getSpend(month: string): Promise<SpendMonth> {
   return unwrap(await api.GET("/me/spend", { params: { query: { month } } }));

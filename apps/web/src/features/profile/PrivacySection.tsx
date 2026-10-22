@@ -10,6 +10,7 @@ import { UsageEventsControl } from "@/features/consent/UsageEventsControl";
 import { BetaFeedbackEntry } from "@/features/beta";
 import { loadBudget } from "@/features/budget/budgetState";
 import { loadSpend } from "@/features/budget/spendState";
+import { getPersonal } from "@/features/personal/personalState";
 import { ImageConsentToggle } from "@/features/photo/ImageConsentToggle";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { profileMessages } from "@/i18n/messages/profile";
@@ -89,6 +90,9 @@ export function PrivacySection() {
               // history is also available from GET /me/spend/export.
               monthlyBudget: loadBudget(),
               spend: loadSpend().entries,
+              // What was learned from the person's own lists and finished trips, and the two
+              // personalization preferences (phase 3).
+              personalization: getPersonal(),
             })
           }
         >

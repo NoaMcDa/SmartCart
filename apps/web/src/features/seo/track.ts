@@ -83,6 +83,14 @@ export type EventProps = {
   };
   cart_handoff: { action: "copy" | "share" | "open_site" | "open_item" };
   locale_changed: { locale: "he" | "ar" };
+  /**
+   * Personalization (phase 3): which suggestion and what the person did with it. Never a
+   * product, a category, a date or the size of the person's history.
+   */
+  personalization: {
+    kind: "usual" | "buy_again" | "brand_default" | "value_pack";
+    action: "shown" | "accepted" | "dismissed" | "undone";
+  };
 };
 
 type ScanEngine = "native" | "zxing" | "manual";
