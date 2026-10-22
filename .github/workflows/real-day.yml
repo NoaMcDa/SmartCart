@@ -1,0 +1,198 @@
+name: Real day
+
+# One real day through the whole pipeline, on a GitHub-hosted runner (issues #13, #44, #47, #60,
+# preparation). The optimizer, the nightly precompute and the basket index had only run on
+# synthetic data. Here: the portal probe's own download of one Stores and one PriceFull file per
+# chain, plus the PriceFull and PromoFull files of the stores nearest to a few city centres
+# (through the same pinned upstream scraper, never a chain's online store), every file through the
+# real Scheduler path (adapters, quality gates, loader, store coordinates from data/geo), the
+# catalog commands on the real items, the effective-price precompute, /compare and /optimize
+# (heuristic and MILP) for hand-made Hebrew baskets at a few real locations, and the basket index.
+# Every stage is timed. It is a measurement: a stage that fails is reported as a finding and the
+# job stays green; read the job summary. See docs/real-day-dry-run.md.
+#
+# The runner is not an Israeli IP, so some portals may not answer; that is part of the measurement.
+# Run it after about 08:00 Israel time (the laibcatalog listing is empty before that, D13).
+
+on:
+  workflow_dispatch:
+    inputs:
+      chains:
+        description: "Chain slugs, space separated (empty: every chain with an adapter)"
+        required: false
+        default: ""
+        type: string
+      timeout:
+        description: "Seconds allowed per portal download"
+        required: false
+        default: 240
+        type: number
+      anchors:
+        description: "City centres whose nearest stores are downloaded for the optimizer (0 = none)"
+        required: false
+        default: 3
+        type: number
+      per_chain:
+        description: "Stores per chain per city centre"
+        required: false
+        default: 2
+        type: number
+      max_files:
+        description: "Cap on the extra PriceFull files"
+        required: false
+        default: 40
+        type: number
+      with_promos:
+        description: "Also download PromoFull files of those stores"
+        required: false
+        default: true
+        type: boolean
+      stress:
+        description: "Also run the stress variant (unreviewed mappings counted as accepted; performance only)"
+        required: false
+        default: true
+        type: boolean
+      commit_report:
+        description: "Push the report and its JSON to a new branch real-day/report-<run id> (no raw files)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: real-day-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  real-day:
+    name: download, load, match, precompute, optimize
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    services:
+      # Same image and tag as ci.yml (Postgres 17 with PostGIS, pgvector and pg_trgm).
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      PYTHONUNBUFFERED: "1"
+      CHAINS: ${{ inputs.chains || '' }}
+      ANCHORS: ${{ inputs.anchors }}
+      PER_CHAIN: ${{ inputs.per_chain }}
+      MAX_FILES: ${{ inputs.max_files }}
+      TIMEOUT: ${{ inputs.timeout }}
+      WITH_PROMOS: ${{ inputs.with_promos }}
+      STRESS: ${{ inputs.stress }}
+
+    steps:
+      # The code lives on the chosen ref; no schedule, so no default-branch fallback is needed.
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Runner location
+        run: |
+          {
+            echo "## Runner"
+            echo
+            echo "Public IP country (ipinfo.io): $(curl -fsS --max-time 15 https://ipinfo.io/country || echo unknown). $(nproc) CPUs, $(free -m | awk '/Mem:/ {print $2}') MB memory."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Downloads live outside the checkout ($RUNNER_TEMP); nothing runs from there.
+      - name: The real day
+        run: |
+          mkdir -p "$RUNNER_TEMP/real-day" out
+          args=()
+          for slug in $CHAINS; do args+=(--chain "$slug"); done
+          if [ "$WITH_PROMOS" != "true" ]; then args+=(--no-promos); fi
+          if [ "$STRESS" != "true" ]; then args+=(--no-stress); fi
+          uv run --no-sync python scripts/unblock/real_day.py run \
+            --work "$RUNNER_TEMP/real-day" \
+            --timeout "$TIMEOUT" --anchors "$ANCHORS" --per-chain "$PER_CHAIN" --max-files "$MAX_FILES" \
+            --out out/real-day.md --json-out out/real-day.json "${args[@]}"
+
+      - name: Report (job summary)
+        if: always()
+        run: |
+          if [ -f out/real-day.md ]; then
+            head -c 900000 out/real-day.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "no report was written" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-day-report
+          path: out
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload the downloaded files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-day-files
+          path: |
+            ${{ runner.temp }}/real-day/probe/files
+            ${{ runner.temp }}/real-day/probe/probe.json
+            ${{ runner.temp }}/real-day/extra
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Only the report (Markdown and JSON: counts, timings, store and chain names), never the raw
+  # files. No pull request is opened. A push with the workflow token starts no workflow.
+  commit-report:
+    name: commit the report to real-day/report-<run id>
+    needs: real-day
+    if: always() && inputs.commit_report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Download the report
+        uses: actions/download-artifact@v4
+        with:
+          name: real-day-report
+          path: ${{ runner.temp }}/report
+
+      - name: Commit and push the branch
+        run: |
+          branch="real-day/report-$GITHUB_RUN_ID"
+          mkdir -p real-day-report
+          cp "$RUNNER_TEMP/report/real-day.md" "$RUNNER_TEMP/report/real-day.json" real-day-report/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -- real-day-report
+          git commit -q -m "Real day report of run $GITHUB_RUN_ID" \
+            -m "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git push origin "HEAD:refs/heads/$branch"
+          echo "Report pushed to branch \`$branch\` (no pull request opened)." >> "$GITHUB_STEP_SUMMARY"

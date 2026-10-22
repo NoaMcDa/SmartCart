@@ -20,6 +20,7 @@ GitHub yet (they were linted with actionlint and every script was run locally, s
 | Portal probe | `portal-probe.yml` | dispatch; daily 07:17 UTC | `chains` (space-separated slugs, empty = all ten), `timeout` (seconds per download, 180), `commit_fixtures` (default off) | none (the commit job uses the workflow token) | `portal-probe-files` (raw files, 7 days), `portal-probe-report` (table and JSON, 30 days), `portal-probe-fixtures` (with `commit_fixtures`, 7 days) | 5 to 30 min, mostly the portals; capped at 90 |
 | Extraction pilot | `extraction-pilot.yml` | dispatch | `max_items` (1 to 1000, default 200) | `ANTHROPIC_API_KEY` | `extraction-pilot-report` (30 days) | under 1 min without the key; with it, a few minutes plus the batch (usually well under an hour; the job stops at 2 h) |
 | Provision check | `provision-check.yml` | dispatch | `apply_migrations` (default off) | `SUPABASE_DB_URL`; `VPS_SSH_HOST`, `VPS_SSH_KEY` (optional `VPS_SSH_USER`, `VPS_SSH_PORT`, `VPS_SSH_KNOWN_HOSTS`); `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ENDPOINT_URL` or `S3_REGION` | none | 1 to 3 min |
+| Real day | `real-day.yml` | dispatch | `chains`, `timeout`, `anchors`, `per_chain`, `max_files`, `with_promos`, `stress`, `commit_report` | none | `real-day-report` (Markdown and JSON, 30 days), `real-day-files` (raw files, 7 days) | 20 to 60 min (estimate); see `real-day-dry-run.md` for the measured run |
 
 One more manual workflow needs no secret and no network beyond the package indexes:
 
@@ -110,7 +111,7 @@ For the lead to copy into the blocker column (this file does not edit that one):
   files are pushed to a new branch `probe/fixtures-<YYYYMMDD>` (Stores whole, PriceFull trimmed to
   200 rows, PromoFull trimmed to 100 promotions, `MANIFEST.json` per chain) by a separate job with
   `contents: write`; open the pull request by hand, and CI runs then (a push with the workflow token starts no workflow). Downloads
-  are parsed only by the adapters, in the real Scheduler path. A Cerberus login line reading
+  are parsed only by the adapters, in the real Scheduler path. The PromoFull is the largest of the first ten the portal lists and the PriceFull is the one of the same store (so promo prices are checked against that store's shelf prices); the log carries `PROMO_CLUBS` lines (every distinct `ClubID` text with its count and the rule the club table makes of it) and, with `commit_fixtures`, the manifest keeps the whole file's club texts and shelf check (`full_file`). A Cerberus login line reading
   `ok (certificate not verified, as upstream ...)` is a pass: the scraper does not verify that
   portal's certificate, which does not match its host name.
 - **Extraction pilot.** Without the secret it shows a notice and is green. With it, the spend is

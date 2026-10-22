@@ -3,7 +3,9 @@ name: Portal probe
 # Issues #32, #53, #57 and #60 (preparation). From a GitHub-hosted runner, which is NOT an Israeli
 # IP, so this also measures which portals block cloud ranges: reachability of the transparency
 # portals of the ten D13 chains, the Cerberus FTP login, one Stores, one PriceFull and one PromoFull
-# file per chain where reachable (through the pinned upstream scraper, never a chain's online store), and
+# file per chain where reachable (the largest of ten PromoFull files, and the PriceFull of that same
+# store, so promo prices can be checked against the shelf; through the pinned upstream scraper,
+# never a chain's online store), and
 # every downloaded file through the real Scheduler path (adapter, quality gates, loader) in a
 # throwaway Postgres. Downloaded files are untrusted data: only the chain adapters read them.
 # It is a measurement: unreachable portals do not fail the job. See docs/ingestion.md.
@@ -122,7 +124,9 @@ jobs:
 
       # Prints one untruncated "RESULT {...}" line per file to the log (schema, counts, gate
       # status, gates and reason), and for a PromoFull the PROMO_PROFILE, PROMO_LAYOUT, PROMO_RAW
-      # and PROMO_SAMPLE lines (what the real promotions hold, as the adapter read them).
+      # and PROMO_SAMPLE lines (what the real promotions hold, as the adapter read them), and
+      # PROMO_CLUBS lines (every distinct ClubID text with its promotion count and the rule the
+      # club table makes of it).
       - name: Adapters, quality gates and loader (the real Scheduler path)
         run: |
           args=()

@@ -61,6 +61,18 @@ class ChainClubs:
     slug: str
     name: str
     clubs: tuple[ClubDef, ...]
+    label_separator: str | None = None
+    """Shufersal writes ``3 - <club> & <club> & ...``: the label after the dash is a list. With a
+    separator here the label is split on it and read as **any of** the names (inferred, not
+    verified: a person cannot be in a dozen different card clubs at once, so all-of cannot be what
+    the chain means). Without one, the label is a single name, whatever characters it holds."""
+
+    def label_names(self, label: str) -> list[str]:
+        """The names of a ``<n> - <label>`` text: the label whole, or split on the separator."""
+        if not self.label_separator or self.label_separator not in label:
+            return [label]
+        parts = (" ".join(p.split()) for p in label.split(self.label_separator))
+        return [p for p in parts if p] or [label]
 
     def by_text(self) -> dict[str, ClubDef]:
         """Normalized ClubID text (or label) -> club."""
@@ -86,7 +98,9 @@ def load_chain_clubs() -> dict[str, ChainClubs]:
         clubs = tuple(
             ClubDef(c["id"], c["label"], c["kind"], tuple(c["texts"])) for c in entry["clubs"]
         )
-        out[entry["chain_id"]] = ChainClubs(entry["chain_id"], entry["slug"], entry["name"], clubs)
+        out[entry["chain_id"]] = ChainClubs(
+            entry["chain_id"], entry["slug"], entry["name"], clubs, entry.get("label_separator")
+        )
     return out
 
 
@@ -294,14 +308,19 @@ def _render(node, top: bool = True) -> str:
     return text if top else f"({text})"
 
 
-def value_names(value: str) -> list[str]:
-    """The club names a ClubID value mentions (for a report): the label after ``<n> - ``, the
+def value_names(value: str, chain_id: str | None = None) -> list[str]:
+    """The club names a ClubID value mentions (for a report): the label after ``<n> - `` (split
+    into its names for a chain whose labels are lists, see ``ChainClubs.label_separator``), the
     names of an expression, or the text itself. A bare code has none."""
     text = value.strip()
     match = _CODE_LABEL.match(text)
     if match:
         label = (match.group(2) or "").strip()
-        return [label] if label else []
+        if not label:
+            return []
+        defs = chain_clubs_for(chain_id)
+        names = defs.label_names(label) if defs else [label]
+        return list(dict.fromkeys(names))
     if any(ch in text for ch in "=|&()"):
         node = parse_rule(text)
         return [file_atom_name(a) for a in rule_atoms(node)] if node else [text]
@@ -321,6 +340,11 @@ def resolve_value(chain_id: str | None, value: str) -> str | None:
             return None
         node: Node = ("atom", label)  # the label is one name, whatever characters it holds
         names: Callable[[str], str] = lambda s: s  # noqa: E731
+        listed = defs.label_names(label) if defs else [label]
+        if len(listed) > 1:  # a chain whose labels are lists: any of the names (inferred)
+            resolved = _resolve(("or", [("atom", n) for n in listed]), by_text, names)
+            # Nothing known: never expose a plain name (it could meet the chain's own-club rule).
+            return UNKNOWN_CLUB if isinstance(resolved, _Unknown) else _render(resolved)
     elif any(ch in text for ch in "=|&()"):
         parsed = parse_rule(text)
         if parsed is None:

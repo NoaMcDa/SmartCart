@@ -10,7 +10,7 @@
       "sha256_original": "c9fb66ead37d07cfe0a8e3999754db49dad778931f95188fd4895fd1b225cf0f",
       "bytes_original": 12643,
       "published_at": "2026-10-21T02:00+03:00",
-      "fetched_at": "2026-10-21T17:55:21+00:00",
+      "fetched_at": "2026-10-21T21:48:55+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
@@ -28,23 +28,24 @@
       }
     },
     {
-      "file": "PriceFull7290027600007-001-036-20261021-043100.gz",
+      "file": "PriceFull7290027600007-001-039-20261021-043100.gz",
       "kind": "price_full",
-      "source_file": "PriceFull7290027600007-001-036-20261021-043100.gz",
-      "sha256_original": "9a6620d44d212977c898d9de0ffd8a937fcdae872b42588b4c74ffcb9a86dd0e",
-      "bytes_original": 298789,
+      "source_file": "PriceFull7290027600007-001-039-20261021-043100.gz",
+      "sha256_original": "cb90be8c1f2bee898afc5b1d70ab79c7dcafbf672fffa38e0583e35a1af6aa34",
+      "bytes_original": 399922,
       "published_at": "2026-10-21T04:31+03:00",
-      "fetched_at": "2026-10-21T17:56:40+00:00",
+      "fetched_at": "2026-10-21T21:49:36+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
         "gates": [],
-        "reason": "items=5808"
+        "reason": "items=7881"
       },
-      "items_original": 5808,
+      "same_store_as_promo": true,
+      "items_original": 7881,
       "items_trimmed": 200,
-      "sha256": "3ac0576a1bb26262a08e2a44df55e5949fa26aec95e791b7a66af44f2661480e",
-      "bytes": 11456,
+      "sha256": "8c4b4ec6d260a9a93d0599de0da42789bb834ae926faaf204502d6f34fdb5608",
+      "bytes": 11234,
       "parsed": {
         "stores": 0,
         "items": 200,
@@ -53,23 +54,184 @@
       }
     },
     {
-      "file": "PromoFull7290027600007-001-310-20261021-043100.gz",
+      "file": "PromoFull7290027600007-001-039-20261021-043100.gz",
       "kind": "promo_full",
-      "source_file": "PromoFull7290027600007-001-310-20261021-043100.gz",
-      "sha256_original": "ca73cb347f0663593ec7bbcb1549429cf5fa5b7a42e0b1d9ced6346e223e5411",
-      "bytes_original": 158229,
+      "source_file": "PromoFull7290027600007-001-039-20261021-043100.gz",
+      "sha256_original": "7db007ed3cc9757af34c905193c4d461337ea8658eb83682401c8218faf6e424",
+      "bytes_original": 258621,
       "published_at": "2026-10-21T04:31+03:00",
-      "fetched_at": "2026-10-21T17:58:24+00:00",
+      "fetched_at": "2026-10-21T21:49:18+00:00",
       "schema": "v1",
       "gate": {
         "status": "loaded",
         "gates": [],
-        "reason": "items=1000"
+        "reason": "items=1408"
       },
-      "promos_original": 1000,
+      "full_file": {
+        "promos": 1408,
+        "clubs": {
+          "promos": 1408,
+          "without_club_id": 0,
+          "distinct_values": 2,
+          "distinct_names": 13,
+          "values": [
+            {
+              "text": "0 - כלל הלקוחות",
+              "n": 1407,
+              "rule": "everyone"
+            },
+            {
+              "text": "3 - מועדון לקוחות & עמותת לשובע-אשראי & מועדון עובדים אשראי & מועדון לקוחות אשראי & מועדון עובדים אשראי & מועדון לקוחות פ משולב & עובדי בי\"ח תה\"ש-משולב & בי\"ח משולב(בלנס/השרון/שנ & ארגון עובדים משולב & מועדון לקוחות אשראי & מועדון לקוחות אשראי & הקרן לידידות-אשראי & מועדון לקוחות-אשראי & אקים-משולב & מועדון לקוחות & מועדון לקוחות & מועדון לקוחות & הקרן לרווחה-אשראי & מועדון לקוחות & מועדון לקוחות & מועדון לקוחות & מועדון לקוחות & מועדון לקוחות",
+              "n": 1,
+              "rule": "אחר"
+            }
+          ],
+          "names": [
+            [
+              "כלל הלקוחות",
+              1407
+            ],
+            [
+              "מועדון לקוחות",
+              1
+            ],
+            [
+              "עמותת לשובע-אשראי",
+              1
+            ],
+            [
+              "מועדון עובדים אשראי",
+              1
+            ],
+            [
+              "מועדון לקוחות אשראי",
+              1
+            ],
+            [
+              "מועדון לקוחות פ משולב",
+              1
+            ],
+            [
+              "עובדי בי\"ח תה\"ש-משולב",
+              1
+            ],
+            [
+              "בי\"ח משולב(בלנס/השרון/שנ",
+              1
+            ],
+            [
+              "ארגון עובדים משולב",
+              1
+            ],
+            [
+              "הקרן לידידות-אשראי",
+              1
+            ],
+            [
+              "מועדון לקוחות-אשראי",
+              1
+            ],
+            [
+              "אקים-משולב",
+              1
+            ],
+            [
+              "הקרן לרווחה-אשראי",
+              1
+            ]
+          ]
+        },
+        "shelf": {
+          "checked": true,
+          "promo_stores": [
+            "39"
+          ],
+          "price_stores": [
+            "39"
+          ],
+          "price_rows": 7881
+        },
+        "shelf_check": {
+          "single_items_with_shelf": 2251,
+          "single_unit_equals_shelf_x_rate": 1477,
+          "single_unit_within_rate_rounding": 2172,
+          "single_unit_below_shelf": 2251,
+          "items_with_shelf": 61,
+          "reward_equals_shelf_x_rate": 61,
+          "trigger_priced": 61,
+          "trigger_equals_shelf": 61,
+          "mismatches": [
+            {
+              "promo": "3246581",
+              "item": "7296073527282",
+              "shelf": "14.90",
+              "min_qty": "1.00",
+              "rate": "5",
+              "price": "14.46"
+            },
+            {
+              "promo": "3264200",
+              "item": "7296073527282",
+              "shelf": "14.90",
+              "min_qty": "1.00",
+              "rate": "5",
+              "price": "14.46"
+            },
+            {
+              "promo": "4632345",
+              "item": "7290001427255",
+              "shelf": "19.90",
+              "min_qty": "1.00",
+              "rate": "7",
+              "price": "18.90"
+            },
+            {
+              "promo": "4632346",
+              "item": "7290016682243",
+              "shelf": "16.90",
+              "min_qty": "1.00",
+              "rate": "8",
+              "price": "15.90"
+            },
+            {
+              "promo": "4632347",
+              "item": "7290016682250",
+              "shelf": "16.90",
+              "min_qty": "1.00",
+              "rate": "8",
+              "price": "15.90"
+            },
+            {
+              "promo": "4632348",
+              "item": "7290016682366",
+              "shelf": "27.90",
+              "min_qty": "1.00",
+              "rate": "30",
+              "price": "19.90"
+            },
+            {
+              "promo": "4632348",
+              "item": "7290016682373",
+              "shelf": "27.90",
+              "min_qty": "1.00",
+              "rate": "30",
+              "price": "19.90"
+            },
+            {
+              "promo": "4632349",
+              "item": "7290004030612",
+              "shelf": "17.90",
+              "min_qty": "1.00",
+              "rate": "13",
+              "price": "15.90"
+            }
+          ]
+        }
+      },
+      "promos_original": 1408,
       "promos_trimmed": 100,
-      "sha256": "9f5832c5025e0f5658a09e5d78f90fbfeaee16287e9606548d4a83ff2586b6fa",
-      "bytes": 11933,
+      "sha256": "2618fb797477c542c1aee50fed19865e21298ea016ef6bfcfc6e9cc4ceec5043",
+      "bytes": 8073,
       "parsed": {
         "stores": 0,
         "items": 0,

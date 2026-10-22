@@ -75,13 +75,15 @@ EXPECTED: dict[str, dict] = {
         },
     },
     "shufersal": {
-        "file": "PromoFull7290027600007-001-310-20261021-043100.gz",
-        "store": "310", "promos": 100, "item_codes": 625, "club_only": 0,
-        "rewards": {"bundle": 60, "buy_x_get_y": 1, "other": 13, "price": 26},
-        "unapplied": {"basket_condition": 3, "coupon_required": 10},  # "1+1": was multi_group
+        # Store 39, the PriceFull of the same store beside it (the first fixtures were store 310's
+        # promotions and store 36's prices, so the shelf prices could not be checked).
+        "file": "PromoFull7290027600007-001-039-20261021-043100.gz",
+        "store": "39", "promos": 100, "item_codes": 256, "club_only": 0,
+        "rewards": {"bundle": 52, "buy_x_get_y": 1, "other": 10, "price": 37},
+        "unapplied": {"basket_condition": 1, "coupon_required": 9},  # one "1+1" is applied
         "pinned": {
-            "4632236": ("bundle", D("50.00"), D("2"), False),
-            "4632340": ("price", D("24.90"), D("1"), False),
+            "4632222": ("bundle", D("20.00"), D("2"), False),  # "2ב20"
+            "4632244": ("price", D("25.90"), D("1"), False),
         },
     },
     "tivtaam": {
@@ -97,14 +99,17 @@ EXPECTED: dict[str, dict] = {
         },
     },
     "yohananof": {
-        "file": "PromoFull7290803800003-000-009-20261021-004031.gz",
-        "store": "9", "promos": 100, "item_codes": 302, "club_only": 2,
-        "rewards": {"bundle": 65, "buy_x_get_y": 3, "other": 6, "price": 26},
-        "unapplied": {"basket_condition": 3, "coupon_required": 2,
-                      "packaging_credit": 1},  # fmt: skip  (3 "1+1" were multi_group)
+        # Store 5 (the PriceFull of the same store beside it; the first fixtures were store 9's
+        # promotions and store 1's prices). The staff club is 11 of this store's 1241 promotions,
+        # none of them among the 100 kept.
+        "file": "PromoFull7290803800003-000-005-20261022-004040.gz",
+        "store": "5", "promos": 100, "item_codes": 372, "club_only": 0,
+        "rewards": {"bundle": 69, "buy_x_get_y": 1, "other": 6, "price": 24},
+        "unapplied": {"basket_condition": 1, "coupon_required": 3, "packaging_credit": 1,
+                      "reward_value_unusable": 1},  # fmt: skip
         "pinned": {
-            "365892": ("price", D("29.90"), D("1"), False),
-            "78510": ("bundle", D("61.75"), D("1.90"), False),  # "2 kg for 65": 1.9 kg for 61.75
+            "361475": ("price", D("12.90"), D("1"), False),
+            "325337": ("bundle", D("30.40"), D("1.90"), False),  # "2 kg for 32": 1.9 kg for 30.40
         },
     },
 }  # fmt: skip
@@ -182,8 +187,8 @@ def test_club_values_of_the_real_files() -> None:
              for slug in EXPECTED}  # fmt: skip
     # Tiv Taam: "1 - המועדון החדש" is one named club; "0 - כלל הלקוחות" is everyone.
     assert names["tivtaam"] == {"המועדון החדש": 59}
-    assert names["yohananof"] == {"מועדון עובדים": 2}
-    assert not names["shufersal"] and not names["osherad"] and not names["mega"]
+    assert not names["yohananof"] and not names["shufersal"]  # the kept promotions are "everyone"
+    assert not names["osherad"] and not names["mega"]
     # Expressions are resolved against the chain's club table (chain_clubs.json) into a rule over
     # club labels: the 18 King Store customer groups keep the three that are clubs a person can
     # belong to, Rami Levy's "A|B & C|D" keeps its AND (test_club_rules.py has the membership).
@@ -242,7 +247,15 @@ def test_the_reading_reproduces_the_published_discount_rate_on_the_shelf_price()
     store's PriceFull fixture, the per-unit price the adapter's reading gives equals the shelf
     price times (1 - DiscountRate), which is how the chain computed the rate."""
     checked = 0
-    for slug in ("king_store", "osherad", "ramilevy", "tivtaam"):  # same store as the PriceFull
+    per_chain: Counter = Counter()
+    for slug in (
+        "king_store",
+        "osherad",
+        "ramilevy",
+        "tivtaam",
+        "shufersal",
+        "yohananof",
+    ):  # same store as the PriceFull
         adapter = chain_adapters()[slug]()
         price_file = next((FIXTURES / slug / "real").glob("PriceFull*"))
         shelf = {p.item_code: p.price for p in parse_fixture(adapter, price_file).prices}
@@ -270,7 +283,41 @@ def test_the_reading_reproduces_the_published_discount_rate_on_the_shelf_price()
                     want,
                 )
                 checked += 1
+                per_chain[slug] += 1
     assert checked >= 15, checked
+    # Shufersal's PriceFull is now for the promotions' store (one of the 200 kept rows is on
+    # promotion; Yohananof has none): the whole files are checked in the manifests, below.
+    assert per_chain["shufersal"] >= 1, per_chain
+
+
+def _manifest_full_file(slug: str) -> dict:
+    import json
+
+    manifest = json.loads((FIXTURES / slug / "real" / "MANIFEST.json").read_text("utf-8"))
+    return next(f for f in manifest["files"] if f["kind"] == "promo_full")["full_file"]
+
+
+@pytest.mark.parametrize(
+    ("slug", "promos", "single", "within", "pairs"),
+    [("shufersal", 1408, 2251, 2172, 61), ("yohananof", 1241, 2108, 2108, 70)],
+)
+def test_the_manifest_records_the_shelf_check_of_the_whole_file(
+    slug: str, promos: int, single: int, within: int, pairs: int
+) -> None:
+    """The probe checked the whole PromoFull against the PriceFull of the same store (run
+    39681477048, 2026-10-21): the prices are below the shelf price on every item, equal to the
+    shelf price times (1 - rate) to the rate's whole-percent rounding on 96 to 100 %, and every
+    "buy X get Y" reward and trigger price matches. The numbers are in the committed manifest."""
+    full = _manifest_full_file(slug)
+    assert full["promos"] == promos
+    assert full["shelf"]["checked"] is True
+    assert full["shelf"]["promo_stores"] == full["shelf"]["price_stores"]
+    check = full["shelf_check"]
+    assert check["single_items_with_shelf"] == single
+    assert check["single_unit_below_shelf"] == single
+    assert check["single_unit_within_rate_rounding"] == within
+    assert check["items_with_shelf"] == check["reward_equals_shelf_x_rate"] == pairs
+    assert check["trigger_priced"] == check["trigger_equals_shelf"] == pairs
 
 
 def test_the_scheduler_loads_every_real_promo_file_with_its_items(db, tmp_path) -> None:
@@ -320,9 +367,9 @@ APPLIED_BEFORE_AND_NOW = {
     "mega": ((93, 7), (93, 7)),
     "osherad": ((99, 1), (99, 1)),
     "ramilevy": ((81, 19), (81, 19)),
-    "shufersal": ((86, 14), (87, 13)),  # one "1+1"
+    "shufersal": ((89, 11), (90, 10)),  # one "1+1"
     "tivtaam": ((96, 4), (98, 2)),  # two "second at 50 %"; "1+1 מועדון" stays (club_in_description)
-    "yohananof": ((91, 9), (94, 6)),  # three "1+1"
+    "yohananof": ((93, 7), (94, 6)),  # one "1+1"
 }
 
 
