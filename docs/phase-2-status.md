@@ -172,6 +172,13 @@ Parallel workstreams in three PRs (#110, #111 and the one after). Besides the ro
 | Web review | done by tests | 32 defects, then the follow-ups (`docs/web-review-2026-10.md`): storage fallbacks, cancel and unmount races, double submits, Arabic-keyboard digits, money formatting, focus and announcements, delete-my-data leftovers, request timeouts. |
 | Swaps and the results list (#31, #45, #48) | done with synthetic data | `/optimize/swaps` honors `allow`; the substitutions list uses the card's same-store rule. |
 | CI | done by tests | Actions on their Node 24 majors; Playwright 1.64.1, proven on an `ubuntu-26.04` runner; weekly `deps-upgrade.yml`; the script tests (`scripts/*/tests`) now run in CI. |
+| Auth and rate limits (#5) | done by tests | Rate limits counted in Postgres across API processes (`API_RATE_LIMIT_BACKEND=postgres` after migrating; memory is the default); asymmetric Supabase JWT keys from the JWKS endpoint, HS256 kept as a fallback; algorithm confusion refused (PR #113). |
+| Real day (#13, #44, #47, #60) | done with real data | The "Real day" workflow runs one real day end to end on a runner (`docs/real-day-dry-run.md`). On main (run 39763990511): 66 real files from six chains loaded with no quarantine, 36,586 promos parsed, `/compare` and both optimizers under 26 ms for up to 40 lines. Victory, Machsanei Hashuk and Hazi Hinam stay unreachable from runners. |
+| Search at real scale (#54) | done by tests | The vector statements now use their HNSW indexes: one list line 48 ms instead of 792 ms at 100k embeddings (synthetic; 33 lines 1.5 s instead of 27.9 s). A plan test fails CI if a statement loses its index (PR #116). |
+| Unit prices (#47, #80) | done with real data | Measured on 2,800 real rows: Rami Levy publishes "per 100 g/ml" per gram at some stores, Osher Ad "per 100 ml" per ml, Mega "ml" per 100 ml. The loader now computes the unit price from shelf price and pack size and keeps the published value as a logged cross-check (PR #118). |
+| Pack counts and offers (#13, #47) | done by tests | The pack count in a name reaches the unit price (a 12-pack of eggs was priced 12x); lines buy whole packs; each line is the cheapest offer for the quantity asked (12 eggs buy the 12-pack, not the 30-tray); the MILP never returns a plan dearer than the heuristic's (PRs #118, #119). |
+| Eggs (#44) | done with real data | Real egg items map to the egg canonical of their stated size only; ambiguous ones stay generic and unmatched. Gold sets unchanged at 1.00. The basket index is still a draft: it needs reviewed best-seller mappings (#15). |
+| Evaluation (#38) | done by tests | The Hebrew gold-set evaluation gives fresh-database numbers on a used database; before, `evaluate-ar` changed them, and CI's `evaluation.json` carried the polluted figures (PR #117). |
 
 ## Owner runbook
 
@@ -184,8 +191,11 @@ New since 2026-10-21, folded into the steps below: `infra/vps/setup.sh` installs
 `SUPABASE_JWT_ISSUER`, `API_RATE_LIMIT`, `API_MAX_BODY_BYTES`, `API_PUSH_ENDPOINT_HOSTS` and needs
 `FORWARDED_ALLOW_IPS` when the proxy is not on the same host (`deploy.md`, `security-review.md`);
 the ingest reads the per-kind stale limits and the price-drop gate settings (`ingestion.md`). Two
-product decisions are open: the hidden completing split (D9, `optimizer.md`) and how many
-"not good" reports pull a match (`security-review.md`, R1).
+product decisions are open: the hidden completing split (D9, `optimizer.md`), how many
+"not good" reports pull a match (`security-review.md`, R1), how to present a recommended plan that
+costs more than the home store when no store has everything (`real-day-dry-run.md`), and whether an
+18 or 30 egg tray counts at any brand (#15). Set `API_RATE_LIMIT_BACKEND=postgres` after the
+migrations, and `SUPABASE_JWKS_URL` (or `SUPABASE_URL`) when the project signs with asymmetric keys.
 
 ### 1. Provision (about 1 to 2 days of work, estimate)
 
