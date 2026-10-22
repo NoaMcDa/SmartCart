@@ -21,6 +21,9 @@ name: Real day
 # Run it after about 08:00 Israel time (the laibcatalog listing is empty before that, D13).
 
 on:
+  # Temporary, to run the workflow from its branch (removed in the final commit).
+  push:
+    branches: [phase/unit-outliers]
   workflow_dispatch:
     inputs:
       chains:
@@ -99,14 +102,14 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       PYTHONUNBUFFERED: "1"
-      CHAINS: ${{ inputs.chains || '' }}
-      ANCHORS: ${{ inputs.anchors }}
-      PER_CHAIN: ${{ inputs.per_chain }}
-      MAX_FILES: ${{ inputs.max_files }}
-      TIMEOUT: ${{ inputs.timeout }}
-      WITH_PROMOS: ${{ inputs.with_promos }}
-      STRESS: ${{ inputs.stress }}
-      SEO: ${{ inputs.seo }}
+      CHAINS: ${{ github.event_name == 'push' && 'king_store mega osherad ramilevy shufersal tivtaam yohananof' || inputs.chains || '' }}
+      ANCHORS: ${{ inputs.anchors || 3 }}
+      PER_CHAIN: ${{ inputs.per_chain || 2 }}
+      MAX_FILES: ${{ inputs.max_files || 40 }}
+      TIMEOUT: ${{ inputs.timeout || 240 }}
+      WITH_PROMOS: ${{ github.event_name == 'push' && 'true' || inputs.with_promos }}
+      STRESS: ${{ github.event_name == 'push' && 'false' || inputs.stress }}
+      SEO: ${{ github.event_name == 'push' && 'false' || inputs.seo }}
 
     steps:
       # The code lives on the chosen ref; no schedule, so no default-branch fallback is needed.
@@ -144,6 +147,12 @@ jobs:
             --work "$RUNNER_TEMP/real-day" \
             --timeout "$TIMEOUT" --anchors "$ANCHORS" --per-chain "$PER_CHAIN" --max-files "$MAX_FILES" \
             --out out/real-day.md --json-out out/real-day.json "${args[@]}"
+
+      - name: Unit-price rows (temporary probe)
+        if: always()
+        run: |
+          mkdir -p out
+          uv run --no-sync python scripts/unblock/unit_rows_probe.py "$RUNNER_TEMP/real-day" out/unit-rows || true
 
       # The web side of the SEO preview. NEXT_PUBLIC_SITE_URL is a placeholder under .invalid (the
       # strict site-URL guard refuses it for a deploy build) and NEXT_PUBLIC_INDEX_UNPRICED is 0, so
@@ -224,7 +233,7 @@ jobs:
   commit-report:
     name: commit the report to real-day/report-<run id>
     needs: real-day
-    if: always() && inputs.commit_report
+    if: always() && (inputs.commit_report || github.event_name == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -245,6 +254,7 @@ jobs:
           branch="real-day/report-$GITHUB_RUN_ID"
           mkdir -p real-day-report
           cp "$RUNNER_TEMP/report/real-day.md" "$RUNNER_TEMP/report/real-day.json" real-day-report/
+          if [ -d "$RUNNER_TEMP/report/unit-rows" ]; then cp -r "$RUNNER_TEMP/report/unit-rows" real-day-report/; fi
           # The SEO preview's results (counts, findings, check outcomes); never its export.
           for f in "$RUNNER_TEMP"/report/seo-web-*.md "$RUNNER_TEMP"/report/seo-web-*.json "$RUNNER_TEMP"/report/vitest-*.json; do
             if [ -f "$f" ]; then cp "$f" real-day-report/; fi
