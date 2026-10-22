@@ -443,36 +443,6 @@ describe("empty and failed reads", () => {
   });
 });
 
-describe("progress and cancelling", () => {
-  it("shows a progress state, and cancelling sends nothing further to the list", async () => {
-    setImageConsent(true);
-    // The answer is held until the cancel, then sent: a handler that never settles leaves MSW
-    // with a request it never finishes, and the next test's upload can fail behind it.
-    let release!: () => void;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    server.use(
-      http.post(`${API_BASE_URL}/parse-image`, async () => {
-        await held;
-        return HttpResponse.json({ detail: "x" }, { status: 503 });
-      }),
-    );
-    const { user } = await openSheet();
-    await pick(user, "list", image());
-    const reading = await screen.findByTestId("photo-reading");
-    expect(within(reading).getByRole("status")).toHaveTextContent("קוראים את התמונה");
-    await user.click(screen.getByTestId("photo-cancel"));
-    expect(screen.getByTestId("photo-list-camera")).toBeVisible();
-    release();
-    // The late answer to the cancelled request changes nothing.
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(screen.getByTestId("photo-list-camera")).toBeVisible();
-    expect(screen.queryByTestId("photo-error")).not.toBeInTheDocument();
-    expect(getListState().items).toEqual([]);
-  });
-});
-
 describe("events", () => {
   it("sends the kind, the outcome and counts, never the text or the file name", async () => {
     setImageConsent(true);
@@ -536,5 +506,38 @@ describe("the Profile toggle", () => {
     await user.click(toggle);
     expect(toggle).toBeChecked();
     expect(getImageConsent()).toBe(true);
+  });
+});
+
+// Kept last in the file on purpose: cancelling leaves an aborted upload behind in the mock server,
+// and an upload in a later test of the same file failed behind it on busy runners (vitest isolates
+// files, so nothing runs after this one here).
+describe("progress and cancelling", () => {
+  it("shows a progress state, and cancelling sends nothing further to the list", async () => {
+    setImageConsent(true);
+    // The answer is held until the cancel, then sent: a handler that never settles leaves MSW
+    // with a request it never finishes, and the next test's upload can fail behind it.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post(`${API_BASE_URL}/parse-image`, async () => {
+        await held;
+        return HttpResponse.json({ detail: "x" }, { status: 503 });
+      }),
+    );
+    const { user } = await openSheet();
+    await pick(user, "list", image());
+    const reading = await screen.findByTestId("photo-reading");
+    expect(within(reading).getByRole("status")).toHaveTextContent("קוראים את התמונה");
+    await user.click(screen.getByTestId("photo-cancel"));
+    expect(screen.getByTestId("photo-list-camera")).toBeVisible();
+    release();
+    // The late answer to the cancelled request changes nothing.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByTestId("photo-list-camera")).toBeVisible();
+    expect(screen.queryByTestId("photo-error")).not.toBeInTheDocument();
+    expect(getListState().items).toEqual([]);
   });
 });
