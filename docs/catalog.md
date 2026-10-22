@@ -191,7 +191,10 @@ appear as rows on `/c/beverages-plant_drinks`, not as pages of their own.
 
 Kosher and diet flags are **not** critical keys: the chain files do not carry them
 structurally, so extracted values are always unverified (`ALWAYS_UNVERIFIED`) and cannot gate a
-match. They are user preference filters (features.md) instead. This differs from the glossary in
+match. They are user preference filters (features.md) instead. Kosher is read from
+explicit words in the name only and filtered per item at price time, never at match time:
+[matching.md](matching.md#kosher-what-a-name-states-and-a-filter-that-never-guesses) and
+`smartcart_catalog/kosher.py`. This differs from the glossary in
 `docs/README.md`, which lists "kosher level" among critical attributes.
 
 **Validation** (`seed.py`): critical attributes name exactly the type's critical keys, values pass the
@@ -372,7 +375,8 @@ manufacturer and raw name from each `NormalizedItem`):
 - `RuleExtractor` (`extract/rule.py`), the default (`EXTRACTOR=rule`): keyword tables from
   `product_type_rules.yaml` pick the product type (whole-word match, longest keyword wins, excludes
   veto), regexes read the fat percentage (not cocoa or juice percentages), keyword lists give state,
-  flavor, kosher text and diet flags, a brand list and per-chain private-label lists give brand and
+  flavor, kosher text (the marks the name states, `kosher.py`: 'בד"ץ, כשר לפסח') and diet flags, a
+  brand list and per-chain private-label lists give brand and
   `is_private_label`. For plant drink types it fills `base` from the name (סויה or סוייה,
   שקדים, שיבולת שועל, אורז, קוקוס; the first one wins, and one right after "בטעם" is a flavor,
   not a base) or from the type itself; an untyped name that says it is a drink, a "milk" or a

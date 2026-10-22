@@ -40,7 +40,7 @@ here keep that distinction. When you see "estimate", it is not a measured number
 |---|---|
 | Canonical product | A product concept independent of brand and chain, e.g. "fresh milk 3%, 1 liter". Chain-specific items map to it. |
 | Flexibility level | Per-item user setting: exact (barcode), any brand (same critical attributes), close substitute (soft attributes may differ). |
-| Critical attribute | An attribute that must match at "any brand" level: fat percentage, fresh/frozen/chilled, size class. Kosher is never critical because it cannot be verified from chain data. |
+| Critical attribute | An attribute that must match at "any brand" level: fat percentage, fresh/frozen/chilled, size class. Kosher is never critical because it cannot be verified from chain data; it is a per-person filter read from item names (see [matching.md](matching.md#kosher-what-a-name-states-and-a-filter-that-never-guesses)). |
 | Soft attribute | An attribute that may differ at "close substitute" level: pack size, packaging type, nearby fat percentage. |
 | Effective price | Shelf price after applying promos the user is eligible for, precomputed nightly per (canonical, store). |
 | Unit price | Price per 100 g, 100 ml, or unit. The basis for all "cheaper" decisions. |

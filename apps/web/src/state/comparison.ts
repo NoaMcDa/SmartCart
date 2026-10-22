@@ -33,8 +33,8 @@ export function buildCompareInput(
   shopper: ShopperContext,
 ): CompareInput | null {
   if (items.length === 0) return null;
-  const { location, home_store_id, clubs } = shopperRequestFields(shopper);
-  return { items, location, home_store_id, clubs };
+  const { location, home_store_id, clubs, kosher } = shopperRequestFields(shopper);
+  return { items, location, home_store_id, clubs, ...(kosher ? { kosher } : {}) };
 }
 
 const optimizeCache = createResourceCache<OptimizeInput, OptimizeResponse>(optimize);

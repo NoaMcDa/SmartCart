@@ -18,6 +18,8 @@ import { Tag } from "@/components/ui/Tag";
 import { AlertMe } from "@/features/alerts/AlertMe";
 import { PriceHistory, type HistoryStoreOption } from "@/features/history/PriceHistory";
 import { IconClock } from "@/components/ui/icons";
+import { kosherFilter } from "@/features/kosher/kosher";
+import { KosherNote } from "@/features/kosher/KosherNote";
 import { ClubName } from "@/features/profile/ClubName";
 import { clubRuleText } from "@/features/profile/clubs";
 import { formatRich } from "@/i18n/format";
@@ -86,13 +88,15 @@ export function ProductDetail({
   const radius = shopper?.radiusM;
   const home = shopper?.homeStoreId ?? null;
   const clubsKey = shopper ? shopper.clubs.join("|") : "";
-  const requestKey = `${canonicalId}|${nameHint ?? ""}|${lat}|${lon}|${radius}|${home}|${clubsKey}`;
+  const kosherKey = JSON.stringify(kosherFilter(shopper?.kosher));
+  const requestKey = `${canonicalId}|${nameHint ?? ""}|${lat}|${lon}|${radius}|${home}|${clubsKey}|${kosherKey}`;
 
   // The price query is always "any brand": the flexibility chip below only sets the level of the
   // list entry ("exact" would need a barcode to price).
   useEffect(() => {
     if (lat === undefined || lon === undefined) return;
     let cancelled = false;
+    const kosher = JSON.parse(kosherKey) as ReturnType<typeof kosherFilter>;
     void (async () => {
       try {
         const [result, hits] = await Promise.all([
@@ -101,6 +105,7 @@ export function ProductDetail({
             location: { lat, lon, radius_m: radius },
             home_store_id: home,
             clubs: clubsKey ? clubsKey.split("|") : [],
+            ...(kosher ? { kosher } : {}),
           }),
           nameHint ? search(nameHint, 5).catch(() => null) : Promise.resolve(null),
         ]);
@@ -119,7 +124,7 @@ export function ProductDetail({
     return () => {
       cancelled = true;
     };
-  }, [canonicalId, nameHint, lat, lon, radius, home, clubsKey, requestKey]);
+  }, [canonicalId, nameHint, lat, lon, radius, home, clubsKey, kosherKey, requestKey]);
 
   const current = loaded && loaded.key === requestKey ? loaded : null;
   const state: State = !current
@@ -276,6 +281,7 @@ export function ProductDetail({
                           {item.is_substitute ? (
                             <Tag variant="differs">{t("substitute")}</Tag>
                           ) : null}
+                          <KosherNote label={item.kosher} />
                         </th>
                         <td data-label={t("colShelf")} className={styles.shelfCell}>
                           <Price amount={shelf} tone="muted" />

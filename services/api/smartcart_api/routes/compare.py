@@ -14,6 +14,9 @@
   the user did not mark is reported as ``club_offer_name`` / ``club_offer_discount``, never in a
   total. Lines carry ``promo_confidence`` when the adapter recorded one; stores carry ``lat`` and
   ``lon`` from ``stores.geog`` (issue #90).
+* Kosher (``kosher``, ``smartcart_api/kosher.py``): no line is an item the filter rules out; a store
+  that sells an item only in ruled-out forms lists it as missing and in ``kosher_excluded``, and a
+  store left with no line for that reason is counted in ``kosher_hidden_stores``. Never relaxed.
 """
 
 from __future__ import annotations
@@ -51,13 +54,19 @@ def compare(
         body.items,
         stores + ([home_info] if home_info and home_info not in stores else []),
         body.clubs,
+        kosher=body.kosher,
     )
     home = priced.get(home_info.store_id) if home_info else None
     results = [priced[s.store_id].result(home) for s in stores if priced[s.store_id].lines]
     results.sort(key=sort_key)
+    # stores left out only because the kosher filter ruled out everything they sell of the basket
+    hidden = sum(
+        1 for s in stores if not priced[s.store_id].lines and priced[s.store_id].kosher_blocked
+    )
     return schemas.CompareResponse(
         stores=results,
         home_store_id=body.home_store_id,
         home_store_total=home.total if home is not None else None,
         generated_at=datetime.now(UTC),
+        kosher_hidden_stores=hidden,
     )

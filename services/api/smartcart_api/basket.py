@@ -43,6 +43,11 @@ Line rules:
   a ``differs`` tag on every allowed attribute that differs, and ``original_here`` is the
   requested canonical's own offer at that store. Nothing the person did not allow is relaxed;
   ``exact`` ignores ``allow``.
+* Kosher (``price_baskets(kosher=...)``, ``smartcart_api/kosher.py``): with a filter, no line is an
+  item whose name rules the level out, and with ``only_stated`` none is an item whose name states
+  nothing; a key whose best item is ruled out is priced again from the chain's other items that
+  pass (``_kosher_gate``), and when none passes the canonical is missing at that store, listed in
+  ``StoreBasket.kosher_blocked``: the filter is never relaxed. Every line carries a ``kosher`` label.
 """
 
 from __future__ import annotations
@@ -56,9 +61,11 @@ from typing import Any
 
 import psycopg
 
+from smartcart_api import kosher as kosher_mod
 from smartcart_api import schemas
 from smartcart_api.offers import (  # noqa: F401  (re-exported: the pricing rules live in offers.py)
     ZERO,
+    choose_extras,
     line_total,
     money,
     shelf_packs,
@@ -101,6 +108,8 @@ class StoreBasket:
     info: StoreInfo
     lines: dict[int, schemas.PricedItem] = field(default_factory=dict)  # canonical_id -> line
     missing: list[int] = field(default_factory=list)
+    kosher_blocked: list[int] = field(default_factory=list)
+    """The ``missing`` canonicals this store sells only in items the kosher filter rules out."""
 
     @property
     def total(self) -> Decimal:
@@ -131,6 +140,7 @@ class StoreBasket:
             saving_vs_home=saving_vs(home, self, only) if home is not None else None,
             lat=self.info.lat,
             lon=self.info.lon,
+            kosher_excluded=list(self.kosher_blocked),
         )
 
 
@@ -455,14 +465,132 @@ def _substitute_tags(
     return tags
 
 
+def _kosher_gate(
+    conn: psycopg.Connection,
+    f: schemas.KosherFilter,
+    stores: list[StoreInfo],
+    needed: set[tuple[int, str]],
+    eff: dict[tuple[int, int, str], _Choice],
+    alternatives: dict[tuple[int, int, str], list[_Choice]],
+    offers: dict[tuple[int, int, str], _Choice],
+    extra_offers: dict[tuple[int, int, str], list[_Choice]],
+    clubs: list[str],
+    store_chain: dict[int, tuple[str, list[str]] | None],
+    as_of: datetime,
+) -> set[tuple[int, int]]:
+    """Applies the kosher filter to the offers read for (canonical, store, level) keys, in place.
+
+    Only keys of ``needed`` (canonical, level) are looked at. An offer whose item the filter rules
+    out is dropped. When the key's best item (the ``effective_prices`` row) is ruled out the key is
+    priced again from the items of the store's chain that are mapped to the canonical at that level
+    or a stricter one (the precompute's own rule) and pass the filter, with the same club gate and
+    the same choice of offers for a quantity; when none passes the key is gone, so the canonical is
+    missing at the store. Returns the (store, canonical) pairs left without an offer by the filter.
+    """
+    keys = [k for k in eff if (k[0], k[2]) in needed]
+    seen: set[int] = set()
+    for k in keys:
+        seen.add(eff[k].item_id)
+        seen.update(a.item_id for a in alternatives.get(k, ()))
+        seen.update(a.item_id for a in extra_offers.get(k, ()))
+        if k in offers:
+            seen.add(offers[k].item_id)
+    ok = kosher_mod.allowed_items(conn, seen, f)
+    blocked_keys = []
+    for k in keys:
+        if eff[k].item_id not in ok:
+            blocked_keys.append(k)
+            continue
+        if k in alternatives:
+            alternatives[k] = [a for a in alternatives[k] if a.item_id in ok]
+        if k in extra_offers:
+            extra_offers[k] = [a for a in extra_offers[k] if a.item_id in ok]
+        if k in offers and offers[k].item_id not in ok:
+            del offers[k]
+    if not blocked_keys:
+        return set()
+    for k in blocked_keys:
+        for d in (eff, alternatives, offers, extra_offers):
+            d.pop(k, None)
+    blocked = {(k[1], k[0]) for k in blocked_keys}
+
+    chain_of = {s.store_id: s.chain_id for s in stores}
+    cids = sorted({k[0] for k in blocked_keys})
+    chains = sorted({chain_of[k[1]] for k in blocked_keys})
+    meta = {
+        r[0]: (r[1], r[2])
+        for r in conn.execute(
+            "SELECT id, base_unit, soft_attrs FROM canonical_products WHERE id = ANY(%s)", (cids,)
+        )
+    }
+    mapped = conn.execute(
+        "SELECT ic.canonical_id, ic.item_id, ic.flex_level, i.chain_id FROM item_canonical AS ic"
+        " JOIN items AS i ON i.id = ic.item_id"
+        " WHERE ic.canonical_id = ANY(%s) AND i.chain_id = ANY(%s)"
+        "   AND NOT ic.needs_review AND NOT ic.human_rejected",
+        (cids, chains),
+    ).fetchall()
+    ok |= kosher_mod.allowed_items(conn, {m[1] for m in mapped} - seen, f)
+    cand: dict[tuple[int, str], list[tuple[int, str]]] = defaultdict(list)
+    for cid, iid, lvl, chain in mapped:
+        if iid in ok:
+            cand[(cid, chain)].append((iid, lvl))
+    # one pricing call per (chain, base unit), for the items that pass and the stores that need them
+    groups: dict[tuple[str, str], tuple[set[int], set[int]]] = {}
+    for cid, sid, _flex in blocked_keys:
+        items, sids = groups.setdefault((chain_of[sid], meta[cid][0]), (set(), set()))
+        items.update(i for i, _ in cand.get((cid, chain_of[sid]), ()))
+        sids.add(sid)
+    ways: dict[tuple[str, str], dict[tuple[int, int], list[Option]]] = {}
+    for (chain, base), (items, sids) in groups.items():
+        every: dict[tuple[int, int], list[Option]] = {}
+        item_options(
+            conn, chain, sorted(sids), sorted(items), as_of, {i: base for i in items}, None, None,
+            every,
+        )  # fmt: skip
+        ways[(chain, base)] = every
+    for cid, sid, flex in blocked_keys:
+        chain = chain_of[sid]
+        base, soft = meta[cid]
+        priced = ways.get((chain, base), {})
+        chain_name, chain_club_names = store_chain.get(sid) or (None, [])
+        offered = [
+            (w, lvl == "close")
+            for iid, lvl in cand.get((cid, chain), ())
+            if FLEX_ORDER[lvl] <= FLEX_ORDER[flex]
+            for w in priced.get((sid, iid), ())
+        ]
+        opened = [
+            (w, sub)
+            for w, sub in offered
+            if not w.club_required or club_member(w.club_name, clubs, chain_name, chain_club_names)
+        ]
+        if not opened:
+            continue
+        key = (cid, sid, flex)
+        best = min((w for w, _ in opened), key=Option.key)
+        eff[key] = _from_option(best)
+        if base != "kg":  # a weighed line is priced per kg: the best unit price is final
+            extras = choose_extras(opened, [best], units_per_pack(base, soft))
+            if extras:
+                alternatives[key] = [_from_option(x) for x in extras]
+        shut = [w for w, sub in offered if all(w is not o for o, _ in opened)]
+        if shut:  # a club deal the user did not mark: information only
+            offers[key] = _from_option(min(shut, key=Option.key))
+        blocked.discard((sid, cid))
+    return blocked
+
+
 def price_baskets(
     conn: psycopg.Connection,
     items: list[schemas.BasketItem],
     stores: list[StoreInfo],
     clubs: list[str],
     as_of: datetime | None = None,
+    kosher: schemas.KosherFilter | None = None,
 ) -> dict[int, StoreBasket]:
-    """store_id -> StoreBasket for ``items`` at each of ``stores``."""
+    """store_id -> StoreBasket for ``items`` at each of ``stores``. With ``kosher`` (an active
+    filter) no line is an item the filter rules out, and each line carries a kosher label."""
     as_of = as_of or datetime.now(UTC)
     baskets = {s.store_id: StoreBasket(info=s) for s in stores}
     if not stores:
@@ -565,6 +693,17 @@ def price_baskets(
         ):
             alternatives.setdefault(key, []).append(x)
 
+    # The kosher filter (smartcart_api/kosher.py): the (canonical, level) pairs a line can come from
+    # are the requested ones and the allowed siblings'.
+    kosher_blocked: set[tuple[int, int]] = set()
+    if kosher_mod.active(kosher):
+        needed = {(k[0], k[1]) for k in merged if k[2] is None}
+        needed |= {(sib, k[1]) for k in merged for sib, _ in siblings.get((k[0], k[1], k[3]), ())}
+        kosher_blocked = _kosher_gate(
+            conn, kosher, stores, needed, eff, alternatives, offers, extra_offers, clubs,
+            store_chain, as_of,
+        )  # fmt: skip
+
     # Exact barcodes, priced live.
     exact_choices: dict[tuple[int, int, int], _Choice] = {}
     exact_offers: dict[tuple[int, int, int], _Choice] = {}
@@ -572,7 +711,7 @@ def price_baskets(
     if exact_keys:
         exact_qty = {(k[0], k[2]): q for k, q in merged.items() if k[2] is not None}
         exact_choices, exact_offers = _exact_choices(
-            conn, exact_keys, stores, clubs, as_of, canon, chains, exact_qty
+            conn, exact_keys, stores, clubs, as_of, canon, chains, exact_qty, kosher
         )
 
     # (store, canonical) -> (choice, quantity, flex, exact item, canonical the choice is mapped to,
@@ -715,6 +854,9 @@ def price_baskets(
         {c.item_id for c, *_ in chosen.values()} | {o.item_id for o in originals.values()}
     )
     info = _item_info(conn, item_ids, price_ids)
+    kosher_of = (
+        kosher_mod.assess_items(conn, set(item_ids), kosher) if kosher_mod.active(kosher) else {}
+    )
     promo_rows = conn.execute(
         "SELECT id, description, raw->>'confidence' FROM promos WHERE id = ANY(%s)",
         (
@@ -773,6 +915,7 @@ def price_baskets(
                 club_name=alt.club_name,
                 price_valid_from=alt.price_valid_from,
                 promo_confidence=promo_conf.get(alt.promo_id) if alt.promo_id else None,
+                kosher=kosher_mod.label(kosher_of.get(alt.item_id), kosher),
             )
         offer_name = offer_discount = None
         offer = chosen_offer.get((sid, cid))
@@ -813,9 +956,11 @@ def price_baskets(
             promo_confidence=promo_conf.get(c.promo_id) if c.promo_id else None,
             club_offer_name=offer_name,
             club_offer_discount=offer_discount,
+            kosher=kosher_mod.label(kosher_of.get(c.item_id), kosher),
         )
     for b in baskets.values():
         b.missing = sorted({cid for (cid, _f, _e, _a) in merged if cid not in b.lines})
+        b.kosher_blocked = [c for c in b.missing if (b.info.store_id, c) in kosher_blocked]
     return baskets
 
 
@@ -849,6 +994,7 @@ def _exact_choices(
     canon: dict[int, tuple],
     chains: dict[str, tuple[str, list[str]]],
     qty: dict[tuple[int, int], Decimal],
+    kosher: schemas.KosherFilter | None = None,
 ) -> tuple[dict[tuple[int, int, int], _Choice], dict[tuple[int, int, int], _Choice]]:
     """(canonical_id, exact_item_id, store_id) -> live choice for that barcode at that store,
     and the club deals the user did not mark (information only), with the same club rule.
@@ -872,6 +1018,9 @@ def _exact_choices(
             " WHERE i.id = x.id OR (x.barcode IS NOT NULL AND i.barcode = x.barcode)",
             (exact_id, cid),
         ).fetchall()
+        if kosher_mod.active(kosher):  # the barcode the person chose is still ruled out by its name
+            passing = kosher_mod.allowed_items(conn, [r[0] for r in rows], kosher)
+            rows = [r for r in rows if r[0] in passing]
         base_unit = canon[cid][1]
         for chain_id in {r[1] for r in rows}:
             chain_items = [r[0] for r in rows if r[1] == chain_id]

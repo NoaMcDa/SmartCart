@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { AttributeTag, Plan, SwapSuggestion } from "@/api/client";
 import { Button, Card, Price, Tag, UpdatedAt } from "@/components/ui";
 import { IconCheck, IconRefresh } from "@/components/ui/icons";
+import { KosherNoteItems } from "@/features/kosher/KosherNote";
 import { applySwap, dismissSwap, undoSwap } from "@/features/swaps/actions";
 import {
   aggregate,
@@ -126,13 +127,14 @@ export function SmartCartCard({ plan }: { plan: Plan }) {
             <p className={styles.smartWhy} data-testid="smart-cart-why">
               {t("swapWhy", { reason: t(REASONS[top.flex_level]) })}
             </p>
-            {top.tags && top.tags.length > 0 ? (
+            {(top.tags && top.tags.length > 0) || top.kosher ? (
               <ul className={styles.smartTags} aria-label={t("tagsLabel")}>
-                {foldTags(top.tags).map((tag) => (
+                {foldTags(top.tags ?? []).map((tag) => (
                   <li key={`${tag.key}-${tag.value ?? ""}`}>
                     <Tag variant={tag.status}>{swapTagText(tag, locale)}</Tag>
                   </li>
                 ))}
+                <KosherNoteItems label={top.kosher} />
               </ul>
             ) : null}
             <div className={styles.smartActions}>
