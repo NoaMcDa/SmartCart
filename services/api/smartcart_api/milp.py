@@ -271,9 +271,10 @@ def _join(
     need = li.promo_min_qty
     if by_weight or need is None or need <= 1 or need != need.to_integral_value():
         return None
-    if li.quantity != li.quantity.to_integral_value():
+    packs = li.quantity if li.packs is None else li.packs  # shelf items, not the quantity asked
+    if packs != packs.to_integral_value():
         return None
-    n, q = int(need), int(li.quantity)
+    n, q = int(need), int(packs)
     price = _bundle_price(li, n, q)
     if price is None or price >= n * li.shelf_price:
         return None

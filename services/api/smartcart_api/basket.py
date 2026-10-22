@@ -20,6 +20,12 @@ Line rules:
   quantity x effective price per kg (estimated). Otherwise the quantity counts packs: full promo
   bundles at the promo price, the remainder at the shelf price, and when the remainder is short
   of a bundle the line says how many to add and what that saves.
+* Packs (``shelf_packs``): for a canonical counted in units (eggs, pitas, toilet paper) a pack is
+  the canonical's typical count (``soft_attrs.pack_size``: 12 eggs). When the item states how many
+  units it holds (``pack_units``: a tray of 30, a pack of 6) the line buys whole shelf items that
+  cover quantity x typical count: 12 eggs from a tray of 30 is one tray, from a pack of 6 two
+  packs. Promo bundles, the add-N hint and the totals then count those shelf items (``packs``).
+  Weights, volumes, exact barcodes and items with no stated count count shelf items directly.
 * Substitutes: a line whose item is mapped to the canonical at ``close`` is a substitute. It
   carries the mapping confidence, the attribute tags (matched, differs, unverified) of the item
   against the canonical, and the non-substitute item of that store as ``original_item_id`` when
@@ -42,7 +48,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 from typing import Any
 
 import psycopg
@@ -209,6 +215,8 @@ class _Choice:
     club_name: str | None
     price_valid_from: datetime
     is_estimated: bool
+    pack_units: Decimal | None = None
+    """Units in one shelf item, for a canonical counted in units (None: not stated)."""
 
     def key(self) -> tuple:
         return (self.effective_unit_price, self.effective_price, self.item_id)
@@ -228,6 +236,7 @@ def _from_json(js: dict[str, Any], club_name: str | None = None) -> _Choice:
         club_name=club_name,
         price_valid_from=datetime.fromisoformat(js["price_valid_from"]),
         is_estimated=bool(js.get("is_estimated")),
+        pack_units=Decimal(js["pack_units"]) if js.get("pack_units") else None,
     )
 
 
@@ -294,7 +303,36 @@ def _from_option(o: Option) -> _Choice:
         o.club_name,
         o.price_valid_from,
         o.is_estimated,
+        o.pack_units,
     )
+
+
+def shelf_packs(c: _Choice, quantity: Decimal, units_per_pack: Decimal | None) -> Decimal:
+    """Shelf items to buy for ``quantity`` packs of the requested canonical.
+
+    ``units_per_pack`` is the canonical's typical count (12 for ``eggs-l``), None when the
+    canonical is not counted in units. When both it and the item's own count (``c.pack_units``)
+    are known the line buys whole shelf items covering ``quantity x units_per_pack`` units;
+    otherwise the quantity already counts shelf items."""
+    if c.pack_units is None or units_per_pack is None:
+        return quantity
+    return (quantity * units_per_pack / c.pack_units).to_integral_value(rounding=ROUND_CEILING)
+
+
+def units_per_pack(base_unit: str, soft_attrs: dict | None) -> Decimal | None:
+    """The typical count of a canonical counted in units (``soft_attrs.pack_size`` in units); 1
+    when it states none. None for a weight or a volume, which count shelf items."""
+    if base_unit != "unit":
+        return None
+    soft = soft_attrs or {}
+    size = soft.get("pack_size")
+    if size is None or soft.get("unit") not in (None, "unit"):
+        return Decimal(1)
+    try:
+        value = Decimal(str(size))
+    except ArithmeticError:
+        return Decimal(1)
+    return value if value > 0 else Decimal(1)
 
 
 def line_total(c: _Choice, quantity: Decimal, by_weight: bool) -> tuple[Decimal, bool]:
@@ -500,7 +538,7 @@ def price_baskets(
     rows = conn.execute(
         "SELECT canonical_id, store_id, flex_level, item_id, shelf_price, effective_price,"
         " effective_unit_price, uom, promo_id, promo_min_qty, club_required, club_name,"
-        " price_valid_from, is_estimated, noclub"
+        " price_valid_from, is_estimated, noclub, pack_units"
         " FROM effective_prices WHERE store_id = ANY(%s) AND canonical_id = ANY(%s)",
         (store_ids, price_ids),
     ).fetchall()
@@ -523,6 +561,7 @@ def price_baskets(
             r[11],
             r[12],
             r[13],
+            r[15],
         )
         pick, offer = gate_club(c, r[14], clubs, store_chain.get(sid))
         if pick is None:
@@ -605,6 +644,9 @@ def price_baskets(
     # among the canonical's own offer, its allowed siblings' and the other offers of a club row
     # open to this user; the own offer first, so it keeps every tie. Marking a club never raises
     # a line, and an allowed sibling is chosen only when it is cheaper for the quantity.
+    per: dict[int, Decimal | None] = {  # units one requested pack holds, counted canonicals only
+        cid: units_per_pack(canon[cid][1], canon[cid][3]) for cid in canon_ids
+    }
     for key, (c, qty, flex, ex, src, differs) in list(chosen.items()):
         sid, cid = key
         if ex is not None or canon[cid][1] == "kg":
@@ -613,7 +655,7 @@ def price_baskets(
         for oc, osrc, odiff in options.get(key) or [(c, src, differs)]:
             full.append((oc, osrc, odiff))
             full += [(a, osrc, odiff) for a in alternatives.get((osrc, sid, flex), ())]
-        best = min(full, key=lambda t: line_total(t[0], qty, False)[0])
+        best = min(full, key=lambda t: line_total(t[0], shelf_packs(t[0], qty, per[cid]), False)[0])
         if best[0] is not c:
             chosen[key] = (best[0], qty, flex, ex, best[1], best[2])
             offer = offers.get((best[1], sid, flex))
@@ -634,7 +676,7 @@ def price_baskets(
             if canon[cid][1] != "kg":
                 alt = min(
                     [alt, *alternatives.get((cid, sid, "any_brand"), ())],
-                    key=lambda o: line_total(o, q, False)[0],
+                    key=lambda o: line_total(o, shelf_packs(o, q, per[cid]), False)[0],
                 )
             if alt.item_id != c.item_id:
                 originals[(sid, cid)] = alt
@@ -667,27 +709,30 @@ def price_baskets(
         # A sibling canonical's item is never what was asked for: always a labeled substitute.
         is_sub = ex is None and (bool(differs) or FLEX_ORDER.get(level, 0) == FLEX_ORDER["close"])
         by_weight = base_unit == "kg"
-        total, applied = line_total(c, qty, by_weight)
+        # An exact barcode is the product asked for: its quantity counts that item.
+        packs = qty if ex is not None else shelf_packs(c, qty, per[cid])
+        total, applied = line_total(c, packs, by_weight)
         add_qty = add_saving = None
         if not by_weight and c.promo_id is not None and c.promo_min_qty and c.promo_min_qty > 1:
-            rest = qty % c.promo_min_qty
+            rest = packs % c.promo_min_qty
             if rest:
                 add_qty = c.promo_min_qty - rest
-                more = qty + add_qty
+                more = packs + add_qty
                 with_promo, _ = line_total(c, more, False)
                 add_saving = money(more * c.shelf_price - with_promo)
-        unit_paid = _unit_paid(c, total, qty, by_weight)
+        unit_paid = _unit_paid(c, total, packs, by_weight)
         original = original_here = None
         alt = originals.get((sid, cid)) if is_sub else None
         if alt is not None:
             original = alt.item_id
-            alt_total, alt_applied = line_total(alt, qty, by_weight)
+            alt_packs = shelf_packs(alt, qty, per[cid])
+            alt_total, alt_applied = line_total(alt, alt_packs, by_weight)
             original_here = schemas.OriginalOffer(
                 item_id=alt.item_id,
                 display_name_he=info.get(alt.item_id, ("",))[0],
                 canonical_name_ar=canon[cid][5],
                 shelf_price=alt.shelf_price,
-                effective_unit_price=_unit_paid(alt, alt_total, qty, by_weight),
+                effective_unit_price=_unit_paid(alt, alt_total, alt_packs, by_weight),
                 uom=alt.uom,
                 line_total=alt_total,
                 is_estimated=alt.is_estimated or by_weight,
@@ -702,7 +747,9 @@ def price_baskets(
         offer_name = offer_discount = None
         offer = chosen_offer.get((sid, cid))
         if offer is not None:
-            with_club, _ = line_total(offer, qty, by_weight)
+            with_club, _ = line_total(
+                offer, packs if ex is not None else shelf_packs(offer, qty, per[cid]), by_weight
+            )
             if with_club < total:
                 offer_name, offer_discount = offer.club_name, money(total - with_club)
         baskets[sid].lines[cid] = schemas.PricedItem(
@@ -711,6 +758,8 @@ def price_baskets(
             display_name_he=raw_name,
             canonical_name_ar=canon[cid][5],
             quantity=qty,
+            packs=packs,
+            pack_units=None if ex is not None else c.pack_units,
             shelf_price=c.shelf_price,
             effective_unit_price=unit_paid,
             uom=c.uom,

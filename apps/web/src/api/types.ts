@@ -1657,6 +1657,16 @@ export interface components {
             /** Original Item Id */
             original_item_id?: number | null;
             /**
+             * Pack Units
+             * @description Units in one shelf item (12 for a tray of 12 eggs), read from the name or the fields; null for weights and volumes and when the item does not state a count.
+             */
+            pack_units?: string | null;
+            /**
+             * Packs
+             * @description Shelf items bought for the quantity asked: line_total is built on this, and it equals quantity unless the item states how many units it holds (pack_units) and the canonical is counted in units, when it is whole packs that cover the quantity: 12 eggs from a tray of 30 is 1, from a pack of 6 it is 2. null on a line that predates the field.
+             */
+            packs?: string | null;
+            /**
              * Price Valid From
              * Format: date-time
              */

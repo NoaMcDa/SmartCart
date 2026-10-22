@@ -175,8 +175,10 @@ export function buildSplitModel(result: LastResult): SplitModel | null {
   };
 }
 
+// The shelf price of what is bought: `packs` shelf items (whole packs covering the quantity of a
+// counted good, e.g. 12 eggs from a tray of 30), else the quantity asked.
 const lineShelf = (item: PricedItem) =>
-  Math.round(toAgorot(item.shelf_price) * Number(item.quantity));
+  Math.round(toAgorot(item.shelf_price) * Number(item.packs ?? item.quantity));
 const lineTotal = (item: PricedItem) => toAgorot(item.line_total);
 
 export function computeSplit(model: SplitModel, assignment: Assignment): SplitComputation {

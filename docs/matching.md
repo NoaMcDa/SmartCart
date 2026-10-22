@@ -862,6 +862,36 @@ Trays that are not 12 stay `close`, so `eggs-l` at `any_brand` is a 12-pack pric
 30 should count at any brand is a product decision for #15 (making `pack_size` non-soft for the egg types
 would do it), not made here.
 
+### Pack counts reach the unit price (finding 9 of the second real day)
+
+Matching eggs correctly unmasked a second problem that was not in the matching: the precompute priced an
+item from the chain's published unit price or its `Quantity`/`UnitQty`, never from the catalog's
+normalization. Where the fields say `1 יחידות` and the name says `12 יח` (Rami Levy, Yohananof, Tiv Taam) the
+tray's price was taken as the price of one egg (`ביצים 12 יח גדול L`, 14.20: 14.20 per unit; King Store, whose
+field says 12, got 1.18). The same hit pitas (`פיתות 10 יח'`) and toilet paper (`32 גלילים`) and every other
+`unit`-based canonical whose count is only in the name.
+
+`precompute.read_unit_price` now calls `normalize.normalize` on the item (name, `Quantity`, `UnitQty`,
+`is_weighed`, `item_code`: the columns of `items`) and uses its `total_quantity` as the pack:
+
+| Canonical's base unit | The pack | Disagreement between readings |
+|---|---|---|
+| `unit` (eggs, pitas, toilet paper) | `normalize`'s count in units (`12 יח'` = 12, `18יח` = 18, `2*30 יח'` = 60, `32 גלילים` = 32), the item's own unit fields, and the published unit price when its `uom` is `unit` (price / unit price, rounded to a whole number within 6 %); a reading of 1 is "unknown" and never outvotes a stated count; the unit price is `price / count` | the **smallest** stated count (the larger unit price); recorded as `count_conflict` |
+| `100g`, `100ml` | the published unit price, else the fields', else the name's (`price x 100 / total_quantity`, so `6*330 מ"ל` is 1980 ml and `6*1.5 ל'` is 9000 ml even when the fields say `1 יחידות`); consistent readings (within 12 % or one agora) keep the first | the **highest** unit price; recorded as `measure_conflict` (this is also what a published price a hundred times too small, finding 8, falls back to) |
+| `kg` (weighed) | unchanged: the shelf price is per kg | |
+
+"Never cheaper than the shelf supports" is the rule behind both rows: a wrong pack count or a wrong
+size can only make the item look dearer per unit, and a dearer item is a missed match, not a wrong
+claim (precision over recall). What the name decided against the fields is not hidden: the precompute's
+`match_runs` row carries `pack_reads` (counts per kind) and `pack_samples` (item id, name, price and what
+each reading said), so the next real-day report can list them. `normalize.py` itself did not change: its
+reading of `12 יח'`, `2*30` and `6*330 מ"ל` was already right (`test_normalize.py`,
+`test_normalize_real_sizes.py`); the precompute only stopped ignoring it. How the quantity of a request
+becomes whole shelf packs is in [optimizer.md](optimizer.md#packs-the-count-in-the-name-the-unit-price-and-whole-packs-finding-9-of-the-second-real-day).
+
+With this, rule 5 above ("the unit price is per egg either way") holds in the prices: a tray of 30 at an
+illustrative 29.90 is 1.00 an egg next to the 12-pack's 1.18 at `close`, and the `any_brand` row of `eggs-l` is the 12-pack.
+
 ## Fine-tuning trigger
 
 Retrieval is the recall ceiling: the judge can only accept what top-k returns. On the **real**

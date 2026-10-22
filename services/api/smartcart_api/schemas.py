@@ -337,6 +337,18 @@ class PricedItem(_Model):
         "and stays Hebrew; this is what the shopper asked for, not a translation of the item.",
     )
     quantity: Decimal
+    packs: Decimal | None = Field(
+        default=None,
+        description="Shelf items bought for the quantity asked: line_total is built on this, and "
+        "it equals quantity unless the item states how many units it holds (pack_units) and the "
+        "canonical is counted in units, when it is whole packs that cover the quantity: 12 eggs "
+        "from a tray of 30 is 1, from a pack of 6 it is 2. null on a line that predates the field.",
+    )
+    pack_units: Decimal | None = Field(
+        default=None,
+        description="Units in one shelf item (12 for a tray of 12 eggs), read from the name or the "
+        "fields; null for weights and volumes and when the item does not state a count.",
+    )
     shelf_price: Decimal
     effective_unit_price: Decimal
     uom: str
