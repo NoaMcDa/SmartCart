@@ -15,6 +15,11 @@ canonical's critical attributes is known on the item and differs (D5: precision 
 ``any_brand`` and ``close`` the critical attributes are fixed by D4). The saving is for the
 requested quantity, the difference of the two line totals (promos and weight included).
 
+Kosher (``CompareRequest.kosher``): both the current lines and every alternative are priced with
+the filter, so no suggestion is an item the filter rules out and each suggestion carries the item's
+``kosher`` label like any line. A swap is also never a step down: from an item whose name states a
+certification that meets the level to one that states nothing (``_kosher_downgrade``).
+
 ``BasketItem.allow`` (#31) is honored as in /compare: the alternatives of an ``any_brand`` or
 ``close`` row are priced with that row's allowed attributes, so a sibling canonical that differs
 only in allowed critical attributes can be suggested. It is still a labeled substitute: the
@@ -65,6 +70,17 @@ def _requested(
     return out
 
 
+def _kosher_downgrade(cur: schemas.PricedItem, alt: schemas.PricedItem) -> bool:
+    """A swap from an item that meets the kosher filter to one that only might (its name states
+    nothing): cheaper is not a reason to give up a stated certification."""
+    a, b = cur.kosher, alt.kosher
+    if a is None or b is None:
+        return False
+    return (a.level == "meets" and b.level != "meets") or (
+        a.passover == "meets" and b.passover != "meets"
+    )
+
+
 def _candidate_levels(level: str, exact_item: int | None) -> tuple[str, ...]:
     if level == "exact" and exact_item is not None:
         return ("exact", *LOOSER["exact"])  # another barcode of the same exact product, or looser
@@ -75,7 +91,7 @@ def suggest_swaps(
     conn: psycopg.Connection, req: schemas.CompareRequest, store: StoreInfo
 ) -> schemas.SwapSuggestionResponse:
     sid = store.store_id
-    current = price_baskets(conn, req.items, [store], req.clubs)[sid]
+    current = price_baskets(conn, req.items, [store], req.clubs, kosher=req.kosher)[sid]
     wanted = _requested(req.items)
 
     # One pricing call per alternative level, every canonical that may move to it at once.
@@ -94,7 +110,9 @@ def suggest_swaps(
             )
     alt_lines: dict[tuple[int, str], schemas.PricedItem] = {}
     for alt, items in by_level.items():
-        for cid, li in price_baskets(conn, items, [store], req.clubs)[sid].lines.items():
+        for cid, li in price_baskets(conn, items, [store], req.clubs, kosher=req.kosher)[
+            sid
+        ].lines.items():
             alt_lines[(cid, alt)] = li
 
     attrs = _attributes(conn, {li.item_id for li in alt_lines.values()}, set(wanted))
@@ -104,7 +122,7 @@ def suggest_swaps(
         alt_lines.items(), key=lambda kv: (kv[0][0], FLEX_ORDER[kv[0][1]])
     ):
         cur = current.lines[cid]
-        if li.item_id == cur.item_id:
+        if li.item_id == cur.item_id or _kosher_downgrade(cur, li):
             continue
         saving = money(cur.line_total - li.line_total)
         if saving <= 0:
@@ -134,6 +152,7 @@ def suggest_swaps(
                 saving=saving,
                 confidence=li.confidence,
                 tags=tags,
+                kosher=li.kosher,
             )
     swaps = sorted(best.values(), key=lambda s: (-s.saving, s.canonical_id))
     return schemas.SwapSuggestionResponse(

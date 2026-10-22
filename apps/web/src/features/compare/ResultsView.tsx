@@ -24,6 +24,7 @@ import {
 } from "@/state/comparison";
 import { BudgetRemaining } from "@/features/budget/BudgetRemaining";
 import { reportResultsShown, reportSubstitutionsShown } from "@/features/consent/betaEvents";
+import { KosherActiveNote } from "@/features/kosher/KosherActiveNote";
 import { MethodologyLink } from "@/features/seo/components";
 import { formatRich } from "@/i18n/format";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
@@ -229,6 +230,8 @@ export function ResultsView() {
           </span>
         ) : null}
       </p>
+
+      <KosherActiveNote prefs={shopper?.kosher} />
 
       <SegmentedControl
         label={t("viewLabel")}

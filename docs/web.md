@@ -1329,3 +1329,41 @@ web map.
   machine drafted and awaits native review, #73).
 - **New accessibility trees.** `personal-suggestions`, `personal-value-pack`, `personal-usual-quantity`,
   `personal-profile-section` in `tests/a11y/aria-snapshots/`; no existing snapshot changed.
+
+## Kosher filter
+
+A real setting, not a stored preference that did nothing: the API filters by it
+([matching.md](matching.md#kosher-what-a-name-states-and-a-filter-that-never-guesses),
+[api.md](api.md#kosher-filter)), and the web app sets it, sends it and shows what it did. Code in
+`src/features/kosher/` and the copy in `src/i18n/messages/kosher.ts` (Hebrew and Arabic, the key sets
+compile-checked and tested like every catalog; the Arabic is machine drafted, needs a native-speaker
+review, #73).
+
+- **Setting** (`KosherControls`: Profile under "כשרות ותזונה", and a fourth onboarding step for the
+  kosher beta segment, `useBetaMembership().segment === "kosher"`): a level (none, כשר, מהדרין, בד"ץ),
+  a named hechsher (a select under the level), "only items whose name states it" and kosher for
+  Passover. The profile keeps `diet.kosherLevel`, `kosherOnlyStated`, `kosherPassover`; signed in they
+  are `kosher_level` and the `kosher:only_stated` / `kosher:passover` entries of `diet_flags`
+  (`profileApi.ts`: no new column). Every change is mirrored to the shopper context
+  (`kosher_level`, `kosher_only_stated`, `kosher_passover` in `sc-profile-v1`), which `buildCompareInput`
+  and `buildOptimizeInput` (`shopperRequestFields`) read: a request carries `kosher` only when a level
+  or Passover is set, so without a setting it is exactly what it was. A person who set a level before
+  this release has it in the local profile but not in the shopper copy until the next profile change.
+- **Labels** (`KosherNote`, `KosherNoteItems`): a green "כשרות לפי שם המוצר: מהדרין" when the name states
+  a certification that meets the level, an amber "כשרות לא ידועה — בדקו על האריזה" when it states
+  nothing, each with an icon and text. Shown on the basket-details lines, the substitution card (in
+  its tag list, and on the original at the same store), the smart cart's swap, the product page's
+  store rows, and on shared-list search hits (`KosherHitNote`). A substitute keeps all its tags; the
+  kosher label is one more with the same weight.
+- **Results**: `KosherActiveNote` says that a filter is on and links to the setting; a missing item
+  that the filter left out says "יש בסניף, אבל לא במוצר שעומד בסינון הכשרות שלך" instead of "לא נמכר
+  בסניף" (`Plan.kosher_excluded`).
+- **Mock** (`src/mocks/kosher.ts`): the fixtures' names state almost nothing, as the real files do, so
+  the mock has a small table of what some fixture items state and applies the same answers
+  (`judgeLevel` mirrors `smartcart_catalog.kosher.judge`) to `/compare`, `/optimize`, `/optimize/swaps`
+  and `/search`, rebuilding totals, missing items and savings from the lines that remain.
+- **Tests**: `features/kosher/kosher.test.ts`, `KosherUi.test.tsx` (setting, requests, profile mapping,
+  labels, results), `onboardingKosher.test.tsx`, `mocks/kosher.test.ts`; `tests/e2e/kosher.spec.ts`;
+  `tests/a11y/kosher.spec.ts` with the new snapshots `profile-kosher`, `results-kosher-note` and
+  `results-basket-details-kosher` (no existing snapshot changed: without a filter there is no kosher
+  text). The existing profile spec's radio is now named 'בד"ץ' (the standard spelling; it was 'בד"צ').

@@ -94,7 +94,7 @@ def test_each_item_is_processed_once(db, rx) -> None:
     assert milk[0] == "ok" and milk[3:5] == ("rule", None)
     assert milk[1]["product_type"] == "milk" and milk[1]["fat_pct"] == 3
     matzah = rows[ids[1]]
-    assert matzah[1]["kosher"] == "כשר לפסח" and matzah[2] == []
+    assert matzah[1]["kosher"] == 'בד"ץ, כשר לפסח' and matzah[2] == []
     assert rows[ids[2]][1]["diet_flags"] == ["vegan"] and rows[ids[2]][2] == []
     assert "pack_size" not in rows[ids[3]][1]  # weighed
     assert all(r[2] == [] for r in rows.values())

@@ -186,7 +186,8 @@ treat it like any other unreviewed copy. Where it appears:
   - a line whose item is mapped at `close` is a substitute: `is_substitute`, the mapping
     `confidence`, `tags` comparing the item's extracted attributes with the canonical's critical
     and soft attributes (`matched`, `differs`, `unverified`; kosher and diet flags stay
-    unverified unless a human verified them), and `original_item_id`, the store's non-substitute
+    unverified unless a human verified them; the kosher label of a filtered request is the separate `kosher` field, see
+    "Kosher filter"), and `original_item_id`, the store's non-substitute
     item when it has one, with that item's offer at the same store as `original_here`
     (`OriginalOffer`: `item_id`, `display_name_he`, `canonical_name_ar`, `shelf_price`,
     `effective_unit_price`, `uom`, `line_total`, `is_estimated`, the promo and club fields of the
@@ -216,6 +217,55 @@ treat it like any other unreviewed copy. Where it appears:
 - `missing` lists the canonical ids a store cannot supply; `found_count` the others. Never
   dropped, never priced as zero.
 - Sorting: fewer missing items first (complete baskets first), then total, then distance.
+
+### Kosher filter
+
+The person's kosher preference, applied to every route that picks an item for them
+([matching.md](matching.md#kosher-what-a-name-states-and-a-filter-that-never-guesses) has the rules
+and the measured coverage). The transparency files have no kosher field, so the API reads
+certification from the item's **name** only and answers "unknown" for the rest; it never infers
+kashrut from a brand or a manufacturer.
+
+**Request** (`CompareRequest.kosher`, so `/compare`, `/optimize` and `/optimize/swaps`; absent or
+null means no filter and the response is what it was before):
+
+| Field | Meaning |
+|---|---|
+| `level` | `regular`, `mehadrin`, `badatz`, `badatz_eida`, `badatz_beit_yosef`, `badatz_chatam_sofer`, `badatz_agudat`, `landau`, `rabbanut_mehadrin`, or null (no level; only `passover` filters) |
+| `only_stated` | default false. true: offer only items whose name **states** a certification that meets the level (and Passover when asked); items that state nothing are left out instead of labelled. Not a check by a person |
+| `passover` | default false. Kosher for Passover as a filter of its own: an item that says it is not is never offered, one that says nothing is unknown |
+
+Unknown values and extra keys are a 422. The profile stores the same preference in `kosher_level` and
+two `diet_flags` entries (`kosher:only_stated`, `kosher:passover`); the API's profile routes keep them
+as plain strings and the web app builds the request from them.
+
+**Response**:
+
+- `PricedItem.kosher` (also `OriginalOffer.kosher`, `SwapSuggestion.kosher`): `{level, passover,
+  stated}`, present only under a filter. `level` is `meets` (the name states a certification that
+  meets it) or `unknown` (show "כשרות לא ידועה — בדקו על האריזה"); `passover` likewise, null when not
+  asked; `stated` lists the mark codes the name states (`mehadrin`, `badatz`, `badatz_eida`, `passover`,
+  `dairy`...). There is no "fails": an item that fails is never on a line.
+- `StoreResult.kosher_excluded` and `Plan.kosher_excluded`: the canonicals in `missing` that the store
+  sells but only in items the filter rules out (so "missing because of your filter" is told apart from
+  "not sold here"). `CompareResponse.kosher_hidden_stores`: stores in the radius left out because
+  nothing they sell of the basket passes. A filter is never relaxed to fill a basket.
+- Totals, `saving_vs_home`, `basket_saving` and `net_saving` are computed with the same filter on the
+  home store and on every other store.
+
+**`GET /search`** takes `kosher` (a level), `kosher_passover` and `kosher_only_stated` and adds
+`SearchHit.kosher` = `{status, meets, unknown, fails}` counted over the items the catalog maps to the
+canonical (any brand or exact, not under review, in every chain: the search has no location).
+`status` is `meets`, `unknown` or `none` (every item ruled out, or with `only_stated` none states
+enough); a `none` hit is listed after the others, never first. Hits are never hidden: they are
+canonicals, not items.
+
+Implementation: `smartcart_api/kosher.py` (assessment, labels, search) and `basket._kosher_gate`
+(called by `price_baskets` before the exact barcodes): an offer whose item fails is dropped; a key whose
+best item fails is priced again from the chain's other items that pass (live, with the club gate and
+`offers.choose_extras`); a key with none is removed, so the canonical is missing. Cost: one query for
+the names of the items on the lines, and, only for a key whose best item fails, the mapped items, their
+prices and promos for that chain. Tests: `services/api/tests/test_api_kosher.py`.
 
 ### Saving semantics (D7)
 

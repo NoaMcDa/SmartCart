@@ -514,6 +514,17 @@
             "title": "Items",
             "type": "array"
           },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherFilter"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The person's kosher preference. With it, no line is an item whose name rules the level out, every line carries a ``kosher`` label, and a store that cannot meet the basket under the filter lists the item as missing (and in ``kosher_excluded``): the filter is never relaxed. Applies to /compare, /optimize and /optimize/swaps."
+          },
           "location": {
             "$ref": "#/components/schemas/Location"
           }
@@ -559,6 +570,12 @@
               }
             ],
             "title": "Home Store Total"
+          },
+          "kosher_hidden_stores": {
+            "default": 0,
+            "description": "Under a kosher filter: stores in the radius left out because every item they sell of the basket is ruled out. Without it they would be listed with lines.",
+            "title": "Kosher Hidden Stores",
+            "type": "integer"
           },
           "stores": {
             "description": "Sorted: complete baskets first, then by total",
@@ -793,6 +810,136 @@
           "version"
         ],
         "title": "Health",
+        "type": "object"
+      },
+      "KosherFilter": {
+        "additionalProperties": false,
+        "description": "The person's kosher preference. Transparency files have no kosher field: what an item states\ncomes from its name alone, and an item whose name states nothing is \"unknown\" (labelled, and\nleft out only with ``only_stated``). An item whose name rules the level out is never offered.",
+        "properties": {
+          "level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "regular",
+                  "mehadrin",
+                  "badatz",
+                  "badatz_eida",
+                  "badatz_beit_yosef",
+                  "badatz_chatam_sofer",
+                  "badatz_agudat",
+                  "landau",
+                  "rabbanut_mehadrin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null: no preference (only ``passover`` can still filter)",
+            "title": "Level"
+          },
+          "only_stated": {
+            "default": false,
+            "description": "Offer only items whose name states a certification that meets the level (and, with ``passover``, kosher for Passover); items that state nothing are left out instead of labelled. This is not a check by a person.",
+            "title": "Only Stated",
+            "type": "boolean"
+          },
+          "passover": {
+            "default": false,
+            "description": "Kosher for Passover as a separate filter: an item that says it is not is never offered; one that says nothing is labelled unknown (or left out with ``only_stated``)",
+            "title": "Passover",
+            "type": "boolean"
+          }
+        },
+        "title": "KosherFilter",
+        "type": "object"
+      },
+      "KosherHitLabel": {
+        "additionalProperties": false,
+        "description": "A search hit under a kosher filter, from the items the catalog maps to it (any brand or\nexact, not under review), in every chain: the search has no location.",
+        "properties": {
+          "fails": {
+            "minimum": 0.0,
+            "title": "Fails",
+            "type": "integer"
+          },
+          "meets": {
+            "minimum": 0.0,
+            "title": "Meets",
+            "type": "integer"
+          },
+          "status": {
+            "description": "meets: at least one item states a certification that meets the filter; unknown: none does but some state nothing (the warning applies); none: every item is ruled out (or, with only_stated, none states enough)",
+            "enum": [
+              "meets",
+              "unknown",
+              "none"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "unknown": {
+            "minimum": 0.0,
+            "title": "Unknown",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "meets",
+          "unknown",
+          "fails"
+        ],
+        "title": "KosherHitLabel",
+        "type": "object"
+      },
+      "KosherLabel": {
+        "additionalProperties": false,
+        "description": "What the filter knows about one offered item. Present on a line only when a filter is set;\nan item that does not meet it is never on a line, so there is no \"fails\" here.",
+        "properties": {
+          "level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "meets",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Against the chosen level: meets (the name states a certification that meets it) or unknown (the name states nothing that decides it: show the warning). null when no level was set.",
+            "title": "Level"
+          },
+          "passover": {
+            "anyOf": [
+              {
+                "enum": [
+                  "meets",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Against kosher for Passover; null when it was not asked for",
+            "title": "Passover"
+          },
+          "stated": {
+            "description": "The marks the item's name states (``smartcart_catalog.kosher.MARKS`` codes, for example mehadrin, badatz, badatz_eida, passover, dairy), empty when it states none",
+            "items": {
+              "type": "string"
+            },
+            "title": "Stated",
+            "type": "array"
+          }
+        },
+        "title": "KosherLabel",
         "type": "object"
       },
       "ListItem": {
@@ -1225,6 +1372,17 @@
             "title": "Items",
             "type": "array"
           },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherFilter"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The person's kosher preference. With it, no line is an item whose name rules the level out, every line carries a ``kosher`` label, and a store that cannot meet the basket under the filter lists the item as missing (and in ``kosher_excluded``): the filter is never relaxed. Applies to /compare, /optimize and /optimize/swaps."
+          },
           "location": {
             "$ref": "#/components/schemas/Location"
           },
@@ -1380,6 +1538,17 @@
           "item_id": {
             "title": "Item Id",
             "type": "integer"
+          },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherLabel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only under a kosher filter"
           },
           "line_total": {
             "description": "The original at the line's quantity, promo folded",
@@ -2105,6 +2274,14 @@
             "title": "Kind",
             "type": "string"
           },
+          "kosher_excluded": {
+            "description": "Under a kosher filter: the canonical_ids in ``missing`` that a store of this plan sells but only in items the filter rules out",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Kosher Excluded",
+            "type": "array"
+          },
           "missing": {
             "items": {
               "type": "integer"
@@ -2504,6 +2681,17 @@
           "item_id": {
             "title": "Item Id",
             "type": "integer"
+          },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherLabel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Under a kosher filter: what the item's name states. Same weight as the substitute tags: show it on the line, and the warning when a level is unknown."
           },
           "line_total": {
             "title": "Line Total",
@@ -3429,6 +3617,17 @@
             "description": "Evidence for this hit; the parser's thresholds use it",
             "title": "Confidence"
           },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherHitLabel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only when a kosher filter was sent and the canonical has mapped items. A hit with status none is listed after the others (never first)."
+          },
           "matched_by": {
             "items": {
               "enum": [
@@ -4146,6 +4345,14 @@
             "title": "Items",
             "type": "array"
           },
+          "kosher_excluded": {
+            "description": "Under a kosher filter: the canonical_ids in ``missing`` that this store sells but only in items the filter rules out. Empty without a filter.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Kosher Excluded",
+            "type": "array"
+          },
           "lat": {
             "anyOf": [
               {
@@ -4361,6 +4568,17 @@
           "from_item_id": {
             "title": "From Item Id",
             "type": "integer"
+          },
+          "kosher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KosherLabel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only under a kosher filter: the suggested item's label"
           },
           "saving": {
             "description": "For the requested quantity, ILS",
@@ -7675,6 +7893,59 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "The person's kosher level; hits then carry a kosher label (see KosherHitLabel)",
+            "in": "query",
+            "name": "kosher",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "regular",
+                    "mehadrin",
+                    "badatz",
+                    "badatz_eida",
+                    "badatz_beit_yosef",
+                    "badatz_chatam_sofer",
+                    "badatz_agudat",
+                    "landau",
+                    "rabbanut_mehadrin"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The person's kosher level; hits then carry a kosher label (see KosherHitLabel)",
+              "title": "Kosher"
+            }
+          },
+          {
+            "description": "Kosher for Passover as a filter",
+            "in": "query",
+            "name": "kosher_passover",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Kosher for Passover as a filter",
+              "title": "Kosher Passover",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only items whose name states a certification that meets the filter",
+            "in": "query",
+            "name": "kosher_only_stated",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only items whose name states a certification that meets the filter",
+              "title": "Kosher Only Stated",
+              "type": "boolean"
             }
           },
           {

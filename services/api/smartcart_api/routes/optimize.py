@@ -183,6 +183,11 @@ def _plan(
         recommended=recommended,
         missing=ev.missing,
         substituted_count=sum(1 for li in lines.values() if li.is_substitute),
+        kosher_excluded=[
+            c
+            for c in ev.missing
+            if any(c in baskets[s].kosher_blocked for s in ev.stores if s in baskets)
+        ],
     )
 
 
@@ -205,7 +210,7 @@ def _price(body: schemas.OptimizeRequest, conn: psycopg.Connection) -> _Priced:
         if home_info is None:
             home_info = store_info(conn, body.home_store_id, body.location)
     priced_stores = candidates + ([home_info] if home_info and home_info not in candidates else [])
-    baskets = price_baskets(conn, body.items, priced_stores, body.clubs)
+    baskets = price_baskets(conn, body.items, priced_stores, body.clubs, kosher=body.kosher)
     home = baskets.get(home_info.store_id) if home_info else None
     canonical_ids = list(dict.fromkeys(it.canonical_id for it in body.items))
     info = {s.store_id: s for s in priced_stores}
@@ -448,7 +453,12 @@ def _milp_basket(basket: StoreBasket, sol: milp.Solution) -> StoreBasket:
                 "promo_add_saving": None,
             }
         )
-    return StoreBasket(info=basket.info, lines=lines, missing=list(basket.missing))
+    return StoreBasket(
+        info=basket.info,
+        lines=lines,
+        missing=list(basket.missing),
+        kosher_blocked=list(basket.kosher_blocked),
+    )
 
 
 def _milp_plan(

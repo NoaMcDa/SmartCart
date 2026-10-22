@@ -978,6 +978,8 @@ export interface components {
             include_online: boolean;
             /** Items */
             items: components["schemas"]["BasketItem"][];
+            /** @description The person's kosher preference. With it, no line is an item whose name rules the level out, every line carries a ``kosher`` label, and a store that cannot meet the basket under the filter lists the item as missing (and in ``kosher_excluded``): the filter is never relaxed. Applies to /compare, /optimize and /optimize/swaps. */
+            kosher?: components["schemas"]["KosherFilter"] | null;
             location: components["schemas"]["Location"];
         };
         /** CompareResponse */
@@ -996,6 +998,12 @@ export interface components {
             home_store_id: number | null;
             /** Home Store Total */
             home_store_total: string | null;
+            /**
+             * Kosher Hidden Stores
+             * @description Under a kosher filter: stores in the radius left out because every item they sell of the basket is ruled out. Without it they would be listed with lines.
+             * @default 0
+             */
+            kosher_hidden_stores: number;
             /**
              * Stores
              * @description Sorted: complete baskets first, then by total
@@ -1066,6 +1074,72 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /**
+         * KosherFilter
+         * @description The person's kosher preference. Transparency files have no kosher field: what an item states
+         *     comes from its name alone, and an item whose name states nothing is "unknown" (labelled, and
+         *     left out only with ``only_stated``). An item whose name rules the level out is never offered.
+         */
+        KosherFilter: {
+            /**
+             * Level
+             * @description null: no preference (only ``passover`` can still filter)
+             */
+            level?: ("regular" | "mehadrin" | "badatz" | "badatz_eida" | "badatz_beit_yosef" | "badatz_chatam_sofer" | "badatz_agudat" | "landau" | "rabbanut_mehadrin") | null;
+            /**
+             * Only Stated
+             * @description Offer only items whose name states a certification that meets the level (and, with ``passover``, kosher for Passover); items that state nothing are left out instead of labelled. This is not a check by a person.
+             * @default false
+             */
+            only_stated: boolean;
+            /**
+             * Passover
+             * @description Kosher for Passover as a separate filter: an item that says it is not is never offered; one that says nothing is labelled unknown (or left out with ``only_stated``)
+             * @default false
+             */
+            passover: boolean;
+        };
+        /**
+         * KosherHitLabel
+         * @description A search hit under a kosher filter, from the items the catalog maps to it (any brand or
+         *     exact, not under review), in every chain: the search has no location.
+         */
+        KosherHitLabel: {
+            /** Fails */
+            fails: number;
+            /** Meets */
+            meets: number;
+            /**
+             * Status
+             * @description meets: at least one item states a certification that meets the filter; unknown: none does but some state nothing (the warning applies); none: every item is ruled out (or, with only_stated, none states enough)
+             * @enum {string}
+             */
+            status: "meets" | "unknown" | "none";
+            /** Unknown */
+            unknown: number;
+        };
+        /**
+         * KosherLabel
+         * @description What the filter knows about one offered item. Present on a line only when a filter is set;
+         *     an item that does not meet it is never on a line, so there is no "fails" here.
+         */
+        KosherLabel: {
+            /**
+             * Level
+             * @description Against the chosen level: meets (the name states a certification that meets it) or unknown (the name states nothing that decides it: show the warning). null when no level was set.
+             */
+            level?: ("meets" | "unknown") | null;
+            /**
+             * Passover
+             * @description Against kosher for Passover; null when it was not asked for
+             */
+            passover?: ("meets" | "unknown") | null;
+            /**
+             * Stated
+             * @description The marks the item's name states (``smartcart_catalog.kosher.MARKS`` codes, for example mehadrin, badatz, badatz_eida, passover, dairy), empty when it states none
+             */
+            stated?: string[];
         };
         /** ListItem */
         ListItem: {
@@ -1241,6 +1315,8 @@ export interface components {
             include_online: boolean;
             /** Items */
             items: components["schemas"]["BasketItem"][];
+            /** @description The person's kosher preference. With it, no line is an item whose name rules the level out, every line carries a ``kosher`` label, and a store that cannot meet the basket under the filter lists the item as missing (and in ``kosher_excluded``): the filter is never relaxed. Applies to /compare, /optimize and /optimize/swaps. */
+            kosher?: components["schemas"]["KosherFilter"] | null;
             location: components["schemas"]["Location"];
             /**
              * Max Stores
@@ -1318,6 +1394,8 @@ export interface components {
             is_estimated: boolean;
             /** Item Id */
             item_id: number;
+            /** @description Only under a kosher filter */
+            kosher?: components["schemas"]["KosherLabel"] | null;
             /**
              * Line Total
              * @description The original at the line's quantity, promo folded
@@ -1640,6 +1718,11 @@ export interface components {
              * @enum {string}
              */
             kind: "single" | "split" | "minimum_effort";
+            /**
+             * Kosher Excluded
+             * @description Under a kosher filter: the canonical_ids in ``missing`` that a store of this plan sells but only in items the filter rules out
+             */
+            kosher_excluded?: number[];
             /** Missing */
             missing?: number[];
             /**
@@ -1815,6 +1898,8 @@ export interface components {
             is_substitute: boolean;
             /** Item Id */
             item_id: number;
+            /** @description Under a kosher filter: what the item's name states. Same weight as the substitute tags: show it on the line, and the warning when a level is unknown. */
+            kosher?: components["schemas"]["KosherLabel"] | null;
             /** Line Total */
             line_total: string;
             /** @description Substitutes only: the original's offer at this same store (the one original_item_id names), for an apples-to-apples comparison. null when the line is not a substitute or this store does not sell the original. Display only. */
@@ -2171,6 +2256,8 @@ export interface components {
              * @description Evidence for this hit; the parser's thresholds use it
              */
             confidence?: number | null;
+            /** @description Only when a kosher filter was sent and the canonical has mapped items. A hit with status none is listed after the others (never first). */
+            kosher?: components["schemas"]["KosherHitLabel"] | null;
             /** Matched By */
             matched_by: ("trigram" | "fts" | "vector")[];
             /**
@@ -2472,6 +2559,11 @@ export interface components {
             /** Items */
             items: components["schemas"]["PricedItem"][];
             /**
+             * Kosher Excluded
+             * @description Under a kosher filter: the canonical_ids in ``missing`` that this store sells but only in items the filter rules out. Empty without a filter.
+             */
+            kosher_excluded?: number[];
+            /**
              * Lat
              * @description Store latitude when known (phase 2)
              */
@@ -2550,6 +2642,8 @@ export interface components {
             flex_level: "exact" | "any_brand" | "close";
             /** From Item Id */
             from_item_id: number;
+            /** @description Only under a kosher filter: the suggested item's label */
+            kosher?: components["schemas"]["KosherLabel"] | null;
             /**
              * Saving
              * @description For the requested quantity, ILS
@@ -4397,6 +4491,12 @@ export interface operations {
             query: {
                 q: string;
                 limit?: number;
+                /** @description The person's kosher level; hits then carry a kosher label (see KosherHitLabel) */
+                kosher?: ("regular" | "mehadrin" | "badatz" | "badatz_eida" | "badatz_beit_yosef" | "badatz_chatam_sofer" | "badatz_agudat" | "landau" | "rabbanut_mehadrin") | null;
+                /** @description Kosher for Passover as a filter */
+                kosher_passover?: boolean;
+                /** @description Only items whose name states a certification that meets the filter */
+                kosher_only_stated?: boolean;
             };
             header?: {
                 authorization?: string | null;

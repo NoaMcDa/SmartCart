@@ -58,10 +58,41 @@ class SchemaMarker(NamedTuple):
 
 PROVISIONAL_V2_MARKER = SchemaMarker(name="SchemaVersion", major="2")
 """PROVISIONAL best guess at how a file in the authority's improved reporting model will
-identify itself. No real new-model file exists yet (October 2026), so this is a placeholder:
+identify itself. No real new-model file and no published specification could be reached
+(checked 2026-10-22, see docs/adapters.md "Schema versions"), so this is a placeholder:
 a root attribute or a header element named ``SchemaVersion`` (case-insensitive) whose major
 version is ``2`` means v2; the same marker with any other major version means unknown.
 Change it here, and only here, when the first real new-model file arrives."""
+
+UNSUPPORTED_VERSION_FIELDS: frozenset[str] = frozenset(
+    {
+        "modelversion",
+        "formatversion",
+        "reportversion",
+        "reportingversion",
+        "specversion",
+        "xsdversion",
+    }
+)
+"""ESTIMATE: other names a file could use to declare a version of the reporting model. None of
+the 21 real files of 2026-10-21 (7 chains) carries any of them, so a file that does is not the
+2015 format this adapter was built from and must not be parsed as ``v1``: it is ``unknown``
+(quarantined with the reason) until the field is understood. ``XmlDocVersion`` and ``DllVerNo``
+are deliberately not in this set: they are the issuing software's own version stamps in older
+dialects (upstream parser source), not a statement about the reporting model; the probe still
+reports them (:func:`schema_signature`)."""
+
+INFORMATIONAL_VERSION_FIELDS: tuple[str, ...] = ("xmldocversion", "dllverno")
+"""Header fields recorded in the probe's schema signature, never decisive for detection."""
+
+_SCHEMA_LOCATION_ATTRS = frozenset({"schemalocation", "nonamespaceschemalocation"})
+
+
+class SchemaReading(NamedTuple):
+    """The detected schema and the evidence, in words (it ends up in the alert)."""
+
+    version: SchemaVersion
+    reason: str
 
 
 # --------------------------------------------------------------------------- layouts
@@ -331,6 +362,104 @@ def header_fields(root: etree._Element) -> dict[str, str]:
             for key, value in xmlutil.scalar_children(child).items():
                 out.setdefault(key, value)
     return out
+
+
+def _root_attributes(root: etree._Element) -> dict[str, str]:
+    """Root attributes by lowercased local name (a namespace prefix is dropped)."""
+    return {etree.QName(key).localname.lower(): str(value) for key, value in root.attrib.items()}
+
+
+def declared_versions(root: etree._Element) -> dict[str, str]:
+    """Every version-like value the header declares: root attributes first, then header fields.
+
+    Lowercased names. Covers the schema marker, the unsupported version fields and the
+    informational stamps, so detection and the probe read the same thing."""
+    wanted = {PROVISIONAL_V2_MARKER.name.lower(), *UNSUPPORTED_VERSION_FIELDS}
+    wanted |= set(INFORMATIONAL_VERSION_FIELDS)
+    out = {k: v for k, v in _root_attributes(root).items() if k in wanted}
+    for key, value in header_fields(root).items():
+        if key in wanted:
+            out.setdefault(key, value)
+    return out
+
+
+def foreign_namespaces(root: etree._Element) -> set[str]:
+    """Namespace URIs of the container elements (a 2015-format file has none).
+
+    Only the containers count: the SAP Stores dialect wraps them in ``asx:abap``, a root in
+    the ``http://www.sap.com/abapxml`` namespace, and a ``xmlns:xsi`` declaration is not a
+    namespace for any element. A default ``xmlns`` on the root would put the containers in it
+    too, so it is caught here."""
+    uris: set[str] = set()
+    for el in root.iter():
+        if xmlutil.localname(el) in CONTAINERS:
+            uri = etree.QName(el).namespace
+            if uri:
+                uris.add(uri)
+    return uris
+
+
+def read_schema(root: etree._Element, known_containers: frozenset[str]) -> SchemaReading:
+    """Classify a (partial) root as v1, v2 or unknown, with the reason.
+
+    Order matters, and every step errs towards ``unknown``: a file must never be parsed as v1
+    because a signal of the new model went unread.
+
+    1. The ``SchemaVersion`` marker decides on its own: major ``2`` is v2, anything else is
+       unknown (so is an empty value).
+    2. Any other declared reporting-model version, a root pointing at an XSD
+       (``schemaLocation``) or an element namespace means the file is not the 2015 format.
+    3. Otherwise v1, if the root holds a container this chain is known to use.
+    """
+    declared = declared_versions(root)
+    marker = PROVISIONAL_V2_MARKER.name.lower()
+    if marker in declared:
+        value = declared[marker].strip()
+        major = value.split(".", 1)[0]
+        if major == PROVISIONAL_V2_MARKER.major:
+            return SchemaReading("v2", f"{PROVISIONAL_V2_MARKER.name}={value}")
+        return SchemaReading(
+            "unknown",
+            f"{PROVISIONAL_V2_MARKER.name}={value!r}: major {major!r} is not "
+            f"{PROVISIONAL_V2_MARKER.major!r}",
+        )
+    unsupported = sorted(k for k in declared if k in UNSUPPORTED_VERSION_FIELDS)
+    if unsupported:
+        shown = ", ".join(f"{k}={declared[k]!r}" for k in unsupported)
+        return SchemaReading(
+            "unknown",
+            f"the header declares a reporting-model version this adapter does not know ({shown})",
+        )
+    located = sorted(k for k in _root_attributes(root) if k in _SCHEMA_LOCATION_ATTRS)
+    if located:
+        return SchemaReading("unknown", f"the root points at an XSD ({', '.join(located)})")
+    namespaces = sorted(foreign_namespaces(root))
+    if namespaces:
+        return SchemaReading(
+            "unknown",
+            f"a container is in an XML namespace ({', '.join(namespaces)[:200]})",
+        )
+    found = containers_in(root)
+    if found & known_containers:
+        return SchemaReading("v1", "no version marker; known container " + ", ".join(sorted(found)))
+    return SchemaReading(
+        "unknown",
+        f"no container this chain uses (found: {', '.join(sorted(found)) or 'none'}; "
+        f"expected one of: {', '.join(sorted(known_containers))})",
+    )
+
+
+def schema_signature(root: etree._Element) -> dict[str, Any]:
+    """What identifies the file's layout, for the probe: root element, element namespaces,
+    root attributes, header field names, containers and the declared versions."""
+    return {
+        "root": xmlutil.localname(root),
+        "namespaces": sorted(foreign_namespaces(root)),
+        "root_attributes": sorted(_root_attributes(root)),
+        "header_fields": sorted(header_fields(root)),
+        "containers": sorted(containers_in(root)),
+        "declared_versions": declared_versions(root),
+    }
 
 
 def _ancestor_field(element: etree._Element, field: str) -> str | None:
@@ -763,11 +892,26 @@ class RegulationAdapter(ChainAdapter):
         return info.kind
 
     def detect_schema(self, xml_root: Any) -> SchemaVersion:
-        marker = self._marker_value(xml_root)
-        if marker is not None:
-            major = marker.strip().split(".", 1)[0]
-            return "v2" if major == PROVISIONAL_V2_MARKER.major else "unknown"
-        return "v1" if containers_in(xml_root) & self.containers else "unknown"
+        return read_schema(xml_root, self.containers).version
+
+    def explain_schema(self, xml_root: Any) -> str:
+        """The evidence behind :meth:`detect_schema`, for alerts and the probe."""
+        return read_schema(xml_root, self.containers).reason
+
+    def inspect_schema(self, data: bytes) -> dict[str, Any]:
+        """Decode ``data`` far enough to say which schema it is, without parsing a row.
+
+        Never raises: ``{"schema": "unreadable", "error": ...}`` when the bytes are not XML.
+        Used by the probe's per-chain schema counter."""
+        try:
+            root = xmlutil.read_header(xmlutil.decode(data).data, ALL_ROW_TAGS)
+        except xmlutil.XmlDecodeError as exc:
+            return {"schema": "unreadable", "error": str(exc)[:200]}
+        return {
+            "schema": self.detect_schema(root),
+            "reason": self.explain_schema(root),
+            "signature": schema_signature(root),
+        }
 
     def online_store_rule(self, store: StoreRecord) -> bool:
         name = store.name.casefold()
@@ -794,7 +938,7 @@ class RegulationAdapter(ChainAdapter):
             raise UnknownSchemaError(
                 self.chain_id,
                 f"{where}: unrecognised schema (root <{xmlutil.localname(root)}>, "
-                f"containers: {found}); file must not be loaded",
+                f"containers: {found}): {self.explain_schema(root)}; file must not be loaded",
             )
         header = header_fields(root)
         file_chain = header.get("chainid")
@@ -849,14 +993,6 @@ class RegulationAdapter(ChainAdapter):
         )
 
     # -- internals ----------------------------------------------------------------------
-
-    @staticmethod
-    def _marker_value(root: etree._Element) -> str | None:
-        wanted = PROVISIONAL_V2_MARKER.name.lower()
-        for key, value in root.attrib.items():
-            if etree.QName(key).localname.lower() == wanted:
-                return str(value)
-        return header_fields(root).get(wanted)
 
     def _row_tags_for(self, kind: FileKind, root: etree._Element, where: str) -> set[str]:
         group = KIND_GROUP[kind]

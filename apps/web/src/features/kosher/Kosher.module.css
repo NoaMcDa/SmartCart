@@ -1,0 +1,21 @@
+/* The kosher filter's note on the results. Tokens only, logical properties only. */
+
+.active {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-2);
+  margin: 0;
+  padding: var(--sc-space-3);
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius-control);
+  background: var(--sc-surface);
+  color: var(--sc-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.active svg {
+  flex: none;
+  margin-block-start: 3px;
+  color: var(--sc-muted);
+}

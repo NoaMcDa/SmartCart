@@ -892,6 +892,133 @@ becomes whole shelf packs is in [optimizer.md](optimizer.md#packs-the-count-in-t
 With this, rule 5 above ("the unit price is per egg either way") holds in the prices: a tray of 30 at an
 illustrative 29.90 is 1.00 an egg next to the 12-pack's 1.18 at `close`, and the `any_brand` row of `eggs-l` is the 12-pack.
 
+## Kosher: what a name states, and a filter that never guesses
+
+The research names kosher and supervision level as a preference filter and a first audience (kosher
+shoppers, `product-and-market.md`), and says what the data allows: the transparency files carry no
+kosher or allergen field (**verified**, the research's statement), so a value can only come from the
+item name, manual enrichment or an external source, and is marked unverified. Nothing in it says
+which levels a person chooses or how a name states one; those are product decisions made here
+(**not verified**; to confirm with the kosher segment of the closed beta, `beta-plan.md`).
+
+Code: `services/catalog/smartcart_catalog/kosher.py` (reading and levels, pure functions),
+`services/api/smartcart_api/kosher.py` (the filter over items and labels) and
+`basket._kosher_gate`; the API surface is in [api.md](api.md#kosher-filter).
+
+### What a name can state
+
+`read_marks(text)` turns text into a set of mark codes. **Explicit words only** (precision over
+recall, D5):
+
+| Mark | Read from |
+|---|---|
+| `mehadrin` | מהדרין, למהדרין |
+| `badatz` | בד"ץ, בד"צ, בדץ, בדצ (any quote), בית דין צדק |
+| `badatz_eida` | העדה החרדית, עדה חרדית, בד"ץ העדה (also `badatz`) |
+| `badatz_beit_yosef`, `badatz_chatam_sofer`, `badatz_agudat` | the name after a cue (בד"ץ, בהשגחת, השגחה, כשרות, מהדרין): "בד"ץ בית יוסף", "בהשגחת חתם סופר", "בד"ץ אגודת ישראל" (also `badatz`) |
+| `landau` | הרב לנדא, or a cue and לנדא |
+| `rabbanut`, `rabbanut_mehadrin` | רבנות; רבנות מהדרין, מהדרין הרבנות |
+| `kosher` | the word כשר or כשרה |
+| `passover` | כשר לפסח, כשרה לפסח |
+| `not_kosher`, `not_passover` | לא כשר, אינו כשר, ללא כשרות, ללא השגחה, לא מושגח; לא כשר לפסח |
+| `dairy`, `meat`, `pareve` | חלבי, בשרי, פרווה (a label only: never part of a level) |
+
+What is **not** read, on purpose: a brand or a manufacturer (a brand that is Haredi-certified in
+practice is not marked, because the file does not say so; `manufacturer` is never looked at); "חלק"
+(glatt meat, but also "smooth" and "part": `בשר ראש חלק קפוא` and `לשון חלק קפוא` are real names where
+it is ambiguous); גלאט; "מלח גס כשר" (kosher salt is a kind of salt); "עגבנייה בשרית" (a fleshy
+tomato); "פרווה" next to מחברת, בובה, כרית... (fur: `מחברת A5 פרווה בובה` is a real name); a name of
+a hechsher without its cue ("בית יוסף חומוס"); "לפסח" without כשר ("מארז לפסח"); "כשרות" alone.
+A name a chain cut at a fixed width (`normalize.NAME_LIMITS`) loses its last word, which may be a
+fragment ("כשרות" cut to "כשר"), exactly as `RuleExtractor.words_of` does; a word with a digit stays.
+A name that says "לא כשר" states no supervision, even next to a certified word.
+
+`RuleExtractor` writes the stated marks to the item's `kosher` attribute as text ('בד"ץ, כשר לפסח',
+fixed order; `render`), always **unverified** (`ALWAYS_UNVERIFIED`). The `kosher` key of a model
+extraction is never trusted by the filter: only the name, and the attribute when a person verified it
+(`verified_keys`).
+
+### Levels and the three answers
+
+A person's `kosher_level` (profile; `KosherFilter.level` in requests) is one of `regular`, `mehadrin`,
+`badatz` or a named one (`badatz_eida`, `badatz_beit_yosef`, `badatz_chatam_sofer`,
+`badatz_agudat`, `landau`, `rabbanut_mehadrin`); no level means no preference. `judge(marks, level)`
+answers per item:
+
+| Level | meets | fails (never offered) | unknown |
+|---|---|---|---|
+| `regular` | any stated supervision (kosher, mehadrin, rabbanut, a beit din hechsher, Landau) | `not_kosher` | everything else |
+| `mehadrin` | `mehadrin`, `rabbanut_mehadrin`, or a beit din hechsher | `not_kosher` | everything else (a plain "כשר", רבנות, Landau) |
+| `badatz` | any beit din hechsher (generic or named) | `not_kosher` | everything else (a plain מהדרין too) |
+| a named one | that mark | `not_kosher`, or a **different** named hechsher stated | everything else (a general בד"ץ, מהדרין) |
+
+Stating less than the level needs is **unknown**, never "fails": the name may be incomplete. Only
+two things rule an item out: it says it is not kosher, or it names a different hechsher than the
+one asked for. That a beit din hechsher satisfies "mehadrin" is a product decision (**estimate**,
+unverified). Kosher for Passover is a separate switch with the same three answers (`passover` meets;
+`not_passover` and `not_kosher` fail; the rest unknown).
+
+### Behaviour
+
+With a filter, `basket.price_baskets(kosher=...)` (so `/compare`, `/optimize` with both solvers, and
+`/optimize/swaps`) never puts an item that fails on a line, anywhere: not as the line, not as the
+original shown next to a substitute, not as a club offer or a quantity alternative, not as an exact
+barcode. The precompute stores one best item per (canonical, store, level), chosen without
+knowing who asks, so `_kosher_gate` checks each key: when its best item passes it is kept as is
+(it is also the best among the items that pass); when it fails, the key is **priced again** from the
+items of the store's chain that are mapped to the canonical at that level or a stricter one (the
+precompute's own rule), that pass, with the same club gate and the same choice of offers for the
+quantity (`offers.choose_extras`, `precompute.item_options`). When none passes, the canonical is
+**missing** at that store: it is in `missing` and in `kosher_excluded`, the totals and savings are
+computed without it as for any missing item, and a store left with no line is counted in
+`kosher_hidden_stores`. The filter is never relaxed for a cheaper price or a fuller basket, and the
+saving against the home store (D7) uses the same filter on both sides.
+
+- **unknown** items are shown, with `kosher.level = "unknown"` and the label "כשרות לא ידועה — בדקו על
+  האריזה"; with `only_stated` they are left out like a failing item (a store without an item that
+  states enough lists it as missing). `only_stated` is **not** a check by a person: it means the name
+  states a certification that meets the level.
+- Every line, swap and `original_here` carries `kosher` (`level`, `passover`, the `stated` marks): the
+  label has the same weight as the substitute tags, and a substitute keeps all its labels.
+- A swap is never a step down: `/optimize/swaps` does not suggest an item that only might meet the
+  level in place of one whose name states a certification that does.
+- `/search` takes `kosher`, `kosher_passover`, `kosher_only_stated` and labels each hit from the items
+  the catalog maps to it (any brand or exact, not under review): `meets`, `unknown`, or `none` (every
+  item ruled out); a `none` hit is listed after the others. A hit is a canonical, not an item, so it
+  is never hidden; `/parse-list` takes no filter (the compare says what a store lacks).
+- Without a filter nothing changes: no label, no extra query, the same request and response as before.
+- Not covered: the item an exact request names is ruled out by name (the store is missing it), but
+  the response does not say the filter did it (`kosher_excluded` lists the non-exact cases).
+
+### Measured on real items (coverage)
+
+200 items per chain from seven chains, the committed real fixtures of 2026-10-08 and 2026-10-21
+(`services/ingest/tests/fixtures/*/real`, `data/audit/real-2026-10-08`): **1,632** distinct
+(chain, name) items. Measured by `tests/test_kosher.py::test_what_the_real_items_state`:
+
+| What the name states | Items | Share |
+|---|---|---|
+| anything at all | 13 | 0.8 % |
+| a certification | 9 | 0.55 % (מהדרין 6, בד"צ 2, כשר 1) |
+| only dairy or pareve | 4 | 0.25 % |
+| kosher for Passover | 0 | 0 % (October: not on the shelf) |
+| a named hechsher, or "not kosher" | 0 | 0 % |
+
+So under a kosher filter, **over 99 % of real items are "unknown"**, and a level above `regular` is
+met by almost nothing a name states (the 8 named certifications are 6 מהדרין and 2 בד"ץ). The sample
+is the first 200 items of a file per chain, not a random one, and it is October; Passover names appear
+in the spring, and a full day of every chain is much larger (`real-day-dry-run.md`). What these
+numbers say is that the filter is **honest, not useful on names alone**: "show only items that state
+it" would leave a store nearly empty, which is why "unknown" is shown and labelled by default, and why
+the product needs a curated list (a certified-brand or product list with a source, reviewed by a
+person) to be worth a kosher shopper's trust. That list does not exist yet (**not built**); when it
+does it enters as a verified `kosher` attribute (`verified_keys`), which the filter already reads.
+
+Tests: `services/catalog/tests/test_kosher.py` (130 cases: spellings and phrases, words not read,
+the real names, truncation, `render`, the whole `judge` table, the extractor),
+`services/api/tests/test_api_kosher.py` (the filter end to end on the test world),
+`apps/web/src/mocks/kosher.test.ts` (the mock mirrors the same answers).
+
 ## Fine-tuning trigger
 
 Retrieval is the recall ceiling: the judge can only accept what top-k returns. On the **real**

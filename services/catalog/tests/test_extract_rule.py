@@ -85,7 +85,7 @@ def test_private_label_needs_the_chain(rx) -> None:
 
 def test_kosher_and_diet_are_read_but_never_verified(rx) -> None:
     a = _extract(rx, 'מצות כשר לפסח בד"ץ 1 ק"ג')
-    assert a.kosher == "כשר לפסח"
+    assert a.kosher == 'בד"ץ, כשר לפסח'  # every stated mark, in a fixed order
     b = _extract(rx, "משקה שקדים ללא סוכר טבעוני 1 ליטר")
     assert set(b.diet_flags) == {"sugar_free", "vegan"}
     assert a.verified_keys == () and b.verified_keys == ()

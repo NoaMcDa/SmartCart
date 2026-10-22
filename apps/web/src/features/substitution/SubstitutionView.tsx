@@ -31,6 +31,7 @@ import type { Locale } from "@/i18n/locales";
 import { substitutionMessages } from "@/i18n/messages/substitution";
 import { foldTags } from "@/lib/attributes";
 import { chainLabel, storeLabel } from "@/lib/storeName";
+import { KosherNote, KosherNoteItems } from "@/features/kosher/KosherNote";
 import { MethodologyLink } from "@/features/seo/components";
 import { basketItems, useList } from "@/state/list";
 import { useShopper } from "@/state/shopper";
@@ -118,6 +119,11 @@ export function SubstitutionCard({
               <div className={styles.where} data-testid="sub-original-where">
                 {t("atThisStore", { store: storeLabel(store.store_name, locale) })}
               </div>
+              {here.kosher ? (
+                <div className={styles.unit}>
+                  <KosherNote label={here.kosher} />
+                </div>
+              ) : null}
             </>
           ) : (
             <>
@@ -208,6 +214,7 @@ export function SubstitutionCard({
               <Tag variant={tag.status}>{tagText(tag, locale)}</Tag>
             </li>
           ))}
+          <KosherNoteItems label={item.kosher} />
         </ul>
         <p className={styles.source} data-testid="sub-source">
           {t("sourceByName")}

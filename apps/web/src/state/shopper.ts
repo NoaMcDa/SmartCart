@@ -12,6 +12,7 @@
 import { useSyncExternalStore } from "react";
 import { API_MOCK } from "@/api/config";
 import type { OptimizeInput, Schemas } from "@/api/client";
+import { isKosherLevel, kosherFilter, type KosherPrefs } from "@/features/kosher/kosher";
 import { cityLabelFor } from "@/features/profile/cities";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import { translate } from "@/i18n/messages";
@@ -37,8 +38,14 @@ export type StoredProfile = Partial<
     | "cost_per_km"
     | "extra_stop_value"
     | "max_stores"
+    | "kosher_level"
   >
-> & { city_label?: string | null };
+> & {
+  city_label?: string | null;
+  /** The kosher filter's two switches (docs/matching.md, "Kosher"); the level is `kosher_level`. */
+  kosher_only_stated?: boolean;
+  kosher_passover?: boolean;
+};
 
 export type ShopperContext = {
   lat: number;
@@ -51,6 +58,8 @@ export type ShopperContext = {
   costPerKm: number;
   extraStopValue: number;
   maxStores: number;
+  /** The kosher preference; the requests carry it only when a level or Passover is set. */
+  kosher: KosherPrefs;
   /** True when nothing was stored and the defaults are in use. */
   usingDefaults: boolean;
 };
@@ -101,6 +110,11 @@ export function shopperFromStored(
     costPerKm: Math.max(0, num(s.cost_per_km, 1.2)),
     extraStopValue: Math.max(0, num(s.extra_stop_value, 25)),
     maxStores: Math.min(2, Math.max(1, Math.round(num(s.max_stores, 2)))),
+    kosher: {
+      level: isKosherLevel(s.kosher_level) ? s.kosher_level : null,
+      onlyStated: s.kosher_only_stated === true,
+      passover: s.kosher_passover === true,
+    },
     usingDefaults: s !== stored,
   };
 }
@@ -150,7 +164,11 @@ export function saveShopperProfile(patch: StoredProfile): void {
 /** The request fields /compare and /optimize take from the shopper context. */
 export function shopperRequestFields(
   ctx: ShopperContext,
-): Pick<OptimizeInput, "location" | "home_store_id" | "clubs" | "travel" | "max_stores"> {
+): Pick<
+  OptimizeInput,
+  "location" | "home_store_id" | "clubs" | "travel" | "max_stores" | "kosher"
+> {
+  const kosher = kosherFilter(ctx.kosher);
   return {
     location: { lat: ctx.lat, lon: ctx.lon, radius_m: ctx.radiusM },
     home_store_id: ctx.homeStoreId,
@@ -161,5 +179,6 @@ export function shopperRequestFields(
       extra_stop_value: ctx.extraStopValue,
     },
     max_stores: ctx.maxStores,
+    ...(kosher ? { kosher } : {}),
   };
 }

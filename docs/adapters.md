@@ -589,22 +589,59 @@ The consumer authority is rolling out an improved reporting model through 2026 (
 from its 2025 annual report). The timing per chain is **not verified**. Every file is
 classified as one of:
 
-- **`v1`**: the current 2015 regulation format. The root contains at least one container
-  element this chain is known to use. A container outside the chain's dialect (for example,
-  Shufersal suddenly publishing `<Products>`) is treated as unknown rather than guessed.
-- **`v2`**: the new model. No real new-model file exists yet, so the marker is a
-  **provisional** placeholder kept in one constant, `PROVISIONAL_V2_MARKER` in
-  `adapters/_common.py`: a root attribute or header element named `SchemaVersion` whose major
-  version is `2`. Change it there, and only there, when the first real file arrives.
-- **`unknown`**: anything else, including the marker with a different major version (`3.1`)
-  or no recognised container. `parse` raises `UnknownSchemaError` (a subclass of
-  `AdapterError`), so the file is never loaded and the alert names the chain.
+- **`v1`**: the current 2015 regulation format. The file declares no version of the reporting
+  model, its containers are in no XML namespace, its root points at no XSD, and it contains at
+  least one container element this chain is known to use. A container outside the chain's
+  dialect (for example, Shufersal suddenly publishing `<Products>`) is treated as unknown
+  rather than guessed.
+- **`v2`**: the new model. No specification and no real new-model file could be reached (see
+  "What was found", below), so the marker is a **provisional** placeholder kept in one
+  constant, `PROVISIONAL_V2_MARKER` in `adapters/_common.py`: a root attribute or header
+  element named `SchemaVersion` whose major version is `2`. Change it there, and only there,
+  when the first real file arrives. There is **no v2 field mapping**: a file the placeholder
+  calls `v2` goes through the v1 mapping, and one that renames a field fails loudly on the
+  first row (`missing ItemCode`, test `test_a_new_model_that_renames_the_rows_fails_loudly_not_silently`).
+- **`unknown`**: anything else. `parse` raises `UnknownSchemaError` (a subclass of
+  `AdapterError`), so the file is never loaded (`file_tracking` status `failed`, reason
+  `unknown schema: ...`), one `unknown_schema` alert names the chain, and the message says
+  why (`SchemaVersion='3.1': major '3' is not '2'`, `the header declares a reporting-model
+  version this adapter does not know (modelversion='4.0')`, `the root points at an XSD`, `a
+  container is in an XML namespace (...)`, `no container this chain uses (found: ...; expected
+  one of: ...)`).
+
+Detection is deliberately one-sided (`read_schema` in `adapters/_common.py`): every signal of
+a different model ends in `unknown`, never in `v1`. In order: (1) the `SchemaVersion` marker
+decides alone (major `2` is v2; any other value, an empty one included, is unknown); (2) any
+other declared model version (`ModelVersion`, `FormatVersion`, `ReportVersion`,
+`ReportingVersion`, `SpecVersion`, `XsdVersion`, as a root attribute or a header field, any
+case; this name list is an **estimate**, it is `UNSUPPORTED_VERSION_FIELDS`), a root
+`schemaLocation` / `noNamespaceSchemaLocation`, or a namespace on the container elements makes
+it unknown; (3) otherwise v1 if a known container is present. `XmlDocVersion` and `DllVerNo`
+are **not** signals: they are the issuing software's version stamps in older dialects
+(**upstream**: they are in the parser's `ignore_column` lists for Hazi Hinam, Confix, City
+Market, Salach Dabach and Tiv Taam) and no real file of 2026-10-21 carries either, so they
+neither reject nor promote a file; the probe reports them. A bare `xmlns:xsi` declaration (the
+parser's 2024 sample files of chain 7290172900007 have one) does not count as a namespace; the
+SAP Stores dialect's `asx:abap` root namespace does not either, because only the containers are
+checked. Tests: `services/ingest/tests/test_schema_detection.py` (204 cases across all ten
+adapters, the real files and one end-to-end Scheduler run).
 
 Both versions map to the same internal model through the same code path. A test parses a v1
 and a synthetic v2 Shufersal PriceFull and checks that the item and price records are equal.
 **No downstream code branches on the schema version**: quality gates, the loader and the
 dashboard see only internal records. The version is recorded in `RawFile.schema_version`, so
 `file_tracking` can store it.
+
+**Noticing the first real v2 file.** `portal_probe.py gate` prints one `SCHEMA {...}` line per
+chain (files per detected schema: `v1`, `v2`, `unknown`, `unreadable`, plus declared versions,
+namespaces and the not-v1 files with the adapter's reason) and one `SCHEMA_TOTAL {...}` line
+(totals and `chains_not_all_v1`) on stderr, and the report gets a "Files per detected schema
+(#57)" table. It is computed by `adapter.inspect_schema(bytes)` before any gate, so a file the
+adapters refuse is counted too. When a chain has a `v2` or `unknown` file the table opens with a
+bold line naming the chain; the file is in the `portal-probe-files` artifact for 7 days. A
+corrupt download is counted as `unreadable` and listed, but is not flagged as a new model. The
+real fixtures are pinned by `test_every_real_file_is_v1_and_declares_no_version`: the day a
+re-fetched real file carries a marker, that test names it.
 
 Known differences in the new model, as listed in `docs/product-and-market.md` (**verified** that
 the authority announced them; the file-level details are **not yet known**):
@@ -613,7 +650,50 @@ the authority announced them; the file-level details are **not yet known**):
 |---|---|
 | Uniform promo definitions | The real files (2026-10-21) already carry an explicit `RewardType` per item, but not on a `SchemaVersion` marker; see "Promotions in real files". Whether that is the announced model is not known. |
 | Item-and-store accuracy | Possibly per-store item identity or stricter store codes. Store-code normalization stays. |
-| AI for substitutes | Possibly new substitute or category fields. Out of scope until phase 3 ("Adaptation to the authority's new reporting schema"). Extra fields are ignored today. |
+| AI for substitutes | Possibly new substitute or category fields. Extra fields are ignored today; nothing reads them until a specification says what they are. |
+
+### What was found (research for #57, 2026-10-22)
+
+**Result: no official specification and no real new-model file was reachable, so no v2 parsing
+path was written.** A v2 mapping built without either would be a guess dressed as code; the
+work stopped at making detection safe and the first real file noticeable (above). Every claim
+below is marked **verified** (read by us from a primary source or a real file) or **estimate**
+(secondary, snippet only, or inference).
+
+What could not be reached, precisely. This session's egress proxy refuses every Israeli host
+(`CONNECT` answered 403; the fetch tool could not resolve them): `www.gov.il` (the authority's
+regulations page and its reports), `www.nevo.co.il`, `fs.knesset.gov.il`, `www.chamber.org.il`,
+`www.ice.co.il`, `www.hon.co.il`, `www.globes.co.il`, `data.gov.il`, `www.odata.org.il`. So the
+authority's own publications were not read. GitHub's API and the issue trackers of the two
+upstream projects were not readable either (the session has no GitHub access to them; the one
+issue search that ran returned 0 hits, which is not evidence that there are none), so upstream
+was read from public git clones and PyPI only.
+
+| # | Source (date read 2026-10-22) | What it says about a new schema | Status |
+|---|---|---|---|
+| 1 | `israeli-supermarket-scarpers`, public clone `https://github.com/OpenIsraeliSupermarkets/israeli-supermarket-scarpers`, HEAD `ee4359f` (2026-10-19), shallow clone of 200 commits (the latest ~40 read in full, the rest searched by subject), PyPI `il-supermarket-scraper` 1.0.17 (2026-10-18) | No commit, README line or code handles a new reporting model or a schema version. The last two months are CI, stability and reachability work. It only downloads files; it does not read their schema. Its README links the authority's regulations page, `https://www.gov.il/he/departments/legalInfo/cpfta_prices_regulations` (the link only; the page was unreachable). | **verified** (absence in the commits read; the older history was not read) |
+| 2 | `israeli-supermarket-parsers`, public clone `https://github.com/OpenIsraeliSupermarkets/israeli-supermarket-parsers`, HEAD `2992110` (2026-10-17), shallow clone of 300 commits (the latest ~40 read in full, the rest searched by subject), PyPI `il-supermarket-parser` 1.0.13 (2026-10-17; the project pins 1.0.12, 2026-10-04) | 1.0.12 to 1.0.13 is a CI runner pin only. No schema detection. Version stamps `XmlDocVersion` and `DllVerNo` are ignored columns for five older chain dialects. Commit `398449b` (2026-04-24) says one chain's feed ("VictoryNewSource") "differs from the original Victory source on every file type": a chain-specific dialect, not the authority's model. | **verified** |
+| 3 | Our own real files of 2026-10-21 (`services/ingest/tests/fixtures/*/real/`, 21 files, 7 chains, from the probe runs in this document) | No file declares any version, namespace or schema reference; all use the containers of the 2015 format; the promo files already use the grouped `RewardType` layout (see "Promotions in real files"). | **verified** (these 7 chains, that day) |
+| 4 | `docs/research/2026-10-market-research-and-product-plan.he.md`, section 2.2, quoting the authority's 2025 annual report ("הטמיעה הרשות בשיתוף הקמעונאים מודל דיווח מטוייב", expected "to continue through 2026") and Dr. Dalia Shilian in Globes ("הגדרה אחידה למבצעים, דיווחים מדויקים ברמת פריט וסניף, ושילוב כלי בינה מלאכותית ... תחליפיים") | That a refined reporting model is being introduced, and its three themes. No file format, field names, version or dates. | verified as a quotation in our research; the primary reports were **not re-read** by us |
+| 5 | Web searches in Hebrew and English (6 queries, e.g. "מודל דיווח מטויב", "שקיפות מחירים פורמט חדש", "price transparency XML new schema 2026") | No page announcing, specifying or sampling a new format. Snippets only (not fetched, so **estimate**): the 2014 regulations (`https://www.nevo.co.il/law_html/law00/135376.htm`: files are XML, with field-length tables for Stores and Promo), a 2015 authority field-spec document (`https://www.chamber.org.il/media/148016/1002.pdf`, 7 pages, described as a recommendation), a 2023 ynet article on an authority and Amazon price database (`https://www.ynet.co.il/economy/article/b1q511iwzkg`), and the State Comptroller's 2026 economic report (`https://library.mevaker.gov.il/sites/DigitalLibrary/Documents/2026/Economic-Report/2026-Economic-Report-108.pdf`, consumer protection audit; no format detail seen). | **estimate** (snippets), and the absence of a result is not proof the spec does not exist |
+
+What this means for the adapters: the 2015 format still is what the 7 reachable chains
+publish today (**verified**, row 3), the new model is announced but its file-level shape is
+unknown (**verified** that it is announced, row 4; the shape is **not known**), and nothing
+in the upstream libraries has moved yet (row 1 and 2). The "uniform promo definitions" row
+above may already be live in the grouped `RewardType` promo files, but nothing links them to the
+announced model, so they stay `v1`.
+
+**To finish #57** (needs a person with access, or an Israeli IP): (a) fetch the authority's
+price-transparency page and the 2025 annual report from an Israeli network and look for a
+format specification, version number and effective dates; (b) run the portal probe daily (it
+already does) and read the "Files per detected schema" table; (c) on the first `v2` or
+`unknown` file, take it from the `portal-probe-files` artifact, run it through
+`adapter.inspect_schema` and `adapter.parse` locally to read the reason, replace
+`PROVISIONAL_V2_MARKER` with the real marker, add the field mapping behind the existing `v2`
+branch, and commit a trimmed real fixture (`portal_probe.py fixtures`) with a quality-gate
+test. A fixture built from a specification instead of a real file must say so in its
+`expected.json` and its comment (spec-derived, not real).
 
 ## Sales channel (#53)
 

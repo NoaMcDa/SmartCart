@@ -510,6 +510,7 @@ export function compareFixture(homeStoreId: number | null = HOME_STORE_ID): Comp
     home_store_total: home ? home.total : null,
     generated_at: new Date().toISOString(),
     disclaimer_he: "המחיר הקובע הוא בקופה.",
+    kosher_hidden_stores: 0,
   };
 }
 
