@@ -1,0 +1,283 @@
+name: Exit window
+
+# Issue #60 (Phase 0 exit), a runner rehearsal of the 14-day window. NOT the VPS window: the exit
+# needs fourteen consecutive nightly loads on the VPS, which does not exist yet (docs/phase-0-exit-
+# report.md stays NO-GO). GitHub-hosted runners reach 6 or 7 of the ten D13 chains (docs/ingestion.md,
+# "Portal probe from GitHub runners"), so real reliability data can accumulate now.
+#
+# Each day, after the chains have published (08:47 Israel time in winter, 09:47 in summer): one
+# Stores, one PriceFull and one PromoFull file per D13 chain through the portal probe's download
+# (the pinned upstream scraper, only the transparency portals, never a chain's online store), every
+# file through the real Scheduler path (adapter, quality gates, loader) into a throwaway Postgres
+# with the REAL clock, so the stale-date gate acts as it does in production. The result is one JSON
+# record per Israel date (scripts/exit_window/window_record.py). A second job, the only one with
+# write access, appends it to the branch exit-window/data (one file per day, never rewritten) and
+# writes the exit report of the window so far to the job summary. Downloaded files are untrusted
+# data: only the chain adapters read them. See docs/exit-window.md.
+#
+# It is a measurement: unreachable portals and quarantined files are results, not failures of the
+# job. A day on which the job itself breaks has no record, and the report counts it as a failure.
+
+on:
+  push:
+    branches: [phase/exit-window] # TEMPORARY: verification run on a runner; removed in the final commit
+  workflow_dispatch:
+    inputs:
+      chains:
+        description: "Chain slugs, space separated (empty: all ten D13 chains)"
+        required: false
+        default: ""
+        type: string
+      timeout:
+        description: "Seconds allowed per download"
+        required: false
+        default: 180
+        type: number
+      replace:
+        description: "Replace today's record on the data branch if it already exists (default: keep it)"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    # Daily at 06:47 UTC: 08:47 Israel winter time (UTC+2), 09:47 summer time (UTC+3). The
+    # laibcatalog listing is empty until about 08:00 Israel time (D13), and the Cerberus and
+    # Shufersal files of the day are out by then.
+    - cron: "47 6 * * *"
+
+concurrency:
+  group: exit-window
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rehearsal:
+    name: download and load one day
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      has_record: ${{ steps.record.outputs.present }}
+
+    services:
+      # Same image and tag as ci.yml (Postgres 17 with PostGIS, pgvector and pg_trgm).
+      postgres:
+        image: supabase/postgres:17.11.0.004
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      PYTHONUNBUFFERED: "1"
+      CHAINS: ${{ inputs.chains || '' }}
+      DOWNLOAD_TIMEOUT: ${{ inputs.timeout || 180 }}
+
+    steps:
+      # Scheduled runs use the default branch, which may hold only docs and workflow copies; the
+      # code lives on main, so a scheduled run checks main out. Manual runs use the chosen ref.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'main' || '' }}
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Runner location
+        run: |
+          country="$(curl -fsS --max-time 15 https://ipinfo.io/country 2>/dev/null | tr -cd 'A-Za-z' | cut -c1-2)"
+          country="${country:-unknown}"
+          echo "RUNNER_IP_COUNTRY=$country" >> "$GITHUB_ENV"
+          {
+            echo "## Runner"
+            echo
+            echo "Public IP country (ipinfo.io): $country. A GitHub runner is not an Israeli IP: this is a rehearsal, not the VPS window."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Downloads live outside the checkout ($RUNNER_TEMP); nothing runs from there. run_day.py
+      # migrates the throwaway database itself, then loads with the real clock (no replay).
+      - name: Download and load through the real Scheduler path
+        run: |
+          mkdir -p "$RUNNER_TEMP/exit-window" out
+          args=()
+          for slug in $CHAINS; do args+=(--chain "$slug"); done
+          uv run --no-sync python scripts/exit_window/run_day.py \
+            --work "$RUNNER_TEMP/exit-window" --timeout "$DOWNLOAD_TIMEOUT" \
+            --out out/record.json "${args[@]}" | tee out/record.md
+
+      - name: Record present
+        id: record
+        if: always()
+        run: |
+          if [ -s out/record.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No record was written: this day counts as a failure of every chain." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Day summary (job summary)
+        if: always() && steps.record.outputs.present == 'true'
+        run: cat out/record.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the record
+        if: always() && steps.record.outputs.present == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: exit-window-record
+          path: out/record.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload the downloaded files
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: exit-window-files
+          path: |
+            ${{ runner.temp }}/exit-window/probe/files
+            ${{ runner.temp }}/exit-window/probe/probe.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # The only job with write access. It appends the day's record to exit-window/data (one file per
+  # date, records/<YYYY-MM-DD>.json, new commits only: no force push, no rewritten history) and
+  # writes the exit report of the window so far. A push with the workflow token starts no workflow.
+  persist:
+    name: append the record to exit-window/data, write the report
+    needs: rehearsal
+    if: always() && needs.rehearsal.outputs.has_record == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      BRANCH: exit-window/data
+      REPLACE: ${{ inputs.replace && 'true' || '' }}
+    steps:
+      # The generator lives with the code: main for scheduled runs, the chosen ref otherwise.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'main' || '' }}
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Download the record
+        uses: actions/download-artifact@v8
+        with:
+          name: exit-window-record
+          path: ${{ runner.temp }}/record
+
+      # The data branch is checked out into its own worktree; when it does not exist yet it
+      # starts as an orphan branch (no shared history with the code).
+      - name: Check out the data branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          data="$RUNNER_TEMP/data"
+          set +e
+          git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1
+          rc=$?
+          set -e
+          if [ "$rc" = 0 ]; then
+            git fetch --depth=1 origin "$BRANCH"
+            git worktree add -B "$BRANCH" "$data" FETCH_HEAD
+          elif [ "$rc" = 2 ]; then
+            echo "The branch $BRANCH does not exist yet: starting it as an orphan branch."
+            git worktree add --detach "$data"
+            git -C "$data" checkout -q --orphan "$BRANCH"
+            git -C "$data" rm -rfq --ignore-unmatch .
+            cat > "$data/README.md" <<'EOF'
+          # exit-window/data
+
+          Data branch of the Phase 0 exit window rehearsal on GitHub runners (issue #60). Not code, and
+          not the VPS window. One file per Israel date, `records/<YYYY-MM-DD>.json`, appended by the
+          `Exit window` workflow (`.github/workflows/exit-window.yml`) and never rewritten; the schema
+          is `scripts/exit_window/window_record.py` on `main`, and
+          `python scripts/exit_window/report.py --data .` turns the records into the report
+          (`docs/exit-window.md`).
+          EOF
+          else
+            echo "git ls-remote failed with exit code $rc" >&2
+            exit 1
+          fi
+          echo "DATA_DIR=$data" >> "$GITHUB_ENV"
+
+      - name: Append the record (idempotent per date)
+        id: append
+        run: |
+          args=()
+          if [ "$REPLACE" = "true" ]; then args+=(--replace); fi
+          out="$(uv run --no-sync python scripts/exit_window/window_store.py append \
+            --data "$DATA_DIR" --record "$RUNNER_TEMP/record/record.json" "${args[@]}")"
+          echo "$out"
+          echo "status=${out%% *}" >> "$GITHUB_OUTPUT"
+          uv run --no-sync python scripts/exit_window/window_store.py check --data "$DATA_DIR"
+
+      - name: Commit and push (new commits only, never a force push)
+        if: steps.append.outputs.status != 'exists'
+        run: |
+          day="$(jq -r .date "$RUNNER_TEMP/record/record.json")"
+          git -C "$DATA_DIR" add -A
+          if git -C "$DATA_DIR" diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git -C "$DATA_DIR" commit -q -m "Exit window record for $day" \
+            -m "Runner rehearsal, not the VPS window. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          for attempt in 1 2 3 4; do
+            if git -C "$DATA_DIR" push origin "HEAD:refs/heads/$BRANCH"; then
+              echo "Pushed to $BRANCH ($(git -C "$DATA_DIR" rev-parse --short HEAD))."
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt); rebasing onto the remote branch"
+            sleep $((attempt * 3))
+            git -C "$DATA_DIR" fetch origin "$BRANCH"
+            git -C "$DATA_DIR" rebase FETCH_HEAD
+          done
+          echo "could not push after four attempts" >&2
+          exit 1
+
+      - name: Report (job summary)
+        if: always()
+        run: |
+          mkdir -p out
+          uv run --no-sync python scripts/exit_window/report.py --data "$DATA_DIR" --out out/exit-window-report.md
+          {
+            echo "Record status: **${APPEND_STATUS:-not appended}** (branch \`$BRANCH\`)."
+            echo
+            cat out/exit-window-report.md
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          APPEND_STATUS: ${{ steps.append.outputs.status }}
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: exit-window-report
+          path: out/exit-window-report.md
+          retention-days: 90
+          if-no-files-found: ignore
