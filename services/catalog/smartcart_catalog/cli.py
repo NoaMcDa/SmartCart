@@ -6,6 +6,8 @@
 * ``smartcart-catalog cost-report``                tokens and estimated USD per model batch
 * ``smartcart-catalog backlog``                    what to add to the catalog next (cli_growth)
 * ``smartcart-catalog native-report``              the native-app decision numbers (cli_growth)
+* ``smartcart-catalog propose-canonicals``         new canonicals from real unmapped items
+  (proposals_packet), and ``proposals-import`` for the reviewer's answers
 
 Extending: other modules add commands to the same ``app`` through a ``register(app)`` function.
 Every module named in ``EXTENSIONS`` is imported at the bottom of this file and its
@@ -44,6 +46,7 @@ EXTENSIONS: tuple[str, ...] = (
     "smartcart_catalog.review_packet",
     "smartcart_catalog.beta_admin",  # after cli_seo: its beta-report adds the by-segment section
     "smartcart_catalog.audit_real",
+    "smartcart_catalog.proposals_packet",
 )
 
 
