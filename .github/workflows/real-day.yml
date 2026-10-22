@@ -15,8 +15,6 @@ name: Real day
 # Run it after about 08:00 Israel time (the laibcatalog listing is empty before that, D13).
 
 on:
-  push:
-    branches: [more7/realday2]
   workflow_dispatch:
     inputs:
       chains:
@@ -90,13 +88,13 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       PYTHONUNBUFFERED: "1"
-      CHAINS: ${{ github.event_name == 'push' && 'king_store mega osherad ramilevy shufersal tivtaam yohananof' || inputs.chains || '' }}
-      ANCHORS: ${{ inputs.anchors || 3 }}
-      PER_CHAIN: ${{ inputs.per_chain || 2 }}
-      MAX_FILES: ${{ inputs.max_files || 40 }}
-      TIMEOUT: ${{ inputs.timeout || 240 }}
-      WITH_PROMOS: ${{ github.event_name == 'push' && 'true' || inputs.with_promos }}
-      STRESS: ${{ github.event_name == 'push' && 'true' || inputs.stress }}
+      CHAINS: ${{ inputs.chains || '' }}
+      ANCHORS: ${{ inputs.anchors }}
+      PER_CHAIN: ${{ inputs.per_chain }}
+      MAX_FILES: ${{ inputs.max_files }}
+      TIMEOUT: ${{ inputs.timeout }}
+      WITH_PROMOS: ${{ inputs.with_promos }}
+      STRESS: ${{ inputs.stress }}
 
     steps:
       # The code lives on the chosen ref; no schedule, so no default-branch fallback is needed.
@@ -169,7 +167,7 @@ jobs:
   commit-report:
     name: commit the report to real-day/report-<run id>
     needs: real-day
-    if: always() && (inputs.commit_report || github.event_name == 'push')
+    if: always() && inputs.commit_report
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
