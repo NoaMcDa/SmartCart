@@ -306,7 +306,7 @@ uv run python -m smartcart_catalog.cli_matching evaluate --fail-below 0.98   # u
 ```
 
 One command loads the gold set (chain `gold`, missing taxonomy, rules and canonicals, and
-`gold_pairs`; idempotent), embeds what is missing, runs blocking, retrieval and the judge on every
+`gold_pairs`; idempotent), embeds the gold items, runs blocking, retrieval and the judge on every
 gold item, prints precision and recall per level as separate numbers plus retrieval recall@k,
 and saves the metrics in `match_runs` (`kind = 'evaluate'`) so runs can be compared over time.
 `--fail-below` exits 1 when precision at "any brand" is below the threshold (or undefined).
@@ -322,6 +322,42 @@ prediction to a canonical with no gold pair for that item counts as wrong. Recal
 of gold items with a pair qualifying at L that were predicted correctly at L. Recall@k is the
 share of items with a positive pair whose positive canonical is among the k retrieved
 candidates. `gold_pairs` rows from human review count too.
+
+**A rerun gives the same numbers as a fresh run, on any database** (issue: the gold-set evaluation was not
+idempotent). Cause, measured with the commands of `matching-eval.yml` on one database: the Hebrew
+`evaluate` is stable on its own, but `evaluate-ar` seeds the real catalog (245 canonicals, taxonomy,
+rules) into the same database, and that (1) rewrote 11 of the gold set's 58 canonicals through the
+seed's upsert (`banana` "בננה" with no critical attributes became "בננות" with `state = fresh`; cherry
+tomato, tomato, cucumber, onion, potato, both salmon fillets, tilapia and both chicken breasts changed
+name, taxonomy node, base unit, product type or attributes), because `load_gold` leaves an existing
+canonical alone, and (2) put 234 catalog canonicals into the pool the retrieval searches, where they
+compete with the gold canonicals and a pair the gold set has no label for counts as wrong. Second `evaluate`
+(measured): exact 1.0000 / 0.9038 (94 served), any_brand 0.9754 / 0.6503 (448 served), close
+0.9787 / 0.6074 (517 served), recall@10 0.8956, 208 to review, 132 unmapped; it failed the 0.98 gate,
+while a fresh database, which is all CI ever used, gives 1.0000 at every level (table below).
+The same drift hit the `evaluate --no-load --json` step that runs after `evaluate-ar` in the
+workflow: its `evaluation.json` artifact was the polluted run. Seeding first and loading the gold set
+second was affected the other way (the gold set kept the seed's definitions).
+
+`run_evaluation` now builds the world it measures and leaves the database as it found it. For good it
+writes only the gold inputs (chain `gold`, its items, `gold_pairs`, missing canonicals and taxonomy
+nodes, as before), the gold item vectors (a function of the name and the model, refreshed when the item
+changes) and the `match_runs` row. Everything else runs in a transaction that is rolled back:
+the gold catalog's rules and canonicals are written over the rows with the same key (so `seed` and
+`evaluate-ar` cannot change what is measured); the gold items lose extractions
+(`item_attributes`), mappings and human rejections (`item_canonical`, which the matcher honors) and
+any normalized `manufacturer`/`quantity`/`unit`, so the raw names are judged with the gold lexicon;
+the canonicals are embedded again from those names; and retrieval is restricted to the gold canonicals
+(`top_k(..., canonical_ids)`), plus any canonical a `gold_pairs` row, for example from review, refers
+to. The evaluation never writes `item_canonical` and never reads a mapping, vector or verdict any
+earlier run produced. The one place a rerun can differ legitimately is the input: new `gold_pairs`
+from the review UI. `tests/test_evaluate_repeatable.py` (marked `db`) pins it: Hebrew twice, Hebrew
+after `seed` + canonical embeddings (what `evaluate-ar` leaves), Hebrew on a seeded catalog,
+Hebrew with stale extractions and a human rejection of every right answer on the gold items, each equal
+to a fresh run; Arabic twice (with and without `--no-seed`) and Arabic after Hebrew equal to a fresh
+Arabic run. `evaluate-ar` was already repeatable (it upserts the whole seed and embeds the canonicals
+each run, and the gold-only canonicals left by the Hebrew run do not outrank anything on its set); the
+test keeps it so.
 
 **Measured on the synthetic gold set** (RuleJudge, HashEmbedder, k = 10, 2026-10-07, after
 issue #102). These are synthetic-gold-set numbers, a pipeline regression baseline, **not

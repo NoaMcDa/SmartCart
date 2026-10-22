@@ -327,12 +327,15 @@ def match_item(
     *,
     k: int = 10,
     depth: int = 1,
+    canonical_ids: Sequence[int] | None = None,
 ) -> MatchResult:
+    """Block, retrieve and judge one item. ``canonical_ids`` limits the retrieval to those
+    canonicals (``None``: the whole catalog); the evaluation harness passes the gold set's."""
     block = block_for(ctx, depth)
     # Human rejections are removed before the judge sees the candidates, so it never proposes
     # them again; fetch extra rows so k candidates remain.
     candidates = top_k(conn, ctx.item.item_id, k + len(ctx.rejected), block.prefix,
-                       block.base_unit)  # fmt: skip
+                       block.base_unit, canonical_ids)  # fmt: skip
     candidates = [c for c in candidates if c.canonical_id not in ctx.rejected][:k]
     decision = judge.judge(ctx.item, ctx.attrs, candidates, rules)
     if not candidates:
