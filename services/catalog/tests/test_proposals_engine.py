@@ -362,3 +362,26 @@ def test_a_name_from_a_single_product_is_marked_as_possibly_carrying_a_brand(cat
     ]
     p = run(items, catalog).proposals[0]
     assert p.skus == 1 and any("single product" in u for u in p.uncertain)
+
+
+def test_one_proposal_per_type_and_critical_values_even_when_the_unit_differs(catalog) -> None:
+    packed = [
+        item(c, f"p{c}", "גבינה בולגרית 18%", qty=250, unit="גרם") for c in ("c1", "c2", "c3")
+    ]
+    weighed = [item(c, f"w{c}", "גבינה בולגרית 18% במשקל", weighed=True) for c in ("c1", "c2")]
+    r = run(packed + weighed, catalog)
+    assert len(r.proposals) == 1  # `seed` cannot hold two canonicals with the same type and values
+    p = r.proposals[0]
+    assert p.base_unit == "100g" and p.items == 3
+    assert any("also sold in another unit" in u and "kg" in u for u in p.uncertain)
+    assert r.stats["same_type_other_unit"] == {"groups": 1, "items": 2}
+
+
+def test_real_variants_never_share_a_type_and_critical_values(real) -> None:
+    _, r = real
+    keys = [
+        (p.product_type, tuple(sorted(p.critical_attrs.items(), key=str)))
+        for p in r.proposals
+        if p.kind == "variant"
+    ]
+    assert len(keys) == len(set(keys))  # seed would call two of them indistinguishable

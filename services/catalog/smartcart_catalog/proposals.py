@@ -951,6 +951,7 @@ def propose(
         "matching_gaps": {"groups": 0, "items": 0, "top": []},
         "missing_critical": {"groups": 0, "items": 0},
         "unspecific_critical": {"groups": 0, "items": 0},
+        "same_type_other_unit": {"groups": 0, "items": 0},
         "below_min_chains": {"groups": 0, "items": 0},
         "low_cohesion": {"groups": 0, "items": 0},
         "no_base_unit": {"groups": 0, "items": 0},
@@ -1045,11 +1046,37 @@ def propose(
             i,
         ),
     )
+    # `seed` allows one canonical per product type and critical values. Two groups that differ only
+    # in the base unit (packaged per 100 g and weighed per kg) cannot both be canonicals: the wider
+    # one is proposed and the other is named in its notes.
+    first_of: dict[str, int] = {}
+    other_unit: dict[int, list[str]] = defaultdict(list)
+    ranked: list[int] = []
+    for i in order:
+        g, d, _extra = kept[i]
+        if g.product_type is None:
+            ranked.append(i)
+            continue
+        key = json.dumps([g.product_type, sorted(d["critical"].items(), key=str)], default=str)
+        if key in first_of:
+            keeper = first_of[key]
+            other_unit[keeper].append(f"{d['base_unit']}: {len(g.members)} items")
+            stats["same_type_other_unit"]["groups"] += 1
+            stats["same_type_other_unit"]["items"] += len(g.members)
+            continue
+        first_of[key] = i
+        ranked.append(i)
     proposals: list[Proposal] = []
     used_slugs = set(existing_slugs)
-    for rank, i in enumerate(order[:top], start=1):
+    for rank, i in enumerate(ranked[:top], start=1):
         g, d, extra = kept[i]
         r = raw[i]
+        if other_unit.get(i):
+            d["uncertain"].append(
+                "base_unit: the same product type and critical values are also sold in another"
+                f" unit ({'; '.join(other_unit[i])}), which `seed` cannot hold as a second"
+                " canonical; decide which unit this canonical uses"
+            )
         members = g.members
         pt = g.product_type
         suggested = pt or transliterate(d["name"]).replace("-", "_") or "new_type"

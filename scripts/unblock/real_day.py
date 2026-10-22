@@ -719,7 +719,7 @@ def proposals_summary(doc: dict) -> dict:
     props = doc.get("proposals", [])
     keys = ("source", "items_total", "items_mapped", "items_unmapped", "chains_in_data", "products",
             "groups", "barcodes_valid", "barcodes_shared_chains", "barcode_conflicts",
-            "matching_gaps", "missing_critical", "unspecific_critical", "below_min_chains", "low_cohesion",
+            "matching_gaps", "missing_critical", "unspecific_critical", "same_type_other_unit", "below_min_chains", "low_cohesion",
             "no_base_unit", "proposals", "proposal_items", "candidate_groups", "candidate_items",
             "kinds")  # fmt: skip
     out = {k: st.get(k) for k in keys}
