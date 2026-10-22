@@ -947,6 +947,8 @@ class RegulationAdapter(ChainAdapter):
                     price=price,
                     unit_price=parse_decimal(fields.get("unitofmeasureprice")),
                     unit_of_measure=_first(fields, "unitofmeasure", "unitmeasure"),
+                    quantity=quantity if quantity else None,
+                    quantity_unit=fields.get("unitqty") or None,
                     observed_at=parse_datetime(fields.get("priceupdatedate")) or raw.published_at,
                 )
             )

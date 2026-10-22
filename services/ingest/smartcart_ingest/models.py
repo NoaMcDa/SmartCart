@@ -76,6 +76,11 @@ class PriceRecord(_Frozen):
     price: Decimal
     unit_price: Decimal | None = None
     unit_of_measure: str | None = None
+    quantity: Decimal | None = None
+    """The pack size the row publishes (``Quantity``), in ``quantity_unit``; ``None`` when absent
+    or zero. The loader computes the unit price from ``price / quantity`` (docs/adapters.md)."""
+    quantity_unit: str | None = None
+    """The unit of ``quantity`` (``UnitQty``)."""
     observed_at: datetime
 
 

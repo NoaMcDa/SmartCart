@@ -39,8 +39,7 @@ not stored, so per-store exceptions stay small.
 from __future__ import annotations
 
 import json
-import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -57,6 +56,7 @@ from smartcart_ingest.adapters.base import ChainAdapter
 from smartcart_ingest.channel import tag_channel
 from smartcart_ingest.geocode.resolve import load_index as load_geo_index
 from smartcart_ingest.models import ParsedFile, PriceRecord, PromoRecord, StoreRecord
+from smartcart_ingest.unitprice import resolve_unit_price
 
 log = structlog.get_logger("smartcart_ingest.loader")
 
@@ -66,9 +66,6 @@ ISRAEL = ZoneInfo("Asia/Jerusalem")
 # skipped as older (valid_from only moves forward), freezing the price. Up to a day of slack
 # covers a time zone mixed up; beyond it the publication time is used instead.
 FUTURE_TOLERANCE = timedelta(hours=24)
-
-_HUNDRED = Decimal(100)
-_TEN = Decimal(10)
 
 
 class LoadError(RuntimeError):
@@ -102,6 +99,16 @@ class LoadResult:
     stores_located: dict[str, int] = field(default_factory=dict)
     """Stores that got a location from this file, by precision (docs/geocoding.md)."""
     warnings: list[str] = field(default_factory=list)
+    unit_price_sources: dict[str, int] = field(default_factory=dict)
+    """Price records by where their unit price came from: ``computed`` (price / pack size),
+    ``weighed`` (the shelf price per kg), ``published`` / ``published_scaled`` (no sane pack size;
+    the chain's published value, scaled by its measured rule) or ``none`` (nothing usable;
+    the shelf price is still stored). ``unitprice.py``."""
+    unit_price_disagreements: dict[str, int] = field(default_factory=dict)
+    """Records whose published unit price disagrees with the computed one even under the chain's
+    measured reading, by class (``off_x100_low``, ``off_x100_high``, ``off_x10_*``,
+    ``off_x1000_*``, ``other``). A data-quality signal: the price is stored regardless and the
+    file is never quarantined for it."""
 
 
 def record_count(parsed: ParsedFile) -> int:
@@ -116,35 +123,6 @@ def record_count(parsed: ParsedFile) -> int:
 
 # --- unit prices -------------------------------------------------------------------------------
 
-_QUOTES = re.compile(r"[\"'`׳״“”’]")
-_SPACE = re.compile(r"\s+")
-
-# normalized spelling -> (internal uom, factor to multiply the published unit price by)
-_UNIT_TABLE: dict[str, tuple[str, Decimal]] = {}
-for _names, _uom, _factor in (
-    (("100g", "100גרם", "100גר", "100ג", "100gr", "100gram"), "100g", Decimal(1)),
-    (("g", "gr", "gram", "גרם", "גר", "ג"), "100g", _HUNDRED),
-    (("100ml", "100מל", "100מיליליטר"), "100ml", Decimal(1)),
-    (("ml", "מל", "מיליליטר"), "100ml", _HUNDRED),
-    (("l", "lt", "ltr", "liter", "litre", "ליטר", "ל", "1ליטר"), "100ml", 1 / _TEN),
-    (("unit", "units", "יחידה", "יחידות", "יח", "1יחידה"), "unit", Decimal(1)),
-):
-    for _n in _names:
-        _UNIT_TABLE[_n] = (_uom, _factor)
-_KG_NAMES = frozenset({"kg", "קג", "קילו", "קילוגרם", "1קג", "1קילו"})
-
-
-def _normalize_unit_name(raw: str) -> str:
-    s = _QUOTES.sub("", raw.strip().lower())
-    s = _SPACE.sub("", s)
-    # "ל-100 גרם", "לק"ג": a leading ל ("per") in front of a unit name
-    known = _UNIT_TABLE.keys() | _KG_NAMES
-    if s.startswith("ל-"):
-        s = s[2:]
-    elif s not in known and s.startswith("ל") and s[1:] in known:
-        s = s[1:]
-    return s.lstrip("-")
-
 
 def normalize_unit_price(
     price: Decimal,
@@ -152,23 +130,11 @@ def normalize_unit_price(
     unit_of_measure: str | None,
     is_weighed: bool,
 ) -> tuple[Decimal | None, str | None, bool]:
-    """Return ``(unit_price, uom, is_estimated)`` with uom one of ``100g``, ``100ml``, ``unit``,
-    ``kg`` (CLAUDE.md conventions). Weighed produce is per kg and estimated; a weighed item
-    without a published unit price uses its price, which chains publish per kg. An unknown unit
-    gives ``(None, None, is_weighed)`` and the shelf price is still stored."""
-    name = _normalize_unit_name(unit_of_measure) if unit_of_measure else ""
-    if is_weighed:
-        if unit_price is None or not name or name in _KG_NAMES:
-            return (unit_price if unit_price is not None else price), "kg", True
-    if unit_price is None:
-        return None, None, is_weighed
-    if name in _KG_NAMES:
-        return unit_price / _TEN, "100g", False
-    hit = _UNIT_TABLE.get(name)
-    if hit is None:
-        return None, None, is_weighed
-    uom, factor = hit
-    return unit_price * factor, uom, is_weighed
+    """``(unit_price, uom, is_estimated)`` from the label and the published value alone (no pack
+    size, no chain): the reading ``resolve_unit_price`` falls back to. ``uom`` is one of
+    ``100g``, ``100ml``, ``unit``, ``kg`` (CLAUDE.md conventions)."""
+    u = resolve_unit_price(price, unit_price, unit_of_measure, is_weighed)
+    return u.value, u.uom, u.is_estimated
 
 
 # --- helpers ------------------------------------------------------------------------------------
@@ -458,6 +424,8 @@ def _insert_prices(
         latest[(item_id, store_id)] = (valid_from, (price, unit_price, uom, est))
 
     rows: list[tuple] = []
+    sources: Counter[str] = Counter()
+    disagreements: Counter[str] = Counter()
     # Base events first, so store records compare against the base this file delivers.
     base_timeline: dict[int, list[tuple[datetime, tuple]]] = defaultdict(list)
     for key in sorted(events, key=lambda k: (k[1] is not None, k[0], k[1] or 0)):
@@ -468,10 +436,19 @@ def _insert_prices(
             base_timeline[item_id].append(last)
         for observed_at in sorted(by_time):
             p, weighed = by_time[observed_at]
-            unit_price, uom, est = normalize_unit_price(
-                p.price, p.unit_price, p.unit_of_measure, weighed
+            resolved = resolve_unit_price(
+                p.price,
+                p.unit_price,
+                p.unit_of_measure,
+                weighed,
+                p.quantity,
+                p.quantity_unit,
+                p.chain_id,
             )
-            values = (p.price, unit_price, uom, est)
+            sources[resolved.source] += 1
+            if resolved.check not in (None, "agree"):
+                disagreements[resolved.check] += 1
+            values = (p.price, resolved.value, resolved.uom, resolved.is_estimated)
             if last is not None:
                 last_at, last_values = last
                 if observed_at < last_at:
@@ -502,6 +479,15 @@ def _insert_prices(
                 rows,
             )
     result.prices_written = len(rows)
+    result.unit_price_sources = dict(sources)
+    result.unit_price_disagreements = dict(disagreements)
+    if disagreements:
+        log.warning(
+            "published unit prices disagree with price / quantity",
+            chain_id=parsed.raw.chain_id,
+            file=parsed.raw.path,
+            disagreements=dict(disagreements),
+        )
 
 
 def _base_in_force(timeline: list[tuple[datetime, tuple]], at: datetime) -> tuple | None:
@@ -724,6 +710,8 @@ def load(
         prices_written=result.prices_written,
         prices_unchanged=result.prices_unchanged,
         prices_clamped=result.prices_clamped,
+        unit_price_sources=result.unit_price_sources,
+        unit_price_disagreements=result.unit_price_disagreements,
         promos=result.promos,
         promo_items_unknown=result.promo_items_unknown,
         promos_ended=result.promos_ended,
