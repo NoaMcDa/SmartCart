@@ -109,7 +109,7 @@ jobs:
       TIMEOUT: ${{ inputs.timeout || 240 }}
       WITH_PROMOS: ${{ github.event_name == 'push' && 'true' || inputs.with_promos }}
       STRESS: ${{ github.event_name == 'push' && 'true' || inputs.stress }}
-      SEO: ${{ github.event_name == 'push' && 'true' || inputs.seo }}
+      SEO: ${{ github.event_name == 'push' && 'false' || inputs.seo }}
 
     steps:
       # The code lives on the chosen ref; no schedule, so no default-branch fallback is needed.

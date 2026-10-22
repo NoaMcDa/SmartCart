@@ -64,6 +64,18 @@ def main() -> int:
         rows = [["error", repr(exc)]]
     (out / "db_items.json").write_text(json.dumps(rows, ensure_ascii=False, indent=1), "utf-8")
     print(f"{len(rows)} db items")
+    # every pack note of one more precompute over what the run left in the database (the stress
+    # variant's accepted mappings), not the 20 samples of the metrics
+    try:
+        from smartcart_api.precompute import precompute_effective_prices
+
+        with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+            res = precompute_effective_prices(conn)
+        notes = res.pack_notes or []
+    except Exception as exc:  # noqa: BLE001
+        notes = [{"kind": "error", "detail": repr(exc)}]
+    (out / "pack_notes.json").write_text(json.dumps(notes, ensure_ascii=False, indent=1), "utf-8")
+    print(f"{len(notes)} pack notes")
     return 0
 
 

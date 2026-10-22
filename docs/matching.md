@@ -876,17 +876,26 @@ field says 12, got 1.18). The same hit pitas (`פיתות 10 יח'`) and toilet 
 
 | Canonical's base unit | The pack | Disagreement between readings |
 |---|---|---|
-| `unit` (eggs, pitas, toilet paper) | `normalize`'s count in units (`12 יח'` = 12, `18יח` = 18, `2*30 יח'` = 60, `32 גלילים` = 32), the item's own unit fields, and the published unit price when its `uom` is `unit` (price / unit price, rounded to a whole number within 6 %); a reading of 1 is "unknown" and never outvotes a stated count; the unit price is `price / count` | the **smallest** stated count (the larger unit price); recorded as `count_conflict` |
-| `100g`, `100ml` | the published unit price, else the fields', else the name's (`price x 100 / total_quantity`, so `6*330 מ"ל` is 1980 ml and `6*1.5 ל'` is 9000 ml even when the fields say `1 יחידות`); consistent readings (within 12 % or one agora) keep the first | the **highest** unit price; recorded as `measure_conflict` (this is also what a published price a hundred times too small, finding 8, falls back to) |
+| `unit` (eggs, pitas, toilet paper) | `normalize`'s count in units (`12 יח'` = 12, `18יח` = 18, `2*30 יח'` = 60, `32 גלילים`, `32 גליל`, `32גל` and `30 ג` on toilet paper = 32 and 30), the item's own unit fields, and the published unit price when its `uom` is `unit` (price / unit price, rounded to a whole number within 6 %); a reading of 1 is "unknown" and never outvotes a stated count; the unit price is `price / count`; **no reading states a count and the canonical is sold in packs (typical 6 or more): no unit price** (`count_unknown`) | the **smallest** stated count (the larger unit price); recorded as `count_conflict` |
+| `100g`, `100ml` | the published unit price, else the fields', else the name's (`price x 100 / total_quantity`, so `6*330 מ"ל` is 1980 ml and `6*1.5 ל'` is 9000 ml even when the fields say `1 יחידות`); consistent readings (within 12 % or one agora) keep the first | two readings against one, the name among the two: the pair (`measure_outvoted`: a published price a hundred times too small, finding 8); the chain's readings against the name: within 3 times the **highest** (`measure_conflict`), a name 10, 100 or 1000 times the chain's size: the name (`measure_name_over_chain`), else **no unit price** (`measure_unknown`) |
 | `kg` (weighed) | unchanged: the shelf price is per kg | |
 
-"Never cheaper than the shelf supports" is the rule behind both rows: a wrong pack count or a wrong
+"Never cheaper than the shelf supports" was the rule behind both rows: a wrong pack count or a wrong
 size can only make the item look dearer per unit, and a dearer item is a missed match, not a wrong
-claim (precision over recall). What the name decided against the fields is not hidden: the precompute's
+claim (precision over recall). The real day of 2026-10-22 showed its limit: a pack of unknown count
+*priced per pack* is dearer by the count (toilet paper at 813.60 for 24 rolls), which wrecks the
+comparison from the other side, and two readings far apart cannot be ordered by "dearer" at all. Both now
+give **no unit price** instead of a guess ([optimizer.md](optimizer.md), "Packs"; real rows in
+`services/api/tests/real_unit_rows.py`). What the name decided against the fields is not hidden: the precompute's
 `match_runs` row carries `pack_reads` (counts per kind) and `pack_samples` (item id, name, price and what
-each reading said), so the next real-day report can list them. `normalize.py` itself did not change: its
+each reading said), so the next real-day report can list them. `normalize.py` first did not change: its
 reading of `12 יח'`, `2*30` and `6*330 מ"ל` was already right (`test_normalize.py`,
-`test_normalize_real_sizes.py`); the precompute only stopped ignoring it. How the quantity of a request
+`test_normalize_real_sizes.py`); the precompute only stopped ignoring it. The real day of 2026-10-22 then
+found words it did not read as a count (`test_normalize_pack_words.py`, real names): singular `גליל`,
+`32גל` (Shufersal's own גלילים), a one-letter `30 ג` on toilet paper and paper towels (never sold by the
+gram; wet wipes are left alone), `שישית`, `שישיה` and `שמיניית`, and a liter cut to `לי`
+(`סודה מי עדן 1.5 לי`). The gold-set evaluation is unchanged by them (see "Unit-price outliers" in
+[real-day-dry-run.md](real-day-dry-run.md)). How the quantity of a request
 becomes whole shelf packs is in [optimizer.md](optimizer.md#packs-the-count-in-the-name-the-unit-price-and-whole-packs-finding-9-of-the-second-real-day).
 
 With this, rule 5 above ("the unit price is per egg either way") holds in the prices: a tray of 30 at an

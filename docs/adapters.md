@@ -198,6 +198,25 @@ re-derives `PUBLISHED_SCALE` from the 14 files (the class of at least 90 % of a 
 or more rows) and fails when a chain is missing or wrong. When the next real file of a chain shows
 `unit_price_disagreements` in the log, that is the signal to measure again.
 
+### What the real day's rows showed the loader cannot know (verified 2026-10-22, run 39812688285)
+
+The loader sees a row, never the name, so it cannot tell a wrong `Quantity` from a right one. Measured on
+the PriceFull rows of the real day (`services/api/tests/real_unit_rows.py`, every field verbatim); the
+loader's reading is right for each file as published, and each one is a wrong or missing size the
+precompute settles from the name (docs/optimizer.md, "Packs"):
+
+| Row | What the file says | What the loader stores |
+|---|---|---|
+| Shufersal, Tiv Taam, Rami Levy, Yohananof toilet paper and paper towels | `UnitQty` and `UnitOfMeasure` `מטרים`: the paper's length (528 for 32 rolls, 0.06 per metre) | no unit price (a length is no unit this system knows); the roll count is only in the name |
+| Osher Ad toilet paper, garbage bags, some towels | `Quantity` `0.00`, `UnitOfMeasure` `יחידה`, `UnitOfMeasurePrice` `0.00` | no unit price; the count is missing or in a name cut at 20 characters |
+| Rami Levy, Tiv Taam, Yohananof garbage bags | `Quantity` `1.00` `יחידות`, published unit price equal to the shelf price | the shelf price as price per unit (the count is in the name, if anywhere) |
+| Tiv Taam `שמן חמניות 1 ליטר` at 10.90 | `Quantity` `100.00`, `UnitQty` `מיליליטר`: 100 ml for a 1 liter bottle (Rami Levy and Osher Ad publish `1.00` `ליטר` for the same barcode) | 10.90 per 100 ml (computed from the file's own size) |
+| Rami Levy `סודה מי עדן 1.5 לי` at 2.70 | `Quantity` `9.00` `ליטר`: the six-pack's total for one bottle | 0.03 per 100 ml |
+| Osher Ad `מארז מים מינרלים מוג` at 14.90 | `Quantity` `1.32` `ליטר`: 4 x 330 ml of sparkling water, the chain publishes 11.29 a liter | 1.1288 per 100 ml: a correct price of a different product |
+
+No loader rule changes for these: a size the file states is used, and a name-based correction belongs
+where the name is read (the precompute and `normalize`).
+
 ### Promotions in real files (#47, verified 2026-10-21)
 
 The first real PromoFull files were fetched by the Portal probe from a GitHub runner on
