@@ -19,8 +19,6 @@ name: Exit window
 # job. A day on which the job itself breaks has no record, and the report counts it as a failure.
 
 on:
-  push:
-    branches: [phase/exit-window] # TEMPORARY: verification run on a runner; removed in the final commit
   workflow_dispatch:
     inputs:
       chains:

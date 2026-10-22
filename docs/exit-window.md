@@ -195,4 +195,4 @@ its record is `records/2026-10-22.json` on `exit-window/data`. Runner IP country
   have coordinates.
 
 The persist job ran on the runner too: it created the orphan branch `exit-window/data` with the README
-and the record and wrote the report to the job summary. Re-running the same day is covered below.
+and the record and wrote the report to the job summary. A second run of the same day (run 39800616022, a later push to the branch) printed `exists`, committed nothing and left the branch at the same commit: the idempotent path, verified on a runner.
