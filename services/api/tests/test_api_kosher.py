@@ -293,6 +293,33 @@ def test_a_cheaper_item_is_found_when_the_best_one_is_ruled_out_and_clubs_still_
     assert line["kosher"]["level"] == "meets" and not line["club_required"]
 
 
+def test_a_weighed_item_is_priced_again_per_kg_when_the_best_one_is_ruled_out(
+    client, db, w: World
+) -> None:
+    # c1 sells the salmon by the kg at 89.90, and says it is not kosher; a second c1 item states
+    # בד"ץ at 99.90 per kg: the line is the second one, per kg, and still estimated
+    rename(db, w, {"salmon_c1": "סלמון נורווגי טרי במשקל לא כשר"})
+    add_item(
+        db,
+        w,
+        "salmon_c1_badatz",
+        "t-c1",
+        'סלמון נורווגי טרי בד"ץ 1 ק"ג',
+        "salmon",
+        "exact",
+        "99.90",
+        'ק"ג',
+    )
+    precompute_effective_prices(db, chains=w.chains)
+    items = [{"canonical_id": w.canon["salmon"], "quantity": 2}]
+    plain = only_line(stores(compare(client, w, items))[w.stores["home"]])
+    assert plain["item_id"] == w.items["salmon_c1"] and D(plain["line_total"]) == D("179.80")
+    got = only_line(stores(compare(client, w, items, kosher={"level": "badatz"}))[w.stores["home"]])
+    assert got["item_id"] == w.items["salmon_c1_badatz"]
+    assert D(got["line_total"]) == D("199.80") and got["is_estimated"]
+    assert got["kosher"] == {"level": "meets", "passover": None, "stated": ["badatz"]}
+
+
 def test_a_club_deal_on_an_item_that_passes_is_kept(client, db, w: World) -> None:
     rename(db, w, {"eggs_c1": 'ביצים L תריסר בד"ץ'})
     items = [{"canonical_id": w.canon["eggs"], "quantity": 1}]

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Plan } from "@/api/client";
 import { PromoConfidence, Tag, TrustedPrice } from "@/components/ui";
 import { ItemName } from "@/components/ui/ItemName";
+import { KosherNote } from "@/features/kosher/KosherNote";
 import { ClubName } from "@/features/profile/ClubName";
 import { clubRuleText } from "@/features/profile/clubs";
 import { DataText } from "@/i18n/DataText";
@@ -70,6 +71,7 @@ export function BasketDetails({
                           <Tag variant="substitute">{t("substituteTag")}</Tag>
                         </Link>
                       ) : null}
+                      <KosherNote label={line.kosher} />
                       {line.club_required ? (
                         <Tag variant="club">
                           {clubRuleText(line.club_name, locale)

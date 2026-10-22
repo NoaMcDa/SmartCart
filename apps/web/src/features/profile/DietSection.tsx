@@ -1,14 +1,14 @@
 "use client";
 
 import { Chip } from "@/components/ui/Chip";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { KosherControls } from "@/features/kosher/KosherControls";
 import { Switch } from "@/components/ui/Switch";
 import { Tag } from "@/components/ui/Tag";
 import { useLocale, useT } from "@/i18n/LocaleProvider";
 import { profileMessages } from "@/i18n/messages/profile";
 import styles from "./controls/controls.module.css";
-import { ALLERGENS, KOSHER_OPTIONS, allergenLabel, kosherLabel } from "./dietOptions";
-import { updateProfile, useProfile, type KosherLevel } from "./profileState";
+import { ALLERGENS, allergenLabel } from "./dietOptions";
+import { updateProfile, useProfile } from "./profileState";
 
 /**
  * Diet, kosher and allergen preferences. Matching on these relies on attributes extracted from
@@ -19,7 +19,6 @@ export function DietSection() {
   const t = useT(profileMessages);
   const { locale } = useLocale();
   const profile = useProfile();
-  const kosher: KosherLevel | "none" = profile.diet.kosherLevel ?? "none";
   return (
     <div className={styles.stack}>
       <div className={styles.statusRow}>
@@ -27,20 +26,7 @@ export function DietSection() {
         <p className={styles.hint}>{t("dietNotice")}</p>
       </div>
 
-      <div className={styles.group}>
-        <p className={styles.legend}>{t("kosherLegend")}</p>
-        <SegmentedControl<KosherLevel | "none">
-          label={t("kosherLegend")}
-          options={KOSHER_OPTIONS.map((o) => ({
-            value: o.value,
-            label: o.value === "none" ? t("kosherNoneShort") : kosherLabel(o.value, locale),
-          }))}
-          value={kosher}
-          onChange={(v) =>
-            updateProfile((p) => ({ diet: { ...p.diet, kosherLevel: v === "none" ? null : v } }))
-          }
-        />
-      </div>
+      <KosherControls />
 
       <Switch
         label={t("vegan")}

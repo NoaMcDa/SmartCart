@@ -4,13 +4,16 @@
  * the source of truth for the screens; these functions only mirror it.
  *
  * Encoding choices (the API has no columns for them yet):
- * - `diet_flags`: "vegan", "gluten_free" and "allergen:<key>" entries.
- * - `kosher_level`: "regular" | "mehadrin" | "badatz" or null.
+ * - `diet_flags`: "vegan", "gluten_free", "allergen:<key>", and the kosher filter's two switches
+ *   "kosher:only_stated" and "kosher:passover" entries.
+ * - `kosher_level`: a level of `features/kosher/kosher.ts` (regular, mehadrin, badatz or a named
+ *   hechsher) or null.
  * - City and neighborhood text stay on the device; only the rounded coordinates go up, and only
  *   with `consent_location = true` (the API answers 422 otherwise).
  */
 import { api, ApiError, type Schemas } from "@/api/client";
 import { ensureApiAuth } from "@/features/auth/apiAuth";
+import { FLAG_ONLY_STATED, FLAG_PASSOVER, isKosherLevel } from "@/features/kosher/kosher";
 import { clubIdsOnly } from "./clubs";
 import type { LocalProfile } from "./profileState";
 
@@ -27,6 +30,8 @@ export function toProfileUpdate(
   const dietFlags = [
     ...(local.diet.vegan ? ["vegan"] : []),
     ...(local.diet.glutenFree ? ["gluten_free"] : []),
+    ...(local.diet.kosherOnlyStated ? [FLAG_ONLY_STATED] : []),
+    ...(local.diet.kosherPassover ? [FLAG_PASSOVER] : []),
     ...local.diet.allergens.map((a) => `allergen:${a}`),
   ];
   return {
@@ -79,8 +84,9 @@ export function fromServerProfile(
     diet: {
       vegan: flags.includes("vegan"),
       glutenFree: flags.includes("gluten_free"),
-      kosherLevel:
-        kosher === "regular" || kosher === "mehadrin" || kosher === "badatz" ? kosher : null,
+      kosherLevel: isKosherLevel(kosher) ? kosher : null,
+      kosherOnlyStated: flags.includes(FLAG_ONLY_STATED),
+      kosherPassover: flags.includes(FLAG_PASSOVER),
       allergens: flags
         .filter((f) => f.startsWith("allergen:"))
         .map((f) => f.slice("allergen:".length)),

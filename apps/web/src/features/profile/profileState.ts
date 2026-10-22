@@ -9,13 +9,14 @@
  */
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { nearestStore } from "@/api/client";
+import { isKosherLevel, type KosherLevel } from "@/features/kosher/kosher";
 import { readShopper, saveShopperProfile } from "@/state/shopper";
 import { chainById, resolveHomeStoreId } from "./chains";
 import { clubIdsOnly, toggleClubId } from "./clubs";
 import { STORAGE_KEYS, notifyStorageChange, readRaw, subscribeStorage, writeRaw } from "./storage";
 
 export type TravelMode = "car" | "walk_transit" | "delivery";
-export type KosherLevel = "regular" | "mehadrin" | "badatz";
+export type { KosherLevel };
 
 export type LocalLocation = {
   lat: number;
@@ -48,6 +49,10 @@ export type LocalProfile = {
     vegan: boolean;
     glutenFree: boolean;
     kosherLevel: KosherLevel | null;
+    /** Offer only items whose name states a certification that meets the level (kosher filter). */
+    kosherOnlyStated: boolean;
+    /** Kosher for Passover as a filter of its own. */
+    kosherPassover: boolean;
     /** Allergen keys, see ALLERGENS in dietOptions.ts. */
     allergens: string[];
   };
@@ -71,7 +76,14 @@ export const DEFAULT_PROFILE: LocalProfile = {
   travelMode: "car",
   extraStopValue: 25,
   costPerKm: 1.2,
-  diet: { vegan: false, glutenFree: false, kosherLevel: null, allergens: [] },
+  diet: {
+    vegan: false,
+    glutenFree: false,
+    kosherLevel: null,
+    kosherOnlyStated: false,
+    kosherPassover: false,
+    allergens: [],
+  },
   updatedAt: null,
 };
 
@@ -134,8 +146,9 @@ export function sanitizeProfile(raw: unknown): LocalProfile {
     diet: {
       vegan: diet.vegan === true,
       glutenFree: diet.glutenFree === true,
-      kosherLevel:
-        kosher === "regular" || kosher === "mehadrin" || kosher === "badatz" ? kosher : null,
+      kosherLevel: isKosherLevel(kosher) ? kosher : null,
+      kosherOnlyStated: diet.kosherOnlyStated === true,
+      kosherPassover: diet.kosherPassover === true,
       allergens: strings(diet.allergens),
     },
     updatedAt: typeof r.updatedAt === "string" ? r.updatedAt : null,
@@ -198,6 +211,9 @@ export function mirrorToShopper(p: LocalProfile): void {
     travel_mode: p.travelMode,
     cost_per_km: String(p.costPerKm),
     extra_stop_value: String(p.extraStopValue),
+    kosher_level: p.diet.kosherLevel,
+    kosher_only_stated: p.diet.kosherOnlyStated,
+    kosher_passover: p.diet.kosherPassover,
   });
 }
 

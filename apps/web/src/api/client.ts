@@ -150,8 +150,23 @@ export async function optimize(body: OptimizeInput): Promise<OptimizeResponse> {
   return unwrap(await api.POST("/optimize", { body: body as OptimizeRequest }));
 }
 
-export async function search(q: string, limit = 10): Promise<SearchResponse> {
-  return unwrap(await api.GET("/search", { params: { query: { q, limit } } }));
+/**
+ * `GET /search`. With the person's kosher filter each hit carries a `kosher` label and a hit with
+ * no item that can be offered under it comes after the others (see `KosherHitLabel`).
+ */
+export async function search(
+  q: string,
+  limit = 10,
+  kosher?: Schemas["KosherFilter"] | null,
+): Promise<SearchResponse> {
+  const query = {
+    q,
+    limit,
+    ...(kosher?.level ? { kosher: kosher.level } : {}),
+    ...(kosher?.passover ? { kosher_passover: true } : {}),
+    ...(kosher?.only_stated ? { kosher_only_stated: true } : {}),
+  };
+  return unwrap(await api.GET("/search", { params: { query } }));
 }
 
 export async function reportGap(body: GapReportRequest): Promise<Ack> {
