@@ -98,9 +98,22 @@ ABBREVIATIONS: tuple[Abbreviation, ...] = (
     Abbreviation(r'(?<=\d)(\s*)ק"\s*$', r"\1קילוגרם", 'ק"ג cut after the quote'),
     Abbreviation(r'(?<=\d)(\s*)מ"\s*$', r"\1מיליליטר", 'מ"ל cut after the quote'),
     Abbreviation(r"(?<=\d)(\s*)ליט\s*$", r"\1ליטר", "ליטר cut"),
+    Abbreviation(r"(?<=\d)(\s*)לי\s*$", r"\1ליטר", "ליטר cut to two letters: 'סודה מי עדן 1.5 לי'"),
     Abbreviation(r"(?<=\d)\s*י'?\s*$", r" יחידות", "יח' cut to its first letter"),
     Abbreviation(r"(?<=\d)י(?=\s)", r" יחידות", "4י גילט: Shufersal's own יח'"),
+    Abbreviation(
+        rf"(?<![\d.,])(\d{{1,3}})\s*גל'?{_NOT_WORD}", r"\1 גלילים", "32גל: Shufersal's own גלילים"
+    ),
     Abbreviation(r"(?<=\d)\s*ש\s*$", r" שקיקים", "20ש: שקיקים cut"),
+    # Toilet paper and paper towels are never sold by the gram: a one-letter ג after a small number
+    # is the roll count the chain cut ('נייר טואלט מולט 30 ג', 'נייר טואלט פסטל 32ג XPO'). Wet wipes
+    # ("נייר טואלט לח") are counted in sheets and left alone.
+    Abbreviation(
+        r"^(?=.*(?:נייר טואלט|מגבות נייר))(?!.*(?:לח|מגבונ))(.*?)(?<![\d.,])(\d{1,3})\s*ג"
+        + rf"(?![{_HE}'\"])",
+        r"\1\2 גלילים ",
+        "30 ג on toilet paper: גלילים",
+    ),
     # bare one-letter units: only right after a number, so ג'/ל' elsewhere is left alone
     Abbreviation(r"(?<=\d)(\s*)ג'" + _NOT_WORD, r"\1גרם"),
     Abbreviation(r"(?<=\d)(\s*)ל'" + _NOT_WORD, r"\1ליטר"),
@@ -177,6 +190,7 @@ _COUNT_NOUNS = (
     "יחידה",
     "יח",
     "גלילים",
+    "גליל",
     "שקיות",
     "שקיק",
     "שק",
@@ -233,6 +247,10 @@ _PACK_NAMED = {
     "רביעיית": 4,
     "שישייה": 6,
     "שישיית": 6,
+    "שישית": 6,  # "שישית מים מינרליים 2ל'": a six-pack (Rami Levy)
+    "שישיה": 6,  # "מגבות נייר שישיה סוש", a name cut by the chain
+    "שמינייה": 8,
+    "שמיניית": 8,  # "שמיניית מעדן חלב 133 ג'"
 }
 _PACK_NAMED_RE = re.compile(
     _NOT_WORD_BEFORE + "(?:מארז\\s*)?(" + "|".join(_PACK_NAMED) + ")" + _NOT_WORD

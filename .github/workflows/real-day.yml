@@ -108,8 +108,8 @@ jobs:
       MAX_FILES: ${{ inputs.max_files || 40 }}
       TIMEOUT: ${{ inputs.timeout || 240 }}
       WITH_PROMOS: ${{ github.event_name == 'push' && 'true' || inputs.with_promos }}
-      STRESS: ${{ github.event_name == 'push' && 'false' || inputs.stress }}
-      SEO: ${{ github.event_name == 'push' && 'false' || inputs.seo }}
+      STRESS: ${{ github.event_name == 'push' && 'true' || inputs.stress }}
+      SEO: ${{ github.event_name == 'push' && 'true' || inputs.seo }}
 
     steps:
       # The code lives on the chosen ref; no schedule, so no default-branch fallback is needed.

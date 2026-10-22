@@ -167,11 +167,12 @@ def test_a_per_100g_item_with_consistent_readings_is_unchanged() -> None:
 
 
 def test_a_published_price_a_hundred_times_too_small_loses_to_the_pack() -> None:
-    """Rami Levy's per-gram price read as per 100 g (finding 8): the dearer reading is used."""
+    """Rami Levy's per-gram price read as per 100 g (finding 8): the fields and the name agree on
+    7.55, so the published price is outvoted (it used to be "the dearer reading", the same value)."""
     item = _item("15.10", "שקד קלוי 200 גר", "200", "גרם", "0.08", "100g")
     got = read_unit_price(item, "100g")
     assert got is not None and got.unit_price == D("7.55")
-    assert got.note is not None and got.note[0] == "measure_conflict"
+    assert got.note is not None and got.note[0] == "measure_outvoted"
 
 
 def test_weighed_goods_are_not_touched() -> None:
