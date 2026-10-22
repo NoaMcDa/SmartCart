@@ -1050,6 +1050,55 @@ def unpriced_basket_lines(info: dict | None) -> list[str]:
     return sorted(set.intersection(*missing))
 
 
+def basket_breakdown(db_url: str, spread: float = 2.0) -> dict:
+    """What each chain pays for each basket line (median store, unit price x amount), and, for the
+    lines whose cost differs by at least ``spread`` between two chains, the items behind it. The
+    index only reports totals; a total that looks implausible needs this to be read."""
+    import psycopg
+
+    from smartcart_catalog import basket_index as bi
+    from smartcart_catalog.export_seo import read_unit_prices
+
+    with psycopg.connect(db_url) as conn:
+        prices = read_unit_prices(conn)
+        results = bi.price_chains(prices, bi.BASKET_V1)
+        amounts = {line.slug: line.amount for line in bi.BASKET_V1}
+        lines: dict[str, dict[str, float]] = {}
+        for r in results:
+            for slug, unit_price in r.lines.items():
+                lines.setdefault(slug, {})[r.chain_id] = round(float(unit_price * amounts[slug]), 2)
+        flagged = [
+            slug for slug, by_chain in lines.items()
+            if len(by_chain) >= 2 and min(by_chain.values()) > 0
+            and max(by_chain.values()) / min(by_chain.values()) >= spread
+        ]  # fmt: skip
+        behind: dict[str, list[dict]] = {}
+        for slug in flagged:
+            rows = conn.execute(
+                "SELECT s.chain_id, i.raw_name, ep.shelf_price, ep.effective_unit_price, ep.uom,"
+                " ep.is_estimated, count(*) OVER (PARTITION BY s.chain_id) AS n"
+                " FROM effective_prices ep JOIN canonical_products cp ON cp.id = ep.canonical_id"
+                " JOIN stores s ON s.id = ep.store_id AND s.channel = 'physical'"
+                " JOIN items i ON i.id = ep.item_id"
+                " WHERE cp.slug = %s AND ep.flex_level = 'any_brand'"
+                " ORDER BY s.chain_id, ep.effective_unit_price",
+                (slug,),
+            ).fetchall()
+            seen: dict[str, int] = defaultdict(int)
+            picked = []
+            for chain_id, name, shelf, eff, uom, est, n in rows:
+                if seen[chain_id] >= 3:
+                    continue
+                seen[chain_id] += 1
+                picked.append({"chain_id": chain_id, "item": name, "shelf_price": float(shelf),
+                               "effective_unit_price": float(eff), "uom": uom,
+                               "estimated": bool(est), "rows": n})  # fmt: skip
+            behind[slug] = picked
+    return {"lines": lines, "amounts": {k: float(v) for k, v in amounts.items()},
+            "flagged": flagged, "behind": behind,
+            "chains": {r.chain_id: r.name for r in results}}  # fmt: skip
+
+
 def lines_to_explain(info: dict | None) -> dict[str, list[str]]:
     """Basket lines whose candidates the report lists, with the chains to look in: a line no chain
     prices (every chain), and a line of ``LINE_HINTS`` (eggs, the dairy lines) that some chains
@@ -1448,6 +1497,7 @@ def run_all(args: argparse.Namespace) -> dict:
         st["note"] = f"{result['search_diag']['vector_query_ms']} ms per query"
     with run.stage("basket index dry run (production semantics)") as st:
         result["basket_index"] = basket_index_dry_run(work, env, "production")
+        result["basket_index"]["breakdown"] = basket_breakdown(db_url)
         st["note"] = f"status {result['basket_index'].get('status')}"
     unpriced = unpriced_basket_lines(result["basket_index"])
     explain = lines_to_explain(result["basket_index"])
@@ -1475,6 +1525,7 @@ def run_all(args: argparse.Namespace) -> dict:
         result["api_stress"] = api_run("stress")
         with run.stage("basket index dry run (stress)") as st:
             result["basket_index_stress"] = basket_index_dry_run(work, env, "stress")
+            result["basket_index_stress"]["breakdown"] = basket_breakdown(db_url)
             st["note"] = f"status {result['basket_index_stress'].get('status')}"
 
     with psycopg.connect(db_url) as c:
@@ -1879,6 +1930,38 @@ def render_report(res: dict) -> str:
                     f"| {md_escape(c['chain'])} | {_n(c['total'])} | {_n(c['items_priced'])} | "
                     f"{_n(c['missing'])} | {_n(c['stores'])} | {'yes' if c['complete'] else 'no'} |"
                 )
+        bd = b.get("breakdown")
+        if bd and bd["lines"]:
+            cids = sorted(bd["chains"])
+            a("")
+            a(
+                "Cost of each line per chain (ILS, median store x amount; the lines two chains price "
+                f"{2:g}x apart or more are marked *):"
+            )
+            a("")
+            a(
+                "| line | amount | "
+                + " | ".join(chains.get(c, {}).get("slug", c) for c in cids)
+                + " |"
+            )
+            a("|---|---|" + "---|" * len(cids))
+            for slug, by_chain in sorted(bd["lines"].items()):
+                mark = "*" if slug in bd["flagged"] else ""
+                a(
+                    f"| {slug}{mark} | {bd['amounts'].get(slug):g} | "
+                    + " | ".join(_n(by_chain.get(c)) if c in by_chain else "-" for c in cids)
+                    + " |"
+                )
+            for slug in bd["flagged"]:
+                a("")
+                a(f"Items behind `{slug}` (up to 3 per chain, cheapest unit price first):")
+                for it in bd["behind"].get(slug, []):
+                    a(
+                        f"- {chains.get(it['chain_id'], {}).get('slug', it['chain_id'])}: "
+                        f"{md_escape(it['item'])}, shelf {it['shelf_price']:g}, unit price "
+                        f"{it['effective_unit_price']:g} per {it['uom']}"
+                        f"{' (estimated)' if it['estimated'] else ''}"
+                    )
         a("")
 
     lc = res.get("line_candidates")

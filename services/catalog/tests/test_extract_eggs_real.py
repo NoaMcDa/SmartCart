@@ -152,6 +152,13 @@ def test_a_size_word_cut_to_a_stem_counts_only_when_it_is_a_whole_stem() -> None
     assert egg_product_type("אטריות ביצים 500 גרם") is None
 
 
+def test_a_real_lactose_free_milk_with_the_chains_own_wording_has_its_type(rx) -> None:
+    # Osher Ad, cut at 20 characters; "נטול לקטוז" is how it writes "ללא לקטוז" (the other dairy
+    # line of the basket index with a typing gap in the real day of 2026-10-22)
+    a = extract(rx, OSHER_AD, "חלב נטול לקטוז 2% טר", "1.00", "יחידות")
+    assert a.product_type == "milk_lactose_free" and str(a.fat_pct) == "2"
+
+
 def _judge(rx: RuleExtractor, chain: str, name: str, qty: str, unit: str):
     catalog = load_catalog()
     item = normalize(

@@ -27,7 +27,7 @@ rules:
 - product_type: milk_lactose_free
   critical_keys: [fat_pct]
   soft_keys: [pack_size, brand]
-  keywords: [ללא לקטוז, דל לקטוז]
+  keywords: [ללא לקטוז, דל לקטוז, נטול לקטוז]
   exclude: [גבינ, יוגורט, סויה, שקדים, שיבולת, קוקוס, אורז, אוטלי]
 - product_type: chocolate_milk
   critical_keys: []
