@@ -252,6 +252,65 @@ _DIET_WORDS: tuple[tuple[str, str], ...] = (
 )
 
 
+# --- eggs (docs/matching.md, "Eggs") ---------------------------------------------------------------
+# The three size canonicals and the free-range one are told apart by product type, and the size
+# word is not always next to "ביצים" ("ביצים 2*30 יח' בינונ", "תבנית ביצים 30 יח' L"), so the type
+# of an egg name is decided from the whole name. Only a name that states exactly one size gets a
+# size type; every other egg gets the generic ``eggs``, which no canonical has, so the judge vetoes
+# it for every egg canonical: an egg of unknown size is never served as L.
+EGG_TYPES = frozenset({"eggs_l", "eggs_m", "eggs_xl", "eggs_free_range_l"})
+EGG_GENERIC = "eggs"
+_EGG_WORD = re.compile(rf"(?<!{_LETTER})[{_PREFIX}]?(?:ביצים|ביצי|ביצה)(?!{_LETTER})")
+# not an egg to eat: noodles, a chocolate egg, mayonnaise, a cake, egg-free products...
+_EGG_NOT_FOOD = (
+    "אטריות", "קינדר", "שוקולד", "עוגה", "עוגת", "עוגי", "מיונז", "סלט", "ממרח", "פסטה", "לחם",
+    "חלה", "בייגל", "ללא ביצ", "אבקת", "חלבון", "חלמון", "קמח", "פתיתים", "כריך", "סנדוויץ'",
+    "רוטב", "מרק", "חביתה", "שניצל", "פשטידה", "בצק", "תחליף", "הפתעה", "צעצוע", "קישוט", "קרם",
+    "גלידה", "שמפו", "סבון", "פיצה", "מקרוני", "לביבות", "מאפה", "איטריות", "נודלס", "פורס",
+    "חותך", "כדור תה", "נירוסטה", "ביצי דג", "ביצי דגים", "דגים", "איקרה", "קוויאר", "ליקר",
+    "משחק", "גומי", "פריזר", "נטוראה", "מעדן", "מגירת", "פתיתי", "טליאטלה",
+)  # fmt: skip
+# an egg, but not what the size canonicals mean: quail, duck, hard-boiled, organic, omega-3, small...
+_EGG_OTHER_KIND = (
+    "שליו", "ברווז", "אווז", "קשות", "קשה", "מבושל", "אורגני", "אומגה", "מועשר", "נוזלי",
+    "מפוסטר", "קטנות", "קטנים", "קטנה",
+)  # fmt: skip
+# Spellings seen on real names: M, בינוני, בינונ (cut), בנוני (typo), מידיום; L, גדול, גודל L, לארג'
+_EGG_XL = re.compile(
+    rf"(?<![A-Za-z])XL(?![A-Za-z])|(?<!{_LETTER})ענק\w*|(?<!{_LETTER})גדול\w*\s+(?:מאוד|במיוחד)"
+    rf"|(?<!{_LETTER})אקס\s*לארג"
+)
+_EGG_L = re.compile(rf"(?<![A-Za-z])L(?![A-Za-z])|(?<!{_LETTER})גדול\w*|(?<!{_LETTER})לארג")
+_EGG_M = re.compile(rf"(?<![A-Za-z])M(?![A-Za-z])|(?<!{_LETTER})(?:בינו|בנוני|מ[י]?דיום)\w*")
+_EGG_CUT_SIZE = re.compile(r"(?:בינו|גדול|ענק)\w*$")
+
+
+def egg_product_type(name: str, *, cut_tail: str = "") -> str | None:
+    """The egg product type of a name: ``eggs_l`` / ``eggs_m`` / ``eggs_xl`` / ``eggs_free_range_l``
+    when the name states exactly one size (free range only with size L), ``eggs`` for any other egg,
+    ``None`` when the name is not an egg to eat. ``cut_tail`` is the last word of a name the chain
+    cut; it is read only when it starts like a size word ("בינונ")."""
+    if not _EGG_WORD.search(name) or any(w in name for w in _EGG_NOT_FOOD):
+        return None
+    text = f"{name} {cut_tail}" if cut_tail and _EGG_CUT_SIZE.match(cut_tail) else name
+    if any(w in text for w in _EGG_OTHER_KIND):
+        return EGG_GENERIC
+    sizes: set[str] = set()
+    if _EGG_XL.search(text):
+        sizes.add("XL")
+        text = _EGG_XL.sub(" ", text)  # the plain "גדולות" of "גדולות מאוד" is not a second size
+    if _EGG_L.search(text):
+        sizes.add("L")
+    if _EGG_M.search(text):
+        sizes.add("M")
+    if len(sizes) != 1:
+        return EGG_GENERIC
+    size = next(iter(sizes))
+    if "חופש" in text:
+        return "eggs_free_range_l" if size == "L" else EGG_GENERIC
+    return {"L": "eggs_l", "M": "eggs_m", "XL": "eggs_xl"}[size]
+
+
 @lru_cache(maxsize=8192)
 def _word_re(word: str) -> re.Pattern[str]:
     return re.compile(rf"(?<!{_LETTER})[{_PREFIX}]?{re.escape(word)}(?!{_LETTER})", re.IGNORECASE)
@@ -298,6 +357,8 @@ class RuleExtractor:
     def category_path(self, product_type: str | None, state: str | None) -> str | None:
         if product_type is None:
             return None
+        if product_type == EGG_GENERIC:
+            return "dairy.eggs.chicken"
         if state and (product_type, state) in self._type_state_node:
             return self._type_state_node[(product_type, state)]
         nodes = sorted(self._type_nodes.get(product_type, ()))
@@ -435,6 +496,13 @@ class RuleExtractor:
         truncated = is_truncated(item.chain_id, item.raw_name)
         name = self.words_of(item)
         pt = self.product_type(name)
+        # eggs are sold by the piece: a name with a weight or volume ("ביצים עלומות 200 גרם",
+        # "פתיתי ביצים 400 גר") is a jar or a pasta, never a tray
+        if (pt is None or pt in EGG_TYPES) and item.unit in (None, "unit"):
+            words = full_name.split()
+            egg = egg_product_type(name, cut_tail=words[-1] if words and name != full_name else "")
+            if egg is not None:
+                pt = egg
         extra = self.catalog.extras.get(pt) if pt else None
         # What a product type implies ("milk without עמיד is fresh") is not known for a name the
         # chain cut: the missing words may say otherwise. The value stays unknown, so the judge
