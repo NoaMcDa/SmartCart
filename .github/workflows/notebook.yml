@@ -104,13 +104,13 @@ jobs:
             --output "out/semantic_matching.${{ inputs.embedder }}.ipynb"
 
       # Every text output of the cells after the embedding section (neighbours, clusters,
-      # evaluation, conclusions); plots and the item listings stay in the artifact.
+      # evaluation, conclusions), in the job summary and in the log; plots stay in the artifact.
       - name: Summary
         if: always()
         run: |
           f="out/semantic_matching.${{ inputs.embedder }}.ipynb"
           [ -f "$f" ] || exit 0
-          uv run --no-sync python - "$f" "${{ inputs.embedder }}" >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          uv run --no-sync python - "$f" "${{ inputs.embedder }}" <<'EOF' | tee -a "$GITHUB_STEP_SUMMARY"
           import sys
 
           import nbformat
