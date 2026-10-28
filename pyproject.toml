@@ -23,6 +23,19 @@ dev = [
   "pytest-cov>=5.0",
   "ruff>=0.6",
 ]
+# The semantic-matching exploration notebook (`services/catalog/notebooks/`, docs/matching.md).
+# Not in the default sync: `uv sync --group notebooks`. Real sentence models are a separate
+# step, the catalog's existing `embed` extra: `uv sync --all-packages --group notebooks --extra embed`.
+notebooks = [
+  "jupyterlab>=4.2",
+  "ipykernel>=6.29",
+  "nbclient>=0.10",
+  "nbconvert>=7.16",
+  "nbformat>=5.10",
+  "numpy>=1.26",
+  "scikit-learn>=1.3",
+  "matplotlib>=3.8",
+]
 
 [tool.ruff]
 line-length = 100
