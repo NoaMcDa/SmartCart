@@ -107,6 +107,36 @@ def database(api_dsn: str):
     return _module.Database(dsn=api_dsn, extensions=frozenset(installable), applied=tuple(applied))
 
 
+VECTOR_TABLES = ("canonical_products", "item_embeddings", "canonical_name_embeddings")
+
+
+@pytest.fixture(scope="module")
+def _vector_tables_vacuumed(database) -> None:
+    """VACUUM (ANALYZE) the tables behind the vector retriever, once per module.
+
+    Every test seeds its catalog in a transaction that is rolled back, but an index entry outlives
+    its rolled-back row until VACUUM removes it. After the thousands of tests before them, the HNSW
+    indexes hold far more dead entries than live ones (many of them copies of the very vectors
+    a test asks for), and whether autovacuum has reached them, and with what statistics, depends
+    on timing. CI saw the vector retriever return nothing for a query whose exact vector was
+    seeded (test_search.py, runs 39820360841 and 40684813592), and the same tests pass on a fresh
+    database. Production has no such churn; the tests should not depend on it either.
+    """
+    with psycopg.connect(database.dsn, autocommit=True) as conn:
+        for table in VECTOR_TABLES:
+            if conn.execute("SELECT to_regclass(%s)", (table,)).fetchone()[0] is not None:
+                conn.execute(
+                    psycopg.sql.SQL("VACUUM (ANALYZE) {}").format(psycopg.sql.Identifier(table))
+                )
+
+
+@pytest.fixture(autouse=True)
+def _fresh_vector_indexes(request: pytest.FixtureRequest) -> None:
+    """Tests marked ``pgvector`` start from vacuumed vector indexes (``_vector_tables_vacuumed``)."""
+    if request.node.get_closest_marker("pgvector") and "database" in request.fixturenames:
+        request.getfixturevalue("_vector_tables_vacuumed")
+
+
 @pytest.fixture
 def api_role(db: psycopg.Connection) -> str:
     return make_api_role(db)
