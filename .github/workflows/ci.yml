@@ -88,7 +88,10 @@ jobs:
           bash services/api/scripts/gen_ts_client.sh
           git diff --exit-code -- apps/web/src/api/openapi.json apps/web/src/api/types.ts
 
+      # The tests that failed in the Test step, from pytest's cache, before the re-run below: a
+      # test that fails once and passes on the re-run would otherwise leave no name behind.
       - name: Report failing tests as annotations
         if: failure()
         run: |
+          python3 -c "import json; [print('::error::failed in Test:', t) for t in json.load(open('.pytest_cache/v/cache/lastfailed'))]" || true
           uv run pytest -q --lf -rfE --tb=line 2>&1 | grep -E "(FAILED|ERROR) |Error|^E " | sort | uniq -c | sort -rn | head -40 | sed 's/^/::error::/' || true

@@ -1028,6 +1028,149 @@ the real names, truncation, `render`, the whole `judge` table, the extractor),
 `services/api/tests/test_api_kosher.py` (the filter end to end on the test world),
 `apps/web/src/mocks/kosher.test.ts` (the mock mirrors the same answers).
 
+## Exploration notebook
+
+`services/catalog/notebooks/semantic_matching.ipynb` is a first look at what embeddings do with
+real Hebrew product names. It reuses the repo's code (it reimplements nothing): the chains' adapters
+through `review_packet.load_real_items`, `normalize`, `RuleExtractor`, `block.block_prefix`,
+`embed.HashEmbedder` and `BgeM3Embedder`, `proposals.valid_barcode` (the GS1 check) and
+`review_packet.match_items` for the silver labels. No network and no database for the default run.
+
+```
+uv sync --group notebooks                                    # jupyterlab, nbclient, scikit-learn, matplotlib
+uv run jupyter lab services/catalog/notebooks/semantic_matching.ipynb
+uv run --group notebooks python services/catalog/notebooks/run_notebook.py   # refresh the committed outputs
+# a real model (needs huggingface.co): the catalog's existing `embed` extra, then
+uv sync --all-packages --group notebooks --extra embed
+uv run --group notebooks python services/catalog/notebooks/run_notebook.py --embedder bge-m3 \
+    --output /tmp/semantic_matching.bge-m3.ipynb
+```
+
+Switches (environment variables, so a notebook run and the smoke test share them):
+`SMARTCART_NB_EMBEDDER` = `hash` (default), `bge-m3` or `e5` (`intfloat/multilingual-e5-base`),
+`SMARTCART_NB_SAMPLE` = N real and N gold items (0 = all), `SMARTCART_NB_THRESHOLD` = the
+agglomerative cosine-distance cut. A model that cannot be loaded (extra missing, no route to
+Hugging Face) is reported and the notebook continues with the hash embedder, and every result is
+labelled with the embedder actually used. The notebook ends by printing one `RESULTS {...}` JSON line
+so runs with different embedders can be compared. The committed file is the default run (hash,
+all items, about 15 s of compute on 4 CPUs); `tests/test_notebook_semantic_matching.py` executes it
+with nbclient under the hash embedder on a 300-item sample, and is skipped with a reason when the
+`notebooks` group is not installed (CI runs `uv sync --locked`, so only its file-content check runs
+there). No heavy dependency joined the default install: `notebooks` is a dependency group and the
+sentence models stay in the existing `embed` extra.
+
+**What it does.** (a) 1,710 real items, 7 chains: the audit snapshot of 2026-10-08 and the ingest
+fixtures of 2026-10-21 merged by item key; (b) normalization and rule extraction with ten before and
+after examples; (c) the embedders; (d) top-5 neighbours for ten queries and a table of must-not-merge
+pairs against paraphrases; (e) clustering inside the catalog's blocks (department and base unit),
+agglomerative on cosine distance (average linkage) and `sklearn.cluster.HDBSCAN`, cluster sizes, ten
+example clusters and a PCA plot (UMAP if installed); (f) evaluation; (g) conclusions generated from
+the numbers.
+
+**Ground truth used.** (1) Items of different chains with the same valid GS1 barcode: 56 pairs from
+54 barcodes. It measures recall at the exact level; it cannot measure precision, because two
+barcodes can still be one product at "any brand", so the notebook splits in-cluster pairs with
+different barcodes into critical conflict, size or soft difference, and agreeing attributes. (2) The
+synthetic gold set (857 items; 672 with an `exact` or `any_brand` canonical, 833 with any positive
+canonical): items sharing a canonical are the same product; the gold canonicals' own critical
+attributes classify the wrong pairs, independent of the rule extractor. (3) Silver labels: the real
+items the rule pipeline serves and `data/audit/machine_verdicts.csv` marks correct (84 items, 60
+canonicals), a machine audit and the easy part of the catalog.
+
+### Measured: hash embedder, 2026-10-28
+
+Labels per `docs/README.md`: every number in this section is **measured** by a run of the notebook
+on the data above; the real-item sets are 200-row files, the gold set is **synthetic** and the
+silver labels are a machine audit, so none of it is a precision estimate for the real catalog.
+
+| Question | Result (hash embedder) |
+|---|---|
+| Can similarity separate what must not merge? | No. The most similar must-not-merge pair (3% vs 1% milk) scores 0.859 cosine; the least similar same-product pair scores 0.644 (median of random item pairs 0.043). |
+| What the rules can read on real names | 573 of 1,710 items (33.5%) get a department, so two thirds sit in the "?" block of their base unit; 586 (34.3%) get a product type, 1,513 (88.5%) a parsed size and only 35 (2.0%) a fat percentage, because chains cut names (970 of 1,710 are at their chain's cut width). |
+| Blocking ceiling on real barcode pairs | 11 of 56 same-barcode pairs are separated by blocking alone (one name is cut or states no type), so recall cannot exceed 80.4%. |
+| Real items, distance 0.25 (chosen: the largest cut with at most 3% critical-conflict pairs) | 1,449 clusters, 1,262 singletons, largest 7, 399 pairs; 10 of them (2.5%) conflict in a critical attribute; barcode recall 7 of 56 (12.5%). HDBSCAN: 943 clusters, 1,364 pairs, 125 conflicting (9.2%), barcode recall 21 of 56 (37.5%). |
+| Real items, distance 0.80 (best F0.5 on the gold set with hard rules) | 9.1% of in-cluster pairs conflict; barcode recall 75.0%, 66.1% after the hard-rule split. |
+| Gold set, "any brand", distance 0.25 | precision 0.736, recall 0.182 from embeddings alone; 0.944 / 0.176 after the hard-rule split. Pairs clustered together although a critical attribute differs: 309 (22.3% of clustered pairs; fat percentage 202, product type 45, flavor 44, state 18, plant base 11), after the split 10 (0.9%). |
+| Gold set, "any brand", distance 0.80 | 0.187 / 0.848 from embeddings alone; 0.896 / 0.810 after the split. HDBSCAN: 0.878 / 0.101, with the split 0.993 / 0.098. |
+| Silver labels (84 items, 54 true pairs), distance 0.25 | precision 0.842, recall 0.296; 1.000 / 0.296 after the split (HDBSCAN 0.429 / 0.278, then 1.000 / 0.278). |
+
+**What the numbers say.**
+
+- Embeddings are a candidate generator; the hard rules decide (D5). On the gold set the split
+  removes 97% of the critical-attribute errors (309 to 10) at a cost of 0.006 in recall, and is
+  what moves any-brand precision from 0.736 to 0.944. At the loose distance, precision without the
+  rules is 0.187.
+- The rules are not enough alone, and the notebook shows where. After the split 10 gold pairs
+  remain: three "ח. טרי 3%" against "ח. טרי 1%" (the abbreviation is not read as milk, so the type
+  is unknown and the fat percentage is not a critical key of an unknown type) and one fruit yogurt 3%
+  against 1.5% (its type treats fat as soft); four "פפסי" against "פפסי מקס" (a type the extractor
+  does not know); two sugar varieties. One extra rule, "a stated percentage always separates",
+  clears the 4 fat pairs (10 to 6, precision 0.946). It is a proposal, not
+  repo behaviour: a percentage in an untyped name can also be sugar or tomato content
+  (`proposals.py`), and the judge already sends an unknown type to review, so this matters for the
+  clustering used to propose canonicals and for any future "similar items" view, not for the
+  served mappings.
+- On the real items the hard-rule split has nothing independent to check against (its conflicts are
+  zero by construction), but the same-barcode pairs measure its false alarms: of 56 true pairs, 5
+  carry a conflict between two known values, all five in the Lindt Excellence line and all on
+  `flavor`: Yohananof prints one name, "לינדט אקסלנס שוקולד", for several barcodes while Shufersal
+  names the variant (70% dark, mint, salted), so the extractor reads two different flavors for
+  one product. That is a false alarm of the flavor rule, and a reminder that a generic chain name is
+  not a variant; 4 more pairs differ only because one side is unknown.
+- Recall is limited before the embedder is asked: blocking separates 11 of 56 true pairs, and two
+  thirds of the real items have no department. Cut names are the cause; the embedder and the
+  threshold cannot fix it.
+- The hash embedder is lexical. Its recall at a safe distance is poor (12.5% of barcode pairs at
+  0.25), which is the case for BGE-M3 and not evidence about it.
+- Any-brand precision (0.944) is below close-substitute precision (0.955) after the split because
+  size is not in the rules at "any brand": 38 gold pairs differ only in pack size or another soft
+  attribute.
+
+### BGE-M3 and multilingual-e5, measured on a runner
+
+The build sandbox cannot reach Hugging Face (`CONNECT tunnel failed, response 403`), so the two
+sentence models were run by the `Matching notebook` workflow (`.github/workflows/notebook.yml`) on
+a GitHub-hosted runner, 2026-10-28, every item (sample 0), commit `5179980`: BGE-M3
+(`BAAI/bge-m3`) in run [40721623601](https://github.com/NoaMcDa/SmartCart/actions/runs/40721623601),
+multilingual-e5 (`intfloat/multilingual-e5-base`) in run
+[40721576176](https://github.com/NoaMcDa/SmartCart/actions/runs/40721576176). The hash column is the
+committed notebook. Each embedder picks its own distance threshold by the same budget rule
+(section f), so the thresholds differ. All **measured**; the gold set is **synthetic**.
+
+| | hash | BGE-M3 | e5 |
+|---|---|---|---|
+| distance threshold chosen | 0.25 | 0.15 | 0.10 |
+| clusters (1,710 real items) | 1,449 | 1,476 | 124 |
+| gold any-brand precision / recall, embeddings alone | 0.736 / 0.182 | 0.777 / 0.138 | 0.163 / 0.864 |
+| the same with the hard rules | 0.944 / 0.176 | 0.897 / 0.135 | 0.890 / 0.826 |
+| gold pairs with a critical conflict, alone, then with the rules | 309, then 10 | 152, then 10 | 28,231, then 243 |
+| real same-barcode recall (of 56) | 7 | 9 | 31 |
+| highest "must not merge" cosine / lowest "same product" cosine | 0.859 / 0.644 | 0.932 / 0.836 | 0.990 / 0.968 |
+| notebook runtime on the runner's CPU | 14 s | 99 s | 78 s |
+
+What it says:
+- **No embedder separates what must not merge.** BGE-M3 puts "חלב טרי 3% 1 ליטר" and the same name
+  at 1% at cosine 0.932, above the abbreviated true pair "ח. טרי 3%" (0.836); e5 squeezes every
+  Hebrew pair into 0.97 to 0.99. The critical-attribute rules, not the vectors, carry precision,
+  as the design assumes ("Step D: the judge").
+- **BGE-M3 helps less than its reputation suggests at this cut.** It halves the critical
+  conflicts before the rules (152 against 309) and finds 9 of the 56 same-barcode pairs against 7,
+  but at the budget threshold it clusters about as tightly as the hash embedder, so recall stays
+  low, and its neighbour lists (section d) are not clearly better on these short, cut names. The
+  catalog does not use a clustering cut: it runs the judge over the top-k neighbours, and the
+  gold-set evaluation (`bge-eval.yml`) is the measurement that decides; this table does not
+  replace it.
+- **e5 is unusable as is** for this task: its compressed cosine scale makes the budget rule pick
+  0.10 and lump 1,710 items into 124 clusters; even with the rules it leaves 243 critical-conflict
+  pairs.
+
+To repeat: run the workflow by hand with embedder `bge-m3` or `e5` (sample `0` for every item).
+The executed notebook is the artifact; the text outputs of sections c to g, including the
+`RESULTS` line, are the job summary and are also printed in the job log. It is a measurement,
+never a gate. On a push or pull request that touches the catalog the same workflow runs the
+notebook tests with the hash embedder, which `ci.yml` skips because it does not install the
+`notebooks` group.
+
 ## Fine-tuning trigger
 
 Retrieval is the recall ceiling: the judge can only accept what top-k returns. On the **real**

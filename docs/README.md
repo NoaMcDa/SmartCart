@@ -29,6 +29,7 @@ discussions. Phases 0, 1 and 2 are built (see phase-2-status.md). Read in this o
 24. [real-day-dry-run.md](real-day-dry-run.md): one real day through ingestion, matching, the precompute, `/compare` and `/optimize` and the basket index on a GitHub runner (`real-day.yml`), with timings next to the synthetic ones.
 25. [exit-window.md](exit-window.md): the nightly runner rehearsal of the Phase 0 exit window (`exit-window.yml`): one real file per kind per chain through the real Scheduler with the real clock, one JSON record per day on the `exit-window/data` branch, and the generated report. Not the VPS window.
 26. [personalization.md](personalization.md): phase 3 personalization on synthetic data: my usual, buy again, brand-default offers and large-family value packs, computed from the person's own history on the device, what is stored, the rules and thresholds (proposals), the account copy (`/me/personal`), controls, privacy and the tests.
+27. [matching.md#exploration-notebook](matching.md#exploration-notebook): the semantic-matching notebook (`services/catalog/notebooks/semantic_matching.ipynb`): Hebrew embeddings of real product names, nearest neighbours, clustering inside the catalog's blocks and the precision-killing errors (3% vs 1% milk) with and without the judge's hard rules, measured with the hash embedder; how to run it (`uv sync --group notebooks`, `uv run jupyter lab`) and what is not measured yet (BGE-M3, multilingual-e5).
 
 ## Facts versus estimates
 
