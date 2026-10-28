@@ -1137,9 +1137,14 @@ path (extra installed, no network) goes through the same `except` but was not ex
 To record the numbers, run the `run_notebook.py` command above with `--embedder bge-m3` (and `e5`)
 on a machine or runner that can reach Hugging Face, and copy the `RESULTS` line and the tables of
 sections d and f into this section. Expect the distance thresholds to move: the notebook picks
-its own on the budget rule, and the hash embedder's cosine scale is not BGE-M3's. A
-`workflow_dispatch` job like `bge-eval.yml` that runs the notebook is a follow-up (the workflows
-are outside this change).
+its own on the budget rule, and the hash embedder's cosine scale is not BGE-M3's.
+
+The `Matching notebook` workflow (`.github/workflows/notebook.yml`) does that on a GitHub-hosted
+runner: run it by hand with embedder `bge-m3` or `e5` (sample `0` for every item). The executed
+notebook is the artifact and the text outputs of sections c to g are the job summary. It is a
+measurement, never a gate. On a push or pull request that touches the catalog it runs the
+notebook tests with the hash embedder, which `ci.yml` skips because it does not install the
+`notebooks` group.
 
 ## Fine-tuning trigger
 
