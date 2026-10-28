@@ -1,0 +1,142 @@
+name: Matching notebook
+
+# The semantic-matching exploration notebook (services/catalog/notebooks/, docs/matching.md).
+# On a push or pull request that touches the catalog, it executes the notebook with the offline
+# hash embedder on a sample (the notebook tests, which ci.yml skips because it does not install the
+# `notebooks` group). Run by hand with embedder bge-m3 or e5, it executes the whole notebook with a
+# real sentence model: the build sandbox cannot reach Hugging Face, a GitHub-hosted runner can. A
+# manual run is a measurement, not a gate: the executed notebook is the artifact, and its
+# evaluation outputs go to the job summary.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/catalog/**"
+      - "services/ingest/smartcart_ingest/adapters/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/notebook.yml"
+  pull_request:
+    paths:
+      - "services/catalog/**"
+      - "services/ingest/smartcart_ingest/adapters/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/notebook.yml"
+  workflow_dispatch:
+    inputs:
+      embedder:
+        description: "hash, bge-m3 or e5"
+        required: false
+        default: "bge-m3"
+        type: choice
+        options: [bge-m3, e5, hash]
+      sample:
+        description: "N real and N gold items (0: all)"
+        required: false
+        default: 0
+        type: number
+
+# A manual run per embedder is its own group, so a bge-m3 and an e5 measurement run side by side.
+concurrency:
+  group: notebook-${{ github.ref }}-${{ github.event_name }}-${{ inputs.embedder || 'tests' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: notebook tests (hash embedder, sample)
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install with the notebooks group
+        run: uv sync --locked --group notebooks
+
+      - name: Notebook tests
+        run: uv run --no-sync pytest -q -rs services/catalog/tests/test_notebook_semantic_matching.py
+
+  measure:
+    name: notebook with ${{ inputs.embedder }} (measurement, not a gate)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up uv and Python 3.12
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      # The embed extra belongs to the smartcart-catalog member, so the root sync needs
+      # --all-packages (as in bge-eval.yml).
+      - name: Install with the notebooks group and the embed extra
+        run: uv sync --locked --all-packages --group notebooks --extra embed
+
+      - name: Cache the Hugging Face models
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/huggingface
+          key: huggingface-notebook-${{ runner.os }}-${{ inputs.embedder }}-v1
+
+      - name: Execute the notebook
+        run: |
+          mkdir -p out
+          uv run --no-sync python services/catalog/notebooks/run_notebook.py \
+            --embedder "${{ inputs.embedder }}" --sample "${{ inputs.sample }}" \
+            --output "out/semantic_matching.${{ inputs.embedder }}.ipynb"
+
+      # Every text output of the cells after the embedding section (neighbours, clusters,
+      # evaluation, conclusions), in the job summary and in the log; plots stay in the artifact.
+      - name: Summary
+        if: always()
+        run: |
+          f="out/semantic_matching.${{ inputs.embedder }}.ipynb"
+          [ -f "$f" ] || exit 0
+          uv run --no-sync python - "$f" "${{ inputs.embedder }}" <<'EOF' | tee -a "$GITHUB_STEP_SUMMARY"
+          import sys
+
+          import nbformat
+
+          nb = nbformat.read(sys.argv[1], as_version=4)
+          print(f"## Matching notebook, embedder `{sys.argv[2]}`\n")
+          on = False
+          for cell in nb.cells:
+              if cell.cell_type == "markdown" and cell.source.lstrip().startswith("## "):
+                  title = cell.source.lstrip().splitlines()[0]
+                  on = any(k in title.lower() for k in ("embedd", "neighbour", "cluster", "evaluat", "conclu"))
+                  if on:
+                      print(f"\n#{title}\n")
+              if not on or cell.cell_type != "code":
+                  continue
+              for out in cell.get("outputs", []):
+                  text = out.get("text") or out.get("data", {}).get("text/plain", "")
+                  if text:
+                      print("```\n" + "".join(text)[:6000].rstrip() + "\n```")
+          EOF
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: semantic-matching-${{ inputs.embedder }}
+          path: out/
+          if-no-files-found: ignore
+          retention-days: 30
