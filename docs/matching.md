@@ -1126,23 +1126,48 @@ silver labels are a machine audit, so none of it is a precision estimate for the
   size is not in the rules at "any brand": 38 gold pairs differ only in pack size or another soft
   attribute.
 
-### Not measured here: BGE-M3 and multilingual-e5
+### BGE-M3 and multilingual-e5, measured on a runner
 
-`curl -sS -o /dev/null -w '%{http_code}' https://huggingface.co` from the build sandbox on
-2026-10-28 fails (`CONNECT tunnel failed, response 403`, a policy denial by the sandbox proxy), so
-no number is recorded for `bge-m3` or `e5`, and nothing about them is claimed. The notebook was
-run with `SMARTCART_NB_EMBEDDER=bge-m3` and, with the extra not installed, printed `SKIPPED
-embedder 'bge-m3'` and went on with the hash embedder (that path is tested). The download-failure
-path (extra installed, no network) goes through the same `except` but was not exercised here.
-To record the numbers, run the `run_notebook.py` command above with `--embedder bge-m3` (and `e5`)
-on a machine or runner that can reach Hugging Face, and copy the `RESULTS` line and the tables of
-sections d and f into this section. Expect the distance thresholds to move: the notebook picks
-its own on the budget rule, and the hash embedder's cosine scale is not BGE-M3's.
+The build sandbox cannot reach Hugging Face (`CONNECT tunnel failed, response 403`), so the two
+sentence models were run by the `Matching notebook` workflow (`.github/workflows/notebook.yml`) on
+a GitHub-hosted runner, 2026-10-28, every item (sample 0), commit `5179980`: BGE-M3
+(`BAAI/bge-m3`) in run [40721623601](https://github.com/NoaMcDa/SmartCart/actions/runs/40721623601),
+multilingual-e5 (`intfloat/multilingual-e5-base`) in run
+[40721576176](https://github.com/NoaMcDa/SmartCart/actions/runs/40721576176). The hash column is the
+committed notebook. Each embedder picks its own distance threshold by the same budget rule
+(section f), so the thresholds differ. All **measured**; the gold set is **synthetic**.
 
-The `Matching notebook` workflow (`.github/workflows/notebook.yml`) does that on a GitHub-hosted
-runner: run it by hand with embedder `bge-m3` or `e5` (sample `0` for every item). The executed
-notebook is the artifact and the text outputs of sections c to g are the job summary. It is a
-measurement, never a gate. On a push or pull request that touches the catalog it runs the
+| | hash | BGE-M3 | e5 |
+|---|---|---|---|
+| distance threshold chosen | 0.25 | 0.15 | 0.10 |
+| clusters (1,710 real items) | 1,449 | 1,476 | 124 |
+| gold any-brand precision / recall, embeddings alone | 0.736 / 0.182 | 0.777 / 0.138 | 0.163 / 0.864 |
+| the same with the hard rules | 0.944 / 0.176 | 0.897 / 0.135 | 0.890 / 0.826 |
+| gold pairs with a critical conflict, alone, then with the rules | 309, then 10 | 152, then 10 | 28,231, then 243 |
+| real same-barcode recall (of 56) | 7 | 9 | 31 |
+| highest "must not merge" cosine / lowest "same product" cosine | 0.859 / 0.644 | 0.932 / 0.836 | 0.990 / 0.968 |
+| notebook runtime on the runner's CPU | 14 s | 99 s | 78 s |
+
+What it says:
+- **No embedder separates what must not merge.** BGE-M3 puts "חלב טרי 3% 1 ליטר" and the same name
+  at 1% at cosine 0.932, above the abbreviated true pair "ח. טרי 3%" (0.836); e5 squeezes every
+  Hebrew pair into 0.97 to 0.99. The critical-attribute rules, not the vectors, carry precision,
+  as the design assumes ("Step D: the judge").
+- **BGE-M3 helps less than its reputation suggests at this cut.** It halves the critical
+  conflicts before the rules (152 against 309) and finds 9 of the 56 same-barcode pairs against 7,
+  but at the budget threshold it clusters about as tightly as the hash embedder, so recall stays
+  low, and its neighbour lists (section d) are not clearly better on these short, cut names. The
+  catalog does not use a clustering cut: it runs the judge over the top-k neighbours, and the
+  gold-set evaluation (`bge-eval.yml`) is the measurement that decides; this table does not
+  replace it.
+- **e5 is unusable as is** for this task: its compressed cosine scale makes the budget rule pick
+  0.10 and lump 1,710 items into 124 clusters; even with the rules it leaves 243 critical-conflict
+  pairs.
+
+To repeat: run the workflow by hand with embedder `bge-m3` or `e5` (sample `0` for every item).
+The executed notebook is the artifact; the text outputs of sections c to g, including the
+`RESULTS` line, are the job summary and are also printed in the job log. It is a measurement,
+never a gate. On a push or pull request that touches the catalog the same workflow runs the
 notebook tests with the hash embedder, which `ci.yml` skips because it does not install the
 `notebooks` group.
 
