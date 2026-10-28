@@ -38,9 +38,10 @@ on:
         default: 0
         type: number
 
+# A manual run per embedder is its own group, so a bge-m3 and an e5 measurement run side by side.
 concurrency:
-  group: notebook-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  group: notebook-${{ github.ref }}-${{ github.event_name }}-${{ inputs.embedder || 'tests' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 permissions:
   contents: read
